@@ -567,7 +567,7 @@
                             <div class="flex-1">
                                 <div class="flex items-center gap-2 mb-2">
                                     <i class="fas ${icon} text-gray-600"></i>
-                                    <span class="font-semibold text-gray-800">${protType}</span>
+                                    <span class="font-semibold text-gray-800">${window.escapeHtml(protType)}</span>
                                     <span class="text-xs text-gray-500">(${stats.total} trades)</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 text-sm">

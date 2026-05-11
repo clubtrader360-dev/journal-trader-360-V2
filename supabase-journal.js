@@ -430,12 +430,12 @@
                                         const typeClass = trade.type && trade.type.toUpperCase().includes('LONG') ? 'text-blue-600' : 'text-orange-600';
                                         return `
                                             <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                                <td class="px-2 py-1">${trade.entryTime || '-'}</td>
-                                                <td class="px-2 py-1 ${typeClass} font-medium">${trade.type || '-'}</td>
-                                                <td class="px-2 py-1 font-medium">${trade.symbol}</td>
-                                                <td class="px-2 py-1 text-right">${trade.entryPrice}</td>
-                                                <td class="px-2 py-1 text-right">${trade.exitPrice}</td>
-                                                <td class="px-2 py-1 text-center">${trade.quantity}</td>
+                                                <td class="px-2 py-1">${window.escapeHtml(trade.entryTime || '-')}</td>
+                                                <td class="px-2 py-1 ${typeClass} font-medium">${window.escapeHtml(trade.type || '-')}</td>
+                                                <td class="px-2 py-1 font-medium">${window.escapeHtml(trade.symbol)}</td>
+                                                <td class="px-2 py-1 text-right">${window.escapeHtml(trade.entryPrice)}</td>
+                                                <td class="px-2 py-1 text-right">${window.escapeHtml(trade.exitPrice)}</td>
+                                                <td class="px-2 py-1 text-center">${window.escapeHtml(trade.quantity)}</td>
                                                 <td class="px-2 py-1 text-right font-semibold ${pnlClass}">
                                                     ${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}$
                                                 </td>
@@ -454,39 +454,39 @@
                     <div class="flex justify-between items-start mb-2">
                         <div class="flex-1">
                             <div class="flex items-center gap-3 mb-1">
-                                <h4 class="font-semibold text-gray-800">${entry.entry_date}</h4>
+                                <h4 class="font-semibold text-gray-800">${window.escapeHtml(entry.entry_date)}</h4>
                                 ${noTradeBadge}
                             </div>
                             ${stars ? `<span class="text-sm text-gray-500">${stars}</span>` : ''}
                         </div>
                         <div class="flex gap-2">
-                            <button class="btn-view-journal text-gray-700 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-50" title="Voir" data-entry-id="${entry.id}">
+                            <button class="btn-view-journal text-gray-700 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-50" title="Voir" data-entry-id="${window.escapeHtml(entry.id)}">
                                 👁️
                             </button>
-                            <button class="btn-edit-journal px-2 py-1 rounded hover:bg-blue-50" style="color: #000B25;" title="Modifier" data-entry-id="${entry.id}">
+                            <button class="btn-edit-journal px-2 py-1 rounded hover:bg-blue-50" style="color: #000B25;" title="Modifier" data-entry-id="${window.escapeHtml(entry.id)}">
                                 ✏️
                             </button>
-                            <button class="btn-delete-journal text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50" title="Supprimer" data-entry-id="${entry.id}">
+                            <button class="btn-delete-journal text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50" title="Supprimer" data-entry-id="${window.escapeHtml(entry.id)}">
                                 🗑️
                             </button>
                         </div>
                     </div>
                     ${hasEmotions ? `
                         <div class="text-sm text-gray-600 mb-2">
-                            ${entry.emotion_before ? `Avant: ${entry.emotion_before}` : ''}
+                            ${entry.emotion_before ? `Avant: ${window.escapeHtml(entry.emotion_before)}` : ''}
                             ${entry.emotion_before && entry.emotion_after ? ' | ' : ''}
-                            ${entry.emotion_after ? `Après: ${entry.emotion_after}` : ''}
+                            ${entry.emotion_after ? `Après: ${window.escapeHtml(entry.emotion_after)}` : ''}
                         </div>
                     ` : ''}
-                    <p class="text-gray-700 whitespace-pre-wrap">${entry.content}</p>
+                    <p class="text-gray-700 whitespace-pre-wrap">${window.escapeHtml(entry.content)}</p>
                     ${entry.image_url ? `
                         <div class="mt-3">
-                            <img src="${entry.image_url}" alt="Note image" class="max-w-full h-48 object-contain border rounded" title="Image de la note" onerror="console.error('[JOURNAL] ❌ Erreur chargement image:', '${entry.image_url}')">
+                            <img src="${window.escapeHtml(entry.image_url)}" alt="Note image" class="max-w-full h-48 object-contain border rounded" title="Image de la note" onerror="this.style.display='none'; console.error('[JOURNAL] Erreur chargement image principale')">
                         </div>
                     ` : ''}
                     ${entry.image_url_2 ? `
                         <div class="mt-3">
-                            <img src="${entry.image_url_2}" alt="Note image 2" class="max-w-full h-48 object-contain border rounded" title="Image 2 de la note" onerror="console.error('[JOURNAL] ❌ Erreur chargement image 2:', '${entry.image_url_2}')">
+                            <img src="${window.escapeHtml(entry.image_url_2)}" alt="Note image 2" class="max-w-full h-48 object-contain border rounded" title="Image 2 de la note" onerror="this.style.display='none'; console.error('[JOURNAL] Erreur chargement image secondaire')">
                         </div>
                     ` : ''}
                     ${tradesHtml}
@@ -691,34 +691,34 @@ ${data.content}
                     <div class="bg-blue-50 p-4 rounded-lg">
                         <h3 class="font-semibold text-blue-900 mb-2">😊 Émotions</h3>
                         <div class="text-sm text-blue-800">
-                            ${data.emotion_before ? `<span><strong>Avant:</strong> ${data.emotion_before}</span>` : ''}
+                            ${data.emotion_before ? `<span><strong>Avant:</strong> ${window.escapeHtml(data.emotion_before)}</span>` : ''}
                             ${data.emotion_before && data.emotion_after ? ' <span class="mx-2">→</span> ' : ''}
-                            ${data.emotion_after ? `<span><strong>Après:</strong> ${data.emotion_after}</span>` : ''}
+                            ${data.emotion_after ? `<span><strong>Après:</strong> ${window.escapeHtml(data.emotion_after)}</span>` : ''}
                         </div>
                     </div>
                 `;
             }
-            
+
             let imageHtml = '';
             if (data.image_url) {
                 console.log('[JOURNAL] 📸 Image URL:', data.image_url);
                 imageHtml = `
                     <div class="bg-gray-50 p-4 rounded-lg">
                         <h3 class="font-semibold text-gray-800 mb-2">📸 Image</h3>
-                        <img src="${data.image_url}" alt="Image de la note" class="max-w-full h-auto rounded-lg border shadow-sm cursor-pointer hover:opacity-90 transition" onclick="viewImageZoom('${data.image_url}')" title="Cliquer pour agrandir">
+                        <img src="${window.escapeHtml(data.image_url)}" alt="Image de la note" class="max-w-full h-auto rounded-lg border shadow-sm cursor-pointer hover:opacity-90 transition" onclick="viewImageZoom(this.src)" title="Cliquer pour agrandir">
                     </div>
                 `;
             } else {
                 console.log('[JOURNAL] ℹ️ Aucune image pour cette note');
             }
-            
+
             let imageHtml2 = '';
             if (data.image_url_2) {
                 console.log('[JOURNAL] 📸 Image 2 URL:', data.image_url_2);
                 imageHtml2 = `
                     <div class="bg-gray-50 p-4 rounded-lg">
                         <h3 class="font-semibold text-gray-800 mb-2">📸 Image 2</h3>
-                        <img src="${data.image_url_2}" alt="Image 2 de la note" class="max-w-full h-auto rounded-lg border shadow-sm cursor-pointer hover:opacity-90 transition" onclick="viewImageZoom('${data.image_url_2}')" title="Cliquer pour agrandir">
+                        <img src="${window.escapeHtml(data.image_url_2)}" alt="Image 2 de la note" class="max-w-full h-auto rounded-lg border shadow-sm cursor-pointer hover:opacity-90 transition" onclick="viewImageZoom(this.src)" title="Cliquer pour agrandir">
                     </div>
                 `;
             }
@@ -735,19 +735,19 @@ ${data.content}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-800">📅 ${data.entry_date}</h3>
+                            <h3 class="text-lg font-semibold text-gray-800">📅 ${window.escapeHtml(data.entry_date)}</h3>
                             ${ratingHtml}
                         </div>
                     </div>
                 </div>
-                
+
                 ${emotionsHtml}
-                
+
                 <div class="bg-white p-4 rounded-lg border">
                     <h3 class="font-semibold text-gray-800 mb-2">📝 Contenu</h3>
-                    <p class="text-gray-700 whitespace-pre-wrap">${data.content}</p>
+                    <p class="text-gray-700 whitespace-pre-wrap">${window.escapeHtml(data.content)}</p>
                 </div>
-                
+
                 ${imageHtml}
                 ${imageHtml2}
             `;

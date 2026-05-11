@@ -105,6 +105,12 @@
                     visibility: mainApp.style.visibility,
                     opacity: mainApp.style.opacity
                 });
+
+                // Appliquer la route depuis l'URL si présente (refresh / lien direct),
+                // sinon laisser la section par défaut (dashboard).
+                if (typeof window.routeFromHash === 'function') {
+                    window.routeFromHash();
+                }
             }
             
             // Afficher le nom (ou email si pas de nom) sous le logo
@@ -125,22 +131,30 @@
                     console.log('[AUTH] ✅ Données chargées et affichées automatiquement');
                 } else {
                     console.warn('[AUTH] ⚠️ refreshAllModules non disponible, chargement manuel...');
-                    
+
                     // Fallback : charger manuellement
                     if (typeof window.loadAccounts === 'function') {
                         console.log('[OK] Appel window.loadAccounts()');
                         await window.loadAccounts();
                     }
-                    
+
                     if (typeof window.loadTrades === 'function') {
                         console.log('[OK] Appel window.loadTrades()');
                         await window.loadTrades();
                     }
-                    
+
                     if (typeof window.loadJournalEntries === 'function') {
                         console.log('[OK] Appel window.loadJournalEntries()');
                         await window.loadJournalEntries();
                     }
+                }
+
+                // Autosync Tradovate (fire-and-forget). Si l'élève n'a pas
+                // de connexion Tradovate, le backend renvoie 200 avec
+                // synced={} — pas d'effet de bord.
+                if (typeof window.tradovateAutosync === 'function') {
+                    console.log('[AUTH] 🔄 Déclenchement autosync Tradovate...');
+                    window.tradovateAutosync();
                 }
             }, 500); // Attendre 500ms que l'UI soit prête
 
@@ -244,12 +258,15 @@
             console.log('[DEBUG] showCoachSection existe?', typeof showCoachSection);
             console.log('[DEBUG] loadCoachDashboard existe?', typeof window.loadCoachDashboard);
             
-            // Afficher le Dashboard Coach par défaut
-            if (typeof showCoachSection === 'function') {
-                console.log('[DEBUG] Appel de showCoachSection(coachDashboard)...');
-                await showCoachSection('coachDashboard');
-            } else {
-                console.error('[ERROR] showCoachSection n\'existe pas !');
+            // Appliquer la route depuis l'URL si présente, sinon dashboard par défaut
+            const routedFromUrl = typeof window.routeFromHash === 'function' && window.routeFromHash();
+            if (!routedFromUrl) {
+                if (typeof showCoachSection === 'function') {
+                    console.log('[DEBUG] Appel de showCoachSection(coachDashboard)...');
+                    await showCoachSection('coachDashboard');
+                } else {
+                    console.error('[ERROR] showCoachSection n\'existe pas !');
+                }
             }
 
             if (typeof loadCoachRegistrationsFromSupabase === 'function') {
@@ -457,6 +474,117 @@
     }
 
     // ========================================
+    // FONCTION : RESTAURER LA SESSION AU CHARGEMENT
+    // (la BDD reste la source de vérité — chaque requête est validée
+    //  par RLS côté Supabase via le JWT que la lib gère pour nous)
+    // ========================================
+    async function restoreSession() {
+        const authScreen = document.getElementById('authScreen');
+        const mainApp = document.getElementById('mainApp');
+        const coachApp = document.getElementById('coachApp');
+        const userInfo = document.getElementById('userInfo');
+
+        // 🛟 Garantie absolue : si on plante n'importe où, on remet la home en place.
+        const ensureHomeVisibleOnFailure = () => {
+            if (authScreen) authScreen.style.display = 'flex';
+            if (mainApp) mainApp.style.display = 'none';
+            if (coachApp) coachApp.style.display = 'none';
+        };
+
+        try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) { console.warn('[AUTH] getSession error:', error.message); return false; }
+            if (!session || !session.user) { console.log('[AUTH] Aucune session active'); return false; }
+
+            // Source de vérité : BDD. Validation profil + statut AVANT tout changement d'UI.
+            const { data: userData, error: userError } = await supabase
+                .from('users').select('*').eq('uuid', session.user.id).single();
+
+            if (userError || !userData) {
+                console.warn('[AUTH] Profil introuvable / token invalide → signOut');
+                try { await supabase.auth.signOut(); } catch (_) {}
+                return false; // authScreen reste visible (pas encore touché)
+            }
+            if (userData.status === 'revoked' || userData.status === 'pending') {
+                console.warn('[AUTH] Statut bloquant:', userData.status);
+                try { await supabase.auth.signOut(); } catch (_) {}
+                return false;
+            }
+
+            // À partir d'ici, la session est validée par la BDD. On hydrate l'état.
+            window.currentUserAuthId = session.user.id;
+            window.currentUser = userData;
+            window.currentUserUuid = userData.uuid || session.user.id;
+
+            // Étape critique : on bascule l'UI. On encapsule pour pouvoir rollback.
+            try {
+                if (userData.role === 'coach') {
+                    if (mainApp) mainApp.style.display = 'none';
+                    if (coachApp) {
+                        coachApp.style.display = 'flex';
+                        coachApp.style.visibility = 'visible';
+                        coachApp.style.opacity = '1';
+                    }
+                    if (authScreen) authScreen.style.display = 'none';
+                    // Best-effort : si le routing échoue, ce n'est pas bloquant.
+                    try {
+                        const routedFromUrl = typeof window.routeFromHash === 'function' && window.routeFromHash();
+                        if (!routedFromUrl && typeof showCoachSection === 'function') {
+                            await showCoachSection('coachDashboard');
+                        }
+                    } catch (e) { console.warn('[AUTH] showCoachSection a échoué:', e); }
+                    try {
+                        if (typeof loadCoachRegistrationsFromSupabase === 'function') {
+                            await loadCoachRegistrationsFromSupabase();
+                        }
+                    } catch (e) { console.warn('[AUTH] loadCoachRegistrations a échoué:', e); }
+                } else {
+                    if (coachApp) coachApp.style.display = 'none';
+                    if (mainApp) {
+                        mainApp.style.display = 'flex';
+                        mainApp.style.visibility = 'visible';
+                        mainApp.style.opacity = '1';
+                    }
+                    if (authScreen) authScreen.style.display = 'none';
+                    if (userInfo) userInfo.textContent = userData.name || userData.email;
+                    try { if (typeof window.routeFromHash === 'function') window.routeFromHash(); }
+                    catch (e) { console.warn('[AUTH] routeFromHash a échoué:', e); }
+                    setTimeout(() => {
+                        if (typeof window.refreshAllModules === 'function') {
+                            window.refreshAllModules().catch(e => console.warn('[AUTH] refreshAllModules:', e));
+                        }
+                    }, 300);
+                }
+            } catch (uiErr) {
+                console.error('[AUTH] Échec basculement UI → rollback vers home:', uiErr);
+                ensureHomeVisibleOnFailure();
+                return false;
+            }
+
+            console.log('[AUTH] ✅ Session restaurée pour:', userData.email, '(role:', userData.role + ')');
+            return true;
+        } catch (err) {
+            console.error('[AUTH] Erreur restoreSession:', err);
+            ensureHomeVisibleOnFailure();
+            return false;
+        }
+    }
+
+    // ========================================
+    // ÉCOUTER LES CHANGEMENTS DE SESSION
+    // (gère le refresh auto du token, signOut multi-onglets, etc.)
+    // ========================================
+    supabase.auth.onAuthStateChange((event, session) => {
+        console.log('[AUTH] État:', event, session ? '(session active)' : '(pas de session)');
+        if (event === 'SIGNED_OUT') {
+            window.currentUser = null;
+            window.currentUserAuthId = null;
+            window.currentUserUuid = null;
+        }
+        // SIGNED_IN, TOKEN_REFRESHED : rien à faire, la lib gère le token automatiquement
+    });
+
+    // ========================================
     // EXPORT DES FONCTIONS
     // ========================================
     window.login = login;
@@ -466,7 +594,8 @@
     window.showLoginForm = showLoginForm;
     window.showRegisterForm = showRegisterForm;
     window.showCoachLogin = showCoachLogin;
+    window.restoreSession = restoreSession;
 
-    console.log('[OK] supabase-auth.js chargé - Fonctions exportées:', 
-        'login, register, coachLogin, logout, showLoginForm, showRegisterForm, showCoachLogin');
+    console.log('[OK] supabase-auth.js chargé - Fonctions exportées:',
+        'login, register, coachLogin, logout, restoreSession, show*');
 })();

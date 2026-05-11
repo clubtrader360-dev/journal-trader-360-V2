@@ -51,15 +51,15 @@
                     pendingContainer.innerHTML = pendingUsers.map(u => `
                         <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200 mb-3">
                             <div>
-                                <p class="font-semibold">${u.name || 'Nom non renseigné'}</p>
-                                <p class="text-sm text-gray-600">${u.email}</p>
+                                <p class="font-semibold">${window.escapeHtml(u.name || 'Nom non renseigné')}</p>
+                                <p class="text-sm text-gray-600">${window.escapeHtml(u.email)}</p>
                                 <p class="text-sm text-gray-500">Inscrit le ${new Date(u.created_at).toLocaleDateString('fr-FR')}</p>
                             </div>
                             <div class="space-x-2">
-                                <button onclick="approveRegistration('${u.uuid}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+                                <button onclick="approveRegistration('${window.escapeHtml(u.uuid)}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
                                      Approuver
                                 </button>
-                                <button onclick="rejectRegistration('${u.uuid}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                                <button onclick="rejectRegistration('${window.escapeHtml(u.uuid)}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
                                      Refuser
                                 </button>
                             </div>
@@ -77,11 +77,11 @@
                     activeContainer.innerHTML = activeUsers.map(u => `
                         <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200 mb-3">
                             <div>
-                                <p class="font-semibold">${u.name || 'Nom non renseigné'}</p>
-                                <p class="text-sm text-gray-600">${u.email}</p>
+                                <p class="font-semibold">${window.escapeHtml(u.name || 'Nom non renseigné')}</p>
+                                <p class="text-sm text-gray-600">${window.escapeHtml(u.email)}</p>
                                 <p class="text-sm text-gray-500">Actif depuis ${new Date(u.created_at).toLocaleDateString('fr-FR')}</p>
                             </div>
-                            <button onclick="revokeAccess('${u.uuid}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+                            <button onclick="revokeAccess('${window.escapeHtml(u.uuid)}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
                                  Révoquer
                             </button>
                         </div>
@@ -98,11 +98,11 @@
                     revokedContainer.innerHTML = revokedUsers.map(u => `
                         <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200 mb-3">
                             <div>
-                                <p class="font-semibold">${u.name || 'Nom non renseigné'}</p>
-                                <p class="text-sm text-gray-600">${u.email}</p>
+                                <p class="font-semibold">${window.escapeHtml(u.name || 'Nom non renseigné')}</p>
+                                <p class="text-sm text-gray-600">${window.escapeHtml(u.email)}</p>
                                 <p class="text-sm text-gray-500">Révoqué</p>
                             </div>
-                            <button onclick="reactivateUser('${u.uuid}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+                            <button onclick="reactivateUser('${window.escapeHtml(u.uuid)}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
                                  Réactiver
                             </button>
                         </div>
@@ -550,8 +550,8 @@
                             return `
                                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                                     <td class="px-6 py-4">
-                                        <div class="font-medium">${name}</div>
-                                        <div class="text-sm text-gray-500">${email}</div>
+                                        <div class="font-medium">${window.escapeHtml(name)}</div>
+                                        <div class="text-sm text-gray-500">${window.escapeHtml(email)}</div>
                                     </td>
                                     <td class="px-6 py-4 text-red-600">$${totalCosts.toFixed(2)}</td>
                                     <td class="px-6 py-4 text-green-600">$${totalPayoutsStudent.toFixed(2)}</td>
@@ -593,8 +593,8 @@
                     const costsRows = allCosts.map(cost => `
                         <tr class="border-b border-gray-200 hover:bg-gray-50">
                             <td class="px-6 py-4">${new Date(cost.purchase_date || cost.date || Date.now()).toLocaleDateString('fr-FR')}</td>
-                            <td class="px-6 py-4">${cost.studentEmail}</td>
-                            <td class="px-6 py-4">${cost.account_name || cost.name || 'N/A'}</td>
+                            <td class="px-6 py-4">${window.escapeHtml(cost.studentEmail)}</td>
+                            <td class="px-6 py-4">${window.escapeHtml(cost.account_name || cost.name || 'N/A')}</td>
                             <td class="px-6 py-4 text-red-600">$${cost.amount.toFixed(2)}</td>
                         </tr>
                     `).join('');
@@ -614,8 +614,8 @@
                     const payoutsRows = allPayouts.map(payout => `
                         <tr class="border-b border-gray-200 hover:bg-gray-50">
                             <td class="px-6 py-4">${new Date(payout.payout_date || payout.date || Date.now()).toLocaleDateString('fr-FR')}</td>
-                            <td class="px-6 py-4">${payout.studentEmail}</td>
-                            <td class="px-6 py-4">${payout.account_name || payout.account || 'N/A'}</td>
+                            <td class="px-6 py-4">${window.escapeHtml(payout.studentEmail)}</td>
+                            <td class="px-6 py-4">${window.escapeHtml(payout.account_name || payout.account || 'N/A')}</td>
                             <td class="px-6 py-4 text-green-600">$${parseFloat(payout.amount).toFixed(2)}</td>
                         </tr>
                     `).join('');
@@ -675,8 +675,8 @@
                     <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 flex-shrink-0">
                         <div class="flex justify-between items-center">
                             <div>
-                                <h2 class="text-2xl font-bold">${student.name}</h2>
-                                <p class="text-blue-100">${student.email}</p>
+                                <h2 class="text-2xl font-bold">${window.escapeHtml(student.name)}</h2>
+                                <p class="text-blue-100">${window.escapeHtml(student.email)}</p>
                             </div>
                             <button onclick="closeStudentDetailsModal()" class="text-white hover:text-gray-200 text-3xl font-bold leading-none">
                                 &times;
@@ -818,7 +818,7 @@
                         <button onclick="closeStudentDetailsModal()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium">
                             Fermer
                         </button>
-                        <button onclick="closeStudentDetailsModal(); revokeAccess('${student.uuid}')" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+                        <button onclick="closeStudentDetailsModal(); revokeAccess('${window.escapeHtml(student.uuid)}')" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
                             <i class="fas fa-ban mr-2"></i>Révoquer Accès
                         </button>
                     </div>

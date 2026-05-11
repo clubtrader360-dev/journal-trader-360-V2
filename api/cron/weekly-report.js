@@ -10,7 +10,10 @@ import { createClient } from '@supabase/supabase-js';
 // CONFIGURATION
 // ========================================
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // Clé service (pas la clé publique)
+// Clé service (pas la clé publique). On accepte les deux noms : SUPABASE_SERVICE_ROLE_KEY
+// est le nom canonique côté Supabase et celui documenté dans .env.example, mais l'historique
+// du déploiement Vercel utilise SUPABASE_SERVICE_KEY — on garde le fallback pour ne rien casser.
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 // ========================================
@@ -32,8 +35,8 @@ export default async function handler(req, res) {
   
   // ✅ Vérifier les variables d'environnement
   if (!SUPABASE_SERVICE_KEY) {
-    console.error('[WEEKLY-REPORT] ❌ SUPABASE_SERVICE_KEY manquante');
-    return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_KEY' });
+    console.error('[WEEKLY-REPORT] ❌ SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_KEY) manquante');
+    return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' });
   }
   
   if (!RESEND_API_KEY) {

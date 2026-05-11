@@ -74,11 +74,11 @@ async function loadAccounts() {
         if (csvAccountList) {
             csvAccountList.innerHTML = data.map(account => `
                 <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                    <input type="checkbox" 
-                           class="csv-account-checkbox mr-2" 
-                           value="${account.id}" 
+                    <input type="checkbox"
+                           class="csv-account-checkbox mr-2"
+                           value="${window.escapeHtml(account.id)}"
                            onchange="updateSelectedCSVAccounts()">
-                    <span>${account.name} (${account.type})</span>
+                    <span>${window.escapeHtml(account.name)} (${window.escapeHtml(account.type)})</span>
                 </label>
             `).join('');
             console.log(`[TRADES] ✅ csvAccountList hydraté (${data.length} comptes)`);
@@ -90,11 +90,11 @@ async function loadAccounts() {
         if (tradeAccountList) {
             tradeAccountList.innerHTML = data.map(account => `
                 <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                    <input type="checkbox" 
-                           class="trade-account-checkbox mr-2" 
-                           value="${account.id}" 
+                    <input type="checkbox"
+                           class="trade-account-checkbox mr-2"
+                           value="${window.escapeHtml(account.id)}"
                            onchange="updateSelectedTradeAccounts()">
-                    <span>${account.name} (${account.type})</span>
+                    <span>${window.escapeHtml(account.name)} (${window.escapeHtml(account.type)})</span>
                 </label>
             `).join('');
             console.log(`[TRADES] ✅ tradeAccountList hydraté (${data.length} comptes)`);
@@ -136,19 +136,20 @@ async function loadAccounts() {
                 accountsList.innerHTML = activeAccounts.map(account => {
                     // ✅ Utiliser la valeur 'active' depuis Supabase, par défaut true si non défini
                     const isActive = account.active !== undefined ? account.active : true;
+                    const accountIdNum = Number(account.id);
                     return `
-                        <div class="account-item" draggable="true" data-account-id="${account.id}" ondragstart="handleDragStart(event, ${account.id}, 'active')" style="cursor: move;">
-                            <input type="checkbox" class="account-checkbox" ${isActive ? 'checked' : ''} 
-                                   onchange="toggleAccount(${account.id})" 
+                        <div class="account-item" draggable="true" data-account-id="${accountIdNum}" ondragstart="handleDragStart(event, ${accountIdNum}, 'active')" style="cursor: move;">
+                            <input type="checkbox" class="account-checkbox" ${isActive ? 'checked' : ''}
+                                   onchange="toggleAccount(${accountIdNum})"
                                    title="Activer/Désactiver ce compte dans les métriques">
                             <div class="account-info" style="flex: 1;">
-                                <div class="account-name">${account.name}</div>
-                                <div class="account-size text-xs">${account.type} - ${account.current_balance.toFixed(2)} USD</div>
+                                <div class="account-name">${window.escapeHtml(account.name)}</div>
+                                <div class="account-size text-xs">${window.escapeHtml(account.type)} - ${account.current_balance.toFixed(2)} USD</div>
                             </div>
-                            <button onclick="editAccountName(${account.id})" class="account-edit-btn" title="Modifier" style="margin-right: 4px;">
+                            <button onclick="editAccountName(${accountIdNum})" class="account-edit-btn" title="Modifier" style="margin-right: 4px;">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button onclick="deleteAccount(${account.id})" class="account-delete-btn" title="Supprimer">
+                            <button onclick="deleteAccount(${accountIdNum})" class="account-delete-btn" title="Supprimer">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -162,13 +163,14 @@ async function loadAccounts() {
                 
                 if (blownAccounts.length > 0) {
                     blownAccountsList.innerHTML = blownAccounts.map(account => {
+                        const accountIdNum = Number(account.id);
                         return `
-                            <div class="account-item" draggable="true" data-account-id="${account.id}" ondragstart="handleDragStart(event, ${account.id}, 'blown')" style="opacity: 0.6; cursor: move;">
+                            <div class="account-item" draggable="true" data-account-id="${accountIdNum}" ondragstart="handleDragStart(event, ${accountIdNum}, 'blown')" style="opacity: 0.6; cursor: move;">
                                 <div class="account-info" style="flex: 1;">
-                                    <div class="account-name" style="text-decoration: line-through; color: #6b7280;">${account.name}</div>
-                                    <div class="account-size text-xs" style="color: #9ca3af;">${account.type} - ${account.current_balance.toFixed(2)} USD</div>
+                                    <div class="account-name" style="text-decoration: line-through; color: #6b7280;">${window.escapeHtml(account.name)}</div>
+                                    <div class="account-size text-xs" style="color: #9ca3af;">${window.escapeHtml(account.type)} - ${account.current_balance.toFixed(2)} USD</div>
                                 </div>
-                                <button onclick="deleteAccount(${account.id})" class="account-delete-btn" title="Supprimer">
+                                <button onclick="deleteAccount(${accountIdNum})" class="account-delete-btn" title="Supprimer">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
