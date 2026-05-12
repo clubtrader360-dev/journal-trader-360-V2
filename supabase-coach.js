@@ -253,29 +253,15 @@
     // ===== FONCTION STATISTIQUES =====
     async function loadCoachStats() {
         console.log('[DATA] Chargement statistiques coach...');
-
         try {
-            // Compter les utilisateurs par statut
-            const { data: allUsers, error } = await supabase
-                .from('users')
-                .select('uuid, status, role')
-                .eq('role', 'student');
-
-            if (error) {
-                console.error('[ERROR] Erreur chargement stats:', error);
-                return;
-            }
-
+            const allStudents = await loadCoachConsolidated();
             const stats = {
-                total: allUsers.length,
-                active: allUsers.filter(u => u.status === 'active').length,
-                pending: allUsers.filter(u => u.status === 'pending').length,
-                revoked: allUsers.filter(u => u.status === 'revoked').length
+                total:   allStudents.length,
+                active:  allStudents.filter(u => u.status === 'active').length,
+                pending: allStudents.filter(u => u.status === 'pending').length,
+                revoked: allStudents.filter(u => u.status === 'revoked').length
             };
-
             console.log('[DATA] Statistiques:', stats);
-
-            // Afficher dans le dashboard
             const statsContainer = document.getElementById('coachStats');
             if (statsContainer) {
                 statsContainer.innerHTML = `
@@ -305,94 +291,106 @@
         }
     }
 
+    // ===== FONCTIONS BATCH (remplacent le N+1 dans getAllStudentsData) =====
+
+    async function loadCoachConsolidated() {
+        const { data, error } = await supabase
+            .from('coach_consolidated')
+            .select('*');
+        if (error) {
+            console.error('[COACH] Erreur coach_consolidated:', error);
+            return [];
+        }
+        return data || [];
+    }
+
+    async function loadAllStudentTrades(uuids) {
+        if (!uuids.length) return [];
+        const { data, error } = await supabase
+            .from('trades')
+            .select('id, user_id, pnl, trade_date, entry_time, exit_time, protections, instrument, direction')
+            .in('user_id', uuids)
+            .not('exit_price', 'is', null);
+        if (error) {
+            console.error('[COACH] Erreur batch trades:', error);
+            return [];
+        }
+        return data || [];
+    }
+
+    async function loadAllStudentCosts(uuids) {
+        if (!uuids.length) return [];
+        const { data, error } = await supabase
+            .from('account_costs')
+            .select('id, user_id, account_name, cost, date, notes')
+            .in('user_id', uuids);
+        if (error) {
+            console.error('[COACH] Erreur batch account_costs:', error);
+            return [];
+        }
+        return data || [];
+    }
+
+    async function loadAllStudentPayouts(uuids) {
+        if (!uuids.length) return [];
+        const { data, error } = await supabase
+            .from('payouts')
+            .select('id, user_id, account_name, amount, date, notes')
+            .in('user_id', uuids);
+        if (error) {
+            console.error('[COACH] Erreur batch payouts:', error);
+            return [];
+        }
+        return data || [];
+    }
+
     // ===== FONCTION RÉCUPÉRER TOUS LES ÉLÈVES AVEC LEURS DONNÉES =====
     async function getAllStudentsData() {
-        console.log('[COACH] 📊 Chargement données de tous les élèves...');
-
+        console.log('[COACH] 📊 Chargement données élèves (vue consolidée)...');
         try {
-            // Récupérer tous les élèves actifs
-            const { data: students, error: studentsError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('role', 'student')
-                .eq('status', 'active');
+            const allRows = await loadCoachConsolidated();
+            const activeRows = allRows.filter(r => r.status === 'active');
 
-            if (studentsError) {
-                console.error('[ERROR] Erreur récupération élèves:', studentsError);
+            if (activeRows.length === 0) {
+                console.log('[COACH] Aucun élève actif');
                 return [];
             }
 
-            console.log('[COACH] ✅ Élèves actifs trouvés:', students.length);
+            const uuids = activeRows.map(r => r.user_id);
 
-            // Pour chaque élève, récupérer ses trades et comptes
-            const studentsWithData = await Promise.all(students.map(async (student) => {
-                const uuid = student.uuid;
+            const [trades, costs, payouts] = await Promise.all([
+                loadAllStudentTrades(uuids),
+                loadAllStudentCosts(uuids),
+                loadAllStudentPayouts(uuids)
+            ]);
 
-                // Récupérer trades
-                const { data: trades, error: tradesError } = await supabase
-                    .from('trades')
-                    .select('*')
-                    .eq('user_id', uuid);
+            const groupBy = (arr, key) => arr.reduce((acc, item) => {
+                (acc[item[key]] = acc[item[key]] || []).push(item);
+                return acc;
+            }, {});
 
-                // Calculer le P&L avec la MÊME formule que côté élève
-                if (trades && trades.length > 0) {
-                    trades.forEach(trade => {
-                        // Calculer le P&L
-                        const entryPrice = parseFloat(trade.entry_price) || 0;
-                        const exitPrice = parseFloat(trade.exit_price) || 0;
-                        const quantity = parseFloat(trade.quantity) || 1;
-                        const direction = trade.direction || 'LONG';
-                        const instrument = trade.instrument || 'ES';
-                        
-                        // Formule : (exit - entry) * quantity * direction * multiplier
-                        const directionMultiplier = direction === 'LONG' ? 1 : -1;
-                        const instrumentMultiplier = instrument === 'ES' ? 50 : 
-                                                     instrument === 'NQ' ? 20 : 
-                                                     instrument === 'MES' ? 5 : 
-                                                     instrument === 'GC' ? 100 : 1;
-                        
-                        const calculatedPnl = (exitPrice - entryPrice) * quantity * directionMultiplier * instrumentMultiplier;
-                        
-                        // Utiliser manual_pnl si disponible, sinon le calculé
-                        trade.pnl = parseFloat(trade.manual_pnl) || calculatedPnl;
-                        
-                        console.log(`[COACH] 🔧 Trade ${trade.id} (${instrument} ${direction}): ${trade.pnl.toFixed(2)}`);
-                    });
+            const tradesByUser  = groupBy(trades,  'user_id');
+            const costsByUser   = groupBy(costs,   'user_id');
+            const payoutsByUser = groupBy(payouts, 'user_id');
+
+            const result = activeRows.map(row => ({
+                user: {
+                    uuid:       row.user_id,
+                    name:       row.name,
+                    email:      row.email,
+                    status:     row.status,
+                    created_at: row.created_at
+                },
+                data: {
+                    trades:       tradesByUser[row.user_id]  || [],
+                    accounts:     Array.from({ length: row.total_accounts }),
+                    accountCosts: costsByUser[row.user_id]   || [],
+                    payouts:      payoutsByUser[row.user_id] || []
                 }
-
-                // Récupérer accounts
-                const { data: accounts, error: accountsError } = await supabase
-                    .from('accounts')
-                    .select('*')
-                    .eq('user_id', uuid);
-
-                // Récupérer account_costs
-                const { data: accountCosts, error: costsError } = await supabase
-                    .from('account_costs')
-                    .select('*')
-                    .eq('user_id', uuid);
-
-                // Récupérer payouts
-                const { data: payouts, error: payoutsError } = await supabase
-                    .from('payouts')
-                    .select('*')
-                    .eq('user_id', uuid);
-
-                console.log(`[COACH] 📈 ${student.email}: ${trades?.length || 0} trades, ${accounts?.length || 0} comptes`);
-
-                return {
-                    user: student,
-                    data: {
-                        trades: trades || [],
-                        accounts: accounts || [],
-                        accountCosts: accountCosts || [],
-                        payouts: payouts || []
-                    }
-                };
             }));
 
-            console.log('[COACH] ✅ Données complètes chargées pour', studentsWithData.length, 'élèves');
-            return studentsWithData;
+            console.log('[COACH] ✅ Données chargées pour', result.length, 'élèves (4 queries)');
+            return result;
 
         } catch (err) {
             console.error('[ERROR] Exception getAllStudentsData:', err);
