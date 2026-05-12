@@ -2352,30 +2352,6 @@ console.log('[OK] Fonctions modales exposées globalement');
                 // EXPOSER LES FONCTIONS GLOBALES (POUR onclick)
                 // ========================================
                 
-                // Fonction showSection (navigation sidebar)
-                window.showSection = function(sectionId) {
-                    console.log('[NAV] Affichage section:', sectionId);
-                    const sections = document.querySelectorAll('.section');
-                    sections.forEach(section => {
-                        section.style.display = 'none';
-                    });
-                    const target = document.getElementById(sectionId);
-                    if (target) {
-                        target.style.display = 'block';
-
-                        // Mettre à jour la sidebar active + a11y
-                        document.querySelectorAll('.sidebar-item').forEach(item => {
-                            item.classList.remove('active');
-                            item.removeAttribute('aria-current');
-                        });
-                        if (event && event.target) {
-                            const item = event.target.closest('.sidebar-item') || event.target;
-                            item.classList.add('active');
-                            item.setAttribute('aria-current', 'page');
-                        }
-                    }
-                };
-
                 // Fonction showAddAccountModal
                 window.showAddAccountModal = function() {
                     console.log('[MODAL] Ouverture modal addAccount');
@@ -8183,7 +8159,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             target.classList.remove('hidden');
             const navItem = document.querySelector('#mainApp .sidebar-item[data-section="' + sectionName + '"]');
-            if (navItem) navItem.classList.add('active');
+            if (navItem) {
+                navItem.classList.add('active');
+                navItem.setAttribute('aria-current', 'page');
+            }
             
             if (sectionName === 'dashboard') {
                 console.log('[UI] Section Dashboard - Mise à jour...');
@@ -8227,6 +8206,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 }
             }
         }
+        window.showSection = showSection;
 
         // ========================================
         // ROUTING (clean URLs via History API)
