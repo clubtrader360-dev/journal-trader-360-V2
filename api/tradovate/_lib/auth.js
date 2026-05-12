@@ -50,6 +50,20 @@ export async function requireUser(req) {
   if (error || !data?.user?.id) {
     throw httpError(401, 'token Supabase invalide');
   }
+
+  const { data: appUser, error: appUserErr } = await sb
+    .from('users')
+    .select('status')
+    .eq('uuid', data.user.id)
+    .single();
+
+  if (appUserErr || !appUser) {
+    throw httpError(403, 'utilisateur introuvable');
+  }
+  if (appUser.status !== 'active') {
+    throw httpError(403, 'compte inactif ou révoqué');
+  }
+
   return { user_id: data.user.id, email: data.user.email };
 }
 
