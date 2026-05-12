@@ -24,11 +24,15 @@ export default async function handler(req, res) {
   console.log('[WEEKLY-REPORT] Méthode:', req.method);
   console.log('[WEEKLY-REPORT] Headers:', req.headers);
   
-  // ✅ Vérification de sécurité : Autoriser uniquement Vercel Cron
+  // Vérification CRON_SECRET — obligatoire (fail fermé si absent)
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
-  
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+
+  if (!cronSecret) {
+    console.error('[WEEKLY-REPORT] ❌ CRON_SECRET manquant en env');
+    return res.status(500).json({ error: 'Missing CRON_SECRET' });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     console.error('[WEEKLY-REPORT] ❌ Accès non autorisé');
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -196,8 +200,8 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, startDate, end
     if (entry.positive_points && Array.isArray(entry.positive_points)) {
       allPositives.push(...entry.positive_points);
     }
-    if (entry.errors_committed && Array.isArray(entry.errors_committed)) {
-      allErrors.push(...entry.errors_committed);
+    if (entry.errors && Array.isArray(entry.errors)) {
+      allErrors.push(...entry.errors);
     }
   });
   
