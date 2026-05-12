@@ -2534,6 +2534,439 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         </div>
     </div>
 
+    <!-- COACH APP -->
+    <div id="coachApp" style="display: none;" class="flex">
+        <button type="button" class="sidebar-toggle" aria-label="Ouvrir le menu" aria-controls="coachAppSidebar" aria-expanded="false" onclick="toggleSidebar()">
+            <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
+        <div class="sidebar-backdrop" onclick="closeSidebar()" aria-hidden="true"></div>
+        <!-- Sidebar Coach -->
+        <div class="sidebar" id="coachAppSidebar">
+            <div class="p-6 border-b border-gray-700" style="text-align: center;">
+                <img src="https://page.gensparksite.com/v1/base64_upload/3b1a581410ba30561b2214b0a075af1a" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
+                <div class="text-gray-300 text-sm mt-3">MODE COACH</div>
+                <div class="text-gray-400 text-xs mt-1" id="coachUserInfo"></div>
+            </div>
+            
+            <nav class="mt-6">
+                <div class="sidebar-item coach-active" id="coachNavDashboard" onclick="showCoachSection('coachDashboard')">
+                    <i class="fas fa-chart-line mr-3"></i>Dashboard Global
+                </div>
+                <div class="sidebar-item" id="coachNavStudents" onclick="showCoachSection('coachStudents')">
+                    <i class="fas fa-users mr-3"></i>Mes Élèves
+                </div>
+                <div class="sidebar-item" id="coachNavAccounting" onclick="showCoachSection('coachAccounting')">
+                    <i class="fas fa-euro-sign mr-3"></i>Comptabilité
+                </div>
+                <div class="sidebar-item" id="coachNavRegistrations" onclick="showCoachSection('coachRegistrations')">
+                    <i class="fas fa-user-check mr-3"></i>Inscriptions
+                </div>
+            </nav>
+
+            <nav class="mt-6">
+                <div id="logoutBtnCoach" class="sidebar-item logoutBtn" data-action="logout" onclick="window.logout()" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px; cursor: pointer;">
+                    <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
+                </div>
+                <!-- Theme Toggle + Zoom dans la Sidebar (Coach) -->
+                <div class="sidebar-theme-toggle" style="margin-top: 15px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <i class="fas fa-sun theme-icon" style="color: #f59e0b; font-size: 16px;"></i>
+                    <div class="theme-toggle" id="themeToggleCoach" onclick="toggleTheme()">
+                        <div class="theme-toggle-slider"></div>
+                    </div>
+                    <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
+                    <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
+                        <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
+                        <span class="zoom-level zoom-level-coach" aria-live="polite">100%</span>
+                        <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
+                        <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content Coach -->
+        <div role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
+            <!-- Dashboard Global -->
+            <div id="coachDashboard" class="section">
+                <!-- Banner Style Coach -->
+                <div class="traderzella-banner">
+                    <!-- Élèves Actifs -->
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            Élèves Actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves avec le statut actif dans l'école</span></i>
+                        </div>
+                        <div class="metric-main">
+                            <div class="metric-value-large" id="coachTotalStudents">0</div>
+                            <i class="fas fa-users" style="color: #3b82f6; font-size: 20px;"></i>
+                        </div>
+                    </div>
+
+                    <!-- Win Rate Global -->
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            Win Rate Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Pourcentage de trades gagnants de tous les élèves actifs combinés</span></i>
+                        </div>
+                        <div class="metric-main">
+                            <div class="metric-value-medium" id="coachGlobalWinRate">0%</div>
+                            <div class="metric-bar-container">
+                                <div class="metric-bar-bg">
+                                    <div class="metric-bar-fill green" id="coachWinRateBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Trades -->
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            Total Trades <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves</span></i>
+                        </div>
+                        <div class="metric-main">
+                            <div class="metric-value-medium" id="coachTotalTrades">0</div>
+                            <div class="metric-counters">
+                                <div class="counter-item">
+                                    <div class="counter-label">Gagnants</div>
+                                    <div class="counter-value green" id="coachTotalWins">0</div>
+                                </div>
+                                <div class="counter-item">
+                                    <div class="counter-label">Perdants</div>
+                                    <div class="counter-value red" id="coachTotalLosses">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- P&L Global -->
+                    <div class="metric-item net-pnl">
+                        <div class="metric-header">
+                            P&L Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte total de tous les élèves combinés</span></i>
+                        </div>
+                        <div class="metric-main">
+                            <div class="metric-value-large" id="coachGlobalPnL">$0.00</div>
+                            <i class="fas fa-dollar-sign" style="color: #10b981; font-size: 20px;"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grille 2 colonnes: Calendrier + Trader 360 Score -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    
+                    <!-- Calendrier Global -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <div class="flex justify-between items-center mb-4">
+                            <button onclick="previousGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-chevron-left text-xl"></i>
+                            </button>
+                            <h2 class="text-xl font-bold flex items-center">
+                                <i class="fas fa-calendar-alt mr-2 text-indigo-600"></i>
+                                <span id="globalCalendarMonthYear">Janvier 2026</span>
+                            </h2>
+                            <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
+                                <i class="fas fa-chevron-right text-xl"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Header jours -->
+                        <div class="grid grid-cols-7 gap-2 mb-3">
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Dim</div>
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Lun</div>
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Mar</div>
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Mer</div>
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Jeu</div>
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Ven</div>
+                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Sam</div>
+                        </div>
+                        
+                        <!-- Grille calendrier -->
+                        <div id="globalCalendarGrid" class="grid grid-cols-7 gap-2">
+                            <!-- Sera rempli par JS -->
+                        </div>
+                    </div>
+                    
+                    <!-- Régularité des Profits Globale (Coach) -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            📊 Régularité des Profits (Moyenne Élèves)
+                            <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Mesure la concentration des profits. Plus le pourcentage est faible, plus les gains sont réguliers. Moyenne calculée sur tous les élèves actifs."></i>
+                        </h2>
+                        
+                        <div class="text-center mt-6">
+                            <!-- Pourcentage de concentration -->
+                            <div class="text-5xl font-bold mb-2" id="globalConsistencyRatio" style="color: #f59e0b;">0%</div>
+                            <div class="text-sm text-gray-600 mb-4">moyenne de régularité des élèves</div>
+                            
+                            <!-- Barre de progression -->
+                            <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
+                                <div id="globalConsistencyBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%; background: linear-gradient(to right, #10b981, #f59e0b, #ef4444);"></div>
+                            </div>
+                            
+                            <!-- Interprétation -->
+                            <div class="mt-4 p-4 rounded-lg" id="globalConsistencyInterpretation" style="background-color: #f0fdf4; border-left: 4px solid #10b981;">
+                                <div class="text-sm font-semibold text-gray-800" id="globalConsistencyLabel">Excellent</div>
+                                <div class="text-xs text-gray-600 mt-1" id="globalConsistencyDesc">Les profits des élèves sont bien répartis</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+
+                <!-- Graphiques -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    
+                    <!-- Performance par Heure -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fas fa-clock mr-2 text-blue-600"></i>
+                            Performance par Heure
+                        </h2>
+                        <div style="height: 300px;">
+                            <canvas id="globalHourlyChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Performance par Durée -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fas fa-hourglass-half mr-2 text-purple-600"></i>
+                            Performance par Durée
+                        </h2>
+                        <div style="height: 300px;">
+                            <canvas id="globalDurationChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Drawdown -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fas fa-chart-line mr-2 text-red-600"></i>
+                            Drawdown Global
+                        </h2>
+                        <div style="height: 300px;">
+                            <canvas id="globalDrawdownChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Win Rate par Protection -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fas fa-shield-alt mr-2 text-green-600"></i>
+                            Analyse des Protections (Tous les Élèves)
+                        </h2>
+                        <div id="globalProtectionAnalysisContainer" class="space-y-3">
+                            <!-- Les analyses de protections seront insérées ici -->
+                            <div class="text-center text-gray-500 py-6">
+                                <i class="fas fa-chart-bar text-3xl mb-2"></i>
+                                <p class="text-sm">Aucune donnée disponible</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <!-- Mes Élèves -->
+            <div id="coachStudents" class="section hidden">
+                <div class="section-header">
+                    <h1>Mes Élèves</h1>
+                    <p class="text-gray-600">Liste de tous les élèves avec vue détaillée</p>
+                </div>
+
+                <div class="trader-card" style="padding: 24px;">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom/Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comptes</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="coachStudentsTable">
+                                <tr>
+                                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">Aucun élève</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comptabilité -->
+            <div id="coachAccounting" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800">Comptabilité Globale</h1>
+                        <p class="text-gray-600 mt-1">Vue d'ensemble financière de tous les élèves actifs</p>
+                    </div>
+                </div>
+
+                <!-- KPIs Comptabilité Globaux -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="trader-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm mb-1">Total Investi</p>
+                                <p class="text-2xl font-bold" id="coachTotalInvested" style="color: #dc2626;">$0.00</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(220, 38, 38, 0.1);">
+                                <i class="fas fa-arrow-down" style="color: #dc2626;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="trader-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm mb-1">Total Payouts</p>
+                                <p class="text-2xl font-bold" id="coachTotalPayouts" style="color: #10b981;">$0.00</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(16, 185, 129, 0.1);">
+                                <i class="fas fa-arrow-up" style="color: #10b981;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="trader-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm mb-1">Bénéfice Net</p>
+                                <p class="text-2xl font-bold" id="coachNetProfit">$0.00</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center" id="coachNetProfitIcon">
+                                <i class="fas fa-equals"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="trader-card p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm mb-1">ROI Global</p>
+                                <p class="text-2xl font-bold" id="coachROI">0%</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(172, 134, 43, 0.1);">
+                                <i class="fas fa-percent" style="color: #ac862b;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Répartition par Élève -->
+                <div class="trader-card mb-6" style="padding: 24px;">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">
+                        <i class="fas fa-users mr-2" style="color: #ac862b;"></i>
+                        Détail par Élève
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Élève</th>
+                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Coûts</th>
+                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Payouts</th>
+                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Balance</th>
+                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">ROI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="coachAccountingBreakdown">
+                                <tr>
+                                    <td colspan="5" class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
+                                        <p>Aucune donnée comptable</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tableaux -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Tous les Coûts -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-800">
+                            <i class="fas fa-credit-card mr-2" style="color: #dc2626;"></i>
+                            Tous les Comptes Achetés
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b">
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Date</th>
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Élève</th>
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Compte</th>
+                                        <th class="text-right py-3 px-2 text-sm font-semibold text-gray-700">Coût</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="coachAllCostsTable">
+                                    <tr>
+                                        <td colspan="4" class="text-center py-8 text-gray-500">
+                                            <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
+                                            <p>Aucun coût enregistré</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tous les Payouts -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-800">
+                            <i class="fas fa-money-bill-wave mr-2" style="color: #10b981;"></i>
+                            Tous les Payouts
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b">
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Date</th>
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Élève</th>
+                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Compte</th>
+                                        <th class="text-right py-3 px-2 text-sm font-semibold text-gray-700">Montant</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="coachAllPayoutsTable">
+                                    <tr>
+                                        <td colspan="4" class="text-center py-8 text-gray-500">
+                                            <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
+                                            <p>Aucun payout enregistré</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inscriptions -->
+            <div id="coachRegistrations" class="section hidden">
+                <div class="section-header">
+                    <h1>Gestion des Inscriptions</h1>
+                    <p class="text-gray-600">Valider, suspendre ou supprimer des accès élèves</p>
+                </div>
+
+                <div class="trader-card mb-6" style="padding: 24px;">
+                    <h2 class="text-xl font-bold mb-4">⏳ Demandes en Attente</h2>
+                    <div id="coachPendingUsers">
+                        <p class="text-gray-500 text-center py-4">Aucune demande en attente</p>
+                    </div>
+                </div>
+
+                <div class="trader-card" style="padding: 24px;">
+                    <h2 class="text-xl font-bold mb-4"> Tous les Élèves</h2>
+                    <div id="coachAllUsers">
+                        <p class="text-gray-500 text-center py-4">Aucun élève</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Main App -->
     <div id="mainApp" style="display: none;" class="flex">
         <button type="button" class="sidebar-toggle" aria-label="Ouvrir le menu" aria-controls="mainAppSidebar" aria-expanded="false" onclick="toggleSidebar()">
@@ -13004,439 +13437,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         </div>
     </div>
     
-    <!-- COACH APP -->
-    <div id="coachApp" style="display: none;" class="flex">
-        <button type="button" class="sidebar-toggle" aria-label="Ouvrir le menu" aria-controls="coachAppSidebar" aria-expanded="false" onclick="toggleSidebar()">
-            <i class="fas fa-bars" aria-hidden="true"></i>
-        </button>
-        <div class="sidebar-backdrop" onclick="closeSidebar()" aria-hidden="true"></div>
-        <!-- Sidebar Coach -->
-        <div class="sidebar" id="coachAppSidebar">
-            <div class="p-6 border-b border-gray-700" style="text-align: center;">
-                <img src="https://page.gensparksite.com/v1/base64_upload/3b1a581410ba30561b2214b0a075af1a" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
-                <div class="text-gray-300 text-sm mt-3">MODE COACH</div>
-                <div class="text-gray-400 text-xs mt-1" id="coachUserInfo"></div>
-            </div>
-            
-            <nav class="mt-6">
-                <div class="sidebar-item coach-active" id="coachNavDashboard" onclick="showCoachSection('coachDashboard')">
-                    <i class="fas fa-chart-line mr-3"></i>Dashboard Global
-                </div>
-                <div class="sidebar-item" id="coachNavStudents" onclick="showCoachSection('coachStudents')">
-                    <i class="fas fa-users mr-3"></i>Mes Élèves
-                </div>
-                <div class="sidebar-item" id="coachNavAccounting" onclick="showCoachSection('coachAccounting')">
-                    <i class="fas fa-euro-sign mr-3"></i>Comptabilité
-                </div>
-                <div class="sidebar-item" id="coachNavRegistrations" onclick="showCoachSection('coachRegistrations')">
-                    <i class="fas fa-user-check mr-3"></i>Inscriptions
-                </div>
-            </nav>
-
-            <nav class="mt-6">
-                <div id="logoutBtnCoach" class="sidebar-item logoutBtn" data-action="logout" onclick="window.logout()" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px; cursor: pointer;">
-                    <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
-                </div>
-                <!-- Theme Toggle + Zoom dans la Sidebar (Coach) -->
-                <div class="sidebar-theme-toggle" style="margin-top: 15px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <i class="fas fa-sun theme-icon" style="color: #f59e0b; font-size: 16px;"></i>
-                    <div class="theme-toggle" id="themeToggleCoach" onclick="toggleTheme()">
-                        <div class="theme-toggle-slider"></div>
-                    </div>
-                    <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
-                    <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
-                        <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
-                        <span class="zoom-level zoom-level-coach" aria-live="polite">100%</span>
-                        <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
-                        <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
-                    </div>
-                </div>
-            </nav>
-        </div>
-
-        <!-- Main Content Coach -->
-        <div role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
-            <!-- Dashboard Global -->
-            <div id="coachDashboard" class="section">
-                <!-- Banner Style Coach -->
-                <div class="traderzella-banner">
-                    <!-- Élèves Actifs -->
-                    <div class="metric-item">
-                        <div class="metric-header">
-                            Élèves Actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves avec le statut actif dans l'école</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-large" id="coachTotalStudents">0</div>
-                            <i class="fas fa-users" style="color: #3b82f6; font-size: 20px;"></i>
-                        </div>
-                    </div>
-
-                    <!-- Win Rate Global -->
-                    <div class="metric-item">
-                        <div class="metric-header">
-                            Win Rate Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Pourcentage de trades gagnants de tous les élèves actifs combinés</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-medium" id="coachGlobalWinRate">0%</div>
-                            <div class="metric-bar-container">
-                                <div class="metric-bar-bg">
-                                    <div class="metric-bar-fill green" id="coachWinRateBar" style="width: 0%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Total Trades -->
-                    <div class="metric-item">
-                        <div class="metric-header">
-                            Total Trades <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-medium" id="coachTotalTrades">0</div>
-                            <div class="metric-counters">
-                                <div class="counter-item">
-                                    <div class="counter-label">Gagnants</div>
-                                    <div class="counter-value green" id="coachTotalWins">0</div>
-                                </div>
-                                <div class="counter-item">
-                                    <div class="counter-label">Perdants</div>
-                                    <div class="counter-value red" id="coachTotalLosses">0</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- P&L Global -->
-                    <div class="metric-item net-pnl">
-                        <div class="metric-header">
-                            P&L Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte total de tous les élèves combinés</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-large" id="coachGlobalPnL">$0.00</div>
-                            <i class="fas fa-dollar-sign" style="color: #10b981; font-size: 20px;"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Grille 2 colonnes: Calendrier + Trader 360 Score -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    
-                    <!-- Calendrier Global -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <div class="flex justify-between items-center mb-4">
-                            <button onclick="previousGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
-                                <i class="fas fa-chevron-left text-xl"></i>
-                            </button>
-                            <h2 class="text-xl font-bold flex items-center">
-                                <i class="fas fa-calendar-alt mr-2 text-indigo-600"></i>
-                                <span id="globalCalendarMonthYear">Janvier 2026</span>
-                            </h2>
-                            <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
-                                <i class="fas fa-chevron-right text-xl"></i>
-                            </button>
-                        </div>
-                        
-                        <!-- Header jours -->
-                        <div class="grid grid-cols-7 gap-2 mb-3">
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Dim</div>
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Lun</div>
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Mar</div>
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Mer</div>
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Jeu</div>
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Ven</div>
-                            <div class="text-center font-semibold text-gray-600 text-xs py-1">Sam</div>
-                        </div>
-                        
-                        <!-- Grille calendrier -->
-                        <div id="globalCalendarGrid" class="grid grid-cols-7 gap-2">
-                            <!-- Sera rempli par JS -->
-                        </div>
-                    </div>
-                    
-                    <!-- Régularité des Profits Globale (Coach) -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-xl font-bold mb-4 flex items-center">
-                            📊 Régularité des Profits (Moyenne Élèves)
-                            <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Mesure la concentration des profits. Plus le pourcentage est faible, plus les gains sont réguliers. Moyenne calculée sur tous les élèves actifs."></i>
-                        </h2>
-                        
-                        <div class="text-center mt-6">
-                            <!-- Pourcentage de concentration -->
-                            <div class="text-5xl font-bold mb-2" id="globalConsistencyRatio" style="color: #f59e0b;">0%</div>
-                            <div class="text-sm text-gray-600 mb-4">moyenne de régularité des élèves</div>
-                            
-                            <!-- Barre de progression -->
-                            <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
-                                <div id="globalConsistencyBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%; background: linear-gradient(to right, #10b981, #f59e0b, #ef4444);"></div>
-                            </div>
-                            
-                            <!-- Interprétation -->
-                            <div class="mt-4 p-4 rounded-lg" id="globalConsistencyInterpretation" style="background-color: #f0fdf4; border-left: 4px solid #10b981;">
-                                <div class="text-sm font-semibold text-gray-800" id="globalConsistencyLabel">Excellent</div>
-                                <div class="text-xs text-gray-600 mt-1" id="globalConsistencyDesc">Les profits des élèves sont bien répartis</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                </div>
-
-                <!-- Graphiques -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    
-                    <!-- Performance par Heure -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-clock mr-2 text-blue-600"></i>
-                            Performance par Heure
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalHourlyChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Performance par Durée -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-hourglass-half mr-2 text-purple-600"></i>
-                            Performance par Durée
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalDurationChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Drawdown -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-chart-line mr-2 text-red-600"></i>
-                            Drawdown Global
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalDrawdownChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Win Rate par Protection -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-shield-alt mr-2 text-green-600"></i>
-                            Analyse des Protections (Tous les Élèves)
-                        </h2>
-                        <div id="globalProtectionAnalysisContainer" class="space-y-3">
-                            <!-- Les analyses de protections seront insérées ici -->
-                            <div class="text-center text-gray-500 py-6">
-                                <i class="fas fa-chart-bar text-3xl mb-2"></i>
-                                <p class="text-sm">Aucune donnée disponible</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                </div>
-            </div>
-
-            <!-- Mes Élèves -->
-            <div id="coachStudents" class="section hidden">
-                <div class="section-header">
-                    <h1>Mes Élèves</h1>
-                    <p class="text-gray-600">Liste de tous les élèves avec vue détaillée</p>
-                </div>
-
-                <div class="trader-card" style="padding: 24px;">
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom/Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comptes</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="coachStudentsTable">
-                                <tr>
-                                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">Aucun élève</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Comptabilité -->
-            <div id="coachAccounting" class="section hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 class="text-3xl font-bold text-gray-800">Comptabilité Globale</h1>
-                        <p class="text-gray-600 mt-1">Vue d'ensemble financière de tous les élèves actifs</p>
-                    </div>
-                </div>
-
-                <!-- KPIs Comptabilité Globaux -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                    <div class="trader-card p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm mb-1">Total Investi</p>
-                                <p class="text-2xl font-bold" id="coachTotalInvested" style="color: #dc2626;">$0.00</p>
-                            </div>
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(220, 38, 38, 0.1);">
-                                <i class="fas fa-arrow-down" style="color: #dc2626;"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="trader-card p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm mb-1">Total Payouts</p>
-                                <p class="text-2xl font-bold" id="coachTotalPayouts" style="color: #10b981;">$0.00</p>
-                            </div>
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(16, 185, 129, 0.1);">
-                                <i class="fas fa-arrow-up" style="color: #10b981;"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="trader-card p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm mb-1">Bénéfice Net</p>
-                                <p class="text-2xl font-bold" id="coachNetProfit">$0.00</p>
-                            </div>
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center" id="coachNetProfitIcon">
-                                <i class="fas fa-equals"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="trader-card p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm mb-1">ROI Global</p>
-                                <p class="text-2xl font-bold" id="coachROI">0%</p>
-                            </div>
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-percent" style="color: #ac862b;"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Répartition par Élève -->
-                <div class="trader-card mb-6" style="padding: 24px;">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-800">
-                        <i class="fas fa-users mr-2" style="color: #ac862b;"></i>
-                        Détail par Élève
-                    </h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="text-left py-3 px-4 text-sm font-semibold text-gray-700">Élève</th>
-                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Coûts</th>
-                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Payouts</th>
-                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">Balance</th>
-                                    <th class="text-right py-3 px-4 text-sm font-semibold text-gray-700">ROI</th>
-                                </tr>
-                            </thead>
-                            <tbody id="coachAccountingBreakdown">
-                                <tr>
-                                    <td colspan="5" class="text-center py-8 text-gray-500">
-                                        <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
-                                        <p>Aucune donnée comptable</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Tableaux -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Tous les Coûts -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-800">
-                            <i class="fas fa-credit-card mr-2" style="color: #dc2626;"></i>
-                            Tous les Comptes Achetés
-                        </h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="border-b">
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Date</th>
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Élève</th>
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Compte</th>
-                                        <th class="text-right py-3 px-2 text-sm font-semibold text-gray-700">Coût</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="coachAllCostsTable">
-                                    <tr>
-                                        <td colspan="4" class="text-center py-8 text-gray-500">
-                                            <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
-                                            <p>Aucun coût enregistré</p>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Tous les Payouts -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-800">
-                            <i class="fas fa-money-bill-wave mr-2" style="color: #10b981;"></i>
-                            Tous les Payouts
-                        </h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="border-b">
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Date</th>
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Élève</th>
-                                        <th class="text-left py-3 px-2 text-sm font-semibold text-gray-700">Compte</th>
-                                        <th class="text-right py-3 px-2 text-sm font-semibold text-gray-700">Montant</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="coachAllPayoutsTable">
-                                    <tr>
-                                        <td colspan="4" class="text-center py-8 text-gray-500">
-                                            <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
-                                            <p>Aucun payout enregistré</p>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Inscriptions -->
-            <div id="coachRegistrations" class="section hidden">
-                <div class="section-header">
-                    <h1>Gestion des Inscriptions</h1>
-                    <p class="text-gray-600">Valider, suspendre ou supprimer des accès élèves</p>
-                </div>
-
-                <div class="trader-card mb-6" style="padding: 24px;">
-                    <h2 class="text-xl font-bold mb-4">⏳ Demandes en Attente</h2>
-                    <div id="coachPendingUsers">
-                        <p class="text-gray-500 text-center py-4">Aucune demande en attente</p>
-                    </div>
-                </div>
-
-                <div class="trader-card" style="padding: 24px;">
-                    <h2 class="text-xl font-bold mb-4"> Tous les Élèves</h2>
-                    <div id="coachAllUsers">
-                        <p class="text-gray-500 text-center py-4">Aucun élève</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
     
 
     <!-- Scripts Supabase - Chargés APRÈS toutes les fonctions -->
