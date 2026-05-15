@@ -712,6 +712,36 @@
         }
         .auth-card h2 { color: #0f172a; }
 
+        /* Auth — secondary buttons : fond bleu marine + bordure dorée + texte doré (V1) */
+        .auth-card .trader-btn-secondary {
+            background: var(--primary);    /* #000B25 bleu marine */
+            color: var(--accent);          /* #ac862b doré */
+            border-color: var(--accent);
+        }
+        .auth-card .trader-btn-secondary:hover {
+            background: var(--accent);
+            color: var(--primary);
+        }
+
+        /* Auth — champs avec fond bleu pâle + texte foncé (V1) */
+        .auth-card .form-group input,
+        .auth-card .form-group select {
+            background: var(--trader-light-blue);  /* #E8F4FD */
+            color: var(--primary);                  /* #000B25 */
+            border-color: rgba(0, 11, 37, 0.2);
+        }
+
+        /* Auth — neutraliser le styling autofill Chrome (texte noir gras + fond bleu pâle) */
+        .auth-card .form-group input:-webkit-autofill,
+        .auth-card .form-group input:-webkit-autofill:hover,
+        .auth-card .form-group input:-webkit-autofill:focus,
+        .auth-card .form-group select:-webkit-autofill {
+            -webkit-text-fill-color: var(--primary) !important;
+            -webkit-box-shadow: 0 0 0 1000px var(--trader-light-blue) inset !important;
+            font-weight: 600 !important;
+            transition: background-color 9999s ease-in-out 0s;
+        }
+
         .logo {
             text-align: center;
             margin-bottom: 28px;
