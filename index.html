@@ -923,6 +923,67 @@
         body.dark-mode .count-neutral { background: rgba(148,163,184,0.14); color: #cbd5e1; }
         body.dark-mode .count-loss    { background: rgba(239,68,68,0.18); color: #fca5a5; }
 
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 1: Dashboard rollback V2 → V1
+           All overrides scoped to #mainApp (coach interface unaffected)
+           ===================================================================== */
+
+        /* Structural resets (both modes) */
+        #mainApp .trader-card {
+            border-radius: 12px;
+            transition: none;
+        }
+        #mainApp .trader-card:hover { transform: none; }
+
+        #mainApp .traderzella-banner {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+
+        #mainApp .metric-item {
+            border: none;
+            min-width: 150px;
+            transition: none;
+        }
+        #mainApp .metric-item:hover { background: rgba(0,0,0,0.02); transform: none; border-color: transparent; }
+        #mainApp .metric-item.net-pnl { min-width: 150px; }
+        #mainApp .metric-header { font-size: 16px; }
+        #mainApp .metric-value-large {
+            font-size: 28px;
+            font-feature-settings: normal;
+            font-variant-numeric: normal;
+        }
+        #mainApp .metric-value-medium {
+            font-size: 24px;
+            font-feature-settings: normal;
+            font-variant-numeric: normal;
+        }
+
+        /* Light-mode colors */
+        body:not(.dark-mode) #mainApp .trader-card {
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,11,37,0.1);
+            border: 1px solid rgba(172,134,43,0.2);
+        }
+        body:not(.dark-mode) #mainApp .trader-card:hover {
+            box-shadow: 0 10px 30px rgba(0,11,37,0.1);
+            border-color: rgba(172,134,43,0.2);
+        }
+        body:not(.dark-mode) #mainApp .traderzella-banner {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: none;
+        }
+        body:not(.dark-mode) #mainApp .metric-item { background: rgba(0,0,0,0.02); }
+        body:not(.dark-mode) #mainApp .metric-value-large { color: #10b981; }
+        body:not(.dark-mode) #mainApp .metric-value-medium { color: #000B25; }
+        body:not(.dark-mode) #mainApp .count-win     { background: #dcfce7; color: #166534; }
+        body:not(.dark-mode) #mainApp .count-neutral { background: #f3f4f6; color: #374151; }
+        body:not(.dark-mode) #mainApp .count-loss    { background: #fef2f2; color: #dc2626; }
+
         /* =========================================================
            CALENDAR
            ========================================================= */
