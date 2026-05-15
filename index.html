@@ -984,6 +984,43 @@
         body:not(.dark-mode) #mainApp .count-neutral { background: #f3f4f6; color: #374151; }
         body:not(.dark-mode) #mainApp .count-loss    { background: #fef2f2; color: #dc2626; }
 
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 2: Sidebar rollback V2 → V1
+           ===================================================================== */
+
+        /* Flat navy background + V1 width */
+        #mainApp .sidebar {
+            background: #000B25;
+            width: 250px;
+        }
+
+        /* Nav items: V1 padding + border 4px */
+        #mainApp .sidebar-item {
+            padding: 16px 20px;
+            border-left-width: 4px;
+        }
+        #mainApp .sidebar-item:hover {
+            background: rgba(172,134,43,0.1);
+        }
+        #mainApp .sidebar-item.active {
+            background: rgba(172,134,43,0.1);
+            border-left-color: #ac862b;
+        }
+
+        /* Icons: white inherited (V1 had no explicit gold override) */
+        #mainApp .sidebar-item .fas,
+        #mainApp .sidebar-item .fab { color: inherit; }
+        #mainApp .sidebar-item:hover .fas,
+        #mainApp .sidebar-item:hover .fab { color: inherit; }
+
+        /* Account items in sidebar */
+        #mainApp .account-item {
+            padding: 12px 20px;
+            border-radius: 8px;
+        }
+        #mainApp .account-item:hover { background: rgba(172,134,43,0.1); }
+        #mainApp .account-size { color: #ccc; }
+
         /* =========================================================
            CALENDAR
            ========================================================= */
