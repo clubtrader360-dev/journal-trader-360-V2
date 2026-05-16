@@ -85,36 +85,40 @@
             byDate[r.replay_date].push({ ...r, view: viewsByReplayId[r.id] || null });
         });
 
-        const daysInMonth  = new Date(year, month + 1, 0).getDate();
-        const firstWeekDay = new Date(year, month, 1).getDay(); // 0=dim
-        const todayStr     = new Date().toISOString().slice(0, 10);
+        const today     = new Date();
+        const todayStr  = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const startDate = new Date(year, month, 1);
+        startDate.setDate(1 - startDate.getDay()); // recule au dimanche de la semaine du 1er
 
         let html = '';
 
-        // Cellules vides avant le 1er
-        for (let i = 0; i < firstWeekDay; i++) {
-            html += '<div class="min-h-[56px]"></div>';
-        }
+        for (let i = 0; i < 42; i++) {
+            const cell          = new Date(startDate);
+            cell.setDate(startDate.getDate() + i);
+            const isCurrentMonth = cell.getMonth() === month && cell.getFullYear() === year;
+            const dy            = cell.getDate();
+            const dateStr       = `${cell.getFullYear()}-${String(cell.getMonth() + 1).padStart(2, '0')}-${String(dy).padStart(2, '0')}`;
+            const dayItems      = isCurrentMonth ? (byDate[dateStr] || []) : [];
+            const hasItems      = dayItems.length > 0;
+            const isToday       = dateStr === todayStr;
+            const todayRing     = isToday ? ' ring-2 ring-amber-500' : '';
 
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr  = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const dayItems = byDate[dateStr] || [];
-            const hasItems = dayItems.length > 0;
-            const isToday  = dateStr === todayStr;
-
-            if (hasItems) {
+            if (!isCurrentMonth) {
+                html += `<div class="text-center py-3 rounded text-gray-300"><div class="font-semibold">${dy}</div></div>`;
+            } else if (hasItems) {
                 const count = dayItems.length;
                 html += `
                 <div onclick="openReplayDayModal('${dateStr}')"
-                    class="min-h-[56px] rounded border border-amber-300 bg-amber-100 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-200 transition-colors${isToday ? ' ring-2 ring-amber-500' : ''}">
-                    <span class="text-xs text-amber-700 font-medium">${d}</span>
-                    <span class="text-2xl font-bold text-amber-700 leading-tight">${count}</span>
-                    <span class="text-xs text-amber-600">${count === 1 ? 'replay' : 'replays'}</span>
+                    class="text-center py-3 cursor-pointer rounded transition-all bg-amber-100 text-amber-800 hover:bg-amber-200${todayRing}">
+                    <div class="font-semibold">${dy}</div>
+                    <div class="text-xl font-bold">${count}</div>
+                    <div class="text-xs opacity-75">${count === 1 ? 'replay' : 'replays'}</div>
                 </div>`;
             } else {
+                const todayRingEmpty = isToday ? ' ring-2 ring-blue-300' : '';
                 html += `
-                <div class="min-h-[56px] rounded border border-gray-100 bg-gray-50 flex items-start justify-end p-1${isToday ? ' ring-2 ring-blue-300' : ''}">
-                    <span class="text-xs text-gray-400">${d}</span>
+                <div class="text-center py-3 rounded text-gray-700 hover:bg-gray-100${todayRingEmpty}">
+                    <div class="font-semibold">${dy}</div>
                 </div>`;
             }
         }

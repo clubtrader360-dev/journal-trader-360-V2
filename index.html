@@ -3424,6 +3424,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </div>
             
             <nav class="mt-6">
+                <div class="sidebar-item" data-section="connections" onclick="showSection('connections')">
+                    <i class="fas fa-plug mr-3"></i>Connexion API
+                </div>
                 <div class="sidebar-item active" data-section="dashboard" onclick="showSection('dashboard')">
                     <i class="fas fa-tachometer-alt mr-3"></i>Tableau de bord
                 </div>
@@ -3432,9 +3435,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
                 <div class="sidebar-item" data-section="dailyjournal" onclick="showSection('dailyjournal')">
                     <i class="fas fa-book mr-3"></i>Journal Quotidien
-                </div>
-                <div class="sidebar-item" data-section="replays" onclick="showSection('replays')">
-                    <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
                 <div class="sidebar-item" data-section="accounting" onclick="showSection('accounting')">
                     <i class="fas fa-wallet mr-3"></i>Comptabilité
@@ -3445,8 +3445,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" data-section="motivation" onclick="showSection('motivation')">
                     <i class="fas fa-bullseye mr-3" style="color: #ac862b;"></i>Mon Pourquoi
                 </div>
-                <div class="sidebar-item" data-section="connections" onclick="showSection('connections')">
-                    <i class="fas fa-plug mr-3"></i>Connexions
+                <div class="sidebar-item" data-section="replays" onclick="showSection('replays')">
+                    <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
                 <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
