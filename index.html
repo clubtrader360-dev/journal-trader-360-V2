@@ -6184,13 +6184,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             
             // Si aucun compte n'existe, retourner tous les trades
             if (accountsToUse.length === 0) {
-                return trades;
+                return trades.filter(t => t.exit_price != null);
             }
             // Sinon, filtrer par comptes actifs (cochés)
             // ✅ FIX: Utiliser === true pour éviter undefined
             const activeAccountIds = accountsToUse.filter(a => a.active === true).map(a => a.id);
             console.log('[FILTER] getFilteredTrades() - Comptes actifs:', activeAccountIds, '| Total trades:', trades.length, '(source:', window.accounts ? 'window.accounts' : 'accounts', ')');
-            const filtered = trades.filter(t => activeAccountIds.includes(t.accountId));
+            const filtered = trades.filter(t => activeAccountIds.includes(t.accountId) && t.exit_price != null);
             console.log('[FILTER] getFilteredTrades() - Trades filtrés:', filtered.length);
             return filtered;
         }
