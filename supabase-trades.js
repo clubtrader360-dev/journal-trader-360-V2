@@ -480,7 +480,7 @@ async function loadAccounts() {
       take_profit: tradeData.take_profit || null,
       setup: tradeData.setup || null,
       notes: tradeData.notes || null,
-      manual_pnl: calculated_pnl || null,  // ✅ P&L calculé avec frais déduits
+      manual_pnl: calculated_pnl || null,  // INVARIANT : toujours net-of-fees (frais déduits avant envoi, trigger l'utilise directement)
       protections: tradeData.protections || null,
       trade_trend_type: tradeData.trade_trend_type || 'Non spécifié',  // ✅ AJOUT: Type de trade (Tendance/Contre-tendance)
       fees: tradeData.fees || 0,  // ✅ AJOUT: Frais de trading
