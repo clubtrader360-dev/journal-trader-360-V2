@@ -1829,6 +1829,8 @@
 <script src="/supabase-daily-fees.js"></script>
 <script src="/supabase-coach.js"></script>
 <script src="/coach-dashboard.js"></script>
+<script src="/supabase-replays.js"></script>
+<script src="/supabase-replays-student.js"></script>
 <script src="/supabase-tradovate.js"></script>
 <!-- prompt-ia.js chargé UNIQUEMENT pour les élèves (voir supabase-auth.js) -->
 
@@ -2818,6 +2820,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" id="coachNavRegistrations" onclick="showCoachSection('coachRegistrations')">
                     <i class="fas fa-user-check mr-3"></i>Inscriptions
                 </div>
+                <div class="sidebar-item" id="coachNavReplays" onclick="showCoachSection('coachReplays')">
+                    <i class="fas fa-play-circle mr-3"></i>Replays
+                </div>
             </nav>
 
             <nav class="mt-6">
@@ -3239,6 +3244,125 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>
                 </div>
             </div>
+
+            <!-- Replays -->
+            <div id="coachReplays" class="section hidden">
+                <div class="section-header">
+                    <h1>Replays</h1>
+                    <p class="text-gray-600">Bibliothèque des replays de sessions de trading</p>
+                </div>
+
+                <!-- Onglets -->
+                <div class="flex gap-2 mb-6">
+                    <button id="coachReplaysTabLib" onclick="switchReplayTab('library')"
+                        class="px-4 py-2 rounded font-semibold text-sm bg-blue-600 text-white">
+                        Bibliothèque
+                    </button>
+                    <button id="coachReplaysTabAdd" onclick="switchReplayTab('add')"
+                        class="px-4 py-2 rounded font-semibold text-sm bg-white border border-gray-300 text-gray-700">
+                        Ajouter un replay
+                    </button>
+                    <button id="coachReplaysTabStats" onclick="switchReplayTab('stats')"
+                        class="px-4 py-2 rounded font-semibold text-sm bg-white border border-gray-300 text-gray-700">
+                        Statistiques
+                    </button>
+                </div>
+
+                <!-- Panel : Bibliothèque -->
+                <div id="coachReplaysPanelLibrary">
+                    <div class="trader-card" style="padding: 24px;">
+                        <div id="coachReplaysLibraryList">
+                            <p class="text-gray-500 text-center py-4">Chargement...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel : Ajouter un replay -->
+                <div id="coachReplaysPanelAdd" class="hidden">
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-xl font-bold mb-4">Ajouter un replay</h2>
+                        <div class="space-y-4 max-w-lg">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">URL YouTube *</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="replayYoutubeUrl" placeholder="https://youtu.be/..."
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" />
+                                    <button onclick="fetchYouTubeMetadata()"
+                                        class="px-3 py-2 bg-gray-100 border border-gray-300 rounded text-sm hover:bg-gray-200 whitespace-nowrap">
+                                        Récupérer infos
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                                <input type="text" id="replayTitle" placeholder="Titre du replay"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <textarea id="replayDescription" rows="3" placeholder="Description facultative..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date du replay *</label>
+                                <input type="date" id="replayDate"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+                            </div>
+                            <div id="replayAddFeedback" class="hidden text-sm py-2 px-3 rounded"></div>
+                            <button onclick="submitAddReplay()"
+                                class="px-6 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700">
+                                Ajouter le replay
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel : Statistiques -->
+                <div id="coachReplaysPanelStats" class="hidden">
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-xl font-bold mb-4">Statistiques de visionnage</h2>
+                        <div id="coachReplaysStatsContent">
+                            <p class="text-gray-500 text-center py-4">Chargement...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal : Éditer un replay -->
+                <div id="replayEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg mx-4">
+                        <h2 class="text-xl font-bold mb-4">Modifier le replay</h2>
+                        <input type="hidden" id="replayEditId" />
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                                <input type="text" id="replayEditTitle"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <textarea id="replayEditDescription" rows="3"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date du replay *</label>
+                                <input type="date" id="replayEditDate"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+                            </div>
+                            <div id="replayEditFeedback" class="hidden text-sm py-2 px-3 rounded"></div>
+                        </div>
+                        <div class="flex justify-end gap-3 mt-6">
+                            <button onclick="closeReplayEditModal()"
+                                class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">
+                                Annuler
+                            </button>
+                            <button onclick="submitEditReplay()"
+                                class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 font-semibold">
+                                Enregistrer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <!-- Main App -->
@@ -3300,6 +3424,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </div>
             
             <nav class="mt-6">
+                <div class="sidebar-item" data-section="connections" onclick="showSection('connections')">
+                    <i class="fas fa-plug mr-3"></i>Connexion API
+                </div>
                 <div class="sidebar-item active" data-section="dashboard" onclick="showSection('dashboard')">
                     <i class="fas fa-tachometer-alt mr-3"></i>Tableau de bord
                 </div>
@@ -3318,8 +3445,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" data-section="motivation" onclick="showSection('motivation')">
                     <i class="fas fa-bullseye mr-3" style="color: #ac862b;"></i>Mon Pourquoi
                 </div>
-                <div class="sidebar-item" data-section="connections" onclick="showSection('connections')">
-                    <i class="fas fa-plug mr-3"></i>Connexions
+                <div class="sidebar-item" data-section="replays" onclick="showSection('replays')">
+                    <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
                 <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
@@ -4446,6 +4573,54 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <i class="fas fa-plug mr-2"></i>Connecter
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- Section Replays (élève) -->
+    <div id="replays" class="section hidden">
+        <div class="section-header">
+            <h1>Replays</h1>
+            <p class="text-gray-600">Sessions de trading enregistrées par ton coach</p>
+        </div>
+        <div class="trader-card" style="padding: 24px;">
+            <!-- Navigation mois -->
+            <div class="flex items-center justify-between mb-6">
+                <button onclick="changeReplayMonth(-1)" class="p-2 rounded hover:bg-gray-100 text-gray-600">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span id="replayCurrentMonthLabel" class="font-semibold text-lg text-gray-800"></span>
+                <button onclick="changeReplayMonth(1)" class="p-2 rounded hover:bg-gray-100 text-gray-600">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <!-- En-têtes colonnes -->
+            <div class="grid grid-cols-7 gap-1 mb-1 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <div>Dim</div><div>Lun</div><div>Mar</div><div>Mer</div>
+                <div>Jeu</div><div>Ven</div><div>Sam</div>
+            </div>
+            <!-- Grille calendrier -->
+            <div id="replayCalendarGrid" class="grid grid-cols-7 gap-1">
+                <p class="col-span-7 text-center text-gray-500 py-4">Chargement...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal : Vidéos du jour (Replays) -->
+    <div id="replayDayModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-gray-100">
+                <h2 id="replayDayModalTitle" class="text-lg font-bold text-gray-900"></h2>
+                <button onclick="closeReplayDayModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="replayDayModalList" class="overflow-y-auto flex-1 p-5 space-y-3">
+                <p class="text-gray-500 text-center py-4">Chargement...</p>
+            </div>
+            <div class="p-4 border-t border-gray-100">
+                <button onclick="closeReplayDayModal()"
+                    class="w-full py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
+                    Fermer
+                </button>
+            </div>
         </div>
     </div>
 
@@ -6184,13 +6359,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             
             // Si aucun compte n'existe, retourner tous les trades
             if (accountsToUse.length === 0) {
-                return trades.filter(t => t.exit_price != null);
+                return trades.filter(t => t.exitPrice != null);
             }
             // Sinon, filtrer par comptes actifs (cochés)
             // ✅ FIX: Utiliser === true pour éviter undefined
             const activeAccountIds = accountsToUse.filter(a => a.active === true).map(a => a.id);
             console.log('[FILTER] getFilteredTrades() - Comptes actifs:', activeAccountIds, '| Total trades:', trades.length, '(source:', window.accounts ? 'window.accounts' : 'accounts', ')');
-            const filtered = trades.filter(t => activeAccountIds.includes(t.accountId) && t.exit_price != null);
+            const filtered = trades.filter(t => activeAccountIds.includes(t.accountId) && t.exitPrice != null);
             console.log('[FILTER] getFilteredTrades() - Trades filtrés:', filtered.length);
             return filtered;
         }
@@ -8936,6 +9111,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 if (typeof window.tradovateRefreshStatusUI === 'function') {
                     window.tradovateRefreshStatusUI();
                 }
+            } else if (sectionName === 'replays') {
+                window.loadStudentReplays && window.loadStudentReplays();
             }
         }
         window.showSection = showSection;
@@ -13112,6 +13289,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 loadCoachAccounting();
             } else if (sectionName === 'coachRegistrations') {
                 loadCoachRegistrations();
+            } else if (sectionName === 'coachReplays') {
+                window.loadCoachReplays && window.loadCoachReplays();
             }
         }
         
