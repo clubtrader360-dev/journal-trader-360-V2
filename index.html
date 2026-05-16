@@ -1109,6 +1109,24 @@
         body.dark-mode #mainApp label { color: #e5e7eb; }
 
         /* =====================================================================
+           STUDENT DESIGN — SECTION 5: Tradelog rollback V2 → V1
+           ===================================================================== */
+
+        /* Charts: V1 fixed 300px (V2 était clamp(260px,38vw,340px)) */
+        #mainApp .chart-container { height: 300px; }
+
+        /* trade-row hover: V1 light blue #E8F4FD (V2 était gold rgba) */
+        #mainApp .trade-row:hover { background-color: #E8F4FD; }
+
+        /* action-btn: V1 scale(1.05) seulement — pas de lift ni filter */
+        #mainApp .action-btn:hover { transform: scale(1.05); filter: none; box-shadow: none; }
+        #mainApp .action-btn:active { transform: none; }
+
+        /* Boutons action: V1 exact hex */
+        #mainApp .btn-modify { background: #3498db; }
+        #mainApp .btn-delete { background: #e74c3c; }
+
+        /* =====================================================================
            STUDENT DESIGN — SECTION 3b: Calendar — fix P&L overflow on narrow windows
            Root cause: Tailwind .text-xl (1.25rem) is not overridden by the
            existing responsive font-size:12px on the parent (no CSS inheritance
