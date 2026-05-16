@@ -10819,7 +10819,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             // Calculer Trade Win %
             const winningTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).length;
-            const tradeWinPercent = filteredTrades.length > 0 ? (winningTrades / filteredTrades.length * 100) : 0;
+            const decidedTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) !== 0).length;
+            const tradeWinPercent = decidedTrades > 0 ? (winningTrades / decidedTrades * 100) : 0;
             document.getElementById('tradeWinValue').textContent = tradeWinPercent.toFixed(1) + '%';
             document.getElementById('tradeWinBar').style.width = tradeWinPercent + '%';
 
@@ -10850,7 +10851,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             // Calculer Avg Win/Loss
             const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
-            const losingTrades = filteredTrades.length - winningTrades;
+            const losingTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) < 0).length;
             const avgLoss = losingTrades > 0 ? totalLoss / losingTrades : 0;
             const avgWinLoss = avgLoss > 0 ? avgWin / avgLoss : 0;
             document.getElementById('avgWinLossValue').textContent = avgWinLoss.toFixed(2);
