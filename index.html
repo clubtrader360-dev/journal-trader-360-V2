@@ -953,6 +953,231 @@
         body.dark-mode .count-neutral { background: rgba(148,163,184,0.14); color: #cbd5e1; }
         body.dark-mode .count-loss    { background: rgba(239,68,68,0.18); color: #fca5a5; }
 
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 1: Dashboard rollback V2 → V1
+           All overrides scoped to #mainApp (coach interface unaffected)
+           ===================================================================== */
+
+        /* Structural resets (both modes) */
+        #mainApp .trader-card {
+            border-radius: 12px;
+            transition: none;
+        }
+        #mainApp .trader-card:hover { transform: none; }
+
+        #mainApp .traderzella-banner {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+
+        #mainApp .metric-item {
+            border: none;
+            min-width: 150px;
+            transition: none;
+        }
+        #mainApp .metric-item:hover { background: rgba(0,0,0,0.02); transform: none; border-color: transparent; }
+        #mainApp .metric-item.net-pnl { min-width: 150px; }
+        #mainApp .metric-header { font-size: 16px; }
+        #mainApp .metric-value-large {
+            font-size: 28px;
+            font-feature-settings: normal;
+            font-variant-numeric: normal;
+        }
+        #mainApp .metric-value-medium {
+            font-size: 24px;
+            font-feature-settings: normal;
+            font-variant-numeric: normal;
+        }
+
+        /* Light-mode colors */
+        body:not(.dark-mode) #mainApp .trader-card {
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,11,37,0.1);
+            border: 1px solid rgba(172,134,43,0.2);
+        }
+        body:not(.dark-mode) #mainApp .trader-card:hover {
+            box-shadow: 0 10px 30px rgba(0,11,37,0.1);
+            border-color: rgba(172,134,43,0.2);
+        }
+        body:not(.dark-mode) #mainApp .traderzella-banner {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: none;
+        }
+        body:not(.dark-mode) #mainApp .metric-item { background: rgba(0,0,0,0.02); }
+        body:not(.dark-mode) #mainApp .metric-value-large { color: #10b981; }
+        body:not(.dark-mode) #mainApp .metric-value-medium { color: #000B25; }
+        body:not(.dark-mode) #mainApp .count-win     { background: #dcfce7; color: #166534; }
+        body:not(.dark-mode) #mainApp .count-neutral { background: #f3f4f6; color: #374151; }
+        body:not(.dark-mode) #mainApp .count-loss    { background: #fef2f2; color: #dc2626; }
+
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 2: Sidebar rollback V2 → V1
+           ===================================================================== */
+
+        /* Flat navy background + V1 width */
+        #mainApp .sidebar {
+            background: #000B25;
+            width: 250px;
+        }
+
+        /* Nav items: V1 padding + border 4px */
+        #mainApp .sidebar-item {
+            padding: 16px 20px;
+            border-left-width: 4px;
+        }
+        #mainApp .sidebar-item:hover {
+            background: rgba(172,134,43,0.1);
+        }
+        #mainApp .sidebar-item.active {
+            background: rgba(172,134,43,0.1);
+            border-left-color: #ac862b;
+        }
+
+        /* Icons: white inherited (V1 had no explicit gold override) */
+        #mainApp .sidebar-item .fas,
+        #mainApp .sidebar-item .fab { color: inherit; }
+        #mainApp .sidebar-item:hover .fas,
+        #mainApp .sidebar-item:hover .fab { color: inherit; }
+
+        /* Account items in sidebar */
+        #mainApp .account-item {
+            padding: 12px 20px;
+            border-radius: 8px;
+        }
+        #mainApp .account-item:hover { background: rgba(172,134,43,0.1); }
+        #mainApp .account-size { color: #ccc; }
+
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 3: Modals rollback V2 → V1
+           NOTE: modals sont au niveau body (hors #mainApp) → sélecteurs globaux.
+           Couleurs/bg scopés à :not(.dark-mode) pour préserver le dark mode coach.
+           ===================================================================== */
+
+        /* Overlay: black simple, sans blur ni teinte navy (V1) */
+        .modal {
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+        .view-modal {
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        /* Structure: V1 layout, sans animation d'entrée */
+        .modal-content {
+            animation: none;
+            margin: 5% auto;
+            width: 90%;
+        }
+        .view-modal-content {
+            animation: none;
+            margin: 5% auto;
+            width: 90%;
+            border-radius: 15px;
+        }
+
+        /* Light-mode: fond blanc, shadow V1, sans border CSS-var */
+        body:not(.dark-mode) .modal-content {
+            background: white;
+            padding: 30px;
+            max-height: 80vh;
+            box-shadow: none;
+            border: none;
+        }
+        body:not(.dark-mode) .view-modal-content {
+            background: white;
+            padding: 30px;
+            max-height: 85vh;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border: none;
+        }
+        body:not(.dark-mode) .view-modal-section {
+            background: #f9fafb;
+            border: none;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        /* Boutons fermeture: gris → navy au hover (V1) */
+        .close { color: #aaa; transition: none; }
+        .close:hover { color: #000B25; }
+        .view-modal-close { color: #aaa; transition: none; }
+        .view-modal-close:hover { color: #000; }
+
+        /* Valeur trade: 1.1rem (V1) */
+        .view-modal-value { font-size: 1.1rem; }
+
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 4: Dark mode élève — V1 hex patches, scopés #mainApp
+           PIÈGE: toutes les règles body.dark-mode INCLUENT #mainApp
+           → le coach n'est jamais affecté.
+           ===================================================================== */
+
+        /* V1 exact hex via gh api */
+        body.dark-mode #mainApp .main-content        { background-color: #000B25 !important; }
+        body.dark-mode #mainApp .trader-card         { background: #0a1629 !important; border-color: #1a2942 !important; }
+        body.dark-mode #mainApp .traderzella-banner  { background: linear-gradient(135deg, #0a1629 0%, #0f1f3a 100%) !important; border-color: #1a2942 !important; }
+        body.dark-mode #mainApp .metric-item         { background-color: #0f1f3a !important; border-color: #1a2942 !important; border-radius: 12px; padding: 16px; }
+        body.dark-mode #mainApp .metric-item:hover   { background-color: #152843 !important; }
+        body.dark-mode #mainApp .metric-value-medium { color: #e5e7eb !important; }
+        body.dark-mode #mainApp .metric-value-large  { color: #ffffff !important; }
+
+        /* Patch texte global élève — SCOPÉ (V1 avait body.dark-mode h1,p,span { color:#e5e7eb } global) */
+        body.dark-mode #mainApp h1,
+        body.dark-mode #mainApp h2,
+        body.dark-mode #mainApp h3,
+        body.dark-mode #mainApp h4,
+        body.dark-mode #mainApp p,
+        body.dark-mode #mainApp span,
+        body.dark-mode #mainApp label { color: #e5e7eb; }
+
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 5: Tradelog rollback V2 → V1
+           ===================================================================== */
+
+        /* Charts: V1 fixed 300px (V2 était clamp(260px,38vw,340px)) */
+        #mainApp .chart-container { height: 300px; }
+
+        /* trade-row hover: V1 light blue #E8F4FD (V2 était gold rgba) */
+        #mainApp .trade-row:hover { background-color: #E8F4FD; }
+
+        /* action-btn: V1 scale(1.05) seulement — pas de lift ni filter */
+        #mainApp .action-btn:hover { transform: scale(1.05); filter: none; box-shadow: none; }
+        #mainApp .action-btn:active { transform: none; }
+
+        /* Boutons action: V1 exact hex */
+        #mainApp .btn-modify { background: #3498db; }
+        #mainApp .btn-delete { background: #e74c3c; }
+
+        /* =====================================================================
+           STUDENT DESIGN — SECTION 3b: Calendar — fix P&L overflow on narrow windows
+           Root cause: Tailwind .text-xl (1.25rem) is not overridden by the
+           existing responsive font-size:12px on the parent (no CSS inheritance
+           for explicit classes). Cells also lack overflow:hidden + min-width:0.
+           ===================================================================== */
+
+        #mainApp #calendarGrid > div {
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        /* Scale P&L font with viewport; cap at 1.25rem (original), floor at 0.6rem */
+        #mainApp #calendarGrid .text-xl {
+            font-size: clamp(0.6rem, 1.5vw, 1.25rem);
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+
         /* =========================================================
            CALENDAR
            ========================================================= */
@@ -1394,7 +1619,7 @@
             .trader-btn-blue,
             .share-btn { padding: 10px 16px; font-size: 0.875rem; }
 
-            #calendarGrid > div { min-height: 56px; font-size: 12px; }
+            #calendarGrid > div { min-height: 56px; font-size: 12px; min-width: 0; overflow: hidden; }
 
             .calendar-tooltip {
                 position: fixed;
