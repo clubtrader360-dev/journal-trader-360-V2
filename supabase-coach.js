@@ -553,10 +553,10 @@
                                         <div class="font-medium">${window.escapeHtml(name)}</div>
                                         <div class="text-sm text-gray-500">${window.escapeHtml(email)}</div>
                                     </td>
-                                    <td class="px-6 py-4 text-red-600">$${totalCosts.toFixed(2)}</td>
-                                    <td class="px-6 py-4 text-green-600">$${totalPayoutsStudent.toFixed(2)}</td>
-                                    <td class="px-6 py-4 ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">$${balance.toFixed(2)}</td>
-                                    <td class="px-6 py-4">${roiStudent}%</td>
+                                    <td class="px-6 py-4 text-right text-red-600">$${totalCosts.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-right text-green-600">$${totalPayoutsStudent.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-right ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">$${balance.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-right">${roiStudent}%</td>
                                 </tr>
                             `;
                         }).join('');
