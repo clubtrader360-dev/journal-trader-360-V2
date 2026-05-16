@@ -60,8 +60,8 @@
             .order('replay_date', { ascending: true });
 
         if (errReplays) {
-            console.error('[REPLAYS-STUDENT] renderReplayCalendar replays error:', errReplays);
-            grid.innerHTML = '<p class="col-span-7 text-center text-red-500 py-4">Erreur de chargement.</p>';
+            console.error('[REPLAYS-STUDENT] renderReplayCalendar error:', errReplays?.message || errReplays?.code, errReplays);
+            grid.innerHTML = '<p class="col-span-7 text-center text-gray-400 py-4">Aucun replay disponible ce mois-ci.</p>';
             return;
         }
 
