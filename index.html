@@ -1090,31 +1090,14 @@
            → le coach n'est jamais affecté.
            ===================================================================== */
 
-        /* Cards: #0f1f3a (V1) — un cran plus clair que --surface (#0a1629) */
-        body.dark-mode #mainApp .trader-card {
-            background: #0f1f3a;
-            border-color: rgba(255,255,255,0.08);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        }
-
-        /* Banner: fond #0a1629, bordure subtile */
-        body.dark-mode #mainApp .traderzella-banner {
-            background: #0a1629;
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-
-        /* Metric items: overlay blanc très léger */
-        body.dark-mode #mainApp .metric-item {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        body.dark-mode #mainApp .metric-item:hover {
-            background: rgba(255,255,255,0.08);
-        }
-
-        /* Valeurs numériques V1 */
-        body.dark-mode #mainApp .metric-value-medium { color: #e5e7eb; }
-        body.dark-mode #mainApp .metric-value-large  { color: #10b981; }
+        /* V1 exact hex via gh api */
+        body.dark-mode #mainApp .main-content        { background-color: #000B25 !important; }
+        body.dark-mode #mainApp .trader-card         { background: #0a1629 !important; border-color: #1a2942 !important; }
+        body.dark-mode #mainApp .traderzella-banner  { background: linear-gradient(135deg, #0a1629 0%, #0f1f3a 100%) !important; border-color: #1a2942 !important; }
+        body.dark-mode #mainApp .metric-item         { background-color: #0f1f3a !important; border-color: #1a2942 !important; border-radius: 12px; padding: 16px; }
+        body.dark-mode #mainApp .metric-item:hover   { background-color: #152843 !important; }
+        body.dark-mode #mainApp .metric-value-medium { color: #e5e7eb !important; }
+        body.dark-mode #mainApp .metric-value-large  { color: #ffffff !important; }
 
         /* Patch texte global élève — SCOPÉ (V1 avait body.dark-mode h1,p,span { color:#e5e7eb } global) */
         body.dark-mode #mainApp h1,
