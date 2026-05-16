@@ -3003,6 +3003,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
 
                 <div class="trader-card" style="padding: 24px;">
+                    <!-- Barre de recherche live -->
+                    <div class="mb-4">
+                        <input type="text" id="coachStudentSearch"
+                               placeholder="Rechercher un élève par nom ou email..."
+                               oninput="filterCoachStudents(this.value)"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                               style="max-width: 400px;">
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead>
@@ -13084,10 +13092,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 return;
             }
             
-            // Stocker les données globalement pour les actions
-            window.coachStudentsDataCache = studentsData;
-            
-            const tableHTML = studentsData.map((studentData, index) => {
+            // Trier par P&L décroissant
+            const sorted = [...studentsData].sort((a, b) => {
+                const pnlA = (a.data.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
+                const pnlB = (b.data.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
+                return pnlB - pnlA;
+            });
+            window.coachStudentsDataCache = sorted;
+
+            const tableHTML = sorted.map((studentData, index) => {
                 const student = studentData.user;
                 const trades = studentData.data.trades || [];
                 const accounts = studentData.data.accounts || [];
@@ -13097,7 +13110,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const idx = Number(index);
 
                 return `
-                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <tr class="border-b border-gray-200 hover:bg-gray-50"
+                        data-student-idx="${idx}"
+                        data-name="${window.escapeHtml((student.name || '').toLowerCase())}"
+                        data-email="${window.escapeHtml((student.email || '').toLowerCase())}">
                         <td class="px-6 py-4">
                             <div class="font-semibold">${window.escapeHtml(student.name)}</div>
                             <div class="text-sm text-gray-600">${window.escapeHtml(student.email)}</div>
@@ -13133,6 +13149,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             document.getElementById('coachStudentsTable').innerHTML = tableHTML;
         }
+
+        window.filterCoachStudents = function(query) {
+            const q = query.trim().toLowerCase();
+            const rows = document.querySelectorAll('#coachStudentsTable tr[data-student-idx]');
+            rows.forEach(row => {
+                const name = (row.dataset.name || '');
+                const email = (row.dataset.email || '');
+                row.style.display = (!q || name.includes(q) || email.includes(q)) ? '' : 'none';
+            });
+        };
 
         // Évite d'interpoler le name de l'élève dans un attribut onclick="" :
         // on lit le cache au moment du clic plutôt qu'au rendu HTML.
