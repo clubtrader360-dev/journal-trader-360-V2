@@ -41,13 +41,57 @@
 
     // ===== CALENDRIER =====
 
-    async function renderReplayCalendar(year, month) {
-        const label = document.getElementById('replayCurrentMonthLabel');
-        const grid  = document.getElementById('replayCalendarGrid');
+    function buildCalendarSkeleton(year, month) {
+        const grid = document.getElementById('replayCalendarGrid');
         if (!grid) return;
 
+        const today    = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const startDate = new Date(year, month, 1);
+        startDate.setDate(1 - startDate.getDay()); // recule au dimanche
+
+        let html = '';
+        for (let i = 0; i < 42; i++) {
+            const cell = new Date(startDate);
+            cell.setDate(startDate.getDate() + i);
+            const isCurrentMonth = cell.getMonth() === month && cell.getFullYear() === year;
+            const dy      = cell.getDate();
+            const dateStr = `${cell.getFullYear()}-${String(cell.getMonth() + 1).padStart(2, '0')}-${String(dy).padStart(2, '0')}`;
+            const isToday = dateStr === todayStr;
+
+            if (!isCurrentMonth) {
+                html += `<div class="text-center py-3 rounded text-gray-300"><div class="font-semibold">${dy}</div></div>`;
+            } else {
+                const ring      = isToday ? ' ring-2 ring-blue-300' : '';
+                const todayAttr = isToday ? ' data-today="true"' : '';
+                html += `<div data-replay-date="${dateStr}"${todayAttr} class="text-center py-3 rounded text-gray-700 hover:bg-gray-100${ring}"><div class="font-semibold">${dy}</div></div>`;
+            }
+        }
+        grid.innerHTML = html;
+    }
+
+    function markCellsWithReplays(byDate) {
+        Object.entries(byDate).forEach(([dateStr, items]) => {
+            const cell = document.querySelector(`[data-replay-date="${dateStr}"]`);
+            if (!cell) return;
+            const count   = items.length;
+            const isToday = cell.hasAttribute('data-today');
+            const ring    = isToday ? ' ring-2 ring-amber-500' : '';
+            const day     = parseInt(dateStr.split('-')[2], 10);
+            cell.className = `text-center py-3 cursor-pointer rounded transition-all bg-amber-100 text-amber-800 hover:bg-amber-200${ring}`;
+            cell.setAttribute('onclick', `openReplayDayModal('${dateStr}')`);
+            cell.innerHTML = `<div class="font-semibold">${day}</div><div class="text-xl font-bold">${count}</div><div class="text-xs opacity-75">${count === 1 ? 'replay' : 'replays'}</div>`;
+        });
+    }
+
+    async function renderReplayCalendar(year, month) {
+        const label = document.getElementById('replayCurrentMonthLabel');
+        if (!document.getElementById('replayCalendarGrid')) return;
+
         if (label) label.textContent = `${MONTHS_FR[month]} ${year}`;
-        grid.innerHTML = '<p class="col-span-7 text-center text-gray-500 py-4">Chargement...</p>';
+
+        // Squelette toujours rendu en premier — calendrier visible même sans données
+        buildCalendarSkeleton(year, month);
 
         const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`;
         const lastDay  = new Date(year, month + 1, 0).toISOString().slice(0, 10);
@@ -61,69 +105,30 @@
 
         if (errReplays) {
             console.error('[REPLAYS-STUDENT] renderReplayCalendar error:', errReplays?.message || errReplays?.code, errReplays);
-            grid.innerHTML = '<p class="col-span-7 text-center text-gray-400 py-4">Aucun replay disponible ce mois-ci.</p>';
+            // Le squelette reste visible — les marqueurs amber n'apparaîtront pas
             return;
         }
 
-        let viewsByReplayId = {};
-        if (replays && replays.length > 0) {
-            const ids = replays.map(r => r.id);
-            const { data: views, error: errViews } = await supabase
-                .from('replay_views')
-                .select('replay_id, completed, progress_seconds')
-                .in('replay_id', ids);
+        if (!replays || replays.length === 0) return;
 
-            if (!errViews && views) {
-                views.forEach(v => { viewsByReplayId[v.replay_id] = v; });
-            }
+        const ids = replays.map(r => r.id);
+        const { data: views, error: errViews } = await supabase
+            .from('replay_views')
+            .select('replay_id, completed, progress_seconds')
+            .in('replay_id', ids);
+
+        const viewsByReplayId = {};
+        if (!errViews && views) {
+            views.forEach(v => { viewsByReplayId[v.replay_id] = v; });
         }
 
-        // Groupe replays par date ISO "YYYY-MM-DD"
         const byDate = {};
-        (replays || []).forEach(r => {
+        replays.forEach(r => {
             if (!byDate[r.replay_date]) byDate[r.replay_date] = [];
             byDate[r.replay_date].push({ ...r, view: viewsByReplayId[r.id] || null });
         });
 
-        const today     = new Date();
-        const todayStr  = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const startDate = new Date(year, month, 1);
-        startDate.setDate(1 - startDate.getDay()); // recule au dimanche de la semaine du 1er
-
-        let html = '';
-
-        for (let i = 0; i < 42; i++) {
-            const cell          = new Date(startDate);
-            cell.setDate(startDate.getDate() + i);
-            const isCurrentMonth = cell.getMonth() === month && cell.getFullYear() === year;
-            const dy            = cell.getDate();
-            const dateStr       = `${cell.getFullYear()}-${String(cell.getMonth() + 1).padStart(2, '0')}-${String(dy).padStart(2, '0')}`;
-            const dayItems      = isCurrentMonth ? (byDate[dateStr] || []) : [];
-            const hasItems      = dayItems.length > 0;
-            const isToday       = dateStr === todayStr;
-            const todayRing     = isToday ? ' ring-2 ring-amber-500' : '';
-
-            if (!isCurrentMonth) {
-                html += `<div class="text-center py-3 rounded text-gray-300"><div class="font-semibold">${dy}</div></div>`;
-            } else if (hasItems) {
-                const count = dayItems.length;
-                html += `
-                <div onclick="openReplayDayModal('${dateStr}')"
-                    class="text-center py-3 cursor-pointer rounded transition-all bg-amber-100 text-amber-800 hover:bg-amber-200${todayRing}">
-                    <div class="font-semibold">${dy}</div>
-                    <div class="text-xl font-bold">${count}</div>
-                    <div class="text-xs opacity-75">${count === 1 ? 'replay' : 'replays'}</div>
-                </div>`;
-            } else {
-                const todayRingEmpty = isToday ? ' ring-2 ring-blue-300' : '';
-                html += `
-                <div class="text-center py-3 rounded text-gray-700 hover:bg-gray-100${todayRingEmpty}">
-                    <div class="font-semibold">${dy}</div>
-                </div>`;
-            }
-        }
-
-        grid.innerHTML = html;
+        markCellsWithReplays(byDate);
     }
 
     // ===== MODAL VIDÉOS DU JOUR =====
