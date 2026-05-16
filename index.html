@@ -7246,21 +7246,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             console.log('[INIT] 📦 Chargement automatique des données depuis Supabase...');
             
             // Attendre que refreshAllModules soit définie (définie plus tard dans le script)
-            setTimeout(async () => {
-                // ⚠️ NE charger les données QUE si l'interface ÉLÈVE est affichée (pas Coach)
-                const coachApp = document.getElementById('coachApp');
-                const mainApp = document.getElementById('mainApp');
-                const isCoachMode = coachApp && coachApp.style.display === 'flex';
-                
-                if (typeof window.refreshAllModules === 'function' && !isCoachMode && mainApp && mainApp.style.display !== 'none') {
-                    await window.refreshAllModules();
-                    console.log('[INIT] ✅ Données chargées et affichées automatiquement');
-                } else if (isCoachMode) {
-                    console.log('[INIT] ℹ️ Mode Coach - Pas de refresh automatique');
-                } else {
-                    console.warn('[INIT] ⚠️ Interfaces non visibles ou refreshAllModules non définie');
-                }
-            }, 500); // Attendre 500ms que le script soit complètement chargé
+            // Guard : ne schedule le check que si un user est déjà connecté (évite le faux-positif au pré-login)
+            if (window.currentUser) {
+                setTimeout(async () => {
+                    // ⚠️ NE charger les données QUE si l'interface ÉLÈVE est affichée (pas Coach)
+                    const coachApp = document.getElementById('coachApp');
+                    const mainApp = document.getElementById('mainApp');
+                    const isCoachMode = coachApp && coachApp.style.display === 'flex';
+
+                    if (typeof window.refreshAllModules === 'function' && !isCoachMode && mainApp && mainApp.style.display !== 'none') {
+                        await window.refreshAllModules();
+                        console.log('[INIT] ✅ Données chargées et affichées automatiquement');
+                    } else if (isCoachMode) {
+                        console.log('[INIT] ℹ️ Mode Coach - Pas de refresh automatique');
+                    }
+                }, 500); // Attendre 500ms que le script soit complètement chargé
+            }
             
             // ✅ DÉFINIR addTradeUI ICI pour garantir qu'elle existe
             window.addTradeUI = async function() {
