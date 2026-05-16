@@ -553,10 +553,10 @@
                                         <div class="font-medium">${window.escapeHtml(name)}</div>
                                         <div class="text-sm text-gray-500">${window.escapeHtml(email)}</div>
                                     </td>
-                                    <td class="px-6 py-4 text-red-600">$${totalCosts.toFixed(2)}</td>
-                                    <td class="px-6 py-4 text-green-600">$${totalPayoutsStudent.toFixed(2)}</td>
-                                    <td class="px-6 py-4 ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">$${balance.toFixed(2)}</td>
-                                    <td class="px-6 py-4">${roiStudent}%</td>
+                                    <td class="px-6 py-4 text-right text-red-600">$${totalCosts.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-right text-green-600">$${totalPayoutsStudent.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-right ${balance >= 0 ? 'text-green-600' : 'text-red-600'}">$${balance.toFixed(2)}</td>
+                                    <td class="px-6 py-4 text-right">${roiStudent}%</td>
                                 </tr>
                             `;
                         }).join('');
@@ -623,9 +623,88 @@
                 }
             }
 
+            updateCoachAccountingChart(allCosts, allPayouts);
+
         } catch (err) {
             console.error('[ERROR] Exception loadCoachAccountingFromSupabase:', err);
         }
+    }
+
+    let coachAccountingChartInstance = null;
+
+    function updateCoachAccountingChart(allCosts, allPayouts) {
+        const ctx = document.getElementById('coachAccountingChart');
+        if (!ctx) return;
+
+        const monthData = {};
+        allCosts.forEach(c => {
+            const d = c.date;
+            if (!d) return;
+            const m = d.slice(0, 7);
+            if (!monthData[m]) monthData[m] = { costs: 0, payouts: 0 };
+            monthData[m].costs += parseFloat(c.cost || 0);
+        });
+        allPayouts.forEach(p => {
+            const d = p.date;
+            if (!d) return;
+            const m = d.slice(0, 7);
+            if (!monthData[m]) monthData[m] = { costs: 0, payouts: 0 };
+            monthData[m].payouts += parseFloat(p.amount || 0);
+        });
+
+        const months = Object.keys(monthData).sort();
+        if (months.length === 0) return;
+
+        const labels = months.map(m => {
+            const [y, mo] = m.split('-');
+            return new Date(y, mo - 1).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+        });
+
+        if (coachAccountingChartInstance) coachAccountingChartInstance.destroy();
+
+        coachAccountingChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Coûts',
+                        data: months.map(m => monthData[m].costs),
+                        backgroundColor: 'rgba(220, 38, 38, 0.7)',
+                        borderColor: '#dc2626',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Payouts',
+                        data: months.map(m => monthData[m].payouts),
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: '#10b981',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => '$' + v.toLocaleString('fr-FR') }
+                    }
+                }
+            }
+        });
     }
 
     // ===== VARIABLES GLOBALES POUR NAVIGATION CALENDRIER MODAL =====
