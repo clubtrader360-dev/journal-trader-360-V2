@@ -1085,6 +1085,47 @@
         .view-modal-value { font-size: 1.1rem; }
 
         /* =====================================================================
+           STUDENT DESIGN — SECTION 4: Dark mode élève — V1 hex patches, scopés #mainApp
+           PIÈGE: toutes les règles body.dark-mode INCLUENT #mainApp
+           → le coach n'est jamais affecté.
+           ===================================================================== */
+
+        /* Cards: #0f1f3a (V1) — un cran plus clair que --surface (#0a1629) */
+        body.dark-mode #mainApp .trader-card {
+            background: #0f1f3a;
+            border-color: rgba(255,255,255,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* Banner: fond #0a1629, bordure subtile */
+        body.dark-mode #mainApp .traderzella-banner {
+            background: #0a1629;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* Metric items: overlay blanc très léger */
+        body.dark-mode #mainApp .metric-item {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        body.dark-mode #mainApp .metric-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        /* Valeurs numériques V1 */
+        body.dark-mode #mainApp .metric-value-medium { color: #e5e7eb; }
+        body.dark-mode #mainApp .metric-value-large  { color: #10b981; }
+
+        /* Patch texte global élève — SCOPÉ (V1 avait body.dark-mode h1,p,span { color:#e5e7eb } global) */
+        body.dark-mode #mainApp h1,
+        body.dark-mode #mainApp h2,
+        body.dark-mode #mainApp h3,
+        body.dark-mode #mainApp h4,
+        body.dark-mode #mainApp p,
+        body.dark-mode #mainApp span,
+        body.dark-mode #mainApp label { color: #e5e7eb; }
+
+        /* =====================================================================
            STUDENT DESIGN — SECTION 3b: Calendar — fix P&L overflow on narrow windows
            Root cause: Tailwind .text-xl (1.25rem) is not overridden by the
            existing responsive font-size:12px on the parent (no CSS inheritance
