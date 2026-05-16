@@ -18,31 +18,36 @@ ADD COLUMN pnl NUMERIC;
 CREATE OR REPLACE FUNCTION calculate_trade_pnl()
 RETURNS TRIGGER AS $$
 DECLARE
-    multiplier NUMERIC := 50;  -- Par défaut ES
-    point_diff NUMERIC;
+    v_multiplier NUMERIC;
+    point_diff   NUMERIC;
     calculated_pnl NUMERIC;
 BEGIN
-    -- Si manual_pnl est défini, l'utiliser directement (déjà calculé avec frais côté client)
+    -- manual_pnl = P&L net (frais déjà inclus côté client/import). Utiliser directement.
     IF NEW.manual_pnl IS NOT NULL THEN
         NEW.pnl := NEW.manual_pnl;
         RETURN NEW;
     END IF;
-    
-    -- Sinon, calculer automatiquement
-    -- Déterminer le multiplier selon l'instrument
-    CASE NEW.instrument
-        WHEN 'ES' THEN multiplier := 50;
-        WHEN 'MES' THEN multiplier := 5;
-        WHEN 'NQ' THEN multiplier := 20;
-        WHEN 'GC' THEN multiplier := 100;
-        ELSE multiplier := 50;
-    END CASE;
-    
+
+    -- Trade ouvert (exit_price absent) → pnl indéfini, ne pas calculer
+    IF NEW.exit_price IS NULL THEN
+        NEW.pnl := NULL;
+        RETURN NEW;
+    END IF;
+
+    -- Chercher le multiplier dans la table de référence
+    SELECT multiplier INTO v_multiplier
+    FROM instrument_multipliers
+    WHERE instrument = NEW.instrument;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Instrument inconnu : %. Ajoutez-le dans instrument_multipliers.', NEW.instrument;
+    END IF;
+
     -- Calculer la différence de points
     point_diff := NEW.exit_price - NEW.entry_price;
-    
+
     -- Calculer le P&L brut
-    calculated_pnl := point_diff * NEW.quantity * multiplier;
+    calculated_pnl := point_diff * NEW.quantity * v_multiplier;
     
     -- Si SHORT, inverser le signe
     IF NEW.direction = 'SHORT' THEN
