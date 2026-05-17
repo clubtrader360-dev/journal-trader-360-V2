@@ -60,11 +60,11 @@
             const isToday = dateStr === todayStr;
 
             if (!isCurrentMonth) {
-                html += `<div class="text-center py-3 rounded text-gray-300"><div class="font-semibold">${dy}</div></div>`;
+                html += `<div class="text-center py-3 cursor-pointer rounded transition-all text-gray-300"><div class="font-semibold">${dy}</div></div>`;
             } else {
                 const ring      = isToday ? ' ring-2 ring-blue-300' : '';
                 const todayAttr = isToday ? ' data-today="true"' : '';
-                html += `<div data-replay-date="${dateStr}"${todayAttr} class="text-center py-3 rounded text-gray-700 hover:bg-gray-100${ring}"><div class="font-semibold">${dy}</div></div>`;
+                html += `<div data-replay-date="${dateStr}"${todayAttr} class="text-center py-3 cursor-pointer rounded transition-all text-gray-700 hover:bg-gray-100${ring}"><div class="font-semibold">${dy}</div></div>`;
             }
         }
         grid.innerHTML = html;
@@ -80,7 +80,7 @@
             const day     = parseInt(dateStr.split('-')[2], 10);
             cell.className = `text-center py-3 cursor-pointer rounded transition-all bg-amber-100 text-amber-800 hover:bg-amber-200${ring}`;
             cell.setAttribute('onclick', `openReplayDayModal('${dateStr}')`);
-            cell.innerHTML = `<div class="font-semibold">${day}</div><div class="text-xl font-bold">${count}</div><div class="text-xs opacity-75">${count === 1 ? 'replay' : 'replays'}</div>`;
+            cell.innerHTML = `<div class="font-semibold">${day}</div><div class="text-xs mt-1 space-y-0.5"><div class="font-bold text-xl">${count}</div><div class="opacity-75">${count === 1 ? 'replay' : 'replays'}</div></div>`;
         });
     }
 
