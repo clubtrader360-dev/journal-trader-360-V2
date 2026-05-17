@@ -109,7 +109,11 @@
             return;
         }
 
-        if (!replays || replays.length === 0) return;
+        if (!replays || replays.length === 0) {
+            updateReplayStatsHeader({});
+            updateReplayWeekSummary({}, year, month);
+            return;
+        }
 
         const ids = replays.map(r => r.id);
         const { data: views, error: errViews } = await supabase
@@ -129,6 +133,60 @@
         });
 
         markCellsWithReplays(byDate);
+        updateReplayStatsHeader(byDate);
+        updateReplayWeekSummary(byDate, year, month);
+    }
+
+    // ===== STATS HEADER =====
+
+    function updateReplayStatsHeader(byDate) {
+        let total = 0;
+        const activeDays = new Set();
+        Object.entries(byDate).forEach(([dateStr, items]) => {
+            total += items.length;
+            activeDays.add(dateStr);
+        });
+        const daysCount = activeDays.size;
+        const totalEl = document.getElementById('replayMonthTotal');
+        const daysEl  = document.getElementById('replayMonthDays');
+        if (totalEl) {
+            totalEl.textContent = total === 1 ? '1 replay' : `${total} replays`;
+            totalEl.className   = 'font-semibold ' + (total > 0 ? 'text-amber-600' : 'text-gray-600');
+        }
+        if (daysEl) {
+            daysEl.textContent = daysCount <= 1 ? `${daysCount} jour actif` : `${daysCount} jours actifs`;
+        }
+    }
+
+    // ===== WEEK SUMMARY CARDS =====
+
+    function updateReplayWeekSummary(byDate, year, month) {
+        const startOfGrid = new Date(year, month, 1);
+        startOfGrid.setDate(1 - startOfGrid.getDay()); // recule au dimanche
+
+        const weekData = Array.from({ length: 5 }, () => ({ count: 0, days: new Set() }));
+
+        Object.entries(byDate).forEach(([dateStr, items]) => {
+            const d    = new Date(dateStr + 'T12:00:00');
+            const base = new Date(startOfGrid);
+            base.setHours(12, 0, 0, 0);
+            const row = Math.floor((d - base) / (7 * 24 * 3600 * 1000));
+            if (row >= 0 && row < 5) {
+                weekData[row].count += items.length;
+                weekData[row].days.add(dateStr);
+            }
+        });
+
+        for (let i = 0; i < 5; i++) {
+            const countEl = document.getElementById(`replayWeek${i + 1}Count`);
+            const daysEl  = document.getElementById(`replayWeek${i + 1}Days`);
+            if (!countEl || !daysEl) continue;
+            const c = weekData[i].count;
+            const d = weekData[i].days.size;
+            countEl.textContent = c === 1 ? '1 replay' : `${c} replays`;
+            countEl.className   = 'text-xl font-bold mb-1 ' + (c > 0 ? 'text-amber-600' : 'text-gray-400');
+            daysEl.textContent  = d <= 1 ? `${d} jour` : `${d} jours`;
+        }
     }
 
     // ===== MODAL VIDÉOS DU JOUR =====
@@ -209,12 +267,14 @@
 
     // ===== EXPORTS =====
 
-    window.loadStudentReplays  = loadStudentReplays;
-    window.changeReplayMonth   = changeReplayMonth;
-    window.renderReplayCalendar = renderReplayCalendar;
-    window.openReplayDayModal  = openReplayDayModal;
-    window.closeReplayDayModal = closeReplayDayModal;
-    window.openReplayPlayer    = openReplayPlayer;
+    window.loadStudentReplays      = loadStudentReplays;
+    window.changeReplayMonth       = changeReplayMonth;
+    window.renderReplayCalendar    = renderReplayCalendar;
+    window.openReplayDayModal      = openReplayDayModal;
+    window.closeReplayDayModal     = closeReplayDayModal;
+    window.openReplayPlayer        = openReplayPlayer;
+    window.updateReplayStatsHeader = updateReplayStatsHeader;
+    window.updateReplayWeekSummary = updateReplayWeekSummary;
 
     console.log('[REPLAYS-STUDENT] ✅ Module chargé.');
 })();
