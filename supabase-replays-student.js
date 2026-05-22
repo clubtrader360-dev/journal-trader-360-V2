@@ -234,9 +234,9 @@
             const v    = viewMap[r.id];
             let badge  = '';
             if (v?.completed) {
-                badge = '<span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">✓ Terminé</span>';
+                badge = '<span class="inline-flex items-center gap-1 text-xs font-medium text-green-800 bg-green-100 px-2 py-0.5 rounded-full">✓ Terminé</span>';
             } else if (v?.progress_seconds > 0) {
-                badge = '<span class="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">⏳ En cours</span>';
+                badge = '<span class="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">⏳ En cours</span>';
             }
 
             return `
