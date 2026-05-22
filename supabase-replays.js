@@ -75,22 +75,22 @@
     }
 
     function renderReplayCard(r) {
-        const thumb  = `https://img.youtube.com/vi/${r.youtube_video_id}/mqdefault.jpg`;
-        const date   = r.replay_date ? new Date(r.replay_date).toLocaleDateString('fr-FR') : '—';
-        const desc   = r.description ? `<p class="text-sm text-gray-500 mt-1 line-clamp-2">${escHtml(r.description)}</p>` : '';
-        const ytUrl  = `https://www.youtube.com/watch?v=${r.youtube_video_id}`;
+        const thumb    = r.thumbnail_url || '';
+        const date     = r.replay_date ? new Date(r.replay_date).toLocaleDateString('fr-FR') : '—';
+        const desc     = r.description ? `<p class="text-sm text-gray-500 mt-1 line-clamp-2">${escHtml(r.description)}</p>` : '';
+        const vimeoUrl = `https://vimeo.com/${r.vimeo_video_id}`;
 
         return `
         <div class="flex gap-4 py-4 border-b border-gray-100 last:border-0">
-            <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0">
+            <a href="${vimeoUrl}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0">
                 <img src="${thumb}" alt="${escHtml(r.title)}"
-                    class="w-32 h-20 object-cover rounded" loading="lazy"
+                    class="w-32 h-20 object-cover rounded bg-gray-100" loading="lazy"
                     onerror="this.style.display='none'" />
             </a>
             <div class="flex-1 min-w-0">
                 <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
-                        <a href="${ytUrl}" target="_blank" rel="noopener noreferrer"
+                        <a href="${vimeoUrl}" target="_blank" rel="noopener noreferrer"
                             class="font-semibold text-gray-900 hover:text-blue-600 line-clamp-2 block">
                             ${escHtml(r.title)}
                         </a>
@@ -112,69 +112,50 @@
         </div>`;
     }
 
-    // ===== MÉTADONNÉES YOUTUBE =====
+    // ===== MÉTADONNÉES VIMEO =====
 
-    async function fetchYouTubeMetadata() {
-        const urlInput = document.getElementById('replayYoutubeUrl');
+    async function fetchVimeoMetadata() {
+        const urlInput   = document.getElementById('replayVimeoUrl');
         const titleInput = document.getElementById('replayTitle');
-        const feedback = document.getElementById('replayAddFeedback');
+        const feedback   = document.getElementById('replayAddFeedback');
         if (!urlInput) return;
 
         const rawUrl = urlInput.value.trim();
         if (!rawUrl) return;
 
-        showFeedback(feedback, 'info', 'Récupération des infos...');
+        showFeedback(feedback, 'info', 'Récupération des infos Vimeo...');
 
-        const videoId = extractYouTubeId(rawUrl);
-        if (!videoId) {
-            showFeedback(feedback, 'error', 'URL YouTube invalide. Exemples : https://youtu.be/ID ou https://www.youtube.com/watch?v=ID');
+        const parsed = extractVimeoIdAndHash(rawUrl);
+        if (!parsed) {
+            showFeedback(feedback, 'error', 'URL Vimeo invalide. Exemple : https://vimeo.com/123456789');
             return;
         }
 
-        const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        let title = null;
-
+        const vimeoUrl = parsed.hash
+            ? `https://vimeo.com/${parsed.id}/${parsed.hash}`
+            : `https://vimeo.com/${parsed.id}`;
         try {
-            const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`);
+            const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vimeoUrl)}`);
             if (res.ok) {
                 const data = await res.json();
-                title = data.title || null;
+                if (data.title && titleInput) titleInput.value = data.title;
+                window._replayAddThumb = data.thumbnail_url || null;
+                showFeedback(feedback, 'success', `Titre récupéré : "${data.title}"`);
+                return;
             }
         } catch (e) {
-            console.warn('[REPLAYS] oEmbed YouTube échoué, tentative noembed...', e);
+            console.warn('[REPLAYS] Vimeo oEmbed error:', e);
         }
 
-        if (!title) {
-            try {
-                const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(watchUrl)}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    title = data.title || null;
-                }
-            } catch (e) {
-                console.warn('[REPLAYS] noembed fallback échoué:', e);
-            }
-        }
-
-        if (title) {
-            if (titleInput) titleInput.value = title;
-            showFeedback(feedback, 'success', `Titre récupéré : "${title}"`);
-        } else {
-            showFeedback(feedback, 'warning', 'Impossible de récupérer le titre automatiquement. Saisissez-le manuellement.');
-        }
+        window._replayAddThumb = null;
+        showFeedback(feedback, 'warning', 'Titre non récupéré — saisis-le manuellement puis valide.');
     }
 
-    function extractYouTubeId(url) {
-        const patterns = [
-            /youtu\.be\/([^?&\s]+)/,
-            /[?&]v=([^?&\s]+)/,
-            /\/embed\/([^?&\s]+)/,
-            /\/shorts\/([^?&\s]+)/,
-        ];
-        for (const re of patterns) {
-            const m = url.match(re);
-            if (m) return m[1];
-        }
+    function extractVimeoIdAndHash(url) {
+        const m = url.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+        if (m) return { id: m[1], hash: m[2] || null };
+        const m2 = url.match(/player\.vimeo\.com\/video\/(\d+)/);
+        if (m2) return { id: m2[1], hash: null };
         return null;
     }
 
@@ -182,26 +163,28 @@
 
     async function submitAddReplay() {
         const feedback = document.getElementById('replayAddFeedback');
-        const urlRaw   = (document.getElementById('replayYoutubeUrl')?.value || '').trim();
+        const urlRaw   = (document.getElementById('replayVimeoUrl')?.value || '').trim();
         const title    = (document.getElementById('replayTitle')?.value || '').trim();
         const desc     = (document.getElementById('replayDescription')?.value || '').trim();
         const date     = (document.getElementById('replayDate')?.value || '').trim();
 
         if (!urlRaw || !title || !date) {
-            showFeedback(feedback, 'error', 'URL YouTube, titre et date sont obligatoires.');
+            showFeedback(feedback, 'error', 'URL Vimeo, titre et date sont obligatoires.');
             return;
         }
 
-        const videoId = extractYouTubeId(urlRaw);
-        if (!videoId) {
-            showFeedback(feedback, 'error', 'URL YouTube invalide.');
+        const parsed = extractVimeoIdAndHash(urlRaw);
+        if (!parsed) {
+            showFeedback(feedback, 'error', 'URL Vimeo invalide. Exemple : https://vimeo.com/123456789');
             return;
         }
 
         showFeedback(feedback, 'info', 'Enregistrement...');
 
         const { error } = await supabase.from('replays').insert({
-            youtube_video_id: videoId,
+            vimeo_video_id: parsed.id,
+            vimeo_hash:     parsed.hash || null,
+            thumbnail_url:  window._replayAddThumb || null,
             title,
             description: desc || null,
             replay_date: date,
@@ -215,7 +198,8 @@
         }
 
         showFeedback(feedback, 'success', 'Replay ajouté avec succès !');
-        document.getElementById('replayYoutubeUrl').value = '';
+        window._replayAddThumb = null;
+        document.getElementById('replayVimeoUrl').value = '';
         document.getElementById('replayTitle').value = '';
         document.getElementById('replayDescription').value = '';
         document.getElementById('replayDate').value = '';
@@ -374,7 +358,7 @@
     window.switchReplayTab       = switchReplayTab;
     window.loadReplayLibrary     = loadReplayLibrary;
     window.loadReplayStats       = loadReplayStats;
-    window.fetchYouTubeMetadata  = fetchYouTubeMetadata;
+    window.fetchVimeoMetadata    = fetchVimeoMetadata;
     window.submitAddReplay       = submitAddReplay;
     window.openEditReplayModal   = openEditReplayModal;
     window.closeReplayEditModal  = closeReplayEditModal;

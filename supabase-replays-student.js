@@ -22,6 +22,8 @@
     let currentReplayYear  = new Date().getFullYear();
     let currentReplayMonth = new Date().getMonth(); // 0-indexed
 
+    const _replayCacheById = {};
+
     // ===== ENTRY POINT =====
 
     async function loadStudentReplays() {
@@ -98,7 +100,7 @@
 
         const { data: replays, error: errReplays } = await supabase
             .from('replays')
-            .select('id, title, replay_date, youtube_video_id')
+            .select('id, title, replay_date, vimeo_video_id, vimeo_hash')
             .gte('replay_date', firstDay)
             .lte('replay_date', lastDay)
             .order('replay_date', { ascending: true });
@@ -204,7 +206,7 @@
 
         const { data: replays, error: errReplays } = await supabase
             .from('replays')
-            .select('id, title, youtube_video_id')
+            .select('id, title, vimeo_video_id, vimeo_hash')
             .eq('replay_date', dateStr)
             .order('created_at', { ascending: true });
 
@@ -221,6 +223,8 @@
 
         const viewMap = {};
         (views || []).forEach(v => { viewMap[v.replay_id] = v; });
+
+        replays.forEach(r => { _replayCacheById[r.id] = r; });
 
         listEl.innerHTML = replays.map(r => {
             const v    = viewMap[r.id];
@@ -249,10 +253,48 @@
         document.getElementById('replayDayModal')?.classList.add('hidden');
     }
 
-    // ===== PLAYER (Phase 5) =====
+    // ===== PLAYER (Phase 4) =====
 
     function openReplayPlayer(replayId) {
-        alert('Player vidéo — À venir Phase 5');
+        const replay  = _replayCacheById[replayId];
+        if (!replay) return;
+
+        const modal   = document.getElementById('replayPlayerModal');
+        const titleEl = document.getElementById('replayPlayerTitle');
+        const slotEl  = document.getElementById('replayPlayerIframeSlot');
+        const wmEl    = document.getElementById('replayPlayerWatermark');
+        if (!modal || !titleEl || !slotEl || !wmEl) return;
+
+        // Watermark
+        const u     = window.currentUser || {};
+        const name  = u.name  || 'Utilisateur Trader 360';
+        const email = u.email || '';
+        wmEl.innerHTML = escHtml(name) + (email ? '<br>' + escHtml(email) : '');
+
+        // Titre
+        titleEl.textContent = replay.title || 'Replay';
+
+        // Iframe Vimeo avec player épuré
+        const params = new URLSearchParams({ title: '0', byline: '0', portrait: '0', dnt: '1' });
+        if (replay.vimeo_hash) params.set('h', replay.vimeo_hash);
+        const src = `https://player.vimeo.com/video/${replay.vimeo_video_id}?${params}`;
+        slotEl.innerHTML = `<iframe id="replayPlayerIframe"
+            src="${src}"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen></iframe>`;
+
+        // Masquer la liste du jour, afficher le player
+        document.getElementById('replayDayModal')?.classList.add('hidden');
+        modal.classList.remove('hidden');
+    }
+
+    function closeReplayPlayer() {
+        const modal  = document.getElementById('replayPlayerModal');
+        const slotEl = document.getElementById('replayPlayerIframeSlot');
+        // Détruire l'iframe pour stopper la vidéo + libérer mémoire
+        if (slotEl) slotEl.innerHTML = '';
+        modal?.classList.add('hidden');
     }
 
     // ===== UTILITAIRES =====
@@ -273,6 +315,7 @@
     window.openReplayDayModal      = openReplayDayModal;
     window.closeReplayDayModal     = closeReplayDayModal;
     window.openReplayPlayer        = openReplayPlayer;
+    window.closeReplayPlayer       = closeReplayPlayer;
     window.updateReplayStatsHeader = updateReplayStatsHeader;
     window.updateReplayWeekSummary = updateReplayWeekSummary;
 
