@@ -100,7 +100,7 @@
 
         const { data: replays, error: errReplays } = await supabase
             .from('replays')
-            .select('id, title, replay_date, youtube_video_id')
+            .select('id, title, replay_date, vimeo_video_id, vimeo_hash')
             .gte('replay_date', firstDay)
             .lte('replay_date', lastDay)
             .order('replay_date', { ascending: true });
@@ -206,7 +206,7 @@
 
         const { data: replays, error: errReplays } = await supabase
             .from('replays')
-            .select('id, title, youtube_video_id')
+            .select('id, title, vimeo_video_id, vimeo_hash')
             .eq('replay_date', dateStr)
             .order('created_at', { ascending: true });
 
@@ -274,13 +274,14 @@
         // Titre
         titleEl.textContent = replay.title || 'Replay';
 
-        // Iframe avec paramètres restrictifs
-        const src = `https://www.youtube.com/embed/${replay.youtube_video_id}` +
-                    `?rel=0&modestbranding=1&iv_load_policy=3&fs=1&showinfo=0&controls=1&enablejsapi=1`;
+        // Iframe Vimeo avec player épuré
+        const params = new URLSearchParams({ title: '0', byline: '0', portrait: '0', dnt: '1' });
+        if (replay.vimeo_hash) params.set('h', replay.vimeo_hash);
+        const src = `https://player.vimeo.com/video/${replay.vimeo_video_id}?${params}`;
         slotEl.innerHTML = `<iframe id="replayPlayerIframe"
             src="${src}"
             style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
-            allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"
+            allow="autoplay; fullscreen; picture-in-picture"
             allowfullscreen></iframe>`;
 
         // Masquer la liste du jour, afficher le player
