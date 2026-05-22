@@ -400,38 +400,37 @@
     // FONCTION : LOGOUT
     // ========================================
     async function logout() {
+        console.log('[LOGOUT] Déconnexion...');
+
+        // 1. signOut server-side (best-effort, on ne bail JAMAIS dessus)
         try {
-            console.log('[LOGOUT] Déconnexion...');
-            
             const { error } = await supabase.auth.signOut();
-            
-            if (error) {
-                console.error('[ERROR] Erreur logout:', error);
-                return;
-            }
-
-            // ✅ Nettoyage COMPLET avant reload
-            window.currentUser = null;
-            
-            // Masquer toutes les interfaces
-            const mainApp = document.getElementById('mainApp');
-            const coachApp = document.getElementById('coachApp');
-            const authScreen = document.getElementById('authScreen');
-            
-            if (mainApp) mainApp.style.display = 'none';
-            if (coachApp) coachApp.style.display = 'none';
-            if (authScreen) authScreen.style.display = 'flex';
-            
-            console.log('[OK] Déconnexion réussie - Nettoyage effectué');
-            
-            // ✅ Reload avec cache forcé
-            location.reload(true);  // true = forcer le rechargement depuis le serveur
-
-        } catch (err) {
-            console.error('[ERROR] Erreur logout:', err);
-            // En cas d'erreur, recharger quand même
-            location.reload(true);
+            if (error) console.warn('[LOGOUT] signOut server error (on continue):', error);
+        } catch (e) {
+            console.warn('[LOGOUT] signOut a throw (on continue):', e);
         }
+
+        // 2. Purge MANUELLE — couvre les cas où le custom adapter n'a pas nettoyé.
+        try {
+            [sessionStorage, localStorage].forEach(store => {
+                Object.keys(store).forEach(k => {
+                    if (/^sb-.*-auth-token/.test(k) || k === 'supabase.auth.token') {
+                        store.removeItem(k);
+                    }
+                });
+            });
+        } catch (_) {}
+
+        // 3. Reset état JS
+        window.currentUser = null;
+        window.currentUserAuthId = null;
+        window.currentUserUuid = null;
+
+        // 4. Reset URL — sinon routeFromHash() rebascule sur la dernière section.
+        try { history.replaceState(null, '', '/'); } catch (_) {}
+
+        // 5. Reload propre
+        location.reload();
     }
 
     // ========================================
@@ -493,8 +492,16 @@
 
         try {
             const { data: { session }, error } = await supabase.auth.getSession();
-            if (error) { console.warn('[AUTH] getSession error:', error.message); return false; }
-            if (!session || !session.user) { console.log('[AUTH] Aucune session active'); return false; }
+            if (error) {
+                console.warn('[AUTH] getSession error:', error.message);
+                ensureHomeVisibleOnFailure();
+                return false;
+            }
+            if (!session || !session.user) {
+                console.log('[AUTH] Aucune session active');
+                ensureHomeVisibleOnFailure();
+                return false;
+            }
 
             // Source de vérité : BDD. Validation profil + statut AVANT tout changement d'UI.
             const { data: userData, error: userError } = await supabase
@@ -503,11 +510,13 @@
             if (userError || !userData) {
                 console.warn('[AUTH] Profil introuvable / token invalide → signOut');
                 try { await supabase.auth.signOut(); } catch (_) {}
-                return false; // authScreen reste visible (pas encore touché)
+                ensureHomeVisibleOnFailure();
+                return false;
             }
             if (userData.status === 'revoked' || userData.status === 'pending') {
                 console.warn('[AUTH] Statut bloquant:', userData.status);
                 try { await supabase.auth.signOut(); } catch (_) {}
+                ensureHomeVisibleOnFailure();
                 return false;
             }
 
@@ -580,6 +589,14 @@
             window.currentUser = null;
             window.currentUserAuthId = null;
             window.currentUserUuid = null;
+            // Filet de sécurité — purge même en cas de signOut depuis un autre onglet.
+            try {
+                [sessionStorage, localStorage].forEach(store => {
+                    Object.keys(store).forEach(k => {
+                        if (/^sb-.*-auth-token/.test(k)) store.removeItem(k);
+                    });
+                });
+            } catch (_) {}
         }
         // SIGNED_IN, TOKEN_REFRESHED : rien à faire, la lib gère le token automatiquement
     });
