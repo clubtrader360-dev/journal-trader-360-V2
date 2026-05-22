@@ -24,6 +24,10 @@
 
     const _replayCacheById = {};
 
+    let _activePlayer    = null;
+    let _activeReplayId  = null;
+    let _lastUpsertTime  = 0;
+
     // ===== ENTRY POINT =====
 
     async function loadStudentReplays() {
@@ -253,9 +257,9 @@
         document.getElementById('replayDayModal')?.classList.add('hidden');
     }
 
-    // ===== PLAYER (Phase 4) =====
+    // ===== PLAYER (Phase 5) =====
 
-    function openReplayPlayer(replayId) {
+    async function openReplayPlayer(replayId) {
         const replay  = _replayCacheById[replayId];
         if (!replay) return;
 
@@ -287,14 +291,67 @@
         // Masquer la liste du jour, afficher le player
         document.getElementById('replayDayModal')?.classList.add('hidden');
         modal.classList.remove('hidden');
+
+        // Tracking
+        const uid = (await supabase.auth.getUser()).data?.user?.id;
+
+        const { data: existingView } = await supabase
+            .from('replay_views')
+            .select('progress_seconds, completed')
+            .eq('replay_id', replay.id)
+            .eq('user_id', uid)
+            .maybeSingle();
+
+        _activePlayer   = new Vimeo.Player(document.getElementById('replayPlayerIframe'));
+        _activeReplayId = replay.id;
+        _lastUpsertTime = 0;
+
+        _activePlayer.ready().then(() => {
+            if (existingView?.progress_seconds > 0 && !existingView?.completed)
+                _activePlayer.setCurrentTime(existingView.progress_seconds);
+        });
+
+        _activePlayer.on('timeupdate', async ({ seconds, duration }) => {
+            const now = Date.now();
+            if (now - _lastUpsertTime < 10000) return;
+            _lastUpsertTime = now;
+            await upsertReplayProgress(_activeReplayId, uid, Math.floor(seconds),
+                duration > 0 && seconds / duration >= 0.9);
+        });
+
+        _activePlayer.on('ended', async () => {
+            const dur = await _activePlayer.getDuration();
+            await upsertReplayProgress(_activeReplayId, uid, Math.floor(dur), true);
+        });
     }
 
-    function closeReplayPlayer() {
-        const modal  = document.getElementById('replayPlayerModal');
+    async function closeReplayPlayer() {
+        if (_activePlayer && _activeReplayId) {
+            const uid      = (await supabase.auth.getUser()).data?.user?.id;
+            const seconds  = await _activePlayer.getCurrentTime().catch(() => 0);
+            const duration = await _activePlayer.getDuration().catch(() => 0);
+            await upsertReplayProgress(_activeReplayId, uid, Math.floor(seconds),
+                duration > 0 && seconds / duration >= 0.9);
+            _activePlayer.destroy();
+            _activePlayer   = null;
+            _activeReplayId = null;
+        }
         const slotEl = document.getElementById('replayPlayerIframeSlot');
-        // Détruire l'iframe pour stopper la vidéo + libérer mémoire
         if (slotEl) slotEl.innerHTML = '';
-        modal?.classList.add('hidden');
+        document.getElementById('replayPlayerModal')?.classList.add('hidden');
+    }
+
+    // ===== TRACKING =====
+
+    async function upsertReplayProgress(replayId, userId, progressSeconds, completed) {
+        if (!userId) return;
+        await supabase.from('replay_views').upsert({
+            replay_id:        replayId,
+            user_id:          userId,
+            progress_seconds: progressSeconds,
+            completed,
+            last_watched_at:  new Date().toISOString(),
+        }, { onConflict: 'replay_id,user_id' });
     }
 
     // ===== UTILITAIRES =====
