@@ -131,7 +131,9 @@
             return;
         }
 
-        const vimeoUrl = `https://vimeo.com/${parsed.id}`;
+        const vimeoUrl = parsed.hash
+            ? `https://vimeo.com/${parsed.id}/${parsed.hash}`
+            : `https://vimeo.com/${parsed.id}`;
         try {
             const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vimeoUrl)}`);
             if (res.ok) {
@@ -146,7 +148,7 @@
         }
 
         window._replayAddThumb = null;
-        showFeedback(feedback, 'warning', 'Impossible de récupérer le titre. Saisissez-le manuellement.');
+        showFeedback(feedback, 'warning', 'Titre non récupéré — saisis-le manuellement puis valide.');
     }
 
     function extractVimeoIdAndHash(url) {
