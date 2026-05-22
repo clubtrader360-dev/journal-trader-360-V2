@@ -22,6 +22,8 @@
     let currentReplayYear  = new Date().getFullYear();
     let currentReplayMonth = new Date().getMonth(); // 0-indexed
 
+    const _replayCacheById = {};
+
     // ===== ENTRY POINT =====
 
     async function loadStudentReplays() {
@@ -222,6 +224,8 @@
         const viewMap = {};
         (views || []).forEach(v => { viewMap[v.replay_id] = v; });
 
+        replays.forEach(r => { _replayCacheById[r.id] = r; });
+
         listEl.innerHTML = replays.map(r => {
             const v    = viewMap[r.id];
             let badge  = '';
@@ -249,10 +253,47 @@
         document.getElementById('replayDayModal')?.classList.add('hidden');
     }
 
-    // ===== PLAYER (Phase 5) =====
+    // ===== PLAYER (Phase 4) =====
 
     function openReplayPlayer(replayId) {
-        alert('Player vidéo — À venir Phase 5');
+        const replay  = _replayCacheById[replayId];
+        if (!replay) return;
+
+        const modal   = document.getElementById('replayPlayerModal');
+        const titleEl = document.getElementById('replayPlayerTitle');
+        const slotEl  = document.getElementById('replayPlayerIframeSlot');
+        const wmEl    = document.getElementById('replayPlayerWatermark');
+        if (!modal || !titleEl || !slotEl || !wmEl) return;
+
+        // Watermark
+        const u     = window.currentUser || {};
+        const name  = u.name  || 'Utilisateur Trader 360';
+        const email = u.email || '';
+        wmEl.innerHTML = escHtml(name) + (email ? '<br>' + escHtml(email) : '');
+
+        // Titre
+        titleEl.textContent = replay.title || 'Replay';
+
+        // Iframe avec paramètres restrictifs
+        const src = `https://www.youtube.com/embed/${replay.youtube_video_id}` +
+                    `?rel=0&modestbranding=1&iv_load_policy=3&fs=1&showinfo=0&controls=1&enablejsapi=1`;
+        slotEl.innerHTML = `<iframe id="replayPlayerIframe"
+            src="${src}"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
+            allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"
+            allowfullscreen></iframe>`;
+
+        // Masquer la liste du jour, afficher le player
+        document.getElementById('replayDayModal')?.classList.add('hidden');
+        modal.classList.remove('hidden');
+    }
+
+    function closeReplayPlayer() {
+        const modal  = document.getElementById('replayPlayerModal');
+        const slotEl = document.getElementById('replayPlayerIframeSlot');
+        // Détruire l'iframe pour stopper la vidéo + libérer mémoire
+        if (slotEl) slotEl.innerHTML = '';
+        modal?.classList.add('hidden');
     }
 
     // ===== UTILITAIRES =====
@@ -273,6 +314,7 @@
     window.openReplayDayModal      = openReplayDayModal;
     window.closeReplayDayModal     = closeReplayDayModal;
     window.openReplayPlayer        = openReplayPlayer;
+    window.closeReplayPlayer       = closeReplayPlayer;
     window.updateReplayStatsHeader = updateReplayStatsHeader;
     window.updateReplayWeekSummary = updateReplayWeekSummary;
 
