@@ -8776,22 +8776,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
 
         // register() déplacé vers supabase-auth.js
-
         // login() déplacé vers supabase-auth.js
-
         // coachLogin() déplacé vers supabase-auth.js
-
-        function logout() {
-            window.currentUser = null;
-            document.getElementById('authScreen').style.display = 'flex';
-            document.getElementById('mainApp').style.display = 'none';
-            
-            document.querySelectorAll('input[type="email"], input[type="password"]').forEach(input => {
-                input.value = '';
-            });
-            
-            showLoginForm();
-        }
+        // logout() déplacé vers supabase-auth.js
 
         // ===== EXPORT CSV POUR ANALYSE IA =====
         function exportAllDataToCSV() {
