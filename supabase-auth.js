@@ -402,10 +402,12 @@
     async function logout() {
         console.log('[LOGOUT] Déconnexion...');
 
-        // 1. signOut server-side (best-effort, on ne bail JAMAIS dessus)
+        // 1. signOut local-only — kill la session client + storage sans appel réseau.
+        //    Le scope 'global' par défaut attend le serveur ; s'il échoue, autoRefreshToken
+        //    peut réécrire le jeton dans le storage juste après notre purge manuelle.
         try {
-            const { error } = await supabase.auth.signOut();
-            if (error) console.warn('[LOGOUT] signOut server error (on continue):', error);
+            const { error } = await supabase.auth.signOut({ scope: 'local' });
+            if (error) console.warn('[LOGOUT] signOut error (on continue):', error);
         } catch (e) {
             console.warn('[LOGOUT] signOut a throw (on continue):', e);
         }
