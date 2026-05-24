@@ -36,6 +36,9 @@ export default async function handler(req, res) {
     }
 
     const path = hash ? `/videos/${videoId}:${hash}` : `/videos/${videoId}`;
+    // DEBUG temporaire : trace ce qu'on envoie réellement à Vimeo.
+    console.log('[VIMEO debug] metadata request:', { videoId, hash: hash || null, path });
+
     const vimeoRes = await fetch(`${VIMEO_API}${path}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -43,9 +46,11 @@ export default async function handler(req, res) {
       }
     });
 
-    if (vimeoRes.status === 404) throw httpError(404, 'vidéo introuvable');
     if (!vimeoRes.ok) {
-      console.error('[VIMEO] metadata error:', vimeoRes.status);
+      // DEBUG temporaire : log le corps de réponse Vimeo pour comprendre la raison.
+      const body = await vimeoRes.text().catch(() => '');
+      console.error('[VIMEO debug] metadata error', vimeoRes.status, 'path:', path, 'body:', body);
+      if (vimeoRes.status === 404) throw httpError(404, 'vidéo introuvable');
       throw httpError(502, 'erreur Vimeo');
     }
 
