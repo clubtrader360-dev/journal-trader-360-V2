@@ -115,15 +115,15 @@
     // ===== MÉTADONNÉES VIMEO =====
 
     async function fetchVimeoMetadata() {
-        const urlInput   = document.getElementById('replayVimeoUrl');
-        const titleInput = document.getElementById('replayTitle');
-        const feedback   = document.getElementById('replayAddFeedback');
+        const urlInput = document.getElementById('replayVimeoUrl');
+        const feedback = document.getElementById('replayAddFeedback');
         if (!urlInput) return;
 
         const rawUrl = urlInput.value.trim();
-        if (!rawUrl) return;
-
-        showFeedback(feedback, 'info', 'Récupération des infos Vimeo...');
+        if (!rawUrl) {
+            clearReplayPreview();
+            return;
+        }
 
         const parsed = extractVimeoIdAndHash(rawUrl);
         if (!parsed) {
@@ -131,24 +131,57 @@
             return;
         }
 
-        const vimeoUrl = parsed.hash
-            ? `https://vimeo.com/${parsed.id}/${parsed.hash}`
-            : `https://vimeo.com/${parsed.id}`;
-        try {
-            const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vimeoUrl)}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.title && titleInput) titleInput.value = data.title;
-                window._replayAddThumb = data.thumbnail_url || null;
-                showFeedback(feedback, 'success', `Titre récupéré : "${data.title}"`);
-                return;
-            }
-        } catch (e) {
-            console.warn('[REPLAYS] Vimeo oEmbed error:', e);
-        }
+        showFeedback(feedback, 'info', 'Récupération des infos Vimeo...');
 
-        window._replayAddThumb = null;
-        showFeedback(feedback, 'warning', 'Titre non récupéré — saisis-le manuellement puis valide.');
+        try {
+            const meta = await window.getVimeoMetadata(parsed.id, parsed.hash);
+            fillReplayFormFromMeta(meta);
+            showFeedback(feedback, 'success', `Infos récupérées : "${meta.title || '(sans titre)'}"`);
+        } catch (e) {
+            console.error('[REPLAYS] getVimeoMetadata error:', e);
+            const msg = e.status === 404 ? 'Vidéo introuvable sur Vimeo.'
+                      : e.status === 403 ? 'Accès refusé (réservé aux coachs).'
+                      : e.status === 502 ? 'Erreur Vimeo. Réessaye dans un instant.'
+                      : 'Impossible de récupérer les infos — vérifie l\'URL.';
+            showFeedback(feedback, 'error', msg);
+        }
+    }
+
+    function fillReplayFormFromMeta({ video_id, hash, title, duration, thumbnail }) {
+        const url = hash ? `https://vimeo.com/${video_id}/${hash}` : `https://vimeo.com/${video_id}`;
+        const urlInput   = document.getElementById('replayVimeoUrl');
+        const titleInput = document.getElementById('replayTitle');
+        if (urlInput) urlInput.value = url;
+        if (titleInput && title) titleInput.value = title;
+
+        window._replayAddThumb    = thumbnail || null;
+        window._replayAddDuration = (typeof duration === 'number' && duration > 0) ? duration : null;
+
+        const box = document.getElementById('replayPreview');
+        const img = document.getElementById('replayPreviewThumb');
+        const ttl = document.getElementById('replayPreviewTitle');
+        const dur = document.getElementById('replayPreviewDuration');
+        if (!box || !img || !ttl || !dur) return;
+
+        img.src = thumbnail || '';
+        img.style.display = thumbnail ? '' : 'none';
+        ttl.textContent = title || '';
+        dur.textContent = window._replayAddDuration ? `Durée : ${formatDuration(window._replayAddDuration)}` : '';
+        box.classList.remove('hidden');
+    }
+
+    function clearReplayPreview() {
+        document.getElementById('replayPreview')?.classList.add('hidden');
+        window._replayAddThumb    = null;
+        window._replayAddDuration = null;
+    }
+
+    function formatDuration(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        return `${m}:${String(s).padStart(2, '0')}`;
     }
 
     function extractVimeoIdAndHash(url) {
@@ -182,9 +215,10 @@
         showFeedback(feedback, 'info', 'Enregistrement...');
 
         const { error } = await supabase.from('replays').insert({
-            vimeo_video_id: parsed.id,
-            vimeo_hash:     parsed.hash || null,
-            thumbnail_url:  window._replayAddThumb || null,
+            vimeo_video_id:   parsed.id,
+            vimeo_hash:       parsed.hash || null,
+            thumbnail_url:    window._replayAddThumb || null,
+            duration_seconds: window._replayAddDuration || null,
             title,
             description: desc || null,
             replay_date: date,
@@ -198,11 +232,90 @@
         }
 
         showFeedback(feedback, 'success', 'Replay ajouté avec succès !');
-        window._replayAddThumb = null;
+        clearReplayPreview();
         document.getElementById('replayVimeoUrl').value = '';
         document.getElementById('replayTitle').value = '';
         document.getElementById('replayDescription').value = '';
         document.getElementById('replayDate').value = '';
+    }
+
+    // ===== BROWSE BIBLIOTHÈQUE VIMEO (dossier REPLAY LIVE) =====
+
+    let _vimeoBrowseState = { page: 1, hasNext: false };
+    const _vimeoBrowseCache = {};
+
+    async function openVimeoBrowseModal() {
+        document.getElementById('replayBrowseModal')?.classList.remove('hidden');
+        _vimeoBrowseState = { page: 1, hasNext: false };
+        await loadVimeoBrowsePage();
+    }
+
+    function closeVimeoBrowseModal() {
+        document.getElementById('replayBrowseModal')?.classList.add('hidden');
+    }
+
+    async function changeVimeoBrowsePage(delta) {
+        const next = _vimeoBrowseState.page + delta;
+        if (next < 1) return;
+        if (delta > 0 && !_vimeoBrowseState.hasNext) return;
+        _vimeoBrowseState.page = next;
+        await loadVimeoBrowsePage();
+    }
+
+    async function loadVimeoBrowsePage() {
+        const list      = document.getElementById('replayBrowseList');
+        const pageLabel = document.getElementById('replayBrowsePageLabel');
+        const prevBtn   = document.getElementById('replayBrowsePrev');
+        const nextBtn   = document.getElementById('replayBrowseNext');
+        if (!list) return;
+
+        list.innerHTML = '<p class="text-gray-500 text-center py-4">Chargement...</p>';
+        if (pageLabel) pageLabel.textContent = `Page ${_vimeoBrowseState.page}`;
+
+        try {
+            const { videos, has_next_page } = await window.listVimeoVideos(_vimeoBrowseState.page);
+            _vimeoBrowseState.hasNext = !!has_next_page;
+            if (prevBtn) { prevBtn.disabled = _vimeoBrowseState.page <= 1; prevBtn.classList.toggle('opacity-40', prevBtn.disabled); }
+            if (nextBtn) { nextBtn.disabled = !_vimeoBrowseState.hasNext;  nextBtn.classList.toggle('opacity-40', nextBtn.disabled); }
+
+            if (!videos || videos.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-4">Aucune vidéo dans le dossier REPLAY LIVE.</p>';
+                return;
+            }
+
+            videos.forEach(v => { _vimeoBrowseCache[v.video_id] = v; });
+            list.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${videos.map(renderVimeoBrowseCard).join('')}</div>`;
+        } catch (e) {
+            console.error('[REPLAYS] listVimeoVideos error:', e);
+            const msg = e.status === 404 ? 'Dossier REPLAY LIVE introuvable sur le compte Vimeo.'
+                      : e.status === 403 ? 'Accès refusé (réservé aux coachs).'
+                      : 'Erreur de chargement de la bibliothèque Vimeo.';
+            list.innerHTML = `<p class="text-red-600 text-center py-4">${escHtml(msg)}</p>`;
+        }
+    }
+
+    function renderVimeoBrowseCard(v) {
+        const dur   = (typeof v.duration === 'number' && v.duration > 0) ? formatDuration(v.duration) : '';
+        const thumb = v.thumbnail || '';
+        return `
+        <div onclick="pickVimeoVideo('${v.video_id}')"
+             class="cursor-pointer border border-gray-200 rounded overflow-hidden hover:border-blue-500 hover:shadow transition">
+            <div class="aspect-video bg-gray-100">
+                ${thumb ? `<img src="${thumb}" class="w-full h-full object-cover" loading="lazy" />` : ''}
+            </div>
+            <div class="p-3">
+                <p class="text-sm font-medium text-gray-900 line-clamp-2">${escHtml(v.title)}</p>
+                ${dur ? `<p class="text-xs text-gray-500 mt-1">${dur}</p>` : ''}
+            </div>
+        </div>`;
+    }
+
+    function pickVimeoVideo(videoId) {
+        const v = _vimeoBrowseCache[videoId];
+        if (!v) return;
+        fillReplayFormFromMeta(v);
+        closeVimeoBrowseModal();
+        showFeedback(document.getElementById('replayAddFeedback'), 'success', `Vidéo sélectionnée : "${v.title || '(sans titre)'}"`);
     }
 
     // ===== MODAL ÉDITION =====
@@ -364,6 +477,10 @@
     window.closeReplayEditModal  = closeReplayEditModal;
     window.submitEditReplay      = submitEditReplay;
     window.confirmDeleteReplay   = confirmDeleteReplay;
+    window.openVimeoBrowseModal  = openVimeoBrowseModal;
+    window.closeVimeoBrowseModal = closeVimeoBrowseModal;
+    window.changeVimeoBrowsePage = changeVimeoBrowsePage;
+    window.pickVimeoVideo        = pickVimeoVideo;
 
     console.log('[REPLAYS] ✅ Module chargé.');
 })();
