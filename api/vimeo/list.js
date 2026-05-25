@@ -43,22 +43,20 @@ export default async function handler(req, res) {
 
     const folder = await findReplayFolder(token);
     if (!folder) {
-      throw httpError(404, `dossier ${REPLAY_FOLDER_NAME} introuvable (voir logs serveur pour la liste exhaustive des dossiers accessibles)`);
+      throw httpError(404, `dossier ${REPLAY_FOLDER_NAME} introuvable sur le compte Vimeo`);
     }
 
     // L'URI Vimeo est rootée (/teams/abc/folders/xyz, /users/123/projects/456, …).
     // `${uri}/videos` fonctionne uniformément quel que soit le type de dossier.
     const url = `${VIMEO_API}${folder.uri}/videos`
               + `?per_page=50&page=${page}&fields=${encodeURIComponent(FIELDS)}`;
-    console.log('[VIMEO debug] list videos URL:', url);
 
     const vimeoRes = await fetch(url, {
       headers: { Authorization: `Bearer ${token}`, Accept: VIMEO_ACCEPT }
     });
 
     if (!vimeoRes.ok) {
-      const body = await vimeoRes.text().catch(() => '');
-      console.error('[VIMEO debug] list videos error', vimeoRes.status, 'body:', body);
+      console.error('[VIMEO] list videos error:', vimeoRes.status);
       throw httpError(502, 'erreur Vimeo');
     }
 
@@ -79,9 +77,9 @@ export default async function handler(req, res) {
 // ========================================
 // Découverte du dossier REPLAY LIVE
 // ========================================
-// Agrège les dossiers de 3 sources, log tout, match par nom.
-// Logs temporaires marqués [VIMEO debug] — à retirer une fois la source
-// correcte du dossier identifiée.
+// Agrège les dossiers de 3 sources et matche par nom. Si une source
+// échoue (HTTP error, network), on la skip silencieusement — les autres
+// sources prennent le relais.
 async function findReplayFolder(token) {
   const headers = { Authorization: `Bearer ${token}`, Accept: VIMEO_ACCEPT };
   const target  = REPLAY_FOLDER_NAME.trim().toLowerCase();
@@ -102,33 +100,23 @@ async function findReplayFolder(token) {
     while (true) {
       const res = await fetch(`${VIMEO_API}/me/teams?per_page=100&page=${teamsPage}&fields=uri,name`,
                               { headers });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        console.warn('[VIMEO debug] /me/teams HTTP', res.status, 'body:', body);
-        break;
-      }
+      if (!res.ok) break;
       const payload = await res.json();
       const teams = payload.data || [];
-      console.log('[VIMEO debug] teams page', teamsPage, ':',
-                  teams.map(t => ({ uri: t.uri, name: t.name })));
       for (const team of teams) {
         const teamId = String(team.uri || '').match(/\/teams\/([^/]+)/)?.[1];
         if (!teamId) continue;
         await collectFolders(
           `${VIMEO_API}/teams/${teamId}/folders?per_page=100&fields=uri,name,user.name,user.uri`,
-          headers, `teams/${teamId}/folders (team: ${team.name})`, allFolders
+          headers, `teams/${teamId}/folders`, allFolders
         );
       }
       if (!payload.paging?.next) break;
       teamsPage++;
     }
   } catch (e) {
-    console.warn('[VIMEO debug] teams iteration error:', e?.message || e);
+    console.warn('[VIMEO] teams iteration error:', e?.message || e);
   }
-
-  // Dump exhaustif des dossiers accessibles avec ce token.
-  console.log('[VIMEO debug] tous les dossiers accessibles :',
-              JSON.stringify(allFolders, null, 2));
 
   return allFolders.find(f =>
     String(f.name || '').trim().toLowerCase() === target
@@ -142,11 +130,7 @@ async function collectFolders(initialUrl, headers, source, accumulator) {
     let nextUrl = initialUrl;
     while (nextUrl) {
       const res = await fetch(nextUrl, { headers });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        console.warn(`[VIMEO debug] ${source} HTTP ${res.status} body: ${body}`);
-        return;
-      }
+      if (!res.ok) return;
       const payload = await res.json();
       (payload.data || []).forEach(f => {
         accumulator.push({
@@ -162,7 +146,7 @@ async function collectFolders(initialUrl, headers, source, accumulator) {
         : null;
     }
   } catch (e) {
-    console.warn(`[VIMEO debug] ${source} error:`, e?.message || e);
+    console.warn(`[VIMEO] ${source} error:`, e?.message || e);
   }
 }
 
