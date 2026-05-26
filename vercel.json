@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/replays-sync",
-      "schedule": "0 17,18 * * 1-5"
+      "schedule": "0 18 * * 1-5"
     }
   ],
   "rewrites": [
