@@ -5592,7 +5592,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </p>
                 </div>
 
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gold transition-colors cursor-pointer" onclick="document.getElementById('csvFileInput').click()">
+                <div id="csvDropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gold transition-colors cursor-pointer" onclick="document.getElementById('csvFileInput').click()">
                     <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
                     <p class="text-gray-600 mb-2">Cliquez pour sélectionner un fichier CSV</p>
                     <p class="text-sm text-gray-500">ou glissez-déposez le fichier ici</p>
@@ -5750,7 +5750,70 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         // ========================================
         // FONCTIONS IMPORT CSV
         // ========================================
-        
+
+        // Câblage drag-and-drop sur la zone CSV. Le clic est déjà géré par
+        // l'onclick inline sur #csvDropZone. Sans preventDefault() sur dragover,
+        // le navigateur refuse le drop par défaut → handler obligatoire.
+        // Compteur sur dragenter/dragleave pour éviter le bug "dragleave qui fire
+        // quand on survole un enfant" (icône, paragraphes).
+        function initCSVDropZone() {
+            const dropzone = document.getElementById('csvDropZone');
+            if (!dropzone) return;
+
+            let dragCounter = 0;
+            const activate = () => {
+                dropzone.classList.remove('border-gray-300');
+                dropzone.classList.add('border-gold', 'bg-gray-50');
+            };
+            const deactivate = () => {
+                dropzone.classList.remove('border-gold', 'bg-gray-50');
+                dropzone.classList.add('border-gray-300');
+            };
+
+            dropzone.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                dragCounter++;
+                activate();
+            });
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            });
+            dropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) {
+                    dragCounter = 0;
+                    deactivate();
+                }
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                deactivate();
+
+                const file = e.dataTransfer?.files?.[0];
+                if (!file) return;
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    alert('Seuls les fichiers CSV sont acceptés.');
+                    return;
+                }
+
+                // Synchronise l'input file pour cohérence (affichage nom, retry, etc.)
+                // puis réutilise handleCSVUpload qui ne lit que event.target.files[0].
+                const input = document.getElementById('csvFileInput');
+                try {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    if (input) input.files = dt.files;
+                } catch (_) { /* DataTransfer non supporté sur certains navigateurs */ }
+
+                handleCSVUpload({ target: { files: [file] } });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initCSVDropZone);
+
         function handleCSVUpload(event) {
             console.log('[CSV] handleCSVUpload - START');
             const file = event.target.files[0];
