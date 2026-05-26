@@ -13,7 +13,8 @@
   function reducedMotion() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
 
   function init() {
-    if (animationsOff() || !candlesEnabled() || reducedMotion()) return;
+    if (animationsOff() || !candlesEnabled()) return;
+    var staticOnly = reducedMotion(); // reduced-motion : on AFFICHE les bougies mais figées (pas de mouvement)
 
     // Fix visibilité : le bg du body part vers <html>, body transparent (le canvas screen illumine le fond).
     try {
@@ -27,9 +28,9 @@
     var canvas = document.createElement('canvas');
     canvas.id = 'candles-bg';
     canvas.setAttribute('aria-hidden', 'true');
-    // mix-blend-mode piloté par aube.css (screen en dark / multiply en light, dual-theme)
+    // mix-blend-mode piloté par aube.css (screen en dark/login / multiply en light, dual-theme)
     canvas.style.cssText =
-      'position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:0.22;';
+      'position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:0.24;';
     document.body.appendChild(canvas);
 
     var ctx = canvas.getContext('2d');
@@ -111,10 +112,18 @@
     function start() { if (!raf) { lastTick = 0; raf = requestAnimationFrame(frame); } }
     function stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } }
 
-    document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
-    var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(function () { resize(); seed(); }, 200); });
+    function renderStatic() {
+      ctx.clearRect(0, 0, W, H);
+      for (var i = 0; i < candles.length; i++) drawCandle(candles[i]);
+      drawCandle(active);
+      ctx.shadowBlur = 0;
+    }
 
-    resize(); seed(); start();
+    document.addEventListener('visibilitychange', function () { if (!staticOnly) { document.hidden ? stop() : start(); } });
+    var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(function () { resize(); seed(); if (staticOnly) renderStatic(); }, 200); });
+
+    resize(); seed();
+    if (staticOnly) renderStatic(); else start();
   }
 
   if (document.readyState !== 'loading') init();

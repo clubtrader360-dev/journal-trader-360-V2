@@ -17,6 +17,32 @@ body { background: transparent !important; }
 /* Couche 2 — bougies (blend selon thème, hérité du token sur body) */
 #candles-bg { mix-blend-mode: var(--aube-candle-blend, screen); }
 
+/* ===== FIX BUG 1 — révéler le fond : neutraliser les conteneurs opaques plein-viewport
+   qui masquaient le canvas z-index:-1 (cause exacte : .main-content navy opaque + .auth-container). ===== */
+#mainApp .main-content,
+body.dark-mode #mainApp .main-content { background: transparent !important; }
+
+/* ===== FIX BUG 3 — Login : conteneur transparent (révèle bougies+ticker+particules),
+   fond navy + blend screen forcés quand l'écran d'auth est visible (display:flex). ===== */
+#authScreen, .auth-container { background: transparent !important; }
+html:has(#authScreen[style*="flex"]) {
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.12) 0%, transparent 55%),
+              radial-gradient(ellipse at 50% 100%, #001a4d 0%, #000B25 55%, #00050f 100%) !important;
+}
+html:has(#authScreen[style*="flex"]) #candles-bg { mix-blend-mode: screen !important; }
+/* Card login en glass forge (au lieu du blanc opaque) — texte passé en champagne pour lisibilité */
+#authScreen .auth-card {
+  background: linear-gradient(135deg, rgba(15,28,58,0.72) 0%, rgba(10,22,50,0.62) 100%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(212,175,55,0.20) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 30px 80px rgba(0,0,0,0.5), 0 0 40px -10px rgba(212,175,55,0.25) !important;
+}
+#authScreen .auth-card,
+#authScreen .auth-card h2,
+#authScreen .auth-card label,
+#authScreen .auth-card p { color: var(--color-champagne) !important; }
+
 /* Couche 3 — ticker de paires (injecté par aube-bg.js) */
 #aube-ticker {
   position: fixed; left: 0; right: 0; bottom: 0; height: 18px; z-index: -1;
@@ -44,9 +70,10 @@ body { background: transparent !important; }
   letter-spacing: -0.02em;
 }
 
-/* ---- 3. Cards "Glass Forge" (élève #mainApp, dual-theme) ---- */
-#mainApp .trader-card,
-body.dark-mode #mainApp .trader-card {
+/* ---- 3. Cards "Glass Forge" (élève #mainApp, dual-theme) ----
+   .trader-card (toutes routes) + .metric-item (les 8 KPIs du head, FIX BUG 2). ---- */
+#mainApp .trader-card, body.dark-mode #mainApp .trader-card,
+#mainApp .metric-item, body.dark-mode #mainApp .metric-item {
   background: var(--aube-glass) !important;
   border: 1px solid var(--aube-glass-border) !important;
   -webkit-backdrop-filter: blur(16px) saturate(140%);
@@ -55,9 +82,10 @@ body.dark-mode #mainApp .trader-card {
   transition: transform 280ms var(--aube-ease), border-color 280ms ease,
               box-shadow 280ms ease, filter 280ms ease;
 }
-#mainApp .trader-card:hover,
-body.dark-mode #mainApp .trader-card:hover {
-  transform: scale(1.01) rotate(0.15deg);
+#mainApp .trader-card:hover, body.dark-mode #mainApp .trader-card:hover,
+#mainApp .metric-item:hover, body.dark-mode #mainApp .metric-item:hover {
+  background: var(--aube-glass) !important;     /* garde le glass au survol (override du #152843 existant) */
+  transform: translateY(-3px) scale(1.01);
   border-color: var(--color-aurum) !important;
   filter: brightness(1.03);
   box-shadow: var(--aube-card-shadow), 0 0 36px -6px rgba(212, 175, 55, 0.35);
