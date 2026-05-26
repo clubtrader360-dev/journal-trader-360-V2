@@ -30,7 +30,9 @@
             integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <!-- "Bourse à l'Aube" — GSAP (gratuit, Étape 0 validée) pour count-up & chorégraphie -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <meta name="theme-color" content="#000B25" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#f5f7fb" media="(prefers-color-scheme: light)">
     <style>
@@ -2747,7 +2749,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 </script>
 
     <!-- Polish layer — premium navy+gold. Chargé EN DERNIER (override propre). Additif. -->
-    <link rel="stylesheet" href="/assets/polish.css">
+    <!-- "Bourse à l'Aube" — tokens centraux puis couche DA (EN DERNIER, override propre, dual-theme) -->
+    <link rel="stylesheet" href="/assets/tokens-aube.css">
+    <link rel="stylesheet" href="/assets/aube.css">
 </head>
 <body>
     <a href="#main-content" class="skip-link">Aller au contenu principal</a>
@@ -14416,8 +14420,9 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
 
     
 
-    <!-- Polish layer — fond bougies live market + count-up/halo/nav indicator (additif) -->
+    <!-- "Bourse à l'Aube" — fond multi-couches (bougies + ticker + particules) + chorégraphie -->
     <script src="/assets/candles-bg.js" defer></script>
-    <script src="/assets/polish.js" defer></script>
+    <script src="/assets/aube-bg.js" defer></script>
+    <script src="/assets/aube.js" defer></script>
 </body>
 </html>

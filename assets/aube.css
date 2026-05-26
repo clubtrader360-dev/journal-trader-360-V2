@@ -1,0 +1,135 @@
+/* ============================================================
+   "BOURSE À L'AUBE" — couche direction artistique (dual-theme, additif).
+   Chargé après tokens-aube.css, EN DERNIER dans <head>. Supersède polish.css.
+   Cibles : sélecteurs réels recensés par route (.trader-card, .metric-value-*,
+   .section-header, .trader-btn*, #netPnlValue). Structure V2 intacte.
+   ============================================================ */
+
+/* ---- 1. Fond multi-couches — base gradient (dual-theme) ---- */
+html { background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.18) 0%, transparent 60%),
+                   linear-gradient(180deg, #fbf6ec 0%, #f2ead7 100%); min-height: 100vh; }
+html:has(body.dark-mode) {
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.10) 0%, transparent 55%),
+              radial-gradient(ellipse at 50% 100%, #001a4d 0%, #000B25 55%, #00050f 100%);
+}
+body { background: transparent !important; }
+
+/* Couche 2 — bougies (blend selon thème, hérité du token sur body) */
+#candles-bg { mix-blend-mode: var(--aube-candle-blend, screen); }
+
+/* Couche 3 — ticker de paires (injecté par aube-bg.js) */
+#aube-ticker {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 18px; z-index: -1;
+  overflow: hidden; pointer-events: none; opacity: 0.13;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 18px;
+  white-space: nowrap; color: var(--aube-text-secondary);
+}
+#aube-ticker .aube-ticker-row { display: inline-block; padding-left: 100%; animation: aubeTicker 60s linear infinite; }
+#aube-ticker .up { color: var(--color-emerald); }
+#aube-ticker .down { color: var(--color-coral); }
+@keyframes aubeTicker { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* Couche 4 — particules dorées (canvas injecté par aube-bg.js) */
+#aube-particles { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+/* ---- 2. Typographie 3 étages ---- */
+/* Titres nobles → Fraunces italic */
+.section-header, .section-header h1, .section-header h2, .section-header h3 {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; letter-spacing: -0.01em;
+}
+/* Chiffres → JetBrains Mono tabular + tracking serré */
+#mainApp .metric-value-large, #mainApp .metric-value-medium, #netPnlValue, .metric-main .metric-value-large {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
+/* ---- 3. Cards "Glass Forge" (élève #mainApp, dual-theme) ---- */
+#mainApp .trader-card,
+body.dark-mode #mainApp .trader-card {
+  background: var(--aube-glass) !important;
+  border: 1px solid var(--aube-glass-border) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--aube-card-shadow);
+  transition: transform 280ms var(--aube-ease), border-color 280ms ease,
+              box-shadow 280ms ease, filter 280ms ease;
+}
+#mainApp .trader-card:hover,
+body.dark-mode #mainApp .trader-card:hover {
+  transform: scale(1.01) rotate(0.15deg);
+  border-color: var(--color-aurum) !important;
+  filter: brightness(1.03);
+  box-shadow: var(--aube-card-shadow), 0 0 36px -6px rgba(212, 175, 55, 0.35);
+}
+
+/* ---- 4. P&L hero — halo doré + respiration ambiante ---- */
+body.dark-mode #netPnlValue {
+  text-shadow: 0 0 60px rgba(212,175,55,0.5), 0 0 20px rgba(212,175,55,0.25);
+}
+#netPnlValue {
+  display: inline-block;
+  animation: aubeBreathe 4s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes aubeBreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.005); } }
+
+/* ---- 5. Horloge de Paris (injectée par aube.js) ---- */
+.aube-clock {
+  font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+  font-size: 12px; letter-spacing: 0.04em; color: var(--aube-text-secondary);
+  opacity: 0.85; display: inline-flex; align-items: center; gap: 6px;
+}
+.aube-clock::before { content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--color-emerald-glow); box-shadow: 0 0 6px var(--color-emerald-glow);
+  animation: aubeFlicker 2s ease-in-out infinite; }
+
+/* ---- Vie ambiante : flicker (réutilisé pour le feu du streak si présent) ---- */
+@keyframes aubeFlicker { 0%,100% { opacity: 0.9; } 45% { opacity: 1; } 70% { opacity: 0.85; } }
+.streak-flame, [data-streak-flame] { animation: aubeFlicker 2.2s ease-in-out infinite; }
+
+/* ---- 6. Indicateur nav doré (barre injectée par aube.js) ---- */
+.aube-nav-indicator {
+  position: absolute; left: 0; width: 3px; border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--color-aurum), var(--color-bronze));
+  box-shadow: 0 0 12px rgba(212,175,55,0.6);
+  transition: transform 380ms var(--aube-ease), height 380ms var(--aube-ease);
+  pointer-events: none; z-index: 2;
+}
+
+/* ---- 6b. Transitions de section + arrivée des cards en séquence ---- */
+#mainApp .section:not(.hidden) { animation: aubeSectionIn 240ms var(--aube-ease); }
+@keyframes aubeSectionIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+#mainApp .section:not(.hidden) .trader-card { animation: aubeCardIn 420ms var(--aube-ease) both; }
+@keyframes aubeCardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+#mainApp .section:not(.hidden) .trader-card:nth-child(1) { animation-delay: 0ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(2) { animation-delay: 50ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(3) { animation-delay: 100ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(4) { animation-delay: 150ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(n+5) { animation-delay: 200ms; }
+
+/* ---- 7. Micro-interactions boutons (.trader-btn*) ---- */
+.trader-btn, .trader-btn-secondary, .trader-btn-blue, .trader-btn-gold, button, .btn {
+  transition: transform 200ms var(--aube-ease), filter 200ms ease;
+}
+.trader-btn:hover, .trader-btn-secondary:hover, .trader-btn-blue:hover, .trader-btn-gold:hover,
+button:hover, .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.trader-btn:active, button:active, .btn:active { transform: translateY(0); filter: brightness(0.95); }
+
+/* ---- 8. Micro-célébrations (primitives — déclenchées par aube.js, cf debrief) ---- */
+.aube-celebrate-top::after {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
+  background: linear-gradient(90deg, transparent, var(--color-aurum), transparent);
+  animation: aubeTopPulse 400ms var(--aube-ease) forwards; pointer-events: none;
+}
+@keyframes aubeTopPulse { 0% { opacity: 0; box-shadow: 0 0 0 rgba(212,175,55,0); }
+  50% { opacity: 1; box-shadow: 0 6px 24px rgba(212,175,55,0.5); } 100% { opacity: 0; } }
+
+/* ---- 9. Garde-fous globaux ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+[data-animations="off"] #candles-bg, [data-animations="off"] #aube-ticker, [data-animations="off"] #aube-particles { display: none !important; }
+[data-animations="off"] *, [data-animations="off"] *::before, [data-animations="off"] *::after {
+  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important;
+}

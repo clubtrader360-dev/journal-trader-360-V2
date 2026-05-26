@@ -1,0 +1,49 @@
+/* ============================================================
+   "BOURSE À L'AUBE" — TOKENS CENTRAUX (dual-theme)
+   Logo intouchable : navy #000B25 + or #d4af37. Or étendu sur 3 niveaux.
+   Light = "aube claire" (crème chaude), Dark = salle feutrée navy.
+   Thème géré via body.dark-mode (light = défaut).
+   ============================================================ */
+:root {
+  /* Logo — intouchables */
+  --color-navy: #000B25;
+  --color-gold: #d4af37;
+
+  /* Or — 3 niveaux */
+  --color-aurum: #d4af37;      /* primaire */
+  --color-champagne: #f4e4c1;  /* highlights, texte clair sur dark */
+  --color-bronze: #7b6018;     /* bordures, séparateurs */
+
+  /* États */
+  --color-emerald: #10b981;
+  --color-emerald-glow: #34d399;
+  --color-coral: #ef4444;
+  --color-coral-glow: #f87171;
+
+  /* Motion */
+  --aube-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- Surfaces LIGHT (aube claire) ---- */
+  --aube-base:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212, 175, 55, 0.18) 0%, transparent 60%),
+    linear-gradient(180deg, #fbf6ec 0%, #f2ead7 100%);
+  --aube-glass: rgba(255, 250, 240, 0.65);
+  --aube-glass-border: rgba(123, 96, 24, 0.30);
+  --aube-text-primary: #1a1208;
+  --aube-text-secondary: #6b5d3f;
+  --aube-candle-blend: multiply;
+  --aube-card-shadow: 0 8px 28px rgba(123, 96, 24, 0.12), 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+/* ---- Surfaces DARK (salle feutrée) ---- */
+body.dark-mode {
+  --aube-base:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212, 175, 55, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 100%, #001a4d 0%, #000B25 55%, #00050f 100%);
+  --aube-glass: linear-gradient(135deg, rgba(15, 28, 58, 0.65) 0%, rgba(10, 22, 50, 0.55) 100%);
+  --aube-glass-border: rgba(212, 175, 55, 0.14);
+  --aube-text-primary: #f4e4c1;
+  --aube-text-secondary: #b9a37e;
+  --aube-candle-blend: screen;
+  --aube-card-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02);
+}

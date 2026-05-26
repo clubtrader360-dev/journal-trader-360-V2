@@ -27,8 +27,9 @@
     var canvas = document.createElement('canvas');
     canvas.id = 'candles-bg';
     canvas.setAttribute('aria-hidden', 'true');
+    // mix-blend-mode piloté par aube.css (screen en dark / multiply en light, dual-theme)
     canvas.style.cssText =
-      'position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:0.22;mix-blend-mode:screen;';
+      'position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:0.22;';
     document.body.appendChild(canvas);
 
     var ctx = canvas.getContext('2d');
