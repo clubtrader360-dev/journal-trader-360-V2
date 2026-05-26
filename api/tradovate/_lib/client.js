@@ -34,21 +34,65 @@ function baseUrl(env) {
 // ----------------------------------------
 // Demande un access_token avec les creds. À n'appeler que si le token
 // caché est expiré, ou pour valider des creds nouvellement saisis.
+//
+// Logs [TVDEBUG] temporaires pour diagnostiquer les refus prop firm
+// (Tradeify, Apex…). À retirer une fois le bug identifié.
 export async function requestAccessToken({ env, username, password }) {
-  const res = await fetch(`${baseUrl(env)}/auth/accesstokenrequest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: username,
-      password,
-      appId: APP_ID,
-      appVersion: APP_VERSION,
-      cid: 0,
-      sec: ''
-    })
+  const url = `${baseUrl(env)}/auth/accesstokenrequest`;
+  const requestBody = {
+    name: username,
+    password,
+    appId: APP_ID,
+    appVersion: APP_VERSION,
+    cid: 0,
+    sec: ''
+  };
+
+  // Log AVANT envoi — pas de password, juste les champs métadonnées.
+  console.log('[TVDEBUG] POST', url, {
+    env,
+    name: username,
+    appId: APP_ID,
+    appVersion: APP_VERSION,
+    cid: requestBody.cid,
+    sec_present: requestBody.sec !== '',
+    password_length: password?.length || 0
   });
 
-  const body = await res.json().catch(() => ({}));
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody)
+  });
+
+  // Capture headers + body raw + body parsé pour log exhaustif.
+  const responseHeaders = {};
+  for (const [k, v] of res.headers.entries()) responseHeaders[k] = v;
+  const responseText = await res.text();
+  let body = {};
+  try { body = responseText ? JSON.parse(responseText) : {}; } catch (_) { /* keep {} */ }
+
+  const ok = res.ok && body?.accessToken;
+  if (!ok) {
+    console.error('[TVDEBUG] AUTH FAILED', {
+      status: res.status,
+      statusText: res.statusText,
+      response_headers: responseHeaders,
+      response_body: body,
+      response_text_if_unparsed: responseText && !Object.keys(body).length ? responseText.slice(0, 500) : undefined
+    });
+  } else {
+    console.log('[TVDEBUG] AUTH OK', {
+      status: res.status,
+      has_md_token: !!body.mdAccessToken,
+      expirationTime: body.expirationTime,
+      userStatus: body.userStatus,
+      hasLive: body.hasLive,
+      outdatedTaC: body.outdatedTaC,
+      outdatedLiquidationOnly: body.outdatedLiquidationOnly
+    });
+  }
+
   if (!res.ok) {
     throw new TradovateError(
       `auth ${res.status}: ${body['p-ticket'] ? 'captcha required' : (body.errorText || res.statusText)}`,
