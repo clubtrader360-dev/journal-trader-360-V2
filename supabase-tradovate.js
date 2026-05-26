@@ -51,7 +51,7 @@
   }
 
   // --------------------------------------
-  // Rendu de l'état des connexions
+  // Rendu de l'état des connexions (multi-comptes)
   // --------------------------------------
   async function refreshStatus() {
     const container = document.getElementById('tradovateStatusContainer');
@@ -59,7 +59,7 @@
 
     try {
       const data = await authedFetch('/status');
-      renderStatus(container, data.envs || {});
+      renderConnections(container, data.connections || []);
     } catch (err) {
       container.innerHTML = `
         <div class="trader-card p-6 text-center text-red-600">
@@ -70,63 +70,73 @@
     }
   }
 
-  function renderStatus(container, byEnv) {
-    const envs = ['demo', 'live'];
-    const cards = envs.map(env => {
-      const info = byEnv[env];
-      if (!info?.connected) {
-        return `
-          <div class="trader-card p-4 flex items-center justify-between">
-            <div>
-              <div class="text-sm uppercase tracking-wide text-gray-500">${escape(env)}</div>
-              <div class="text-base text-gray-700">Non connecté</div>
-            </div>
-            <span class="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">Inactif</span>
-          </div>
-        `;
-      }
-      const lastSync = info.last_synced_at
-        ? new Date(info.last_synced_at).toLocaleString('fr-FR')
+  function renderConnections(container, connections) {
+    if (!connections.length) {
+      container.innerHTML = `
+        <div class="trader-card p-6 text-center text-gray-600">
+          <i class="fas fa-plug text-2xl mb-2 text-gray-400"></i>
+          <p>Aucune connexion Tradovate pour le moment.</p>
+          <p class="text-sm text-gray-500 mt-1">Ajoute une connexion ci-dessous (une par prop firm).</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = connections.map(c => {
+      const lastSync = c.last_synced_at
+        ? new Date(c.last_synced_at).toLocaleString('fr-FR')
         : 'jamais';
-      const statusBadge = info.last_sync_status === 'error'
+      const statusBadge = c.last_sync_status === 'error'
         ? `<span class="px-3 py-1 rounded-full text-xs bg-red-100 text-red-700">Erreur</span>`
         : `<span class="px-3 py-1 rounded-full text-xs bg-green-100 text-green-700">Connecté</span>`;
-      const accountsList = (info.accounts || []).map(a => `
+
+      const envBadge =
+        `<span class="px-2 py-0.5 rounded-full text-xs ${
+          c.env === 'live'
+            ? 'bg-amber-100 text-amber-800'
+            : 'bg-blue-100 text-blue-800'
+        }">${escape(c.env)}</span>`;
+
+      const accountsList = (c.accounts || []).map(a => `
         <li class="flex justify-between text-sm py-1 border-b border-gray-100 last:border-0">
           <span class="text-gray-700">${escape(a.name || `Compte ${a.tradovate_account_id}`)}</span>
           <span class="text-gray-500">${a.trades_created_total || 0} trades importés</span>
         </li>
       `).join('') || '<li class="text-sm text-gray-500 py-1">Aucun compte synchronisé pour le moment.</li>';
 
-      const errorBox = info.last_sync_status === 'error' && info.last_sync_error
-        ? `<div class="mt-3 p-3 rounded bg-red-50 border border-red-200 text-sm text-red-700">${escape(info.last_sync_error)}</div>`
+      const errorBox = c.last_sync_status === 'error' && c.last_sync_error
+        ? `<div class="mt-3 p-3 rounded bg-red-50 border border-red-200 text-sm text-red-700">${escape(c.last_sync_error)}</div>`
         : '';
 
       return `
         <div class="trader-card p-4">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-sm uppercase tracking-wide text-gray-500">${escape(env)}</div>
-              <div class="text-base text-gray-800 font-semibold">Tradovate connecté</div>
-              <div class="text-xs text-gray-500 mt-1">Dernière sync : ${escape(lastSync)}</div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-base text-gray-800 font-semibold">${escape(c.label)}</span>
+                ${envBadge}
+              </div>
+              <div class="text-xs text-gray-500">Dernière sync : ${escape(lastSync)}</div>
             </div>
             ${statusBadge}
           </div>
           <ul class="mb-4">${accountsList}</ul>
           ${errorBox}
           <div class="flex flex-wrap gap-2">
-            <button class="trader-btn-secondary" data-action="tradovate-sync" data-env="${escape(env)}">
+            <button class="trader-btn-secondary" data-action="tradovate-sync">
               <i class="fas fa-sync-alt mr-2"></i>Sync maintenant
             </button>
-            <button class="trader-btn-secondary" data-action="tradovate-disconnect" data-env="${escape(env)}" style="color: #b91c1c; border-color: #fca5a5;">
+            <button class="trader-btn-secondary"
+                    data-action="tradovate-disconnect"
+                    data-credentials-id="${c.id}"
+                    data-label="${escape(c.label)}"
+                    style="color: #b91c1c; border-color: #fca5a5;">
               <i class="fas fa-unlink mr-2"></i>Déconnecter
             </button>
           </div>
         </div>
       `;
     }).join('');
-
-    container.innerHTML = cards;
   }
 
   // --------------------------------------
@@ -139,12 +149,13 @@
     if (errBox) { errBox.classList.add('hidden'); errBox.textContent = ''; }
 
     const env = document.querySelector('input[name="tradovateEnv"]:checked')?.value;
+    const label = document.getElementById('tradovateLabel')?.value?.trim();
     const username = document.getElementById('tradovateUsername')?.value?.trim();
     const password = document.getElementById('tradovatePassword')?.value;
 
-    if (!env || !username || !password) {
+    if (!env || !label || !username || !password) {
       if (errBox) {
-        errBox.textContent = 'Tous les champs sont requis.';
+        errBox.textContent = 'Tous les champs sont requis (y compris le nom de la prop firm).';
         errBox.classList.remove('hidden');
       }
       return;
@@ -157,7 +168,7 @@
     try {
       await authedFetch('/connect', {
         method: 'POST',
-        body: { env, username, password }
+        body: { env, username, password, label }
       });
       // Reset form
       document.getElementById('tradovateConnectForm')?.reset();
@@ -211,16 +222,20 @@
   }
 
   // --------------------------------------
-  // Disconnect
+  // Disconnect (par credentials_id)
   // --------------------------------------
-  async function handleDisconnect(env) {
-    if (!confirm(`Déconnecter Tradovate ${env} ? Tes trades déjà importés sont conservés.`)) {
+  async function handleDisconnect(credentialsId, label) {
+    if (!credentialsId) return;
+    if (!confirm(`Déconnecter "${label}" ? Tes trades déjà importés sont conservés.`)) {
       return;
     }
     try {
-      await authedFetch('/disconnect', { method: 'POST', body: { env } });
+      await authedFetch('/disconnect', {
+        method: 'POST',
+        body: { credentials_id: Number(credentialsId) }
+      });
       await refreshStatus();
-      showToast(`Tradovate ${env} déconnecté`, 'success', 2500);
+      showToast(`"${label}" déconnecté`, 'success', 2500);
     } catch (err) {
       showToast(`Erreur : ${err.message}`, 'error', 4000);
     }
@@ -274,9 +289,11 @@
     if (!btn) return;
     const action = btn.dataset.action;
     if (action === 'tradovate-sync') {
+      // Le sync /api/tradovate/sync itère sur TOUTES les connexions
+      // de l'élève — un seul bouton suffit, pas besoin de cibler une cred.
       runSync({ silent: false });
     } else if (action === 'tradovate-disconnect') {
-      handleDisconnect(btn.dataset.env);
+      handleDisconnect(btn.dataset.credentialsId, btn.dataset.label);
     }
   });
 

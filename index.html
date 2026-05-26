@@ -4601,6 +4601,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             <form id="tradovateConnectForm" autocomplete="off">
                 <div class="form-group">
+                    <label for="tradovateLabel">Nom de la connexion (prop firm)</label>
+                    <input type="text" id="tradovateLabel" maxlength="50" required
+                           placeholder="Ex: Topstep, Apex, Tradeify…" autocomplete="off">
+                    <small style="color: #6b7280; font-size: 0.85em; display: block; margin-top: 6px;">
+                        Un nom libre pour distinguer cette connexion (tu peux brancher plusieurs prop firms en parallèle).
+                    </small>
+                </div>
+
+                <div class="form-group">
                     <label>Environnement</label>
                     <div style="display: flex; gap: 16px; margin-top: 6px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">

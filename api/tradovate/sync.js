@@ -3,18 +3,22 @@
 // Header : Authorization: Bearer <supabase JWT>
 // Body : (vide)
 //
-// Pour chaque env connecté de l'élève :
+// Pour CHAQUE connexion Tradovate de l'élève :
 //   1. récupère un access_token (cache si valide, sinon re-auth)
 //   2. liste les comptes Tradovate
-//   3. mappe les comptes Tradovate ↔ accounts Supabase (auto-crée si inconnu)
+//   3. mappe les comptes Tradovate ↔ accounts Supabase
+//      (auto-crée si inconnu, scoped par credentials_id)
 //   4. récupère fills + fillFees + contracts
 //   5. filtre les fills > last_fill_id par compte
-//   6. agrège en round-trips → upsert dans trades (sur user+source+external_id)
+//   6. agrège en round-trips → upsert dans trades
+//      (idempotent via user+source+external_id, où external_id
+//       commence par credentials_id pour éviter toute collision
+//       entre prop firms)
 //   7. avance le curseur dans tradovate_sync_state
 //   8. met à jour last_synced_at sur tradovate_credentials
 //
 // Réponse :
-//   { synced: { demo: {...}, live: {...} }, total_trades: N, duration_ms }
+//   { synced: [{ credentials_id, label, env, ... }], total_trades, duration_ms }
 // ========================================
 
 import { requireUser, getServiceClient, httpError } from './_lib/auth.js';
@@ -40,7 +44,7 @@ export default async function handler(req, res) {
     const { user_id } = await requireUser(req);
     const sb = getServiceClient();
 
-    // 1. Lire toutes les connexions (demo + live) de l'élève
+    // 1. Lire toutes les connexions de l'élève (multi-prop-firm)
     const { data: creds, error: credsErr } = await sb
       .from('tradovate_credentials')
       .select('*')
@@ -52,20 +56,25 @@ export default async function handler(req, res) {
     }
     if (!creds || creds.length === 0) {
       return res.status(200).json({
-        synced: {},
+        synced: [],
         total_trades: 0,
         duration_ms: Date.now() - t0,
         note: 'Aucune connexion Tradovate'
       });
     }
 
-    const synced = {};
+    const synced = [];
     let totalTrades = 0;
 
     for (const cred of creds) {
       try {
-        const result = await syncOneEnv({ sb, user_id, cred });
-        synced[cred.env] = result;
+        const result = await syncOneCredential({ sb, user_id, cred });
+        synced.push({
+          credentials_id: cred.id,
+          label:          cred.label,
+          env:            cred.env,
+          ...result
+        });
         totalTrades += result.trades_upserted;
 
         await sb.from('tradovate_credentials')
@@ -76,11 +85,14 @@ export default async function handler(req, res) {
           })
           .eq('id', cred.id);
       } catch (err) {
-        console.error(`[SYNC] env=${cred.env} error:`, err);
-        synced[cred.env] = {
+        console.error(`[SYNC] cred=${cred.id} (${cred.label}) error:`, err);
+        synced.push({
+          credentials_id: cred.id,
+          label:          cred.label,
+          env:            cred.env,
           error: err.message,
           status: err.status || 0
-        };
+        });
         await sb.from('tradovate_credentials')
           .update({
             last_synced_at: new Date().toISOString(),
@@ -107,10 +119,11 @@ export default async function handler(req, res) {
 }
 
 // ----------------------------------------
-// Sync d'un seul env (demo OU live) pour un user
+// Sync d'une connexion (= un credentials_id)
 // ----------------------------------------
-async function syncOneEnv({ sb, user_id, cred }) {
+async function syncOneCredential({ sb, user_id, cred }) {
   const env = cred.env;
+  const credentialsId = cred.id;
 
   // Déchiffrer les creds
   const username = decrypt({
@@ -142,9 +155,8 @@ async function syncOneEnv({ sb, user_id, cred }) {
           last_md_token: mdToken,
           last_token_expires_at: expiresAt
         })
-        .eq('id', cred.id);
+        .eq('id', credentialsId);
       if (error) throw error;
-      // Mémoire locale aussi pour le reste du sync
       cred.last_token = token;
       cred.last_md_token = mdToken;
       cred.last_token_expires_at = expiresAt;
@@ -159,31 +171,29 @@ async function syncOneEnv({ sb, user_id, cred }) {
   const tvAccounts = await callWithTokenRetry(() =>
     listAccounts({ env, accessToken })
   , async () => {
-    // Si 401, on force un refresh (vide le cache)
     cred.last_token = null;
     const fresh = await getAccessToken({ env, username, password, tokenStore });
     accessToken = fresh.accessToken;
     return accessToken;
   });
 
-  // 3. Mapper / auto-créer les accounts Supabase
+  // 3. Mapper / auto-créer les accounts Supabase (scope = credentials_id)
   const accountsMap = await ensureSupabaseAccounts({
-    sb, user_id, env, tvAccounts
+    sb, user_id, env, credentialsId, tvAccounts
   });
 
-  // 4. Fills + fees + contracts (un seul fetch par env)
+  // 4. Fills + fees + contracts (un fetch par credentials)
   const [fills, fillFees, contracts] = await Promise.all([
     listFills    ({ env, accessToken }),
     listFillFees ({ env, accessToken }),
     listContracts({ env, accessToken })
   ]);
 
-  // 5. État de sync par compte (curseurs last_fill_id)
+  // 5. État de sync par compte (curseurs last_fill_id), scope credentials_id
   const { data: states, error: statesErr } = await sb
     .from('tradovate_sync_state')
     .select('*')
-    .eq('user_id', user_id)
-    .eq('env', env);
+    .eq('credentials_id', credentialsId);
   if (statesErr) throw statesErr;
 
   const stateByTradovateAccount = new Map();
@@ -200,7 +210,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
     const state = stateByTradovateAccount.get(tvAcc.id);
     const lastFillId = state?.last_fill_id ?? 0;
 
-    // Ne traiter que les NOUVEAUX fills
     const newFills = accountFills.filter(f => Number(f.id) > Number(lastFillId));
     if (newFills.length === 0) {
       accountsReport.push({
@@ -212,18 +221,16 @@ async function syncOneEnv({ sb, user_id, cred }) {
       continue;
     }
 
-    // Agréger en trades round-trip. Note: pour reconstituer correctement
-    // les positions, l'agrégateur a besoin du contexte des fills déjà
-    // traités. V1 pragmatique : on lui passe TOUS les fills du compte
-    // (pas juste les nouveaux), et on filtre côté upsert via external_id.
+    // Agrège tous les fills du compte (pas juste les nouveaux) pour avoir
+    // le contexte des positions ; idempotence assurée par external_id.
     const rows = aggregateFillsToTrades({
       fills: accountFills,
       fillFees,
       contracts,
       ctx: {
-        env,
+        credentials_id:       credentialsId,
         user_id,
-        account_id_supabase: accountsMap.get(tvAcc.id) || null
+        account_id_supabase:  accountsMap.get(tvAcc.id) || null
       }
     });
 
@@ -235,7 +242,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
       if (upErr) throw upErr;
     }
 
-    // Avancer le curseur au plus grand fillId vu sur ce compte
     const maxFillId = accountFills.reduce(
       (m, f) => Number(f.id) > m ? Number(f.id) : m,
       0
@@ -243,18 +249,18 @@ async function syncOneEnv({ sb, user_id, cred }) {
 
     await sb.from('tradovate_sync_state').upsert(
       {
+        credentials_id:         credentialsId,
         user_id,
-        env,
-        tradovate_account_id: tvAcc.id,
+        tradovate_account_id:   tvAcc.id,
         tradovate_account_name: tvAcc.name,
-        last_fill_id: maxFillId,
-        last_synced_at: new Date().toISOString(),
+        last_fill_id:           maxFillId,
+        last_synced_at:         new Date().toISOString(),
         fills_imported_total:
           (state?.fills_imported_total || 0) + newFills.length,
         trades_created_total:
           (state?.trades_created_total || 0) + rows.length
       },
-      { onConflict: 'user_id,env,tradovate_account_id' }
+      { onConflict: 'credentials_id,tradovate_account_id' }
     );
 
     tradesUpserted += rows.length;
@@ -272,7 +278,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
   };
 }
 
-// Exécute fn(); si TradovateError 401, relance fn() après refresh.
 async function callWithTokenRetry(fn, refresh) {
   try {
     return await fn();
@@ -287,16 +292,19 @@ async function callWithTokenRetry(fn, refresh) {
 
 // Renvoie Map<tradovate_account_id, supabase_account_id>.
 // Crée les comptes Supabase manquants à la volée.
-async function ensureSupabaseAccounts({ sb, user_id, env, tvAccounts }) {
+// Le matching est scoped par (tradovate_credentials_id, tradovate_id) —
+// pas de collision possible entre prop firms même si elles ont des
+// account_id identiques côté Tradovate.
+async function ensureSupabaseAccounts({ sb, user_id, env, credentialsId, tvAccounts }) {
   if (!tvAccounts || tvAccounts.length === 0) return new Map();
 
   const tvIds = tvAccounts.map(a => a.id);
 
   const { data: existing, error } = await sb
     .from('accounts')
-    .select('id, tradovate_id, tradovate_env, name')
+    .select('id, tradovate_id, tradovate_credentials_id, name')
     .eq('user_id', user_id)
-    .eq('tradovate_env', env)
+    .eq('tradovate_credentials_id', credentialsId)
     .in('tradovate_id', tvIds);
   if (error) throw error;
 
@@ -305,7 +313,6 @@ async function ensureSupabaseAccounts({ sb, user_id, env, tvAccounts }) {
     map.set(Number(row.tradovate_id), row.id);
   }
 
-  // Créer les manquants
   const toInsert = tvAccounts
     .filter(a => !map.has(a.id))
     .map(a => ({
@@ -315,7 +322,8 @@ async function ensureSupabaseAccounts({ sb, user_id, env, tvAccounts }) {
       current_balance: 0,
       active: true,
       tradovate_id: a.id,
-      tradovate_env: env
+      tradovate_env: env,
+      tradovate_credentials_id: credentialsId
     }));
 
   if (toInsert.length > 0) {
