@@ -150,9 +150,9 @@ function toParisDate(isoDateTime) {
 }
 
 async function notifyDiscord(addedVideos) {
-  const url = process.env.DISCORD_WEBHOOK_URL;
+  const url = process.env.DISCORD_REPLAYS_WEBHOOK_URL;
   if (!url) {
-    console.warn('[REPLAYS-SYNC] DISCORD_WEBHOOK_URL non configurée — pas de notif');
+    console.warn('[REPLAYS-SYNC] DISCORD_REPLAYS_WEBHOOK_URL non configurée — pas de notif');
     return;
   }
   const lines = addedVideos.map(v =>
