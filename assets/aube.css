@@ -648,3 +648,56 @@ body:not(.dark-mode) #dailyFeesTable .text-gray-500 {
 body.dark-mode #tradesTableBody .text-gray-500,
 body.dark-mode #journalEntries .text-gray-500,
 body.dark-mode #replaysList .text-gray-500 { color: rgba(255, 255, 255, 0.6) !important; }
+
+/* ============================================================
+   BUNDLE 1.6 — hover boutons actions + modales Détails + tooltips
+   ============================================================ */
+
+/* ---- Fix 1 — Boutons action Trades/Journal : les vrais sont en Tailwind hover:bg-gray-50/blue-50/red-50
+   (PAS .action-btn → d'où l'échec 1.5). On reprend le pattern Compta (text-gray-700 hover:text-gray-900,
+   SANS fond) : hover transparent + lift + glow doré. ---- */
+#tradesTableBody button:hover, #journalEntries button:hover {
+  background: transparent !important;
+  transform: translateY(-1px) !important;
+  box-shadow: none !important;
+}
+body.dark-mode #tradesTableBody button:hover i, body.dark-mode #tradesTableBody button:hover svg,
+body.dark-mode #journalEntries button:hover i, body.dark-mode #journalEntries button:hover svg {
+  filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.5));
+}
+
+/* ---- Fix 2 — Modales "Détails Compte/Payout" (classes .view-modal-* — échappaient à .modal-content) :
+   glass dark + barres latérales UNIFORMÉMENT dorées (au lieu de multicolores). ---- */
+body.dark-mode .view-modal-content {
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important; backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important; color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
+}
+body.dark-mode .view-modal-section {
+  background: rgba(10, 15, 24, 0.55) !important;
+  border: 1px solid rgba(201, 162, 75, 0.2) !important;
+  border-left: 3px solid rgba(201, 162, 75, 0.6) !important;   /* barre dorée uniforme (cohérence) */
+  border-radius: 6px !important; color: rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-mode .view-modal-label { color: rgba(212, 175, 55, 0.85) !important; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; }
+body.dark-mode .view-modal-value { color: rgba(255, 255, 255, 0.95) !important; font-weight: 600; }
+/* Light : crème + barre or */
+body:not(.dark-mode) .view-modal-content { background: rgba(255, 250, 240, 0.95) !important; border: 1px solid rgba(201, 162, 75, 0.5) !important; color: rgba(15, 23, 42, 0.95) !important; }
+body:not(.dark-mode) .view-modal-section { background: rgba(255, 250, 240, 0.7) !important; border: 1px solid rgba(123, 96, 24, 0.25) !important; border-left: 3px solid rgba(123, 96, 24, 0.6) !important; }
+body:not(.dark-mode) .view-modal-label { color: rgba(123, 96, 24, 0.95) !important; }
+
+/* ---- Fix 3 — Tooltips info : casse normale (uppercase hérité) + glass dark cohérent, lisible ---- */
+body.dark-mode .tooltip, body.dark-mode [role="tooltip"], body.dark-mode [class*="tooltip"], body.dark-mode .info-tooltip {
+  background: rgba(5, 10, 20, 0.96) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(140%) !important; backdrop-filter: blur(8px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.45) !important; color: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 8px !important; padding: 10px 14px !important; font-size: 0.85rem !important; line-height: 1.5 !important;
+  font-weight: 400 !important; text-transform: none !important; letter-spacing: normal !important; max-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+body.dark-mode .tooltip *, body.dark-mode [role="tooltip"] *, body.dark-mode [class*="tooltip"] * { text-transform: none !important; }
+body:not(.dark-mode) .tooltip, body:not(.dark-mode) [role="tooltip"], body:not(.dark-mode) [class*="tooltip"] {
+  background: rgba(255, 250, 240, 0.96) !important; border: 1px solid rgba(123, 96, 24, 0.5) !important;
+  color: rgba(15, 23, 42, 0.95) !important; text-transform: none !important;
+}
