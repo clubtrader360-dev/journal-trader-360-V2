@@ -412,3 +412,56 @@ button[onclick="resetChecklist()"]:hover { filter: brightness(1.08); }
   background: rgba(212, 175, 55, 0.12) !important;
   border-radius: 8px;
 }
+
+/* ============================================================
+   BUNDLE 1.2 — lisibilité contenu des modales
+   ============================================================ */
+
+/* ---- Fix 1 — Titres de modales : or premium bien visible (override text-gray-800) ---- */
+body.dark-mode .modal-content h1, body.dark-mode .modal-content h2, body.dark-mode .modal-content h3 {
+  color: rgba(212, 175, 55, 0.95) !important; font-weight: 700 !important; letter-spacing: -0.01em !important;
+}
+body:not(.dark-mode) .modal-content h1, body:not(.dark-mode) .modal-content h2, body:not(.dark-mode) .modal-content h3 {
+  color: rgba(123, 96, 24, 0.95) !important; font-weight: 700 !important; letter-spacing: -0.01em !important;
+}
+
+/* ---- Fix 2/3 — Dropdown sélection comptes (#csvAccountList bg-white) : panel glass + items alignés + hover lisible ---- */
+body.dark-mode #csvAccountList { background: rgba(10, 15, 24, 0.97) !important; border-color: rgba(201, 162, 75, 0.3) !important; }
+body.dark-mode #csvAccountList .bg-gray-50 { background: rgba(255, 255, 255, 0.04) !important; }
+body.dark-mode #csvAccountList label { color: rgba(255, 255, 255, 0.92) !important; }
+/* Alignement checkbox + nom (Fix 3) */
+#csvAccountList label,
+label:has(.csv-account-checkbox), label:has(.trade-account-checkbox) {
+  display: flex !important; align-items: center !important; gap: 10px !important; padding: 8px 12px !important;
+}
+#csvAccountList label input[type="checkbox"],
+label:has(.csv-account-checkbox) input[type="checkbox"],
+label:has(.trade-account-checkbox) input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; margin: 0 !important; }
+/* Hover tint doré (Fix 2) — fini le blanc-sur-blanc */
+body.dark-mode #csvAccountList label:hover,
+body.dark-mode label:has(.csv-account-checkbox):hover,
+body.dark-mode label:has(.trade-account-checkbox):hover { background: rgba(212, 175, 55, 0.12) !important; color: rgba(255, 255, 255, 0.95) !important; }
+body:not(.dark-mode) #csvAccountList label:hover,
+body:not(.dark-mode) label:has(.csv-account-checkbox):hover,
+body:not(.dark-mode) label:has(.trade-account-checkbox):hover { background: rgba(212, 175, 55, 0.15) !important; color: rgba(15, 23, 42, 0.95) !important; }
+/* "Tout cocher" violet → or */
+#csvAccountList .text-purple-600 { color: var(--color-gold) !important; }
+
+/* ---- Fix 4 — Modale Note Quotidienne : sections accordéon (fond blanc inline → glass dark, texte lisible) ---- */
+body.dark-mode .modal-content .accordion-category { border-color: rgba(201, 162, 75, 0.2) !important; }
+body.dark-mode .modal-content .accordion-header { background: rgba(10, 15, 24, 0.5) !important; color: rgba(255, 255, 255, 0.92) !important; }
+body.dark-mode .modal-content .accordion-content { background: rgba(10, 15, 24, 0.6) !important; color: rgba(255, 255, 255, 0.9) !important; }
+body:not(.dark-mode) .modal-content .accordion-content { background: rgba(255, 250, 240, 0.65) !important; color: rgba(15, 23, 42, 0.85) !important; }
+/* (les badges verts/rouges sémantiques des sections gardent leur couleur inline) */
+
+/* ---- Fix 5 — Case "Pas de trade aujourd'hui" : encadré harmonisé (cadre or fin + glass) ---- */
+body.dark-mode #addNoteModal label:has(#noTradeToday) {
+  background: rgba(10, 15, 24, 0.5) !important;
+  border: 1px solid rgba(201, 162, 75, 0.25) !important;
+  border-radius: 8px !important;
+}
+body:not(.dark-mode) #addNoteModal label:has(#noTradeToday) {
+  background: rgba(255, 250, 240, 0.6) !important;
+  border: 1px solid rgba(123, 96, 24, 0.3) !important;
+  border-radius: 8px !important;
+}
