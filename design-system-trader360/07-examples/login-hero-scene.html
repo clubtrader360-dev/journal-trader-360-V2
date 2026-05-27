@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trader 360 — Login Hero Scene (template)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../01-tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    background-image: url('../06-assets/executive-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 11, 37, 0.30);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .auth-wrapper {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 2rem 200px 2rem;
+  }
+  .auth-card {
+    background: rgba(10, 15, 24, 0.85);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--border-gold-strong);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-modal);
+    padding: 1.5rem 2rem;
+    max-width: 460px;
+    width: 100%;
+  }
+  .auth-logo {
+    display: block;
+    width: 100px;
+    height: auto;
+    margin: 0 auto 0.75rem auto;
+  }
+  .auth-subtitle {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--gold-aurum);
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .auth-title {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: rgba(212, 175, 55, 1);
+    text-shadow:
+      0 0 20px rgba(212, 175, 55, 0.4),
+      0 0 40px rgba(212, 175, 55, 0.25);
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .form-group {
+    margin-bottom: 0.85rem;
+  }
+  .form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: var(--weight-semibold);
+    color: rgba(212, 175, 55, 0.85);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    margin-bottom: 0.4rem;
+  }
+  .input-wrap {
+    position: relative;
+  }
+  .input-wrap .input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(212, 175, 55, 0.7);
+    pointer-events: none;
+  }
+  .input-wrap input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.92);
+    color: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 1rem 0.65rem 42px;
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    transition: border-color var(--duration-fast) var(--ease-premium),
+                box-shadow var(--duration-fast) var(--ease-premium);
+  }
+  .input-wrap input:focus {
+    outline: none;
+    border-color: rgba(212, 175, 55, 0.6);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18);
+  }
+  .input-wrap input:-webkit-autofill {
+    -webkit-text-fill-color: rgba(15, 23, 42, 0.95) !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.92) inset !important;
+    caret-color: rgba(15, 23, 42, 0.95) !important;
+  }
+  .pw-eye {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: rgba(212, 175, 55, 0.8);
+    padding: 4px;
+  }
+  .pw-eye:hover {
+    color: rgba(212, 175, 55, 1);
+    transform: translateY(-50%); /* MAINTIEN du translateY au hover */
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    border-radius: var(--radius-md);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: all var(--duration-fast) var(--ease-premium);
+  }
+  .btn-primary {
+    background: var(--gold-aurum);
+    color: var(--trader-navy);
+    font-weight: var(--weight-semibold);
+    border: none;
+    box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.45);
+  }
+  .btn-secondary {
+    background: rgba(0, 11, 37, 0.4);
+    color: rgba(201, 162, 75, 0.95);
+    border: 1px solid rgba(201, 162, 75, 0.5);
+    font-weight: var(--weight-medium);
+  }
+  .btn-secondary:hover {
+    border-color: rgba(201, 162, 75, 0.7);
+    background: rgba(0, 11, 37, 0.55);
+    transform: translateY(-1px);
+  }
+  /* Bandeau trust badges en bas, plein largeur */
+  .trust-badges {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 1.5rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2rem;
+    z-index: 2;
+  }
+  .badge {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: var(--text-sm);
+  }
+  .badge-icon {
+    color: var(--gold-aurum);
+    font-size: 32px;
+    margin-bottom: 0.5rem;
+  }
+  .badge-title {
+    color: var(--gold-aurum);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    font-size: var(--text-sm);
+    margin-bottom: 0.25rem;
+  }
+</style>
+</head>
+<body class="dark-mode">
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <img src="../06-assets/trader360-logo-clean.png" alt="Trader 360" class="auth-logo">
+    <div class="auth-subtitle">Journal de Trading Professionnel</div>
+    <h1 class="auth-title">Connexion</h1>
+
+    <div class="form-group">
+      <label for="email">Email</label>
+      <div class="input-wrap">
+        <span class="input-icon">👤</span>
+        <input type="email" id="email" placeholder="votre@email.com">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="password">Mot de passe</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="password" placeholder="Votre mot de passe">
+        <button class="pw-eye" type="button" onclick="
+          const i = document.getElementById('password');
+          i.type = i.type === 'password' ? 'text' : 'password';
+        ">👁</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary">Se connecter</button>
+    <button class="btn btn-secondary">Créer un compte</button>
+    <button class="btn btn-secondary">Connexion Coach</button>
+  </div>
+</div>
+
+<div class="trust-badges">
+  <div class="badge">
+    <div class="badge-icon">🛡</div>
+    <div class="badge-title">Sécurité Avancée</div>
+    <div>Vos données chiffrées et protégées, jamais partagées</div>
+  </div>
+  <div class="badge">
+    <div class="badge-icon">📈</div>
+    <div class="badge-title">Analyse &amp; Performance</div>
+    <div>Suivez, analysez et améliorez vos performances</div>
+  </div>
+  <div class="badge">
+    <div class="badge-icon">🎯</div>
+    <div class="badge-title">Discipline &amp; Réussite</div>
+    <div>Un journal, une méthode, des résultats durables</div>
+  </div>
+</div>
+
+</body>
+</html>

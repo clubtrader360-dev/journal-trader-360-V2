@@ -1,0 +1,194 @@
+/* ==========================================================
+   TRADER 360 — DESIGN TOKENS "Bourse à l'Aube"
+   À importer en premier dans n'importe quel projet.
+   Toutes les variables CSS de la marque Trader 360.
+   ========================================================== */
+
+:root {
+  /* ============ COULEURS — LOGO (sacrées, ne jamais modifier) ============ */
+  --trader-navy: #000B25;          /* navy logo, base de tous les fonds dark */
+  --trader-gold: #d4af37;          /* or logo, accent principal */
+
+  /* ============ COULEURS — OR ÉTENDU (3 niveaux) ============ */
+  --gold-aurum: #d4af37;           /* primaire (cards bordures, boutons primaires) */
+  --gold-champagne: #f4e4c1;       /* highlights, texte clair sur dark glass */
+  --gold-bronze: #7b6018;          /* bordures subtiles, texte light mode, séparateurs */
+
+  /* ============ COULEURS — SÉMANTIQUE TRADING (intouchables) ============ */
+  --trading-emerald: #10b981;      /* positif (P&L gain, succès, validation) */
+  --trading-emerald-glow: #34d399; /* version glow plus claire */
+  --trading-coral: #ef4444;        /* négatif (P&L perte, erreur, alerte) */
+  --trading-coral-glow: #f87171;   /* version glow plus claire */
+
+  /* ============ NAVY ÉTENDU (surfaces dark) ============ */
+  --navy-deep: #00050f;             /* profondeur extrême (gradient bg) */
+  --navy-base: #000B25;             /* base sombre */
+  --navy-mid: #001a4d;               /* milieu de gradient */
+  --navy-card: rgba(10, 15, 24, 0.55); /* fond standard cards (glass) */
+  --navy-card-hover: rgba(5, 10, 20, 0.80); /* fond cards au hover (plus dense, reste glass) */
+  --navy-modal: rgba(10, 15, 24, 0.92); /* fond modale isolée focus */
+  --navy-section: rgba(20, 25, 40, 0.6); /* sections internes de modale */
+  --navy-sidebar: rgba(0, 11, 37, 0.55); /* fond sidebar translucide */
+
+  /* ============ CRÈME ÉTENDU (surfaces light = "aube claire") ============ */
+  --creme-base: #fbf6ec;            /* base claire chaude */
+  --creme-deep: #f2ead7;            /* version plus profonde */
+  --creme-card: rgba(255, 250, 240, 0.75); /* fond standard cards light */
+  --creme-card-hover: rgba(245, 235, 215, 0.85); /* hover cards light */
+  --creme-modal: rgba(255, 250, 240, 0.95); /* modale light */
+  --creme-sidebar: rgba(255, 250, 240, 0.65); /* sidebar light */
+
+  /* ============ BORDURES OR (différentes opacités selon contexte) ============ */
+  --border-gold-subtle: rgba(201, 162, 75, 0.18); /* presque invisible (sidebar) */
+  --border-gold-light: rgba(201, 162, 75, 0.25);  /* discrète (sections internes) */
+  --border-gold-medium: rgba(201, 162, 75, 0.35); /* standard (cards, modales) */
+  --border-gold-strong: rgba(201, 162, 75, 0.55); /* affirmée (cadre photo encadré) */
+  --border-gold-hover: rgba(212, 175, 55, 0.6);   /* au hover */
+  --border-gold-focus: rgba(212, 175, 55, 0.7);   /* au focus */
+
+  /* ============ TEXTES (dark mode) ============ */
+  --text-primary-dark: rgba(255, 255, 255, 0.95);    /* texte principal blanc */
+  --text-secondary-dark: rgba(255, 255, 255, 0.75);  /* secondaire (descriptions) */
+  --text-tertiary-dark: rgba(255, 255, 255, 0.6);     /* aide, hint */
+  --text-gold-accent: rgba(212, 175, 55, 0.95);       /* labels importants (CAPS) */
+  --text-gold-subtle: rgba(201, 162, 75, 0.7);        /* labels secondaires */
+
+  /* ============ TEXTES (light mode) ============ */
+  --text-primary-light: rgba(15, 23, 42, 0.95);
+  --text-secondary-light: rgba(15, 23, 42, 0.75);
+  --text-tertiary-light: rgba(15, 23, 42, 0.6);
+  --text-gold-accent-light: rgba(123, 96, 24, 0.95);
+
+  /* ============ TYPOGRAPHIE — FAMILIES ============ */
+  --font-serif: 'Fraunces', 'Spectral', 'Georgia', serif;      /* citations, titres éditoriaux, italic */
+  --font-mono: 'JetBrains Mono', 'Berkeley Mono', 'SF Mono', monospace; /* chiffres, data, tabular */
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;    /* UI, boutons, body */
+
+  /* ============ TYPOGRAPHIE — SIZES ============ */
+  --text-xs: 0.7rem;     /* mini labels, badges */
+  --text-sm: 0.85rem;    /* aide, descriptions, captions */
+  --text-base: 1rem;     /* body */
+  --text-md: 1.05rem;    /* valeurs importantes (data) */
+  --text-lg: 1.25rem;    /* sous-titres */
+  --text-xl: 1.5rem;     /* titres section */
+  --text-2xl: 2rem;      /* hero secondaire */
+  --text-3xl: 2.25rem;   /* hero principal (titre CONNEXION) */
+  --text-4xl: 3rem;      /* P&L hero, gros chiffres */
+
+  /* ============ TYPOGRAPHIE — WEIGHTS ============ */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ============ TYPOGRAPHIE — LETTER SPACING ============ */
+  --tracking-tight: -0.02em;   /* gros chiffres P&L */
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;     /* CAPS labels */
+  --tracking-wider: 0.08em;    /* CAPS bouton, sous-titre */
+
+  /* ============ EASING UNIVERSEL ============ */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);  /* Linear-tier, TOUTES les anims */
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1); /* count-up chiffres */
+
+  /* ============ DURATIONS ============ */
+  --duration-fast: 200ms;       /* hover boutons, focus */
+  --duration-base: 280ms;       /* cards hover, transitions standard */
+  --duration-slow: 380ms;       /* nav indicator slide */
+  --duration-slower: 1400ms;    /* count-up chiffres */
+  --duration-slowest: 1500ms;   /* fade-in card login */
+
+  /* ============ BACKDROP BLURS ============ */
+  --blur-ambient: blur(4px);                          /* calendrier, ambient cards */
+  --blur-sidebar: blur(14px) saturate(120%);          /* sidebar translucide */
+  --blur-glass: blur(16px) saturate(140%);             /* cards glass forge */
+  --blur-modal: blur(20px) saturate(140%);             /* modale isolated focus */
+
+  /* ============ RADIUS ============ */
+  --radius-xs: 4px;
+  --radius-sm: 6px;             /* sections internes modales */
+  --radius-md: 8px;             /* boutons, badges, cards petites */
+  --radius-lg: 12px;            /* cards standard */
+  --radius-xl: 16px;            /* cards login, premium */
+  --radius-full: 999px;         /* pills, badges count */
+
+  /* ============ ESPACEMENTS (4px grid) ============ */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* ============ BOX SHADOWS ============ */
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 24px -8px rgba(212, 175, 55, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18);
+  --shadow-button-gold: 0 4px 16px rgba(212, 175, 55, 0.25);
+  --shadow-button-gold-hover: 0 8px 24px rgba(212, 175, 55, 0.45);
+  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgba(212, 175, 55, 0.3);
+
+  /* ============ GLOW (text shadow, halo) ============ */
+  --glow-gold-subtle: 0 0 20px rgba(212, 175, 55, 0.3);
+  --glow-gold-medium: 0 0 40px rgba(212, 175, 55, 0.5);
+  --glow-gold-strong: 0 0 60px rgba(212, 175, 55, 0.65);
+  --glow-emerald: 0 0 24px rgba(16, 185, 129, 0.4);
+  --glow-coral: 0 0 24px rgba(239, 68, 68, 0.4);
+
+  /* ============ Z-INDEX (couches) ============ */
+  --z-bg-canvas: -1;      /* canvas bg (bougies, particules) */
+  --z-bg-image: 0;        /* image bg fixed */
+  --z-content: 1;         /* contenu principal */
+  --z-overlay: 50;        /* sidebar, header sticky */
+  --z-modal-backdrop: 100;
+  --z-modal: 101;
+  --z-tooltip: 200;
+  --z-toast: 300;
+}
+
+/* ============ DARK MODE (par défaut) ============ */
+:root {
+  --bg-page: var(--navy-base);
+  --bg-card: var(--navy-card);
+  --bg-card-hover: var(--navy-card-hover);
+  --bg-modal: var(--navy-modal);
+  --bg-section: var(--navy-section);
+  --bg-sidebar: var(--navy-sidebar);
+  --text-primary: var(--text-primary-dark);
+  --text-secondary: var(--text-secondary-dark);
+  --text-tertiary: var(--text-tertiary-dark);
+  --text-label: var(--text-gold-accent);
+}
+
+/* ============ LIGHT MODE ============ */
+body:not(.dark-mode) {
+  --bg-page: var(--creme-base);
+  --bg-card: var(--creme-card);
+  --bg-card-hover: var(--creme-card-hover);
+  --bg-modal: var(--creme-modal);
+  --bg-section: rgba(255, 250, 240, 0.6);
+  --bg-sidebar: var(--creme-sidebar);
+  --text-primary: var(--text-primary-light);
+  --text-secondary: var(--text-secondary-light);
+  --text-tertiary: var(--text-tertiary-light);
+  --text-label: var(--text-gold-accent-light);
+}
+
+/* ============ ACCESSIBILITÉ — REDUCED MOTION ============ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============ TOGGLE OFF GLOBAL ============ */
+[data-animations="off"] *,
+[data-animations="off"] *::before,
+[data-animations="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}

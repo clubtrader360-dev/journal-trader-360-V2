@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Trader 360 — Modal Template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../01-tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    background-image: url('../06-assets/executive-bg.png');
+    background-size: cover;
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: var(--text-primary);
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 11, 37, 0.50);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* Backdrop modale (overlay sombre derrière la modale) */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  /* Modale (focus isolated) */
+  .modal {
+    background: rgba(10, 15, 24, 0.92);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid var(--border-gold-medium);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-modal);
+    padding: var(--space-6);
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Header de modale (titre + bouton fermer) */
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-5);
+  }
+  .modal-title {
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+    color: var(--gold-aurum);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 24px;
+    cursor: pointer;
+    padding: var(--space-1);
+    transition: color var(--duration-fast) var(--ease-premium);
+  }
+  .modal-close:hover { color: var(--gold-aurum); }
+
+  /* Sections internes (chaque champ) */
+  .modal-section {
+    background: rgba(20, 25, 40, 0.6);
+    border: 1px solid rgba(201, 162, 75, 0.18);
+    border-left: 3px solid rgba(201, 162, 75, 0.6);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-3);
+  }
+  .modal-section .label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--gold-aurum);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    display: block;
+    margin-bottom: var(--space-1);
+  }
+  .modal-section .value {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-feature-settings: 'tnum' 1;
+  }
+  .modal-section .value.gold { color: var(--gold-aurum); }
+  .modal-section .value.green { color: var(--trading-emerald); }
+  .modal-section .value.red { color: var(--trading-coral); }
+
+  /* Footer (boutons d'action) */
+  .modal-footer {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+  .btn {
+    flex: 1;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-family: var(--font-ui);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-base);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-premium);
+  }
+  .btn-primary {
+    background: var(--gold-aurum);
+    color: var(--trader-navy);
+    border: none;
+    box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  .btn-secondary {
+    background: rgba(0, 11, 37, 0.4);
+    color: var(--gold-aurum);
+    border: 1px solid var(--border-gold-strong);
+  }
+  .btn-secondary:hover {
+    border-color: rgba(212, 175, 55, 0.7);
+    background: rgba(0, 11, 37, 0.55);
+    transform: translateY(-1px);
+  }
+</style>
+</head>
+<body class="dark-mode">
+
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">📝 Note du 2026-02-05</h2>
+      <button class="modal-close" type="button">✕</button>
+    </div>
+
+    <div class="modal-section">
+      <span class="label">Date</span>
+      <span class="value">2026-02-05</span>
+    </div>
+
+    <div class="modal-section">
+      <span class="label">Émotions</span>
+      <span class="value">Avant : Nerveux → Après : Déçu</span>
+    </div>
+
+    <div class="modal-section">
+      <span class="label">Montant</span>
+      <span class="value gold">$5000.00</span>
+    </div>
+
+    <div class="modal-section">
+      <span class="label">Contenu</span>
+      <span class="value" style="font-family: var(--font-ui); font-weight: 400;">Journée où tu es monté à +2500$. Trades alignés avec la méthode. Discipline tenue.</span>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary">Enregistrer</button>
+      <button class="btn btn-secondary">Annuler</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,740 @@
+/* ============================================================
+   "BOURSE À L'AUBE" — couche direction artistique (dual-theme, additif).
+   Chargé après tokens-aube.css, EN DERNIER dans <head>. Supersède polish.css.
+   Cibles : sélecteurs réels recensés par route (.trader-card, .metric-value-*,
+   .section-header, .trader-btn*, #netPnlValue). Structure V2 intacte.
+   ============================================================ */
+
+/* ---- 1. Fond multi-couches — base gradient (dual-theme) ---- */
+html { background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.18) 0%, transparent 60%),
+                   linear-gradient(180deg, #fbf6ec 0%, #f2ead7 100%); min-height: 100vh; }
+html:has(body.dark-mode) {
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.10) 0%, transparent 55%),
+              radial-gradient(ellipse at 50% 100%, #001a4d 0%, #000B25 55%, #00050f 100%);
+}
+body { background: transparent !important; }
+
+/* ===== DIRECTION "fidélité mockups" : fond = IMAGE STATIQUE (pas de couches live).
+   On masque les overlays live (bougies/ticker/particules) qui parasitaient l'image. ===== */
+#candles-bg, #aube-ticker, #aube-particles { display: none !important; }
+
+/* Zone de contenu transparente pour laisser voir l'image de fond posée sur #mainApp */
+#mainApp .main-content, body.dark-mode #mainApp .main-content { background: transparent !important; }
+
+/* ----- DASHBOARD (et routes authentifiées) : image executive en fond fixed + overlay navy 0.45 ----- */
+#mainApp {
+  background: linear-gradient(rgba(0,11,37,0.45), rgba(0,11,37,0.45)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+body:not(.dark-mode) #mainApp {                         /* light : overlay crème "aube claire" */
+  background: linear-gradient(rgba(255,250,240,0.55), rgba(255,250,240,0.55)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+
+/* ----- LOGIN : même image en fond fixed + overlay navy léger 0.30 (l'ambiance respire) ----- */
+#authScreen, .auth-container {
+  background: linear-gradient(rgba(0,11,37,0.30), rgba(0,11,37,0.30)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+
+/* ----- SIDEBAR (élève) : translucide + blur, l'image transparaît, séparateur doré fin ----- */
+/* Sidebar : alpha alignée EXACTEMENT sur le calendrier (.trader-card p-6) = rgba(10,15,24,0.55) + blur(4px).
+   Enfants directs transparentisés (sécurité). Renfort texte en dark pour rester lisible. */
+#mainAppSidebar > * { background: transparent !important; }
+#mainAppSidebar, #mainApp .sidebar {
+  background: rgba(10, 15, 24, 0.55) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+  border-right: 1px solid rgba(201, 162, 75, 0.15) !important;
+}
+body:not(.dark-mode) #mainAppSidebar > * { background: transparent !important; }
+body:not(.dark-mode) #mainAppSidebar,
+body:not(.dark-mode) #mainApp .sidebar {
+  background: rgba(255, 250, 240, 0.75) !important;
+}
+/* Garde-fou lisibilité texte sidebar (dark) : léger text-shadow + gris remontés à 0.85 */
+body.dark-mode #mainAppSidebar .sidebar-item,
+body.dark-mode #mainAppSidebar h3,
+body.dark-mode #mainAppSidebar #userInfo,
+body.dark-mode #mainAppSidebar a,
+body.dark-mode #mainAppSidebar span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+body.dark-mode #mainAppSidebar .text-gray-300,
+body.dark-mode #mainAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85) !important; }
+/* Card login : resserrée pour ne JAMAIS chevaucher le bandeau bas + cadre doré (§3) + fade-in */
+#authScreen .auth-card {
+  animation: aubeCardEnter 480ms var(--aube-ease) both;
+  min-height: auto !important;
+  padding: 1.25rem 2rem !important;
+  max-width: 460px !important;
+  max-height: calc(100vh - 140px) !important;
+  overflow-y: auto !important;
+}
+/* Compactage interne → contenu ~450px : les 3 boutons visibles SANS scroll (≤900px) */
+#authScreen .auth-card .logo img { width: 100px !important; height: auto !important; margin: 0 auto 0.75rem !important; display: block !important; }
+#authScreen .auth-card .logo { margin-bottom: 4px !important; }
+#authScreen .auth-card h2 { margin: 0.5rem 0 !important; }
+#authScreen .auth-card .form-group { margin-bottom: 10px !important; }
+#authScreen .auth-card label { font-size: 0.72rem !important; margin-bottom: 0.25rem !important; display: block; }
+#authScreen .auth-card .form-group input { padding: 0.65rem 1rem 0.65rem 42px !important; }
+#authScreen .auth-card .trader-btn,
+#authScreen .auth-card .trader-btn-secondary { padding: 0.65rem 1rem !important; margin: 0 0 8px !important; }
+/* Centrage VERTICAL de la card login + réserve bandeau bas (card compacte ~450px → pas de chevauchement) */
+#authScreen, .auth-container { align-items: center !important; justify-content: center !important; padding: 2rem 24px 180px !important; }
+#authScreen .auth-card { margin: 0 !important; }
+@keyframes aubeCardEnter { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: none; } }
+/* Textes Login lisibles — battent les inline (h2 color:#000B25, subtitle div color:#666) via !important */
+#authScreen .auth-card h2 {
+  color: #ffffff !important; font-weight: 700 !important; letter-spacing: -0.01em;
+  text-shadow: 0 2px 8px rgba(201, 162, 75, 0.25);
+}
+#authScreen .auth-card .logo + div,
+#authScreen .auth-card div[style*="666"] {
+  color: rgba(201, 162, 75, 0.75) !important; font-weight: 500; letter-spacing: 0.05em;
+  text-transform: uppercase; font-size: 0.85rem;
+}
+#authScreen .auth-card label { color: rgba(255, 255, 255, 0.7) !important; font-weight: 500; }
+#authScreen .auth-card, #authScreen .auth-card p { color: var(--color-champagne) !important; }
+/* Light : navy lisible sur crème */
+body:not(.dark-mode) #authScreen .auth-card h2 { color: #0d1116 !important; text-shadow: none; }
+body:not(.dark-mode) #authScreen .auth-card .logo + div,
+body:not(.dark-mode) #authScreen .auth-card div[style*="666"] { color: rgba(123, 96, 24, 0.85) !important; }
+body:not(.dark-mode) #authScreen .auth-card label { color: rgba(13, 17, 22, 0.75) !important; }
+
+/* Bouton "Se connecter" : or solide, texte navy */
+#authScreen .auth-card .trader-btn {
+  background: var(--aube-btn-gold) !important; color: #0a1020 !important; border: none !important; font-weight: 600;
+}
+#authScreen .auth-card .trader-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+/* "Créer un compte" / "Connexion Coach" : ghost dark, cadre doré fin, texte doré */
+#authScreen .auth-card .trader-btn-secondary {
+  background: rgba(10,15,28,0.5) !important; color: var(--color-gold) !important;
+  border: 1px solid var(--aube-frame) !important;
+}
+#authScreen .auth-card .trader-btn-secondary:hover { border-color: var(--aube-frame-hover) !important; filter: brightness(1.08); }
+
+/* Inputs login : fond navy translucide, icône gauche (Lucide doré), focus doré glow */
+#authScreen .auth-card .form-group input,
+#authScreen .auth-card .form-group select {
+  background-color: rgba(10,15,28,0.6) !important; color: var(--color-champagne) !important;
+  border: 1px solid var(--aube-frame) !important;
+  background-repeat: no-repeat; background-position: 12px center; background-size: 18px; padding-left: 42px !important;
+}
+#authScreen .auth-card .form-group input[type="email"], #authScreen .auth-card .form-group input[type="text"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9a24b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
+}
+#authScreen .auth-card .form-group input[type="password"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9a24b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+}
+#authScreen .auth-card .form-group input:focus {
+  border-color: var(--aube-frame-hover) !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.18), 0 0 14px rgba(212,175,55,0.28) !important;
+  outline: none;
+}
+/* Toggle œil show/hide — fixé à droite, centré sur l'INPUT (wrapper .aube-pw-wrap injecté par aube.js) */
+.aube-pw-wrap { position: relative; }
+.aube-pw-wrap input { padding-right: 42px !important; }
+.aube-eye {
+  position: absolute !important; right: 12px !important; top: 50% !important;
+  transform: translateY(-50%) !important;   /* !important → bat le button:hover{translateY(-1px)} global */
+  background: none; border: none; cursor: pointer; color: var(--color-gold);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; opacity: 0.85;
+  transition: opacity 150ms ease, color 150ms ease !important;  /* pas de transition sur transform */
+  z-index: 5;
+}
+.aube-eye:hover { transform: translateY(-50%) !important; opacity: 1; color: rgba(212, 175, 55, 0.95) !important; }
+/* Trust badges — BANDEAU fixe plein largeur en bas de page (injecté par aube.js, hors card) */
+.aube-trust {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+}
+.aube-trust > div { text-align: center; }
+.aube-trust .aube-trust-ic { color: var(--color-gold); display: inline-flex; margin-bottom: 8px; }
+.aube-trust .aube-trust-ic svg { width: 32px; height: 32px; }
+.aube-trust .aube-trust-t { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-gold); }
+.aube-trust .aube-trust-d { font-size: 11px; line-height: 1.45; color: rgba(255,255,255,0.6); margin-top: 4px; max-width: 240px; margin-left: auto; margin-right: auto; }
+/* Light : bandeau crème, texte navy */
+body:not(.dark-mode) .aube-trust { background: linear-gradient(to top, rgba(245,240,230,0.85) 0%, rgba(245,240,230,0.4) 100%); }
+body:not(.dark-mode) .aube-trust .aube-trust-d { color: rgba(26,18,8,0.7); }
+/* Mobile : stack 1 colonne */
+@media (max-width: 640px) { .aube-trust { grid-template-columns: 1fr; gap: 12px; text-align: center; } }
+
+/* ---- 2. Typographie 3 étages ---- */
+/* Titres nobles → Fraunces italic */
+.section-header, .section-header h1, .section-header h2, .section-header h3 {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; letter-spacing: -0.01em;
+}
+/* Chiffres → JetBrains Mono tabular + tracking serré */
+#mainApp .metric-value-large, #mainApp .metric-value-medium, #netPnlValue, .metric-main .metric-value-large {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
+/* ---- 3. Cards "photo encadrée" — cadre doré fin + fond navy semi-transparent (fidélité mockups).
+   Uniforme : .trader-card (toutes routes, dont Mes Qualités/Défauts) + .metric-item (8 KPIs head) + .auth-card.
+   PAS de glass-forge multi-couches : trait fin + fond translucide, esprit cadre photo. ---- */
+#mainApp .trader-card, body.dark-mode #mainApp .trader-card,
+#mainApp .metric-item, body.dark-mode #mainApp .metric-item,
+#authScreen .auth-card {
+  background: rgba(10, 15, 24, 0.55) !important;
+  border: 1px solid var(--aube-frame) !important;
+  border-radius: var(--aube-frame-radius) !important;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 200ms var(--aube-ease), filter 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+#mainApp .trader-card:hover, body.dark-mode #mainApp .trader-card:hover,
+#mainApp .metric-item:hover, body.dark-mode #mainApp .metric-item:hover {
+  transform: translateY(-1px);                  /* lift -1px */
+  filter: brightness(1.08);                     /* +8% */
+  border-color: var(--aube-frame-hover) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42), 0 0 22px -8px rgba(212, 175, 55, 0.4) !important;
+}
+/* Light "aube claire" : cards crème + cadre doré + texte navy (pas un dark inversé brutal) */
+body:not(.dark-mode) #mainApp .trader-card,
+body:not(.dark-mode) #mainApp .metric-item {
+  background: rgba(255, 250, 240, 0.75) !important; color: #1a1208 !important;
+}
+/* Sparklines KPI (injectées par aube.js) : mini-courbe sous le chiffre */
+.metric-item .aube-spark { display: block; width: 100%; height: 34px; margin-top: 10px; }
+
+/* ===== FIX 1 — wrapper head metrics (.traderzella-banner) quasi-transparent :
+   laisse voir l'image de fond ENTRE et AUTOUR des 8 cards KPI (qui gardent leur fond 0.55).
+   On ne touche QUE le background/box-shadow/bordure — padding/grille/spacing inchangés. ===== */
+body.dark-mode #mainApp .traderzella-banner {
+  background: rgba(0, 11, 37, 0.15) !important; border-color: transparent !important; box-shadow: none !important;
+}
+body:not(.dark-mode) #mainApp .traderzella-banner {
+  background: rgba(255, 250, 240, 0.18) !important; box-shadow: none !important; border: none !important;
+}
+
+/* ---- 4. P&L hero — halo doré + respiration ambiante ---- */
+body.dark-mode #netPnlValue {
+  text-shadow: 0 0 60px rgba(212,175,55,0.5), 0 0 20px rgba(212,175,55,0.25);
+}
+#netPnlValue {
+  display: inline-block;
+  animation: aubeBreathe 4s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes aubeBreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.005); } }
+
+/* ---- 5. Horloge de Paris (injectée par aube.js) ---- */
+.aube-clock {
+  font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+  font-size: 12px; letter-spacing: 0.04em; color: var(--aube-text-secondary);
+  opacity: 0.85; display: inline-flex; align-items: center; gap: 6px;
+}
+.aube-clock::before { content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--color-emerald-glow); box-shadow: 0 0 6px var(--color-emerald-glow);
+  animation: aubeFlicker 2s ease-in-out infinite; }
+
+/* ---- Vie ambiante : flicker (réutilisé pour le feu du streak si présent) ---- */
+@keyframes aubeFlicker { 0%,100% { opacity: 0.9; } 45% { opacity: 1; } 70% { opacity: 0.85; } }
+.streak-flame, [data-streak-flame] { animation: aubeFlicker 2.2s ease-in-out infinite; }
+
+/* ---- 6. Indicateur nav doré (barre injectée par aube.js) ---- */
+.aube-nav-indicator {
+  position: absolute; left: 0; width: 3px; border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--color-aurum), var(--color-bronze));
+  box-shadow: 0 0 12px rgba(212,175,55,0.6);
+  transition: transform 380ms var(--aube-ease), height 380ms var(--aube-ease);
+  pointer-events: none; z-index: 2;
+}
+
+/* ---- 6b. Transitions de section + arrivée des cards en séquence ---- */
+#mainApp .section:not(.hidden) { animation: aubeSectionIn 240ms var(--aube-ease); }
+@keyframes aubeSectionIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+#mainApp .section:not(.hidden) .trader-card { animation: aubeCardIn 420ms var(--aube-ease) both; }
+@keyframes aubeCardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+#mainApp .section:not(.hidden) .trader-card:nth-child(1) { animation-delay: 0ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(2) { animation-delay: 50ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(3) { animation-delay: 100ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(4) { animation-delay: 150ms; }
+#mainApp .section:not(.hidden) .trader-card:nth-child(n+5) { animation-delay: 200ms; }
+
+/* ---- 7. Micro-interactions boutons (.trader-btn*) ---- */
+.trader-btn, .trader-btn-secondary, .trader-btn-blue, .trader-btn-gold, button, .btn {
+  transition: transform 200ms var(--aube-ease), filter 200ms ease;
+}
+.trader-btn:hover, .trader-btn-secondary:hover, .trader-btn-blue:hover, .trader-btn-gold:hover,
+button:hover, .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.trader-btn:active, button:active, .btn:active { transform: translateY(0); filter: brightness(0.95); }
+
+/* ---- 8. Micro-célébrations (primitives — déclenchées par aube.js, cf debrief) ---- */
+.aube-celebrate-top::after {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
+  background: linear-gradient(90deg, transparent, var(--color-aurum), transparent);
+  animation: aubeTopPulse 400ms var(--aube-ease) forwards; pointer-events: none;
+}
+@keyframes aubeTopPulse { 0% { opacity: 0; box-shadow: 0 0 0 rgba(212,175,55,0); }
+  50% { opacity: 1; box-shadow: 0 6px 24px rgba(212,175,55,0.5); } 100% { opacity: 0; } }
+
+/* ---- 9. Garde-fous globaux ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+[data-animations="off"] #candles-bg, [data-animations="off"] #aube-ticker, [data-animations="off"] #aube-particles { display: none !important; }
+[data-animations="off"] *, [data-animations="off"] *::before, [data-animations="off"] *::after {
+  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important;
+}
+
+/* ============================================================
+   BUNDLE 1 — micro-fixes polish (audit-polish-v2-eleve.md)
+   Modales glass + hover calendrier/tables + boutons palette + coin tableau
+   + Mon Pourquoi cadre or + focus généralisé. Dual-theme.
+   ============================================================ */
+
+/* ---- Fix A (1.1) — Modales : élément FOCAL, opacité haute (0.92) + blur 20 pour ISOLER du contenu derrière ---- */
+body.dark-mode .modal-content,
+body.dark-mode #importCSVModal .modal-content,
+body.dark-mode [class*="view-modal"],
+body.dark-mode [id*="Modal"] .modal-content {
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
+}
+body:not(.dark-mode) .modal-content,
+body:not(.dark-mode) #importCSVModal .modal-content,
+body:not(.dark-mode) [class*="view-modal"],
+body:not(.dark-mode) [id*="Modal"] .modal-content {
+  background: rgba(255, 250, 240, 0.95) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  color: rgba(15, 23, 42, 0.95) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15), 0 0 32px -8px rgba(201, 162, 75, 0.25) !important;
+}
+/* ---- Fix B — lisibilité texte dans les modales (corps + accents) ---- */
+body.dark-mode .modal-content p, body.dark-mode .modal-content li,
+body.dark-mode .modal-content small, body.dark-mode .modal-content span:not(.trader-btn):not([class*="badge"]) {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+body:not(.dark-mode) .modal-content p, body:not(.dark-mode) .modal-content li,
+body:not(.dark-mode) .modal-content small, body:not(.dark-mode) .modal-content span:not(.trader-btn):not([class*="badge"]) {
+  color: rgba(15, 23, 42, 0.78) !important;
+}
+/* Titres/labels des modales lisibles sur le glass */
+body.dark-mode .modal-content h1, body.dark-mode .modal-content h2, body.dark-mode .modal-content h3,
+body.dark-mode .modal-content label, body.dark-mode .modal-content .view-modal-label { color: var(--color-champagne) !important; }
+/* Boutons primaires de modale → or solide texte navy ; secondaires → ghost doré */
+.modal-content .trader-btn { background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; }
+.modal-content .trader-btn-secondary { background: rgba(10,15,28,0.5) !important; color: var(--color-gold) !important; border: 1px solid var(--aube-frame) !important; }
+
+/* ---- Fix 2 — Hover cases calendrier : tint doré translucide (préserve contraste, jamais blanc-sur-blanc) ---- */
+#mainApp #calendarGrid > div:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  border-radius: 8px;
+}
+
+/* ---- Fix 3 — Hover lignes de tableau : plus de gris clair + texte blanc ---- */
+body.dark-mode #importCSVModal tbody tr:hover,
+body.dark-mode #csvPreviewTable tbody tr:hover,
+body.dark-mode #tradesTableBody tr:hover,
+#mainApp #tradesTableBody tr:hover {
+  background: rgba(212, 175, 55, 0.08) !important;
+}
+
+/* ---- Fix 4 — Boutons hors palette → or premium texte navy ---- */
+button[onclick="validateChecklist()"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important;
+}
+button[onclick="validateChecklist()"]:hover { filter: brightness(1.08); }
+/* Boutons "Mon Pourquoi" (or) : texte navy au lieu de blanc pour lisibilité */
+#mainApp #motivation button[onclick="openEditMotivationModal()"] { color: #0d1116 !important; }
+
+/* ---- Fix 5 — Coin du tableau Journal des Trades clippé par l'arrondi ---- */
+#mainApp #tradelog .trader-card > .overflow-x-auto {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ---- Fix 7 — "Mon Pourquoi" : cadre or fin + glass (cohérence cross-routes) ---- */
+#mainApp #motivation .max-w-5xl {
+  background: rgba(10, 15, 24, 0.55);
+  border: 1px solid var(--aube-frame);
+  border-radius: var(--aube-frame-radius);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  padding: 28px;
+}
+body:not(.dark-mode) #mainApp #motivation .max-w-5xl { background: rgba(255, 250, 240, 0.75); color: #1a1208; }
+
+/* ---- Fix 8 — Focus doré généralisé (le login garde son focus plus spécifique) ---- */
+input:focus, textarea:focus, select:focus,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+  border-color: rgba(201, 162, 75, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.18) !important;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* ============================================================
+   BUNDLE 1.1 — Fix C (boutons harmonisés) + Fix D (Replays)
+   ============================================================ */
+
+/* ---- Fix C — Boutons secondaires (Annuler/Fermer/Retour = .trader-btn-secondary) → ghost dark/or ---- */
+body.dark-mode .trader-btn-secondary {
+  background: rgba(0, 11, 37, 0.4) !important;
+  color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  font-weight: 500;
+}
+body:not(.dark-mode) .trader-btn-secondary {
+  background: rgba(255, 250, 240, 0.6) !important;
+  color: rgba(123, 96, 24, 0.95) !important;
+  border: 1px solid rgba(123, 96, 24, 0.5) !important;
+  font-weight: 500;
+}
+.trader-btn-secondary:hover { filter: brightness(1.08); }
+/* "Réinitialiser" (checklist) = STRICTEMENT identique à "Valider la checklist" (or solide, texte navy) */
+button[onclick="resetChecklist()"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; font-weight: 600;
+}
+button[onclick="resetChecklist()"]:hover { filter: brightness(1.08); }
+
+/* ---- Fix D — Replays : titre en typo UI standard (Inter bold, plus de Fraunces italic isolée) ---- */
+#replays .section-header,
+#replays .section-header h1,
+#replays .section-header h2,
+#replays .section-header h3 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+/* Hover cases calendrier Replays : tint doré translucide (même fix que #calendarGrid) */
+#mainApp #replayCalendarGrid > div:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  border-radius: 8px;
+}
+
+/* ============================================================
+   BUNDLE 1.2 — lisibilité contenu des modales
+   ============================================================ */
+
+/* ---- Fix 1 — Titres de modales : or premium bien visible (override text-gray-800) ---- */
+body.dark-mode .modal-content h1, body.dark-mode .modal-content h2, body.dark-mode .modal-content h3 {
+  color: rgba(212, 175, 55, 0.95) !important; font-weight: 700 !important; letter-spacing: -0.01em !important;
+}
+body:not(.dark-mode) .modal-content h1, body:not(.dark-mode) .modal-content h2, body:not(.dark-mode) .modal-content h3 {
+  color: rgba(123, 96, 24, 0.95) !important; font-weight: 700 !important; letter-spacing: -0.01em !important;
+}
+
+/* ---- Fix 2/3 — Dropdown sélection comptes (#csvAccountList bg-white) : panel glass + items alignés + hover lisible ---- */
+body.dark-mode #csvAccountList { background: rgba(10, 15, 24, 0.97) !important; border-color: rgba(201, 162, 75, 0.3) !important; }
+body.dark-mode #csvAccountList .bg-gray-50 { background: rgba(255, 255, 255, 0.04) !important; }
+body.dark-mode #csvAccountList label { color: rgba(255, 255, 255, 0.92) !important; }
+/* Alignement checkbox + nom (Fix 3) */
+#csvAccountList label,
+label:has(.csv-account-checkbox), label:has(.trade-account-checkbox) {
+  display: flex !important; align-items: center !important; gap: 10px !important; padding: 8px 12px !important;
+}
+#csvAccountList label input[type="checkbox"],
+label:has(.csv-account-checkbox) input[type="checkbox"],
+label:has(.trade-account-checkbox) input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; margin: 0 !important; }
+/* Hover tint doré (Fix 2) — fini le blanc-sur-blanc */
+body.dark-mode #csvAccountList label:hover,
+body.dark-mode label:has(.csv-account-checkbox):hover,
+body.dark-mode label:has(.trade-account-checkbox):hover { background: rgba(212, 175, 55, 0.12) !important; color: rgba(255, 255, 255, 0.95) !important; }
+body:not(.dark-mode) #csvAccountList label:hover,
+body:not(.dark-mode) label:has(.csv-account-checkbox):hover,
+body:not(.dark-mode) label:has(.trade-account-checkbox):hover { background: rgba(212, 175, 55, 0.15) !important; color: rgba(15, 23, 42, 0.95) !important; }
+/* "Tout cocher" violet → or */
+#csvAccountList .text-purple-600 { color: var(--color-gold) !important; }
+
+/* ---- Fix 4 — Modale Note Quotidienne : sections accordéon (fond blanc inline → glass dark, texte lisible) ---- */
+body.dark-mode .modal-content .accordion-category { border-color: rgba(201, 162, 75, 0.2) !important; }
+body.dark-mode .modal-content .accordion-header { background: rgba(10, 15, 24, 0.5) !important; color: rgba(255, 255, 255, 0.92) !important; }
+body.dark-mode .modal-content .accordion-content { background: rgba(10, 15, 24, 0.6) !important; color: rgba(255, 255, 255, 0.9) !important; }
+body:not(.dark-mode) .modal-content .accordion-content { background: rgba(255, 250, 240, 0.65) !important; color: rgba(15, 23, 42, 0.85) !important; }
+/* (les badges verts/rouges sémantiques des sections gardent leur couleur inline) */
+
+/* ---- Fix 5 — Case "Pas de trade aujourd'hui" : encadré harmonisé (cadre or fin + glass) ---- */
+body.dark-mode #addNoteModal label:has(#noTradeToday) {
+  background: rgba(10, 15, 24, 0.5) !important;
+  border: 1px solid rgba(201, 162, 75, 0.25) !important;
+  border-radius: 8px !important;
+}
+body:not(.dark-mode) #addNoteModal label:has(#noTradeToday) {
+  background: rgba(255, 250, 240, 0.6) !important;
+  border: 1px solid rgba(123, 96, 24, 0.3) !important;
+  border-radius: 8px !important;
+}
+
+/* ============================================================
+   BUNDLE 1.3 — visibilité & cohérence contenu modales / toasts
+   ============================================================ */
+
+/* ---- Fix 1 — Dropdown comptes : trigger en glass + chevron doré visible ---- */
+body.dark-mode #csvAccountDropdown { background: rgba(10, 15, 24, 0.6) !important; border-color: rgba(201, 162, 75, 0.3) !important; color: rgba(255, 255, 255, 0.92) !important; }
+body.dark-mode #csvAccountDropdown i, body.dark-mode #csvAccountDropdown .fa-chevron-down { color: rgba(212, 175, 55, 0.85) !important; }
+body:not(.dark-mode) #csvAccountDropdown i, body:not(.dark-mode) #csvAccountDropdown .fa-chevron-down { color: rgba(123, 96, 24, 0.85) !important; }
+
+/* ---- Fix 2 — Labels + sous-textes des modales lisibles (Frais par trade, "Si votre CSV…", etc.) ---- */
+body.dark-mode .modal-content label { color: rgba(255, 255, 255, 0.92) !important; font-weight: 500; }
+body.dark-mode .modal-content [class*="text-gray-"] { color: rgba(255, 255, 255, 0.65) !important; }
+body:not(.dark-mode) .modal-content [class*="text-gray-"] { color: rgba(15, 23, 42, 0.6) !important; }
+
+/* ---- Fix 3 — Case "Pas de trade aujourd'hui" : checkbox + icône + texte sur 1 ligne, alignés à gauche ---- */
+#addNoteModal label:has(#noTradeToday) {
+  display: flex !important; flex-direction: row !important; align-items: center !important;
+  justify-content: flex-start !important; gap: 10px !important; text-align: left !important;
+}
+#addNoteModal label:has(#noTradeToday) > * { display: inline-flex !important; align-items: center !important; }
+#addNoteModal label:has(#noTradeToday) input[type="checkbox"] { margin: 0 !important; flex-shrink: 0; }
+
+/* ---- Fix 4 — Badges compteurs (0) Points Positifs / Erreurs : pill discret premium ---- */
+#positivePointsCount, [id^="badge-positive-"] {
+  background: rgba(16, 185, 129, 0.18) !important; color: rgba(52, 211, 153, 0.95) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  font-size: 0.75rem !important; font-weight: 600 !important; padding: 2px 10px !important; border-radius: 999px !important;
+}
+#errorsCount, [id^="badge-error-"] {
+  background: rgba(239, 68, 68, 0.15) !important; color: rgba(248, 113, 113, 0.95) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  font-size: 0.75rem !important; font-weight: 600 !important; padding: 2px 10px !important; border-radius: 999px !important;
+}
+
+/* ---- Fix 5 — Modale "Définir mon Pourquoi" : labels en or visible ---- */
+body.dark-mode #editMotivationModal label { color: rgba(212, 175, 55, 0.9) !important; font-weight: 600 !important; font-size: 0.95rem !important; }
+body:not(.dark-mode) #editMotivationModal label { color: rgba(123, 96, 24, 0.9) !important; font-weight: 600 !important; }
+
+/* ---- Fix 6 — Case "Afficher à chaque connexion" : glass dark + cadre or ---- */
+body.dark-mode #editMotivationModal label:has(#showOnLoginInput) {
+  background: rgba(10, 15, 24, 0.5) !important; border: 1px solid rgba(201, 162, 75, 0.25) !important;
+  border-radius: 8px !important; padding: 12px 14px !important; display: flex !important; align-items: center !important; gap: 10px !important;
+}
+body:not(.dark-mode) #editMotivationModal label:has(#showOnLoginInput) {
+  background: rgba(255, 250, 240, 0.6) !important; border: 1px solid rgba(123, 96, 24, 0.3) !important;
+  border-radius: 8px !important; padding: 12px 14px !important; display: flex !important; align-items: center !important; gap: 10px !important;
+}
+
+/* ---- Fix 7 — Modale "Vidéos du jour" (Replays) : boutons "Regarder" bleus → or solide texte navy ---- */
+#replayDayModal button[class*="bg-blue"], body.dark-mode #replayDayModal button[class*="bg-blue"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; font-weight: 600;
+}
+
+/* ---- Fix 8 — Toasts/notifications (cadre vert) → glass dark + contour or (hook .aube-toast via JS) ---- */
+.aube-toast {
+  background: rgba(10, 15, 24, 0.92) !important;
+  border: 1px solid rgba(212, 175, 55, 0.6) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgba(212, 175, 55, 0.3) !important;
+  border-radius: 10px !important;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+
+/* ============================================================
+   BUNDLE 1.4 — checkbox or + Annuler ghost + login (centrage/autofill/titre/labels)
+   ============================================================ */
+
+/* ---- Fix 2 — Checkboxes/radios des modales en or (accent-color) ---- */
+body.dark-mode .modal-content input[type="checkbox"],
+body.dark-mode .modal-content input[type="radio"],
+body.dark-mode #editMotivationModal input[type="checkbox"] {
+  accent-color: #d4af37 !important; width: 18px; height: 18px; cursor: pointer;
+}
+body:not(.dark-mode) .modal-content input[type="checkbox"],
+body:not(.dark-mode) .modal-content input[type="radio"] { accent-color: #7b6018 !important; }
+
+/* ---- Fix 3 — Boutons "Annuler"/fermer custom (text-white, hors .trader-btn-secondary) → ghost or ---- */
+body.dark-mode .modal-content button[onclick*="closeModal"]:not(.trader-btn-secondary):not(.trader-btn) {
+  background: rgba(0, 11, 37, 0.4) !important; color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important; font-weight: 500;
+}
+body:not(.dark-mode) .modal-content button[onclick*="closeModal"]:not(.trader-btn-secondary):not(.trader-btn) {
+  background: rgba(255, 250, 240, 0.6) !important; color: rgba(123, 96, 24, 0.95) !important;
+  border: 1px solid rgba(123, 96, 24, 0.5) !important;
+}
+/* Bouton submit (Enregistrer) des modales → or solide texte navy */
+body.dark-mode #editMotivationModal button[type="submit"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; font-weight: 600;
+}
+
+/* ---- Fix 5 — Inputs Login : fond blanc + texte navy lisible + fix autofill WebKit ---- */
+#authScreen .auth-card .form-group input[type="email"],
+#authScreen .auth-card .form-group input[type="password"],
+#authScreen .auth-card .form-group input[type="text"] {
+  background-color: rgba(255, 255, 255, 0.92) !important; color: rgba(15, 23, 42, 0.95) !important;
+}
+#authScreen input:-webkit-autofill,
+#authScreen input:-webkit-autofill:hover,
+#authScreen input:-webkit-autofill:focus,
+#authScreen input:-webkit-autofill:active {
+  -webkit-text-fill-color: rgba(15, 23, 42, 0.95) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.92) inset !important;
+  caret-color: rgba(15, 23, 42, 0.95) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ---- Fix 6 — Titre "CONNEXION" : or saturé + glow + présence forte ---- */
+body.dark-mode #authScreen .auth-card h2 {
+  font-size: 2.25rem !important; font-weight: 700 !important; letter-spacing: 0.05em !important;
+  color: rgba(212, 175, 55, 1) !important; text-transform: uppercase !important; margin: 0.5rem 0 1rem !important;
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.4), 0 0 40px rgba(212, 175, 55, 0.25), 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+body:not(.dark-mode) #authScreen .auth-card h2 {
+  font-size: 2.25rem !important; font-weight: 700 !important; letter-spacing: 0.05em !important;
+  color: rgba(123, 96, 24, 1) !important; text-transform: uppercase !important; margin: 0.5rem 0 1rem !important;
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+/* Léger glow doré sur "Se connecter" (cohérence avec le titre) */
+#authScreen .auth-card .trader-btn { box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25) !important; }
+
+/* ---- Fix 7 — Labels "EMAIL" / "MOT DE PASSE" : or champagne CAPS, visibles ---- */
+body.dark-mode #authScreen .auth-card label {
+  color: rgba(212, 175, 55, 0.85) !important; font-weight: 600 !important; font-size: 0.8rem !important;
+  letter-spacing: 0.08em !important; text-transform: uppercase !important; margin-bottom: 0.4rem !important; display: block !important;
+}
+body:not(.dark-mode) #authScreen .auth-card label {
+  color: rgba(123, 96, 24, 0.95) !important; font-weight: 600 !important; text-transform: uppercase !important;
+}
+
+/* ============================================================
+   BUNDLE 1.5 — hover KPI glass dense + hover boutons actions + états vides
+   ============================================================ */
+
+/* ---- Fix 1 — Hover head metric cards : reste GLASS (plus dense), plus de bleu plein #152843 ---- */
+body.dark-mode #mainApp .metric-item:hover {
+  background: rgba(5, 10, 20, 0.80) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(140%) !important;
+  backdrop-filter: blur(6px) saturate(140%) !important;
+  border-color: rgba(201, 162, 75, 0.55) !important;
+}
+body:not(.dark-mode) #mainApp .metric-item:hover {
+  background: rgba(245, 235, 215, 0.85) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(140%) !important;
+  backdrop-filter: blur(6px) saturate(140%) !important;
+  border-color: rgba(123, 96, 24, 0.6) !important;
+}
+
+/* ---- Fix 2 — Boutons d'action (.action-btn : Voir/Modifier/Supprimer) : hover sans fond blanc, lift + glow ---- */
+body.dark-mode #tradesTableBody .action-btn:hover,
+body.dark-mode #journalEntries .action-btn:hover,
+body.dark-mode #mainApp .action-btn:hover {
+  background: transparent !important;
+  transform: translateY(-1px) !important;
+  filter: brightness(1.15) !important;
+  box-shadow: none !important;
+}
+body.dark-mode #mainApp .action-btn:hover i,
+body.dark-mode #mainApp .action-btn:hover svg {
+  filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.5));
+}
+/* Le bouton Supprimer garde sa sémantique rouge (un peu adoucie) */
+body.dark-mode #mainApp .btn-delete, body.dark-mode #mainApp .btn-delete:hover { background: rgba(239, 68, 68, 0.85) !important; }
+
+/* ---- Fix 3 — État vide "Aucun frais enregistré" (+ autres) : glass + cadre or, texte lisible ---- */
+body.dark-mode #dailyFeesTable > p,
+body.dark-mode #dailyFeesTable .text-gray-500 {
+  background: rgba(10, 15, 24, 0.55) !important; border: 1px solid rgba(201, 162, 75, 0.25) !important;
+  border-radius: 8px !important; color: rgba(255, 255, 255, 0.7) !important; padding: 16px !important; text-align: center;
+}
+body:not(.dark-mode) #dailyFeesTable > p,
+body:not(.dark-mode) #dailyFeesTable .text-gray-500 {
+  background: rgba(255, 250, 240, 0.6) !important; border: 1px solid rgba(123, 96, 24, 0.3) !important;
+  border-radius: 8px !important; color: rgba(15, 23, 42, 0.7) !important; padding: 16px !important; text-align: center;
+}
+/* Autres états vides (Aucun trade / Aucune note) : texte lisible (pas en box pour ne pas casser les tables) */
+body.dark-mode #tradesTableBody .text-gray-500,
+body.dark-mode #journalEntries .text-gray-500,
+body.dark-mode #replaysList .text-gray-500 { color: rgba(255, 255, 255, 0.6) !important; }
+
+/* ============================================================
+   BUNDLE 1.6 — hover boutons actions + modales Détails + tooltips
+   ============================================================ */
+
+/* ---- Fix 1 — Boutons action Trades/Journal : les vrais sont en Tailwind hover:bg-gray-50/blue-50/red-50
+   (PAS .action-btn → d'où l'échec 1.5). On reprend le pattern Compta (text-gray-700 hover:text-gray-900,
+   SANS fond) : hover transparent + lift + glow doré. ---- */
+#tradesTableBody button:hover, #journalEntries button:hover {
+  background: transparent !important;
+  transform: translateY(-1px) !important;
+  box-shadow: none !important;
+}
+body.dark-mode #tradesTableBody button:hover i, body.dark-mode #tradesTableBody button:hover svg,
+body.dark-mode #journalEntries button:hover i, body.dark-mode #journalEntries button:hover svg {
+  filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.5));
+}
+
+/* ---- Fix 2 — Modales "Détails Compte/Payout" (classes .view-modal-* — échappaient à .modal-content) :
+   glass dark + barres latérales UNIFORMÉMENT dorées (au lieu de multicolores). ---- */
+body.dark-mode .view-modal-content {
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important; backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important; color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
+}
+body.dark-mode .view-modal-section {
+  background: rgba(10, 15, 24, 0.55) !important;
+  border: 1px solid rgba(201, 162, 75, 0.2) !important;
+  border-left: 3px solid rgba(201, 162, 75, 0.6) !important;   /* barre dorée uniforme (cohérence) */
+  border-radius: 6px !important; color: rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-mode .view-modal-label { color: rgba(212, 175, 55, 0.85) !important; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; }
+body.dark-mode .view-modal-value { color: rgba(255, 255, 255, 0.95) !important; font-weight: 600; }
+/* Light : crème + barre or */
+body:not(.dark-mode) .view-modal-content { background: rgba(255, 250, 240, 0.95) !important; border: 1px solid rgba(201, 162, 75, 0.5) !important; color: rgba(15, 23, 42, 0.95) !important; }
+body:not(.dark-mode) .view-modal-section { background: rgba(255, 250, 240, 0.7) !important; border: 1px solid rgba(123, 96, 24, 0.25) !important; border-left: 3px solid rgba(123, 96, 24, 0.6) !important; }
+body:not(.dark-mode) .view-modal-label { color: rgba(123, 96, 24, 0.95) !important; }
+
+/* ---- Fix 3 — Tooltips info : casse normale (uppercase hérité) + glass dark cohérent, lisible ---- */
+body.dark-mode .tooltip, body.dark-mode [role="tooltip"], body.dark-mode [class*="tooltip"], body.dark-mode .info-tooltip {
+  background: rgba(5, 10, 20, 0.96) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(140%) !important; backdrop-filter: blur(8px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.45) !important; color: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 8px !important; padding: 10px 14px !important; font-size: 0.85rem !important; line-height: 1.5 !important;
+  font-weight: 400 !important; text-transform: none !important; letter-spacing: normal !important; max-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+body.dark-mode .tooltip *, body.dark-mode [role="tooltip"] *, body.dark-mode [class*="tooltip"] * { text-transform: none !important; }
+body:not(.dark-mode) .tooltip, body:not(.dark-mode) [role="tooltip"], body:not(.dark-mode) [class*="tooltip"] {
+  background: rgba(255, 250, 240, 0.96) !important; border: 1px solid rgba(123, 96, 24, 0.5) !important;
+  color: rgba(15, 23, 42, 0.95) !important; text-transform: none !important;
+}
+
+/* ============================================================
+   BUNDLE 1.7 — modales Détails Payout/Compte Acheté (générées en JS INLINE, sans classe →
+   hook .aube-detail-modal ajouté en JS). Override des styles inline via [style*=…] + !important.
+   ============================================================ */
+
+/* DARK — carte interne (inline background:white) → glass dark */
+body.dark-mode .aube-detail-modal > div {
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important; backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important; color: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 12px !important; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
+}
+/* Sections de champ (inline background:#f9fafb + border-left coloré) → glass + barre dorée uniforme */
+body.dark-mode .aube-detail-modal [style*="border-left"] {
+  background: rgba(20, 25, 40, 0.6) !important;
+  border: 1px solid rgba(201, 162, 75, 0.18) !important;
+  border-left: 3px solid rgba(201, 162, 75, 0.6) !important;
+}
+/* Labels (inline color:#6b7280) → or CAPS ; titre + valeurs (inline color:#1f2937) → clair */
+body.dark-mode .aube-detail-modal [style*="6b7280"] { color: rgba(212, 175, 55, 0.95) !important; }
+body.dark-mode .aube-detail-modal [style*="1f2937"] { color: rgba(255, 255, 255, 0.95) !important; }
+/* Bouton Fermer → ghost or */
+body.dark-mode .aube-detail-modal button {
+  background: rgba(0, 11, 37, 0.4) !important; color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important; font-weight: 500;
+}
+
+/* LIGHT — crème + barres dorées (on GARDE le texte inline foncé, lisible sur crème) */
+body:not(.dark-mode) .aube-detail-modal > div {
+  background: rgba(255, 250, 240, 0.96) !important; border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  border-radius: 12px !important;
+}
+body:not(.dark-mode) .aube-detail-modal [style*="border-left"] {
+  background: rgba(255, 250, 240, 0.7) !important; border-left: 3px solid rgba(123, 96, 24, 0.6) !important;
+}
+body:not(.dark-mode) .aube-detail-modal [style*="6b7280"] { color: rgba(123, 96, 24, 0.95) !important; }
