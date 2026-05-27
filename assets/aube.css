@@ -285,27 +285,37 @@ button:hover, .btn:hover { transform: translateY(-1px); filter: brightness(1.08)
    + Mon Pourquoi cadre or + focus généralisé. Dual-theme.
    ============================================================ */
 
-/* ---- Fix 1 — Modales : glass dual-theme aligné calendrier (remplace le blanc forcé L1554) ---- */
+/* ---- Fix A (1.1) — Modales : élément FOCAL, opacité haute (0.92) + blur 20 pour ISOLER du contenu derrière ---- */
 body.dark-mode .modal-content,
 body.dark-mode #importCSVModal .modal-content,
 body.dark-mode [class*="view-modal"],
 body.dark-mode [id*="Modal"] .modal-content {
-  background: rgba(10, 15, 24, 0.55) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  backdrop-filter: blur(4px) !important;
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
   border: 1px solid rgba(201, 162, 75, 0.35) !important;
-  color: rgba(255, 255, 255, 0.92) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 24px -8px rgba(201, 162, 75, 0.2) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
 }
 body:not(.dark-mode) .modal-content,
 body:not(.dark-mode) #importCSVModal .modal-content,
 body:not(.dark-mode) [class*="view-modal"],
 body:not(.dark-mode) [id*="Modal"] .modal-content {
-  background: rgba(255, 250, 240, 0.85) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-  backdrop-filter: blur(4px) !important;
-  border: 1px solid rgba(201, 162, 75, 0.45) !important;
-  color: rgba(15, 23, 42, 0.92) !important;
+  background: rgba(255, 250, 240, 0.95) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  color: rgba(15, 23, 42, 0.95) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15), 0 0 32px -8px rgba(201, 162, 75, 0.25) !important;
+}
+/* ---- Fix B — lisibilité texte dans les modales (corps + accents) ---- */
+body.dark-mode .modal-content p, body.dark-mode .modal-content li,
+body.dark-mode .modal-content small, body.dark-mode .modal-content span:not(.trader-btn):not([class*="badge"]) {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+body:not(.dark-mode) .modal-content p, body:not(.dark-mode) .modal-content li,
+body:not(.dark-mode) .modal-content small, body:not(.dark-mode) .modal-content span:not(.trader-btn):not([class*="badge"]) {
+  color: rgba(15, 23, 42, 0.78) !important;
 }
 /* Titres/labels des modales lisibles sur le glass */
 body.dark-mode .modal-content h1, body.dark-mode .modal-content h2, body.dark-mode .modal-content h3,
@@ -361,4 +371,44 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   border-color: rgba(201, 162, 75, 0.6) !important;
   box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.18) !important;
   transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* ============================================================
+   BUNDLE 1.1 — Fix C (boutons harmonisés) + Fix D (Replays)
+   ============================================================ */
+
+/* ---- Fix C — Boutons secondaires (Annuler/Fermer/Retour = .trader-btn-secondary) → ghost dark/or ---- */
+body.dark-mode .trader-btn-secondary {
+  background: rgba(0, 11, 37, 0.4) !important;
+  color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  font-weight: 500;
+}
+body:not(.dark-mode) .trader-btn-secondary {
+  background: rgba(255, 250, 240, 0.6) !important;
+  color: rgba(123, 96, 24, 0.95) !important;
+  border: 1px solid rgba(123, 96, 24, 0.5) !important;
+  font-weight: 500;
+}
+.trader-btn-secondary:hover { filter: brightness(1.08); }
+/* "Réinitialiser" (checklist) = STRICTEMENT identique à "Valider la checklist" (or solide, texte navy) */
+button[onclick="resetChecklist()"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; font-weight: 600;
+}
+button[onclick="resetChecklist()"]:hover { filter: brightness(1.08); }
+
+/* ---- Fix D — Replays : titre en typo UI standard (Inter bold, plus de Fraunces italic isolée) ---- */
+#replays .section-header,
+#replays .section-header h1,
+#replays .section-header h2,
+#replays .section-header h3 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+/* Hover cases calendrier Replays : tint doré translucide (même fix que #calendarGrid) */
+#mainApp #replayCalendarGrid > div:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  border-radius: 8px;
 }
