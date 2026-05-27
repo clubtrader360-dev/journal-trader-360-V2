@@ -11135,6 +11135,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function showNotification(message, type = 'info') {
             // Créer une notification temporaire
             const notification = document.createElement('div');
+            notification.className = 'aube-toast';  // hook style premium (glass + contour or) via aube.css
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
