@@ -701,3 +701,40 @@ body:not(.dark-mode) .tooltip, body:not(.dark-mode) [role="tooltip"], body:not(.
   background: rgba(255, 250, 240, 0.96) !important; border: 1px solid rgba(123, 96, 24, 0.5) !important;
   color: rgba(15, 23, 42, 0.95) !important; text-transform: none !important;
 }
+
+/* ============================================================
+   BUNDLE 1.7 — modales Détails Payout/Compte Acheté (générées en JS INLINE, sans classe →
+   hook .aube-detail-modal ajouté en JS). Override des styles inline via [style*=…] + !important.
+   ============================================================ */
+
+/* DARK — carte interne (inline background:white) → glass dark */
+body.dark-mode .aube-detail-modal > div {
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important; backdrop-filter: blur(20px) saturate(140%) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important; color: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 12px !important; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
+}
+/* Sections de champ (inline background:#f9fafb + border-left coloré) → glass + barre dorée uniforme */
+body.dark-mode .aube-detail-modal [style*="border-left"] {
+  background: rgba(20, 25, 40, 0.6) !important;
+  border: 1px solid rgba(201, 162, 75, 0.18) !important;
+  border-left: 3px solid rgba(201, 162, 75, 0.6) !important;
+}
+/* Labels (inline color:#6b7280) → or CAPS ; titre + valeurs (inline color:#1f2937) → clair */
+body.dark-mode .aube-detail-modal [style*="6b7280"] { color: rgba(212, 175, 55, 0.95) !important; }
+body.dark-mode .aube-detail-modal [style*="1f2937"] { color: rgba(255, 255, 255, 0.95) !important; }
+/* Bouton Fermer → ghost or */
+body.dark-mode .aube-detail-modal button {
+  background: rgba(0, 11, 37, 0.4) !important; color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important; font-weight: 500;
+}
+
+/* LIGHT — crème + barres dorées (on GARDE le texte inline foncé, lisible sur crème) */
+body:not(.dark-mode) .aube-detail-modal > div {
+  background: rgba(255, 250, 240, 0.96) !important; border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  border-radius: 12px !important;
+}
+body:not(.dark-mode) .aube-detail-modal [style*="border-left"] {
+  background: rgba(255, 250, 240, 0.7) !important; border-left: 3px solid rgba(123, 96, 24, 0.6) !important;
+}
+body:not(.dark-mode) .aube-detail-modal [style*="6b7280"] { color: rgba(123, 96, 24, 0.95) !important; }
