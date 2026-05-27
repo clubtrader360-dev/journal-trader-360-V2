@@ -38,32 +38,51 @@ body:not(.dark-mode) #mainApp {                         /* light : overlay crèm
 }
 
 /* ----- SIDEBAR (élève) : translucide + blur, l'image transparaît, séparateur doré fin ----- */
-#mainApp .sidebar {
-  background: rgba(0, 11, 37, 0.65) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-  backdrop-filter: blur(12px) saturate(120%);
+/* Sélecteur ID (#mainAppSidebar) + !important → bat #mainApp .sidebar{background:#000B25} sans ambiguïté */
+#mainAppSidebar, #mainApp .sidebar {
+  background: rgba(0, 11, 37, 0.55) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
   border-right: 1px solid rgba(201, 162, 75, 0.15) !important;
 }
+body:not(.dark-mode) #mainAppSidebar,
 body:not(.dark-mode) #mainApp .sidebar {
-  background: rgba(255, 250, 240, 0.65) !important;
+  background: rgba(255, 250, 240, 0.60) !important;
 }
 /* Card login : resserrée pour ne JAMAIS chevaucher le bandeau bas + cadre doré (§3) + fade-in */
 #authScreen .auth-card {
   animation: aubeCardEnter 480ms var(--aube-ease) both;
   min-height: auto !important;
-  padding: 2rem 2.5rem !important;
-  max-width: 440px !important;
+  padding: 1.5rem 2rem !important;
+  max-width: 420px !important;
+  max-height: calc(96vh - 200px) !important;   /* JAMAIS plus haut que viewport − bandeau */
+  overflow-y: auto !important;
 }
-/* Espacements internes resserrés (logo/titre/sous-titre/champs/boutons) */
-#authScreen .auth-card .form-group { margin-bottom: 14px !important; }
+/* Espacements internes resserrés pour gagner de la hauteur */
+#authScreen .auth-card .form-group { margin-bottom: 12px !important; }
 #authScreen .auth-card .trader-btn,
-#authScreen .auth-card .trader-btn-secondary { margin-bottom: 10px !important; }
-/* Le wrapper réserve l'espace du bandeau bas fixe (~120px) + respiration → centrage sûr,
-   aucun chevauchement à 800/900/1080px de hauteur d'écran */
-#authScreen, .auth-container { padding: 24px 24px 150px !important; }
+#authScreen .auth-card .trader-btn-secondary { margin-bottom: 8px !important; }
+/* Centrage EN HAUT (le flex center écrasait la marge) + 200px réservés pour le bandeau bas fixe
+   → ≥ ~70px de respiration au-dessus du bandeau à 700/800/900/1080/1440px */
+#authScreen, .auth-container { align-items: flex-start !important; padding: 4vh 24px 200px !important; }
 @keyframes aubeCardEnter { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: none; } }
-#authScreen .auth-card, #authScreen .auth-card h2,
-#authScreen .auth-card label, #authScreen .auth-card p { color: var(--color-champagne) !important; }
+/* Textes Login lisibles — battent les inline (h2 color:#000B25, subtitle div color:#666) via !important */
+#authScreen .auth-card h2 {
+  color: #ffffff !important; font-weight: 700 !important; letter-spacing: -0.01em;
+  text-shadow: 0 2px 8px rgba(201, 162, 75, 0.25);
+}
+#authScreen .auth-card .logo + div,
+#authScreen .auth-card div[style*="666"] {
+  color: rgba(201, 162, 75, 0.75) !important; font-weight: 500; letter-spacing: 0.05em;
+  text-transform: uppercase; font-size: 0.85rem;
+}
+#authScreen .auth-card label { color: rgba(255, 255, 255, 0.7) !important; font-weight: 500; }
+#authScreen .auth-card, #authScreen .auth-card p { color: var(--color-champagne) !important; }
+/* Light : navy lisible sur crème */
+body:not(.dark-mode) #authScreen .auth-card h2 { color: #0d1116 !important; text-shadow: none; }
+body:not(.dark-mode) #authScreen .auth-card .logo + div,
+body:not(.dark-mode) #authScreen .auth-card div[style*="666"] { color: rgba(123, 96, 24, 0.85) !important; }
+body:not(.dark-mode) #authScreen .auth-card label { color: rgba(13, 17, 22, 0.75) !important; }
 
 /* Bouton "Se connecter" : or solide, texte navy */
 #authScreen .auth-card .trader-btn {
