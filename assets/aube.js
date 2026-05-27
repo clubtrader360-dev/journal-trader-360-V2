@@ -108,7 +108,44 @@
     }
   };
 
-  function init() { watchPnl(); initNavIndicator(); initParisClock(); }
+  // ---- Login : toggle œil show/hide + trust badges (injection additive, idempotente) ----
+  var SVG = {
+    eye: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>',
+    shield: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>',
+    trend: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+    target: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'
+  };
+  function initLogin() {
+    var card = document.querySelector('#authScreen .auth-card');
+    if (!card) return;
+    // Toggle œil sur chaque champ password
+    card.querySelectorAll('.form-group input[type="password"]').forEach(function (inp) {
+      var grp = inp.closest('.form-group');
+      if (!grp || grp.querySelector('.aube-eye')) return;
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'aube-eye'; btn.setAttribute('aria-label', 'Afficher le mot de passe');
+      btn.innerHTML = SVG.eye;
+      btn.addEventListener('click', function () {
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        btn.innerHTML = show ? SVG.eyeOff : SVG.eye;
+        btn.setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+      });
+      grp.appendChild(btn);
+    });
+    // Trust badges (3 colonnes) — une seule fois
+    if (!card.querySelector('.aube-trust')) {
+      var data = [[SVG.shield, 'Sécurité avancée'], [SVG.trend, 'Analyse & Performance'], [SVG.target, 'Discipline & Réussite']];
+      var row = document.createElement('div'); row.className = 'aube-trust';
+      row.innerHTML = data.map(function (d) {
+        return '<div><span class="aube-trust-ic">' + d[0] + '</span><div class="aube-trust-t">' + d[1] + '</div></div>';
+      }).join('');
+      card.appendChild(row);
+    }
+  }
+
+  function init() { watchPnl(); initNavIndicator(); initParisClock(); initLogin(); }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
 })();

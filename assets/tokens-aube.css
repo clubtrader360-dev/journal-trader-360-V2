@@ -23,6 +23,13 @@
   /* Motion */
   --aube-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* Cadre doré "photo encadrée" des mockups — teinte AMBRÉE chaude observée
+     (ambiants #cf8e3c/#dd9c67), plus chaude que le #d4af37 jaune. Trait fin. */
+  --aube-frame: rgba(201, 162, 75, 0.55);
+  --aube-frame-hover: rgba(212, 175, 55, 0.85);
+  --aube-frame-radius: 14px;
+  --aube-btn-gold: linear-gradient(180deg, #e8c66a 0%, #c9a24b 100%);
+
   /* ---- Surfaces LIGHT (aube claire) ---- */
   --aube-base:
     radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212, 175, 55, 0.18) 0%, transparent 60%),

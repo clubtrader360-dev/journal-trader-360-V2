@@ -14,49 +14,76 @@ html:has(body.dark-mode) {
 }
 body { background: transparent !important; }
 
-/* Couche 2 — bougies (blend selon thème, hérité du token sur body) */
-#candles-bg { mix-blend-mode: var(--aube-candle-blend, screen); }
+/* ===== DIRECTION "fidélité mockups" : fond = IMAGE STATIQUE (pas de couches live).
+   On masque les overlays live (bougies/ticker/particules) qui parasitaient l'image. ===== */
+#candles-bg, #aube-ticker, #aube-particles { display: none !important; }
 
-/* ===== FIX BUG 1 — révéler le fond : neutraliser les conteneurs opaques plein-viewport
-   qui masquaient le canvas z-index:-1 (cause exacte : .main-content navy opaque + .auth-container). ===== */
-#mainApp .main-content,
-body.dark-mode #mainApp .main-content { background: transparent !important; }
+/* Zone de contenu transparente pour laisser voir l'image de fond posée sur #mainApp */
+#mainApp .main-content, body.dark-mode #mainApp .main-content { background: transparent !important; }
 
-/* ===== FIX BUG 3 — Login : conteneur transparent (révèle bougies+ticker+particules),
-   fond navy + blend screen forcés quand l'écran d'auth est visible (display:flex). ===== */
-#authScreen, .auth-container { background: transparent !important; }
-html:has(#authScreen[style*="flex"]) {
-  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(212,175,55,0.12) 0%, transparent 55%),
-              radial-gradient(ellipse at 50% 100%, #001a4d 0%, #000B25 55%, #00050f 100%) !important;
+/* ----- DASHBOARD (et routes authentifiées) : mockup en fond fixed + overlay navy ----- */
+#mainApp {
+  background: linear-gradient(rgba(13,17,22,0.62), rgba(13,17,22,0.66)),
+              url('/assets/dashboard-bg.png') center center / cover fixed no-repeat !important;
 }
-html:has(#authScreen[style*="flex"]) #candles-bg { mix-blend-mode: screen !important; }
-/* Card login en glass forge (au lieu du blanc opaque) — texte passé en champagne pour lisibilité */
-#authScreen .auth-card {
-  background: linear-gradient(135deg, rgba(15,28,58,0.72) 0%, rgba(10,22,50,0.62) 100%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(212,175,55,0.20) !important;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 30px 80px rgba(0,0,0,0.5), 0 0 40px -10px rgba(212,175,55,0.25) !important;
+body:not(.dark-mode) #mainApp {                         /* light : overlay crème "aube claire" */
+  background: linear-gradient(rgba(255,250,240,0.55), rgba(255,250,240,0.55)),
+              url('/assets/dashboard-bg.png') center center / cover fixed no-repeat !important;
 }
-#authScreen .auth-card,
-#authScreen .auth-card h2,
-#authScreen .auth-card label,
-#authScreen .auth-card p { color: var(--color-champagne) !important; }
 
-/* Couche 3 — ticker de paires (injecté par aube-bg.js) */
-#aube-ticker {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 18px; z-index: -1;
-  overflow: hidden; pointer-events: none; opacity: 0.13;
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 18px;
-  white-space: nowrap; color: var(--aube-text-secondary);
+/* ----- LOGIN : mockup en fond fixed + overlay navy léger ----- */
+#authScreen, .auth-container {
+  background: linear-gradient(rgba(0,11,37,0.34), rgba(0,11,37,0.44)),
+              url('/assets/login-bg.png') center center / cover fixed no-repeat !important;
 }
-#aube-ticker .aube-ticker-row { display: inline-block; padding-left: 100%; animation: aubeTicker 60s linear infinite; }
-#aube-ticker .up { color: var(--color-emerald); }
-#aube-ticker .down { color: var(--color-coral); }
-@keyframes aubeTicker { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+/* Card login : cadre doré (hérité §3) + texte champagne + entrée fade-in/scale */
+#authScreen .auth-card { animation: aubeCardEnter 480ms var(--aube-ease) both; }
+@keyframes aubeCardEnter { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: none; } }
+#authScreen .auth-card, #authScreen .auth-card h2,
+#authScreen .auth-card label, #authScreen .auth-card p { color: var(--color-champagne) !important; }
 
-/* Couche 4 — particules dorées (canvas injecté par aube-bg.js) */
-#aube-particles { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+/* Bouton "Se connecter" : or solide, texte navy */
+#authScreen .auth-card .trader-btn {
+  background: var(--aube-btn-gold) !important; color: #0a1020 !important; border: none !important; font-weight: 600;
+}
+#authScreen .auth-card .trader-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+/* "Créer un compte" / "Connexion Coach" : ghost dark, cadre doré fin, texte doré */
+#authScreen .auth-card .trader-btn-secondary {
+  background: rgba(10,15,28,0.5) !important; color: var(--color-gold) !important;
+  border: 1px solid var(--aube-frame) !important;
+}
+#authScreen .auth-card .trader-btn-secondary:hover { border-color: var(--aube-frame-hover) !important; filter: brightness(1.08); }
+
+/* Inputs login : fond navy translucide, icône gauche (Lucide doré), focus doré glow */
+#authScreen .auth-card .form-group input,
+#authScreen .auth-card .form-group select {
+  background-color: rgba(10,15,28,0.6) !important; color: var(--color-champagne) !important;
+  border: 1px solid var(--aube-frame) !important;
+  background-repeat: no-repeat; background-position: 12px center; background-size: 18px; padding-left: 42px !important;
+}
+#authScreen .auth-card .form-group input[type="email"], #authScreen .auth-card .form-group input[type="text"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9a24b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
+}
+#authScreen .auth-card .form-group input[type="password"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9a24b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+}
+#authScreen .auth-card .form-group input:focus {
+  border-color: var(--aube-frame-hover) !important;
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.18), 0 0 14px rgba(212,175,55,0.28) !important;
+  outline: none;
+}
+/* Toggle œil show/hide (injecté par aube.js) */
+#authScreen .form-group { position: relative; }
+.aube-eye {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--color-gold);
+  display: inline-flex; padding: 6px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center;
+}
+/* Trust badges (injectés par aube.js) */
+.aube-trust { display: flex; justify-content: space-between; gap: 14px; margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(201,162,75,0.18); }
+.aube-trust > div { flex: 1; text-align: center; color: var(--aube-text-secondary); }
+.aube-trust .aube-trust-ic { color: var(--color-gold); display: inline-flex; margin-bottom: 6px; }
+.aube-trust .aube-trust-t { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-champagne); }
 
 /* ---- 2. Typographie 3 étages ---- */
 /* Titres nobles → Fraunces italic */
@@ -70,25 +97,30 @@ html:has(#authScreen[style*="flex"]) #candles-bg { mix-blend-mode: screen !impor
   letter-spacing: -0.02em;
 }
 
-/* ---- 3. Cards "Glass Forge" (élève #mainApp, dual-theme) ----
-   .trader-card (toutes routes) + .metric-item (les 8 KPIs du head, FIX BUG 2). ---- */
+/* ---- 3. Cards "photo encadrée" — cadre doré fin + fond navy semi-transparent (fidélité mockups).
+   Uniforme : .trader-card (toutes routes, dont Mes Qualités/Défauts) + .metric-item (8 KPIs head) + .auth-card.
+   PAS de glass-forge multi-couches : trait fin + fond translucide, esprit cadre photo. ---- */
 #mainApp .trader-card, body.dark-mode #mainApp .trader-card,
-#mainApp .metric-item, body.dark-mode #mainApp .metric-item {
-  background: var(--aube-glass) !important;
-  border: 1px solid var(--aube-glass-border) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: var(--aube-card-shadow);
-  transition: transform 280ms var(--aube-ease), border-color 280ms ease,
-              box-shadow 280ms ease, filter 280ms ease;
+#mainApp .metric-item, body.dark-mode #mainApp .metric-item,
+#authScreen .auth-card {
+  background: rgba(10, 15, 28, 0.72) !important;
+  border: 1px solid var(--aube-frame) !important;
+  border-radius: var(--aube-frame-radius) !important;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 200ms var(--aube-ease), filter 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 #mainApp .trader-card:hover, body.dark-mode #mainApp .trader-card:hover,
 #mainApp .metric-item:hover, body.dark-mode #mainApp .metric-item:hover {
-  background: var(--aube-glass) !important;     /* garde le glass au survol (override du #152843 existant) */
-  transform: translateY(-3px) scale(1.01);
-  border-color: var(--color-aurum) !important;
-  filter: brightness(1.03);
-  box-shadow: var(--aube-card-shadow), 0 0 36px -6px rgba(212, 175, 55, 0.35);
+  transform: translateY(-1px);                  /* lift -1px */
+  filter: brightness(1.08);                     /* +8% */
+  border-color: var(--aube-frame-hover) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42), 0 0 22px -8px rgba(212, 175, 55, 0.4) !important;
+}
+/* Light "aube claire" : cards crème + cadre doré + texte navy (pas un dark inversé brutal) */
+body:not(.dark-mode) #mainApp .trader-card,
+body:not(.dark-mode) #mainApp .metric-item {
+  background: rgba(255, 250, 240, 0.85) !important; color: #1a1208 !important;
 }
 
 /* ---- 4. P&L hero — halo doré + respiration ambiante ---- */
