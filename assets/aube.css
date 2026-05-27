@@ -38,21 +38,28 @@ body:not(.dark-mode) #mainApp {                         /* light : overlay crèm
 }
 
 /* ----- SIDEBAR (élève) : translucide + blur, l'image transparaît, séparateur doré fin ----- */
-/* Sidebar : CSS prouvé gagnant (scan : aucune règle bg concurrente en !important).
-   Le rendu opaque venait de l'alpha trop haute sur une zone d'image sombre (mur/chaise/lampe).
-   → enfants directs transparentisés (sécurité) + root alpha BASSE (0.40) pour révéler l'image. */
+/* Sidebar : alpha alignée EXACTEMENT sur le calendrier (.trader-card p-6) = rgba(10,15,24,0.55) + blur(4px).
+   Enfants directs transparentisés (sécurité). Renfort texte en dark pour rester lisible. */
 #mainAppSidebar > * { background: transparent !important; }
 #mainAppSidebar, #mainApp .sidebar {
-  background: rgba(0, 11, 37, 0.40) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
+  background: rgba(10, 15, 24, 0.55) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
   border-right: 1px solid rgba(201, 162, 75, 0.15) !important;
 }
 body:not(.dark-mode) #mainAppSidebar > * { background: transparent !important; }
 body:not(.dark-mode) #mainAppSidebar,
 body:not(.dark-mode) #mainApp .sidebar {
-  background: rgba(255, 250, 240, 0.55) !important;
+  background: rgba(255, 250, 240, 0.75) !important;
 }
+/* Garde-fou lisibilité texte sidebar (dark) : léger text-shadow + gris remontés à 0.85 */
+body.dark-mode #mainAppSidebar .sidebar-item,
+body.dark-mode #mainAppSidebar h3,
+body.dark-mode #mainAppSidebar #userInfo,
+body.dark-mode #mainAppSidebar a,
+body.dark-mode #mainAppSidebar span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+body.dark-mode #mainAppSidebar .text-gray-300,
+body.dark-mode #mainAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85) !important; }
 /* Card login : resserrée pour ne JAMAIS chevaucher le bandeau bas + cadre doré (§3) + fade-in */
 #authScreen .auth-card {
   animation: aubeCardEnter 480ms var(--aube-ease) both;
@@ -122,13 +129,16 @@ body:not(.dark-mode) #authScreen .auth-card label { color: rgba(13, 17, 22, 0.75
   box-shadow: 0 0 0 3px rgba(212,175,55,0.18), 0 0 14px rgba(212,175,55,0.28) !important;
   outline: none;
 }
-/* Toggle œil show/hide (injecté par aube.js) */
-#authScreen .form-group { position: relative; }
+/* Toggle œil show/hide — fixé à droite, centré sur l'INPUT (wrapper .aube-pw-wrap injecté par aube.js) */
+.aube-pw-wrap { position: relative; }
+.aube-pw-wrap input { padding-right: 42px !important; }
 .aube-eye {
-  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   background: none; border: none; cursor: pointer; color: var(--color-gold);
-  display: inline-flex; padding: 6px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0; opacity: 0.85; transition: opacity 150ms ease; z-index: 2;
 }
+.aube-eye:hover { opacity: 1; }
 /* Trust badges — BANDEAU fixe plein largeur en bas de page (injecté par aube.js, hors card) */
 .aube-trust {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;

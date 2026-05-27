@@ -121,8 +121,10 @@
     if (!card) return;
     // Toggle œil sur chaque champ password
     card.querySelectorAll('.form-group input[type="password"]').forEach(function (inp) {
-      var grp = inp.closest('.form-group');
-      if (!grp || grp.querySelector('.aube-eye')) return;
+      if (inp.parentNode && inp.parentNode.classList && inp.parentNode.classList.contains('aube-pw-wrap')) return;
+      // Wrapper relatif autour du SEUL input → l'œil se centre sur l'input (pas sur le form-group label+input)
+      var wrap = document.createElement('div'); wrap.className = 'aube-pw-wrap';
+      inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
       var btn = document.createElement('button');
       btn.type = 'button'; btn.className = 'aube-eye'; btn.setAttribute('aria-label', 'Afficher le mot de passe');
       btn.innerHTML = SVG.eye;
@@ -132,7 +134,7 @@
         btn.innerHTML = show ? SVG.eyeOff : SVG.eye;
         btn.setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
       });
-      grp.appendChild(btn);
+      wrap.appendChild(btn);
     });
     // Trust badges → BANDEAU fixe en bas de page (hors card, plein largeur)
     var screen = document.getElementById('authScreen');
