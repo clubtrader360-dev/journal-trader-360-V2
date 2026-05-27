@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Trader 360 — KPI Card (template)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../01-tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--text-primary);
+    background-image: url('../06-assets/executive-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 11, 37, 0.50);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .kpi-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    backdrop-filter: var(--blur-glass);
+    -webkit-backdrop-filter: var(--blur-glass);
+    border: 1px solid var(--border-gold-medium);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-5);
+    transition: transform var(--duration-base) var(--ease-premium),
+                border-color var(--duration-base) var(--ease-premium),
+                box-shadow var(--duration-base) var(--ease-premium);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .kpi-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-gold-hover);
+    box-shadow: var(--shadow-card-hover);
+  }
+  .kpi-title {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-weight: var(--weight-medium);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .kpi-info {
+    color: rgba(255, 255, 255, 0.4);
+    cursor: help;
+    font-size: var(--text-sm);
+  }
+  .kpi-value {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--text-primary);
+    font-feature-settings: 'tnum' 1;
+  }
+  .kpi-value.positive { color: var(--trading-emerald); }
+  .kpi-value.negative { color: var(--trading-coral); }
+  .kpi-value.gold {
+    color: var(--gold-aurum);
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+  }
+  .kpi-sparkline {
+    height: 30px;
+    width: 100%;
+    margin-top: var(--space-1);
+  }
+  .kpi-sparkline path {
+    fill: none;
+    stroke-width: 1.5;
+  }
+  .kpi-sparkline.positive path { stroke: var(--trading-emerald); }
+  .kpi-sparkline.negative path { stroke: var(--trading-coral); }
+  .kpi-sparkline.gold path { stroke: var(--gold-aurum); }
+</style>
+</head>
+<body class="dark-mode">
+
+<div class="kpi-grid">
+
+  <!-- KPI 1 : P&L (or doré, mis en avant) -->
+  <div class="kpi-card">
+    <div class="kpi-title">Net P&amp;L <span class="kpi-info" title="P&L cumulé net">ⓘ</span></div>
+    <div class="kpi-value gold">$74727.50</div>
+    <svg class="kpi-sparkline gold" viewBox="0 0 200 30" preserveAspectRatio="none">
+      <path d="M0,25 L20,22 L40,18 L60,20 L80,15 L100,12 L120,14 L140,10 L160,8 L180,6 L200,4" />
+    </svg>
+  </div>
+
+  <!-- KPI 2 : Trade win % (positif vert) -->
+  <div class="kpi-card">
+    <div class="kpi-title">Trade win % <span class="kpi-info">ⓘ</span></div>
+    <div class="kpi-value positive">50.9%</div>
+    <svg class="kpi-sparkline positive" viewBox="0 0 200 30" preserveAspectRatio="none">
+      <path d="M0,20 L20,18 L40,16 L60,17 L80,15 L100,14 L120,15 L140,13 L160,12 L180,11 L200,10" />
+    </svg>
+  </div>
+
+  <!-- KPI 3 : Drawdown (négatif rouge) -->
+  <div class="kpi-card">
+    <div class="kpi-title">Drawdown <span class="kpi-info">ⓘ</span></div>
+    <div class="kpi-value negative">-12.3%</div>
+    <svg class="kpi-sparkline negative" viewBox="0 0 200 30" preserveAspectRatio="none">
+      <path d="M0,10 L20,12 L40,15 L60,14 L80,17 L100,19 L120,18 L140,20 L160,22 L180,24 L200,25" />
+    </svg>
+  </div>
+
+</div>
+
+</body>
+</html>
