@@ -64,13 +64,13 @@ body.dark-mode #mainAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85)
 #authScreen .auth-card {
   animation: aubeCardEnter 480ms var(--aube-ease) both;
   min-height: auto !important;
-  padding: 1rem 1.75rem !important;
-  max-width: 420px !important;
-  max-height: calc(100vh - 160px) !important;
+  padding: 1.25rem 2rem !important;
+  max-width: 460px !important;
+  max-height: calc(100vh - 140px) !important;
   overflow-y: auto !important;
 }
 /* Compactage interne → contenu ~450px : les 3 boutons visibles SANS scroll (≤900px) */
-#authScreen .auth-card .logo img { width: 64px !important; height: auto !important; }
+#authScreen .auth-card .logo img { width: 100px !important; height: auto !important; margin: 0 auto 0.75rem !important; display: block !important; }
 #authScreen .auth-card .logo { margin-bottom: 4px !important; }
 #authScreen .auth-card h2 { margin: 0.5rem 0 !important; }
 #authScreen .auth-card .form-group { margin-bottom: 10px !important; }
@@ -134,12 +134,15 @@ body:not(.dark-mode) #authScreen .auth-card label { color: rgba(13, 17, 22, 0.75
 .aube-pw-wrap { position: relative; }
 .aube-pw-wrap input { padding-right: 42px !important; }
 .aube-eye {
-  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  position: absolute !important; right: 12px !important; top: 50% !important;
+  transform: translateY(-50%) !important;   /* !important → bat le button:hover{translateY(-1px)} global */
   background: none; border: none; cursor: pointer; color: var(--color-gold);
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; padding: 0; opacity: 0.85; transition: opacity 150ms ease; z-index: 2;
+  width: 28px; height: 28px; padding: 0; opacity: 0.85;
+  transition: opacity 150ms ease, color 150ms ease !important;  /* pas de transition sur transform */
+  z-index: 5;
 }
-.aube-eye:hover { opacity: 1; }
+.aube-eye:hover { transform: translateY(-50%) !important; opacity: 1; color: rgba(212, 175, 55, 0.95) !important; }
 /* Trust badges — BANDEAU fixe plein largeur en bas de page (injecté par aube.js, hors card) */
 .aube-trust {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
@@ -595,3 +598,53 @@ body.dark-mode #authScreen .auth-card label {
 body:not(.dark-mode) #authScreen .auth-card label {
   color: rgba(123, 96, 24, 0.95) !important; font-weight: 600 !important; text-transform: uppercase !important;
 }
+
+/* ============================================================
+   BUNDLE 1.5 — hover KPI glass dense + hover boutons actions + états vides
+   ============================================================ */
+
+/* ---- Fix 1 — Hover head metric cards : reste GLASS (plus dense), plus de bleu plein #152843 ---- */
+body.dark-mode #mainApp .metric-item:hover {
+  background: rgba(5, 10, 20, 0.80) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(140%) !important;
+  backdrop-filter: blur(6px) saturate(140%) !important;
+  border-color: rgba(201, 162, 75, 0.55) !important;
+}
+body:not(.dark-mode) #mainApp .metric-item:hover {
+  background: rgba(245, 235, 215, 0.85) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(140%) !important;
+  backdrop-filter: blur(6px) saturate(140%) !important;
+  border-color: rgba(123, 96, 24, 0.6) !important;
+}
+
+/* ---- Fix 2 — Boutons d'action (.action-btn : Voir/Modifier/Supprimer) : hover sans fond blanc, lift + glow ---- */
+body.dark-mode #tradesTableBody .action-btn:hover,
+body.dark-mode #journalEntries .action-btn:hover,
+body.dark-mode #mainApp .action-btn:hover {
+  background: transparent !important;
+  transform: translateY(-1px) !important;
+  filter: brightness(1.15) !important;
+  box-shadow: none !important;
+}
+body.dark-mode #mainApp .action-btn:hover i,
+body.dark-mode #mainApp .action-btn:hover svg {
+  filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.5));
+}
+/* Le bouton Supprimer garde sa sémantique rouge (un peu adoucie) */
+body.dark-mode #mainApp .btn-delete, body.dark-mode #mainApp .btn-delete:hover { background: rgba(239, 68, 68, 0.85) !important; }
+
+/* ---- Fix 3 — État vide "Aucun frais enregistré" (+ autres) : glass + cadre or, texte lisible ---- */
+body.dark-mode #dailyFeesTable > p,
+body.dark-mode #dailyFeesTable .text-gray-500 {
+  background: rgba(10, 15, 24, 0.55) !important; border: 1px solid rgba(201, 162, 75, 0.25) !important;
+  border-radius: 8px !important; color: rgba(255, 255, 255, 0.7) !important; padding: 16px !important; text-align: center;
+}
+body:not(.dark-mode) #dailyFeesTable > p,
+body:not(.dark-mode) #dailyFeesTable .text-gray-500 {
+  background: rgba(255, 250, 240, 0.6) !important; border: 1px solid rgba(123, 96, 24, 0.3) !important;
+  border-radius: 8px !important; color: rgba(15, 23, 42, 0.7) !important; padding: 16px !important; text-align: center;
+}
+/* Autres états vides (Aucun trade / Aucune note) : texte lisible (pas en box pour ne pas casser les tables) */
+body.dark-mode #tradesTableBody .text-gray-500,
+body.dark-mode #journalEntries .text-gray-500,
+body.dark-mode #replaysList .text-gray-500 { color: rgba(255, 255, 255, 0.6) !important; }
