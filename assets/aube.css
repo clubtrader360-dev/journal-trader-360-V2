@@ -21,23 +21,39 @@ body { background: transparent !important; }
 /* Zone de contenu transparente pour laisser voir l'image de fond posée sur #mainApp */
 #mainApp .main-content, body.dark-mode #mainApp .main-content { background: transparent !important; }
 
-/* ----- DASHBOARD (et routes authentifiées) : mockup en fond fixed + overlay navy ----- */
+/* ----- DASHBOARD (et routes authentifiées) : image executive en fond fixed + overlay navy 0.45 ----- */
 #mainApp {
-  background: linear-gradient(rgba(13,17,22,0.62), rgba(13,17,22,0.66)),
-              url('/assets/dashboard-bg.png') center center / cover fixed no-repeat !important;
+  background: linear-gradient(rgba(0,11,37,0.45), rgba(0,11,37,0.45)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
 }
 body:not(.dark-mode) #mainApp {                         /* light : overlay crème "aube claire" */
   background: linear-gradient(rgba(255,250,240,0.55), rgba(255,250,240,0.55)),
-              url('/assets/dashboard-bg.png') center center / cover fixed no-repeat !important;
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
 }
 
-/* ----- LOGIN : mockup en fond fixed + overlay navy léger ----- */
+/* ----- LOGIN : même image en fond fixed + overlay navy léger 0.30 (l'ambiance respire) ----- */
 #authScreen, .auth-container {
-  background: linear-gradient(rgba(0,11,37,0.34), rgba(0,11,37,0.44)),
-              url('/assets/login-bg.png') center center / cover fixed no-repeat !important;
+  background: linear-gradient(rgba(0,11,37,0.30), rgba(0,11,37,0.30)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
 }
-/* Card login : cadre doré (hérité §3) + texte champagne + entrée fade-in/scale */
-#authScreen .auth-card { animation: aubeCardEnter 480ms var(--aube-ease) both; }
+
+/* ----- SIDEBAR (élève) : translucide + blur, l'image transparaît, séparateur doré fin ----- */
+#mainApp .sidebar {
+  background: rgba(0, 11, 37, 0.65) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  backdrop-filter: blur(12px) saturate(120%);
+  border-right: 1px solid rgba(201, 162, 75, 0.15) !important;
+}
+body:not(.dark-mode) #mainApp .sidebar {
+  background: rgba(255, 250, 240, 0.65) !important;
+}
+/* Card login : taille resserrée (plus de plein écran) + cadre doré (§3) + entrée fade-in/scale */
+#authScreen .auth-card {
+  animation: aubeCardEnter 480ms var(--aube-ease) both;
+  min-height: auto !important;
+  padding: 2.5rem 3rem !important;
+  max-width: 480px !important;
+}
 @keyframes aubeCardEnter { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: none; } }
 #authScreen .auth-card, #authScreen .auth-card h2,
 #authScreen .auth-card label, #authScreen .auth-card p { color: var(--color-champagne) !important; }
@@ -79,11 +95,24 @@ body:not(.dark-mode) #mainApp {                         /* light : overlay crèm
   background: none; border: none; cursor: pointer; color: var(--color-gold);
   display: inline-flex; padding: 6px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center;
 }
-/* Trust badges (injectés par aube.js) */
-.aube-trust { display: flex; justify-content: space-between; gap: 14px; margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(201,162,75,0.18); }
-.aube-trust > div { flex: 1; text-align: center; color: var(--aube-text-secondary); }
-.aube-trust .aube-trust-ic { color: var(--color-gold); display: inline-flex; margin-bottom: 6px; }
-.aube-trust .aube-trust-t { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-champagne); }
+/* Trust badges — BANDEAU fixe plein largeur en bas de page (injecté par aube.js, hors card) */
+.aube-trust {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+}
+.aube-trust > div { text-align: center; }
+.aube-trust .aube-trust-ic { color: var(--color-gold); display: inline-flex; margin-bottom: 8px; }
+.aube-trust .aube-trust-ic svg { width: 32px; height: 32px; }
+.aube-trust .aube-trust-t { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-gold); }
+.aube-trust .aube-trust-d { font-size: 11px; line-height: 1.45; color: rgba(255,255,255,0.6); margin-top: 4px; max-width: 240px; margin-left: auto; margin-right: auto; }
+/* Light : bandeau crème, texte navy */
+body:not(.dark-mode) .aube-trust { background: linear-gradient(to top, rgba(245,240,230,0.85) 0%, rgba(245,240,230,0.4) 100%); }
+body:not(.dark-mode) .aube-trust .aube-trust-d { color: rgba(26,18,8,0.7); }
+/* Mobile : stack 1 colonne */
+@media (max-width: 640px) { .aube-trust { grid-template-columns: 1fr; gap: 12px; text-align: center; } }
 
 /* ---- 2. Typographie 3 étages ---- */
 /* Titres nobles → Fraunces italic */
@@ -103,7 +132,7 @@ body:not(.dark-mode) #mainApp {                         /* light : overlay crèm
 #mainApp .trader-card, body.dark-mode #mainApp .trader-card,
 #mainApp .metric-item, body.dark-mode #mainApp .metric-item,
 #authScreen .auth-card {
-  background: rgba(10, 15, 28, 0.72) !important;
+  background: rgba(10, 15, 24, 0.55) !important;
   border: 1px solid var(--aube-frame) !important;
   border-radius: var(--aube-frame-radius) !important;
   -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
@@ -120,8 +149,10 @@ body:not(.dark-mode) #mainApp {                         /* light : overlay crèm
 /* Light "aube claire" : cards crème + cadre doré + texte navy (pas un dark inversé brutal) */
 body:not(.dark-mode) #mainApp .trader-card,
 body:not(.dark-mode) #mainApp .metric-item {
-  background: rgba(255, 250, 240, 0.85) !important; color: #1a1208 !important;
+  background: rgba(255, 250, 240, 0.75) !important; color: #1a1208 !important;
 }
+/* Sparklines KPI (injectées par aube.js) : mini-courbe sous le chiffre */
+.metric-item .aube-spark { display: block; width: 100%; height: 34px; margin-top: 10px; }
 
 /* ---- 4. P&L hero — halo doré + respiration ambiante ---- */
 body.dark-mode #netPnlValue {

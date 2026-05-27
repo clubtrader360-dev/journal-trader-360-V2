@@ -134,18 +134,60 @@
       });
       grp.appendChild(btn);
     });
-    // Trust badges (3 colonnes) — une seule fois
-    if (!card.querySelector('.aube-trust')) {
-      var data = [[SVG.shield, 'Sécurité avancée'], [SVG.trend, 'Analyse & Performance'], [SVG.target, 'Discipline & Réussite']];
-      var row = document.createElement('div'); row.className = 'aube-trust';
+    // Trust badges → BANDEAU fixe en bas de page (hors card, plein largeur)
+    var screen = document.getElementById('authScreen');
+    if (screen && !document.querySelector('.aube-trust')) {
+      var data = [
+        [SVG.shield, 'Sécurité avancée', 'Vos données chiffrées et protégées, jamais partagées'],
+        [SVG.trend, 'Analyse & Performance', 'Suivez, analysez et améliorez vos performances'],
+        [SVG.target, 'Discipline & Réussite', 'Un journal, une méthode, des résultats durables']
+      ];
+      var row = document.createElement('div'); row.className = 'aube-trust'; row.setAttribute('aria-hidden', 'true');
       row.innerHTML = data.map(function (d) {
-        return '<div><span class="aube-trust-ic">' + d[0] + '</span><div class="aube-trust-t">' + d[1] + '</div></div>';
+        return '<div><span class="aube-trust-ic">' + d[0] + '</span>' +
+               '<div class="aube-trust-t">' + d[1] + '</div>' +
+               '<div class="aube-trust-d">' + d[2] + '</div></div>';
       }).join('');
-      card.appendChild(row);
+      screen.appendChild(row);
     }
   }
 
-  function init() { watchPnl(); initNavIndicator(); initParisClock(); initLogin(); }
+  // ---- Sparklines sur les 8 KPI cards du head (Dashboard) ----
+  // TODO: brancher la source de données réelle par KPI (30 derniers jours). Faute d'accès
+  // propre aux séries (calculées dans le JS inline / Chart.js), on trace un placeholder
+  // cohérent (marche aléatoire douce déterministe) — ne casse RIEN du V2 existant.
+  function lcg(seed) { return function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }; }
+  function buildSparkline(card, idx) {
+    if (card.querySelector('.aube-spark')) return;
+    var N = 14, rnd = lcg(idx * 97 + 7), v = 0.5, pts = [];
+    for (var i = 0; i < N; i++) { v += (rnd() - 0.45) * 0.16; v = Math.max(0.08, Math.min(0.92, v)); pts.push(v); }
+    var W = 100, H = 34, dark = document.body.classList.contains('dark-mode');
+    var trend = pts[N - 1] - pts[0];
+    var color = trend > 0.06 ? '#10b981' : trend < -0.06 ? '#ef4444' : (dark ? '#cf8e3c' : '#7b6018');
+    var X = function (i) { return (i / (N - 1)) * W; }, Y = function (p) { return H - p * (H - 4) - 2; };
+    var line = 'M' + pts.map(function (p, i) { return X(i).toFixed(1) + ' ' + Y(p).toFixed(1); }).join(' L');
+    var area = line + ' L' + W + ' ' + H + ' L0 ' + H + ' Z';
+    var gid = 'aubeSpark' + idx;
+    var svg = '<svg class="aube-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="' + color + '" stop-opacity="0.2"/>' +
+      '<stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>' +
+      '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
+      '<path class="aube-spark-line" d="' + line + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    card.insertAdjacentHTML('beforeend', svg);
+    var path = card.querySelector('.aube-spark-line');
+    if (path && motionOk() && window.gsap) {
+      var len = path.getTotalLength();
+      window.gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+      window.gsap.to(path, { strokeDashoffset: 0, duration: 1, ease: 'power3.out', delay: 0.1 + idx * 0.04 });
+    }
+  }
+  function initSparklines() {
+    var cards = document.querySelectorAll('#dashboard .metric-item');
+    cards.forEach(function (c, i) { if (i < 8) buildSparkline(c, i); });
+  }
+
+  function init() { watchPnl(); initNavIndicator(); initParisClock(); initLogin(); initSparklines(); }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
 })();
