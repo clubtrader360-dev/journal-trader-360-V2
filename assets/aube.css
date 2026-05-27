@@ -78,8 +78,9 @@ body.dark-mode #mainAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85)
 #authScreen .auth-card .form-group input { padding: 0.65rem 1rem 0.65rem 42px !important; }
 #authScreen .auth-card .trader-btn,
 #authScreen .auth-card .trader-btn-secondary { padding: 0.65rem 1rem !important; margin: 0 0 8px !important; }
-/* Centrage haut + 160px réservés pour le bandeau bas fixe */
-#authScreen, .auth-container { align-items: flex-start !important; padding: 4vh 24px 160px !important; }
+/* Centrage VERTICAL de la card login + réserve bandeau bas (card compacte ~450px → pas de chevauchement) */
+#authScreen, .auth-container { align-items: center !important; justify-content: center !important; padding: 2rem 24px 180px !important; }
+#authScreen .auth-card { margin: 0 !important; }
 @keyframes aubeCardEnter { from { opacity: 0; transform: scale(0.97) translateY(8px); } to { opacity: 1; transform: none; } }
 /* Textes Login lisibles — battent les inline (h2 color:#000B25, subtitle div color:#666) via !important */
 #authScreen .auth-card h2 {
@@ -527,4 +528,70 @@ body:not(.dark-mode) #editMotivationModal label:has(#showOnLoginInput) {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px -4px rgba(212, 175, 55, 0.3) !important;
   border-radius: 10px !important;
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+
+/* ============================================================
+   BUNDLE 1.4 — checkbox or + Annuler ghost + login (centrage/autofill/titre/labels)
+   ============================================================ */
+
+/* ---- Fix 2 — Checkboxes/radios des modales en or (accent-color) ---- */
+body.dark-mode .modal-content input[type="checkbox"],
+body.dark-mode .modal-content input[type="radio"],
+body.dark-mode #editMotivationModal input[type="checkbox"] {
+  accent-color: #d4af37 !important; width: 18px; height: 18px; cursor: pointer;
+}
+body:not(.dark-mode) .modal-content input[type="checkbox"],
+body:not(.dark-mode) .modal-content input[type="radio"] { accent-color: #7b6018 !important; }
+
+/* ---- Fix 3 — Boutons "Annuler"/fermer custom (text-white, hors .trader-btn-secondary) → ghost or ---- */
+body.dark-mode .modal-content button[onclick*="closeModal"]:not(.trader-btn-secondary):not(.trader-btn) {
+  background: rgba(0, 11, 37, 0.4) !important; color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important; font-weight: 500;
+}
+body:not(.dark-mode) .modal-content button[onclick*="closeModal"]:not(.trader-btn-secondary):not(.trader-btn) {
+  background: rgba(255, 250, 240, 0.6) !important; color: rgba(123, 96, 24, 0.95) !important;
+  border: 1px solid rgba(123, 96, 24, 0.5) !important;
+}
+/* Bouton submit (Enregistrer) des modales → or solide texte navy */
+body.dark-mode #editMotivationModal button[type="submit"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; font-weight: 600;
+}
+
+/* ---- Fix 5 — Inputs Login : fond blanc + texte navy lisible + fix autofill WebKit ---- */
+#authScreen .auth-card .form-group input[type="email"],
+#authScreen .auth-card .form-group input[type="password"],
+#authScreen .auth-card .form-group input[type="text"] {
+  background-color: rgba(255, 255, 255, 0.92) !important; color: rgba(15, 23, 42, 0.95) !important;
+}
+#authScreen input:-webkit-autofill,
+#authScreen input:-webkit-autofill:hover,
+#authScreen input:-webkit-autofill:focus,
+#authScreen input:-webkit-autofill:active {
+  -webkit-text-fill-color: rgba(15, 23, 42, 0.95) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.92) inset !important;
+  caret-color: rgba(15, 23, 42, 0.95) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ---- Fix 6 — Titre "CONNEXION" : or saturé + glow + présence forte ---- */
+body.dark-mode #authScreen .auth-card h2 {
+  font-size: 2.25rem !important; font-weight: 700 !important; letter-spacing: 0.05em !important;
+  color: rgba(212, 175, 55, 1) !important; text-transform: uppercase !important; margin: 0.5rem 0 1rem !important;
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.4), 0 0 40px rgba(212, 175, 55, 0.25), 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+body:not(.dark-mode) #authScreen .auth-card h2 {
+  font-size: 2.25rem !important; font-weight: 700 !important; letter-spacing: 0.05em !important;
+  color: rgba(123, 96, 24, 1) !important; text-transform: uppercase !important; margin: 0.5rem 0 1rem !important;
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+/* Léger glow doré sur "Se connecter" (cohérence avec le titre) */
+#authScreen .auth-card .trader-btn { box-shadow: 0 4px 16px rgba(212, 175, 55, 0.25) !important; }
+
+/* ---- Fix 7 — Labels "EMAIL" / "MOT DE PASSE" : or champagne CAPS, visibles ---- */
+body.dark-mode #authScreen .auth-card label {
+  color: rgba(212, 175, 55, 0.85) !important; font-weight: 600 !important; font-size: 0.8rem !important;
+  letter-spacing: 0.08em !important; text-transform: uppercase !important; margin-bottom: 0.4rem !important; display: block !important;
+}
+body:not(.dark-mode) #authScreen .auth-card label {
+  color: rgba(123, 96, 24, 0.95) !important; font-weight: 600 !important; text-transform: uppercase !important;
 }
