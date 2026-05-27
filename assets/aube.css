@@ -278,3 +278,87 @@ button:hover, .btn:hover { transform: translateY(-1px); filter: brightness(1.08)
 [data-animations="off"] *, [data-animations="off"] *::before, [data-animations="off"] *::after {
   animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important;
 }
+
+/* ============================================================
+   BUNDLE 1 — micro-fixes polish (audit-polish-v2-eleve.md)
+   Modales glass + hover calendrier/tables + boutons palette + coin tableau
+   + Mon Pourquoi cadre or + focus généralisé. Dual-theme.
+   ============================================================ */
+
+/* ---- Fix 1 — Modales : glass dual-theme aligné calendrier (remplace le blanc forcé L1554) ---- */
+body.dark-mode .modal-content,
+body.dark-mode #importCSVModal .modal-content,
+body.dark-mode [class*="view-modal"],
+body.dark-mode [id*="Modal"] .modal-content {
+  background: rgba(10, 15, 24, 0.55) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 24px -8px rgba(201, 162, 75, 0.2) !important;
+}
+body:not(.dark-mode) .modal-content,
+body:not(.dark-mode) #importCSVModal .modal-content,
+body:not(.dark-mode) [class*="view-modal"],
+body:not(.dark-mode) [id*="Modal"] .modal-content {
+  background: rgba(255, 250, 240, 0.85) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+  border: 1px solid rgba(201, 162, 75, 0.45) !important;
+  color: rgba(15, 23, 42, 0.92) !important;
+}
+/* Titres/labels des modales lisibles sur le glass */
+body.dark-mode .modal-content h1, body.dark-mode .modal-content h2, body.dark-mode .modal-content h3,
+body.dark-mode .modal-content label, body.dark-mode .modal-content .view-modal-label { color: var(--color-champagne) !important; }
+/* Boutons primaires de modale → or solide texte navy ; secondaires → ghost doré */
+.modal-content .trader-btn { background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important; }
+.modal-content .trader-btn-secondary { background: rgba(10,15,28,0.5) !important; color: var(--color-gold) !important; border: 1px solid var(--aube-frame) !important; }
+
+/* ---- Fix 2 — Hover cases calendrier : tint doré translucide (préserve contraste, jamais blanc-sur-blanc) ---- */
+#mainApp #calendarGrid > div:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  border-radius: 8px;
+}
+
+/* ---- Fix 3 — Hover lignes de tableau : plus de gris clair + texte blanc ---- */
+body.dark-mode #importCSVModal tbody tr:hover,
+body.dark-mode #csvPreviewTable tbody tr:hover,
+body.dark-mode #tradesTableBody tr:hover,
+#mainApp #tradesTableBody tr:hover {
+  background: rgba(212, 175, 55, 0.08) !important;
+}
+
+/* ---- Fix 4 — Boutons hors palette → or premium texte navy ---- */
+button[onclick="validateChecklist()"] {
+  background: var(--aube-btn-gold) !important; color: #0d1116 !important; border: none !important;
+}
+button[onclick="validateChecklist()"]:hover { filter: brightness(1.08); }
+/* Boutons "Mon Pourquoi" (or) : texte navy au lieu de blanc pour lisibilité */
+#mainApp #motivation button[onclick="openEditMotivationModal()"] { color: #0d1116 !important; }
+
+/* ---- Fix 5 — Coin du tableau Journal des Trades clippé par l'arrondi ---- */
+#mainApp #tradelog .trader-card > .overflow-x-auto {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ---- Fix 7 — "Mon Pourquoi" : cadre or fin + glass (cohérence cross-routes) ---- */
+#mainApp #motivation .max-w-5xl {
+  background: rgba(10, 15, 24, 0.55);
+  border: 1px solid var(--aube-frame);
+  border-radius: var(--aube-frame-radius);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  padding: 28px;
+}
+body:not(.dark-mode) #mainApp #motivation .max-w-5xl { background: rgba(255, 250, 240, 0.75); color: #1a1208; }
+
+/* ---- Fix 8 — Focus doré généralisé (le login garde son focus plus spécifique) ---- */
+input:focus, textarea:focus, select:focus,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+  border-color: rgba(201, 162, 75, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.18) !important;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
