@@ -738,3 +738,34 @@ body:not(.dark-mode) .aube-detail-modal [style*="border-left"] {
   background: rgba(255, 250, 240, 0.7) !important; border-left: 3px solid rgba(123, 96, 24, 0.6) !important;
 }
 body:not(.dark-mode) .aube-detail-modal [style*="6b7280"] { color: rgba(123, 96, 24, 0.95) !important; }
+
+/* ============================================================
+   HOTFIX — Calendrier Dashboard : couleurs sémantiques selon P&L
+   Le JS pose déjà .bg-green-100 (gain) / .bg-red-200 (perte) sur chaque case.
+   On les retape en rgba vert/rouge léger, identiques aux "Trades récents"
+   (rgba(16,185,129,0.12) / rgba(239,68,68,0.12) + border 0.25). Option A : pas de JS.
+   Cascade : hover doré Bundle 1.3 (#mainApp #calendarGrid > div:hover, 2 IDs) reste prioritaire
+   → vert/rouge au repos, doré au survol. Les pills $ passent en vivid #10b981/#ef4444
+   en dark (sinon text-green-800/red-900 illisible sur fond rgba 0.12).
+   ============================================================ */
+body.dark-mode #calendarGrid > div.bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+body.dark-mode #calendarGrid > div.bg-red-200 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+body.dark-mode #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #10b981 !important; }
+body.dark-mode #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #ef4444 !important; }
+
+body:not(.dark-mode) #calendarGrid > div.bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.10) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+body:not(.dark-mode) #calendarGrid > div.bg-red-200 {
+  background-color: rgba(239, 68, 68, 0.10) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+body:not(.dark-mode) #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #047857 !important; }
+body:not(.dark-mode) #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #b91c1c !important; }
