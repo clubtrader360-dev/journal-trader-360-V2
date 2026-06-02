@@ -808,3 +808,45 @@ body:not(.dark-mode) #calendarSettings label:hover * {
   color: #1a1208 !important;
 }
 body:not(.dark-mode) #calendarSettings input[type="checkbox"] { accent-color: #b08418 !important; }
+
+/* ============================================================
+   HOTFIX — Trio : Type Long/Short + #tradeAccountList container
+   ============================================================ */
+
+/* --- 1. Journal des Trades — Type en BLANC uniforme (pas de double-codage avec le P&L) ---
+   Type cell = #tradesTableBody td:nth-child(5) > span (col 5 du thead : Date|Heure|Compte|Symbole|TYPE|...)
+   La couleur green/red est sur le <span> uniquement → Points (col 9) et P&L (col 10) restent intacts
+   (leur green/red est posé sur le <td>, pas sur un span). */
+body.dark-mode #tradesTableBody td:nth-child(5) span {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 600 !important;
+}
+body:not(.dark-mode) #tradesTableBody td:nth-child(5) span {
+  color: rgba(15, 23, 42, 0.92) !important;
+  font-weight: 600 !important;
+}
+
+/* --- 2. #tradeAccountList — compléter le pendant manquant du fix Bundle 1.2 (#csvAccountList) ---
+   Le hover via label:has(.trade-account-checkbox) existait (L446) mais le container .bg-white
+   n'avait jamais reçu d'override dark mode → panel quasi-blanc à l'ouverture du dropdown.
+   Même langage que #csvAccountList (Bundle 1.2 L433-452). */
+body.dark-mode #tradeAccountList {
+  background: rgba(10, 15, 24, 0.97) !important;
+  border-color: rgba(201, 162, 75, 0.3) !important;
+}
+body.dark-mode #tradeAccountList .bg-gray-50 { background: rgba(255, 255, 255, 0.04) !important; }
+body.dark-mode #tradeAccountList label { color: rgba(255, 255, 255, 0.92) !important; }
+body.dark-mode #tradeAccountList label:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+body:not(.dark-mode) #tradeAccountList {
+  background: rgba(255, 250, 240, 0.96) !important;
+  border-color: rgba(123, 96, 24, 0.4) !important;
+}
+body:not(.dark-mode) #tradeAccountList label:hover {
+  background: rgba(212, 175, 55, 0.15) !important;
+  color: rgba(15, 23, 42, 0.95) !important;
+}
+/* "Tout cocher" violet → or (cohérence csvAccountList) */
+#tradeAccountList .text-purple-600 { color: var(--color-gold) !important; }
