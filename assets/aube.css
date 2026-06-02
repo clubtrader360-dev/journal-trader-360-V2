@@ -850,3 +850,96 @@ body:not(.dark-mode) #tradeAccountList label:hover {
 }
 /* "Tout cocher" violet → or (cohérence csvAccountList) */
 #tradeAccountList .text-purple-600 { color: var(--color-gold) !important; }
+
+/* ============================================================
+   HOTFIX TRIO — modal Détails Trade compact + Replay Fermer + tooltip z/casse
+   ============================================================ */
+
+/* --- 1. #viewTradeModal — densité visuelle allégée (style "Note du...") ---
+   Même markup que #viewJournalModal (.view-modal-section + label + value), mais 13 sections
+   au lieu de 3-5 → la barre or 3px gauche par section sature visuellement.
+   On scope un override JUSTE sur #viewTradeModal pour casser cette barre + adoucir le cadre.
+   Détails Payout/Compte gardent leur version L677 inchangée (peu de sections, barre OK). */
+body.dark-mode #viewTradeModal .view-modal-section {
+  background: rgba(10, 15, 24, 0.40) !important;
+  border: 1px solid rgba(201, 162, 75, 0.14) !important;
+  border-left: 1px solid rgba(201, 162, 75, 0.14) !important; /* annule la barre 3px */
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 8px !important;
+}
+body:not(.dark-mode) #viewTradeModal .view-modal-section {
+  background: rgba(255, 250, 240, 0.55) !important;
+  border: 1px solid rgba(123, 96, 24, 0.18) !important;
+  border-left: 1px solid rgba(123, 96, 24, 0.18) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 8px !important;
+}
+/* Pill Long/Short → blanc uniforme (cohérence colonne TYPE du tableau, FIX1 commit précédent) */
+body.dark-mode #viewTradeModal .bg-green-100,
+body.dark-mode #viewTradeModal .bg-red-100 {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(201, 162, 75, 0.25) !important;
+}
+body.dark-mode #viewTradeModal .text-green-800,
+body.dark-mode #viewTradeModal .text-red-800 { color: rgba(255, 255, 255, 0.92) !important; }
+body:not(.dark-mode) #viewTradeModal .bg-green-100,
+body:not(.dark-mode) #viewTradeModal .bg-red-100 {
+  background: transparent !important;
+  color: rgba(15, 23, 42, 0.92) !important;
+  border: 1px solid rgba(123, 96, 24, 0.3) !important;
+}
+body:not(.dark-mode) #viewTradeModal .text-green-800,
+body:not(.dark-mode) #viewTradeModal .text-red-800 { color: rgba(15, 23, 42, 0.92) !important; }
+/* Bouton × (.view-modal-close) en or champagne (au lieu du gris #aaa par défaut) */
+body.dark-mode .view-modal-close { color: rgba(212, 175, 55, 0.75) !important; }
+body.dark-mode .view-modal-close:hover { color: rgba(244, 228, 193, 1) !important; }
+body:not(.dark-mode) .view-modal-close { color: rgba(123, 96, 24, 0.75) !important; }
+body:not(.dark-mode) .view-modal-close:hover { color: rgba(123, 96, 24, 1) !important; }
+
+/* --- 2. #replayDayModal — container glass dark + bouton Fermer ghost or ---
+   Modale 100% Tailwind inline (bg-white, border-gray-300, hover:bg-gray-50) jamais traitée
+   en dark sauf les boutons bg-blue "Regarder" (Bundle 1.7 L522). Pendant manquant. */
+body.dark-mode #replayDayModal > div.bg-white {
+  background: rgba(10, 15, 24, 0.92) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-mode #replayDayModal h2 { color: rgba(244, 228, 193, 0.95) !important; }
+body.dark-mode #replayDayModal button.text-gray-400 { color: rgba(212, 175, 55, 0.75) !important; }
+body.dark-mode #replayDayModal button.text-gray-400:hover { color: rgba(244, 228, 193, 1) !important; }
+/* Bouton "Fermer" footer (ghost or, cohérent .trader-btn-secondary Bundle 1.1) */
+body.dark-mode #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]) {
+  background: rgba(0, 11, 37, 0.4) !important;
+  color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  font-weight: 500 !important;
+}
+body.dark-mode #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]):hover {
+  background: rgba(0, 11, 37, 0.55) !important;
+  filter: brightness(1.08);
+}
+body:not(.dark-mode) #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]) {
+  background: rgba(255, 250, 240, 0.6) !important;
+  color: rgba(123, 96, 24, 0.95) !important;
+  border: 1px solid rgba(123, 96, 24, 0.5) !important;
+}
+
+/* --- 3. Tooltip ⓘ — z-index hors stacking context + casse normale (dual-theme) ---
+   .metric-item:hover applique transform → crée un stacking context → .tooltip z-index:1000
+   devient local et peut être couvert par cards adjacentes. z-index: 9999 + isolation auto.
+   Bundle 1.6 L699 ne couvrait que dark-mode → on étend en light aussi (defensive). */
+.tooltip,
+[role="tooltip"],
+[class*="tooltip"]:not(.calendar-day-with-tooltip) {
+  z-index: 9999 !important;
+}
+.tooltip, .tooltip *,
+[role="tooltip"], [role="tooltip"] *,
+.info-icon .tooltip, .info-icon .tooltip * {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-variant: normal !important;
+}
