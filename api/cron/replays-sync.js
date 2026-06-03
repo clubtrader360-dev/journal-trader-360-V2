@@ -11,6 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { findReplayFolder, VIMEO_API, VIMEO_ACCEPT, REPLAY_FOLDER_NAME } from '../vimeo/_lib/folder.js';
+import { parseDateFromTitle } from '../vimeo/_lib/parse-date.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -126,13 +127,26 @@ export default async function handler(req, res) {
 function formatVideo(v) {
   const m = String(v.link || '').match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
   if (!m) return null;
+  const title = v.name || '';
+
+  // Date prioritaire : parsing du préfixe `JJ_MM_AAAA` (convention Manu, c'est la
+  // date du LIVE). Fallback sur created_time (date d'UPLOAD) si pas parsable —
+  // évite la régression sur d'éventuels futurs uploads sans date dans le titre.
+  const parsedDate = parseDateFromTitle(title);
+  const replay_date = parsedDate || toParisDate(v.created_time);
+  if (parsedDate) {
+    console.log('[REPLAYS-SYNC] Date parsée depuis titre:', title, '→', parsedDate);
+  } else {
+    console.log('[REPLAYS-SYNC] Date NON parsable, fallback created_time:', title, '→', replay_date);
+  }
+
   return {
     video_id:    m[1],
     hash:        m[2] || null,
-    title:       v.name || '',
+    title,
     duration:    v.duration ?? null,
     thumbnail:   pickLargestThumbnail(v.pictures?.sizes),
-    replay_date: toParisDate(v.created_time)
+    replay_date
   };
 }
 
