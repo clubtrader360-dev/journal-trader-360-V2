@@ -738,3 +738,208 @@ body:not(.dark-mode) .aube-detail-modal [style*="border-left"] {
   background: rgba(255, 250, 240, 0.7) !important; border-left: 3px solid rgba(123, 96, 24, 0.6) !important;
 }
 body:not(.dark-mode) .aube-detail-modal [style*="6b7280"] { color: rgba(123, 96, 24, 0.95) !important; }
+
+/* ============================================================
+   HOTFIX — Calendrier Dashboard : couleurs sémantiques selon P&L
+   Le JS pose déjà .bg-green-100 (gain) / .bg-red-200 (perte) sur chaque case.
+   On les retape en rgba vert/rouge léger, identiques aux "Trades récents"
+   (rgba(16,185,129,0.12) / rgba(239,68,68,0.12) + border 0.25). Option A : pas de JS.
+   Cascade : hover doré Bundle 1.3 (#mainApp #calendarGrid > div:hover, 2 IDs) reste prioritaire
+   → vert/rouge au repos, doré au survol. Les pills $ passent en vivid #10b981/#ef4444
+   en dark (sinon text-green-800/red-900 illisible sur fond rgba 0.12).
+   ============================================================ */
+body.dark-mode #calendarGrid > div.bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+body.dark-mode #calendarGrid > div.bg-red-200 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+body.dark-mode #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #10b981 !important; }
+body.dark-mode #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #ef4444 !important; }
+
+body:not(.dark-mode) #calendarGrid > div.bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.10) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+body:not(.dark-mode) #calendarGrid > div.bg-red-200 {
+  background-color: rgba(239, 68, 68, 0.10) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+body:not(.dark-mode) #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #047857 !important; }
+body:not(.dark-mode) #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #b91c1c !important; }
+
+/* ============================================================
+   HOTFIX — Popover "Affichage du calendrier" (#calendarSettings)
+   Bug : .bg-white sur le popover + hover:bg-gray-50 sur chaque <label>
+   → fond quasi-blanc au survol, texte blanc invisible en dark mode.
+   Fix : glass dark/or sur le container + tint doré subtil au hover (langage Bundle 1.3).
+   Spécificité (0,1,3,2) >> Tailwind utility (0,0,2,0), aucun risque de régression.
+   ============================================================ */
+body.dark-mode #calendarSettings {
+  background: rgba(10, 15, 24, 0.92) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
+  backdrop-filter: blur(12px) saturate(140%) !important;
+  border: 1px solid var(--aube-frame) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+  color: var(--color-champagne) !important;
+}
+body.dark-mode #calendarSettings h4 { color: var(--color-gold) !important; }
+body.dark-mode #calendarSettings label,
+body.dark-mode #calendarSettings span { color: rgba(244, 228, 193, 0.95) !important; }
+body.dark-mode #calendarSettings label:hover,
+body.dark-mode #calendarSettings label:hover * {
+  background: rgba(212, 175, 55, 0.12) !important;
+  color: rgba(244, 228, 193, 0.98) !important;
+}
+body.dark-mode #calendarSettings input[type="checkbox"] { accent-color: var(--color-gold) !important; }
+
+body:not(.dark-mode) #calendarSettings {
+  background: rgba(255, 250, 240, 0.96) !important;
+  border: 1px solid rgba(123, 96, 24, 0.45) !important;
+  border-radius: 10px !important;
+  color: #1a1208 !important;
+}
+body:not(.dark-mode) #calendarSettings label:hover,
+body:not(.dark-mode) #calendarSettings label:hover * {
+  background: rgba(212, 175, 55, 0.18) !important;
+  color: #1a1208 !important;
+}
+body:not(.dark-mode) #calendarSettings input[type="checkbox"] { accent-color: #b08418 !important; }
+
+/* ============================================================
+   HOTFIX — Trio : Type Long/Short + #tradeAccountList container
+   ============================================================ */
+
+/* --- 1. Journal des Trades — Type en BLANC uniforme (pas de double-codage avec le P&L) ---
+   Type cell = #tradesTableBody td:nth-child(5) > span (col 5 du thead : Date|Heure|Compte|Symbole|TYPE|...)
+   La couleur green/red est sur le <span> uniquement → Points (col 9) et P&L (col 10) restent intacts
+   (leur green/red est posé sur le <td>, pas sur un span). */
+body.dark-mode #tradesTableBody td:nth-child(5) span {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 600 !important;
+}
+body:not(.dark-mode) #tradesTableBody td:nth-child(5) span {
+  color: rgba(15, 23, 42, 0.92) !important;
+  font-weight: 600 !important;
+}
+
+/* --- 2. #tradeAccountList — compléter le pendant manquant du fix Bundle 1.2 (#csvAccountList) ---
+   Le hover via label:has(.trade-account-checkbox) existait (L446) mais le container .bg-white
+   n'avait jamais reçu d'override dark mode → panel quasi-blanc à l'ouverture du dropdown.
+   Même langage que #csvAccountList (Bundle 1.2 L433-452). */
+body.dark-mode #tradeAccountList {
+  background: rgba(10, 15, 24, 0.97) !important;
+  border-color: rgba(201, 162, 75, 0.3) !important;
+}
+body.dark-mode #tradeAccountList .bg-gray-50 { background: rgba(255, 255, 255, 0.04) !important; }
+body.dark-mode #tradeAccountList label { color: rgba(255, 255, 255, 0.92) !important; }
+body.dark-mode #tradeAccountList label:hover {
+  background: rgba(212, 175, 55, 0.12) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+body:not(.dark-mode) #tradeAccountList {
+  background: rgba(255, 250, 240, 0.96) !important;
+  border-color: rgba(123, 96, 24, 0.4) !important;
+}
+body:not(.dark-mode) #tradeAccountList label:hover {
+  background: rgba(212, 175, 55, 0.15) !important;
+  color: rgba(15, 23, 42, 0.95) !important;
+}
+/* "Tout cocher" violet → or (cohérence csvAccountList) */
+#tradeAccountList .text-purple-600 { color: var(--color-gold) !important; }
+
+/* ============================================================
+   HOTFIX TRIO — modal Détails Trade compact + Replay Fermer + tooltip z/casse
+   ============================================================ */
+
+/* --- 1. #viewTradeModal — densité visuelle allégée (style "Note du...") ---
+   Même markup que #viewJournalModal (.view-modal-section + label + value), mais 13 sections
+   au lieu de 3-5 → la barre or 3px gauche par section sature visuellement.
+   On scope un override JUSTE sur #viewTradeModal pour casser cette barre + adoucir le cadre.
+   Détails Payout/Compte gardent leur version L677 inchangée (peu de sections, barre OK). */
+body.dark-mode #viewTradeModal .view-modal-section {
+  background: rgba(10, 15, 24, 0.40) !important;
+  border: 1px solid rgba(201, 162, 75, 0.14) !important;
+  border-left: 1px solid rgba(201, 162, 75, 0.14) !important; /* annule la barre 3px */
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 8px !important;
+}
+body:not(.dark-mode) #viewTradeModal .view-modal-section {
+  background: rgba(255, 250, 240, 0.55) !important;
+  border: 1px solid rgba(123, 96, 24, 0.18) !important;
+  border-left: 1px solid rgba(123, 96, 24, 0.18) !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 8px !important;
+}
+/* Pill Long/Short → blanc uniforme (cohérence colonne TYPE du tableau, FIX1 commit précédent) */
+body.dark-mode #viewTradeModal .bg-green-100,
+body.dark-mode #viewTradeModal .bg-red-100 {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(201, 162, 75, 0.25) !important;
+}
+body.dark-mode #viewTradeModal .text-green-800,
+body.dark-mode #viewTradeModal .text-red-800 { color: rgba(255, 255, 255, 0.92) !important; }
+body:not(.dark-mode) #viewTradeModal .bg-green-100,
+body:not(.dark-mode) #viewTradeModal .bg-red-100 {
+  background: transparent !important;
+  color: rgba(15, 23, 42, 0.92) !important;
+  border: 1px solid rgba(123, 96, 24, 0.3) !important;
+}
+body:not(.dark-mode) #viewTradeModal .text-green-800,
+body:not(.dark-mode) #viewTradeModal .text-red-800 { color: rgba(15, 23, 42, 0.92) !important; }
+/* Bouton × (.view-modal-close) en or champagne (au lieu du gris #aaa par défaut) */
+body.dark-mode .view-modal-close { color: rgba(212, 175, 55, 0.75) !important; }
+body.dark-mode .view-modal-close:hover { color: rgba(244, 228, 193, 1) !important; }
+body:not(.dark-mode) .view-modal-close { color: rgba(123, 96, 24, 0.75) !important; }
+body:not(.dark-mode) .view-modal-close:hover { color: rgba(123, 96, 24, 1) !important; }
+
+/* --- 2. #replayDayModal — container glass dark + bouton Fermer ghost or ---
+   Modale 100% Tailwind inline (bg-white, border-gray-300, hover:bg-gray-50) jamais traitée
+   en dark sauf les boutons bg-blue "Regarder" (Bundle 1.7 L522). Pendant manquant. */
+body.dark-mode #replayDayModal > div.bg-white {
+  background: rgba(10, 15, 24, 0.92) !important;
+  border: 1px solid rgba(201, 162, 75, 0.35) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-mode #replayDayModal h2 { color: rgba(244, 228, 193, 0.95) !important; }
+body.dark-mode #replayDayModal button.text-gray-400 { color: rgba(212, 175, 55, 0.75) !important; }
+body.dark-mode #replayDayModal button.text-gray-400:hover { color: rgba(244, 228, 193, 1) !important; }
+/* Bouton "Fermer" footer (ghost or, cohérent .trader-btn-secondary Bundle 1.1) */
+body.dark-mode #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]) {
+  background: rgba(0, 11, 37, 0.4) !important;
+  color: rgba(201, 162, 75, 0.95) !important;
+  border: 1px solid rgba(201, 162, 75, 0.5) !important;
+  font-weight: 500 !important;
+}
+body.dark-mode #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]):hover {
+  background: rgba(0, 11, 37, 0.55) !important;
+  filter: brightness(1.08);
+}
+body:not(.dark-mode) #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]) {
+  background: rgba(255, 250, 240, 0.6) !important;
+  color: rgba(123, 96, 24, 0.95) !important;
+  border: 1px solid rgba(123, 96, 24, 0.5) !important;
+}
+
+/* --- 3. Tooltip ⓘ — z-index hors stacking context + casse normale (dual-theme) ---
+   .metric-item:hover applique transform → crée un stacking context → .tooltip z-index:1000
+   devient local et peut être couvert par cards adjacentes. z-index: 9999 + isolation auto.
+   Bundle 1.6 L699 ne couvrait que dark-mode → on étend en light aussi (defensive). */
+.tooltip,
+[role="tooltip"],
+[class*="tooltip"]:not(.calendar-day-with-tooltip) {
+  z-index: 9999 !important;
+}
+.tooltip, .tooltip *,
+[role="tooltip"], [role="tooltip"] *,
+.info-icon .tooltip, .info-icon .tooltip * {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-variant: normal !important;
+}
