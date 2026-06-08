@@ -33,6 +33,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
     <!-- "Bourse à l'Aube" — GSAP (gratuit, Étape 0 validée) pour count-up & chorégraphie -->
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <!-- Dashboard personnalisable (#27) — Sortable.js pour le drag des blocs en mode édition -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js" defer></script>
     <meta name="theme-color" content="#000B25" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#f5f7fb" media="(prefers-color-scheme: light)">
     <style>
@@ -3947,6 +3949,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <canvas id="dailyPnlChart"></canvas>
                         </div>
                     </div>
+
+                    <!-- Performance par durée de trade (intégrée à la grille charts — card carrée comme les autres) -->
+                    <div class="trader-card p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            Performance par durée de trade <i class="fas fa-info-circle text-gray-400 ml-2"></i>
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="durationChart"></canvas>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Évolution P&L et Drawdown (graphe fusionné paysage — remplace les 2 cards séparées #cumulativePnlChart + #drawdownChart) -->
@@ -3958,18 +3970,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <div style="position: relative; height: 320px;">
                         <canvas id="pnlDrawdownChart"></canvas>
                         <div id="pnlDrawdownEmpty" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; color:#ac862b; font-size:0.9rem; padding:0 1rem;">Pas assez de données — au moins 2 jours de trading sont nécessaires pour afficher la courbe.</div>
-                    </div>
-                </div>
-
-                <!-- Performance par durée de trade -->
-                <div class="grid grid-cols-1 gap-8">
-                    <div class="trader-card p-6">
-                        <h3 class="text-lg font-semibold mb-4 flex items-center">
-                            Performance par durée de trade <i class="fas fa-info-circle text-gray-400 ml-2"></i>
-                        </h3>
-                        <div class="chart-container">
-                            <canvas id="durationChart"></canvas>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -14272,5 +14272,6 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     <script src="/assets/candles-bg.js" defer></script>
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
+    <script src="/assets/dashboard-customizer.js" defer></script>
 </body>
 </html>
