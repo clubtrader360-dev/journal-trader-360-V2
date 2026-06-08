@@ -21,3 +21,14 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.env*
+
+# Mémoire de travail & roadmap — LOCAL UNIQUEMENT (repo public, contient infos privées)
+memory/
+Roadmap_Journal_Trader360.md
+
+# Docs internes / outillage agents — LOCAL UNIQUEMENT (repo public)
+CLAUDE.md
+PROMPT_*.md
+.agents/
+.claude/
