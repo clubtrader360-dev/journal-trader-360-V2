@@ -7719,10 +7719,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 // ✅ Détecter si on est en mode édition
                 const modal = document.getElementById('addTradeModal');
                 const editingId = modal?.dataset.editingId;
-                const originalPnl = modal?.dataset.originalPnl;  // ✅ Récupérer le P&L original
-                
+
                 console.log('[UI] 💰 Frais lus depuis le formulaire:', fees);
-                console.log('[UI] 🔄 Mode édition - P&L original:', originalPnl);
+                if (editingId) console.log('[UI] 🔄 Mode édition - P&L recalculé serveur depuis (qty, prices, type, symbol, fees)');
                 
                 // Construction payload
                 const tradeData = {
@@ -7739,8 +7738,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     take_profit: take_profit ? parseFloat(take_profit) : null,
                     setup: setup || null,
                     notes: notes || null,
-                    // ✅ Si on édite un trade non-DEMO, utiliser le P&L original pour éviter le recalcul
-                    manual_pnl: symbol === 'DEMO' && manual_pnl ? parseFloat(manual_pnl) : (editingId && originalPnl ? parseFloat(originalPnl) : null),
+                    // ✅ Fix #41 : en mode édition, TOUJOURS laisser le serveur recalculer le P&L
+                    // depuis (quantity, entry/exit, type, symbol, fees). Seul DEMO garde son P&L manuel.
+                    manual_pnl: symbol === 'DEMO' && manual_pnl ? parseFloat(manual_pnl) : null,
                     protections: protections.length > 0 ? protections : null, // ✅ Envoyer un ARRAY
                     trade_trend_type: trade_trend_type,  // ✅ AJOUT: Type de trade (Tendance/Contre-tendance)
                     fees: fees,  // ✅ FRAIS lus depuis le formulaire
@@ -10222,12 +10222,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             document.getElementById('entryTime').value = trade.entryTime || '';
             document.getElementById('exitTime').value = trade.exitTime || '';
             document.getElementById('symbol').value = trade.symbol || 'ES';
-            
-            // ✅ Stocker le P&L original dans le modal pour éviter le recalcul lors de la sauvegarde
-            const modal = document.getElementById('addTradeModal');
-            if (modal) {
-                modal.dataset.originalPnl = trade.pnl || 0;
-            }
             
             // Si c'est un trade DEMO, afficher et remplir le champ P&L manuel
             toggleManualPnL();
