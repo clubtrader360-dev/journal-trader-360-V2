@@ -291,7 +291,122 @@
     obs.observe(anchor, { childList: true, characterData: true, subtree: true });
   }
 
-  function init() { watchPnl(); initNavIndicator(); initParisClock(); initLogin(); initSparklines(); }
+  // ---- Graphe fusionné P&L cumulé + Drawdown (Dashboard) : vraies données 30j ----
+  // Remplace les 2 anciens Chart.js séparés (#cumulativePnlChart + #drawdownChart, par trade)
+  // par UN graphe paysage agrégé PAR JOUR, calqué sur le template "Évolution Comptable".
+  // Même pipeline que les sparklines : calcul client depuis window.trades, re-render via
+  // MutationObserver découplé sur #netPnlValue, animation jouée une seule fois.
+
+  // Agrège par jour, fenêtre 30 derniers jours de trading. equity = P&L cumulé ;
+  // drawdown = equity[i] - max(equity[0..i]) (≤ 0). Retourne null si < 2 jours.
+  function computePnlDrawdownSeries() {
+    var trades = sparkTrades();
+    if (!Array.isArray(trades) || trades.length === 0) return null;
+    var byDay = {};
+    trades.forEach(function (t) {
+      var d = t && t.date; if (!d) return;
+      byDay[d] = (byDay[d] || 0) + (parseFloat(t.pnl) || 0);
+    });
+    var days = Object.keys(byDay).sort();
+    if (days.length < 2) return null;
+    days = days.slice(-SPARK_WINDOW);
+
+    var labels = [], equity = [], drawdown = [], cum = 0, peak = 0;
+    days.forEach(function (d) {
+      cum += byDay[d];
+      if (cum > peak) peak = cum;
+      equity.push(cum);
+      drawdown.push(cum - peak);
+      var dt = new Date(d);
+      labels.push(isNaN(dt) ? d : dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
+    });
+    return { labels: labels, equity: equity, drawdown: drawdown };
+  }
+
+  var _fusionChart = null, _fusionAnimated = false;
+  function renderFusionChart() {
+    var canvas = document.getElementById('pnlDrawdownChart');
+    if (!canvas || !window.Chart) return;
+    var empty = document.getElementById('pnlDrawdownEmpty');
+    var s = computePnlDrawdownSeries();
+
+    if (!s) {                                    // < 2 jours → fallback message honnête
+      if (_fusionChart) { _fusionChart.destroy(); _fusionChart = null; }
+      if (empty) empty.style.display = 'flex';
+      canvas.style.visibility = 'hidden';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    canvas.style.visibility = '';
+
+    if (_fusionChart) {                          // changement de comptes : update silencieux
+      _fusionChart.data.labels = s.labels;
+      _fusionChart.data.datasets[0].data = s.equity;
+      _fusionChart.data.datasets[1].data = s.drawdown;
+      _fusionChart.update('none');
+      return;
+    }
+
+    var dark = document.body.classList.contains('dark-mode');
+    var tick = dark ? 'rgba(244,228,193,0.75)' : 'rgba(13,17,22,0.65)';
+    var grid = dark ? 'rgba(212,175,55,0.10)' : 'rgba(0,0,0,0.06)';
+    var legendCol = dark ? 'rgba(244,228,193,0.92)' : 'rgba(13,17,22,0.82)';
+    var pointBorder = dark ? '#0a1020' : '#ffffff';
+    var animate = !_fusionAnimated && motionOk();
+
+    _fusionChart = new window.Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: s.labels,
+        datasets: [
+          { label: 'P&L cumulé', data: s.equity, borderColor: SPARK_GREEN,
+            backgroundColor: 'rgba(16,185,129,0.12)', borderWidth: 2.5, tension: 0.4, fill: true,
+            pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: SPARK_GREEN,
+            pointBorderColor: pointBorder, pointBorderWidth: 1.5 },
+          { label: 'Drawdown', data: s.drawdown, borderColor: SPARK_RED,
+            backgroundColor: 'rgba(239,68,68,0.10)', borderWidth: 2.5, tension: 0.4, fill: true,
+            pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: SPARK_RED,
+            pointBorderColor: pointBorder, pointBorderWidth: 1.5 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: animate ? { duration: 1500, easing: 'easeOutExpo' } : false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, position: 'top',
+            labels: { usePointStyle: true, padding: 15, color: legendCol, font: { size: 12, weight: 'bold' } } },
+          tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(0,0,0,0.8)', padding: 12,
+            callbacks: { label: function (c) {
+              var l = c.dataset.label || ''; if (l) l += ': ';
+              if (c.parsed && c.parsed.y !== undefined && c.parsed.y !== null) l += '$' + c.parsed.y.toFixed(2);
+              return l;
+            } } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: tick, font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+          y: { grid: { color: grid }, ticks: { color: tick, font: { size: 11 },
+              callback: function (v) { return '$' + v.toFixed(0); } } }
+        }
+      }
+    });
+    if (animate) _fusionAnimated = true;
+  }
+  window.aubeRenderFusionChart = renderFusionChart;   // exposé pour re-render externe éventuel
+
+  function initFusionChart() {
+    renderFusionChart();                         // 1er passage (souvent fallback : trades pas chargés)
+    var anchor = document.getElementById('netPnlValue');
+    if (!anchor) return;
+    var rt;
+    var obs = new MutationObserver(function () {
+      if (!_fusionAnimated) { renderFusionChart(); return; }   // 1er rendu réel immédiat (anime)
+      clearTimeout(rt); rt = setTimeout(renderFusionChart, 120); // suivants : update silencieux débouncé
+    });
+    obs.observe(anchor, { childList: true, characterData: true, subtree: true });
+  }
+
+  function init() { watchPnl(); initNavIndicator(); initParisClock(); initLogin(); initSparklines(); initFusionChart(); }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
 })();

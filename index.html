@@ -3949,29 +3949,20 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>
                 </div>
 
-                <!-- Bottom Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                    <!-- Daily Cumulative P&L -->
-                    <div class="trader-card p-6">
-                        <h3 class="text-lg font-semibold mb-4 flex items-center">
-                            P&L cumulé net quotidien <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">courbe de votre p&l cumulé au fil du temps. une courbe ascendante indique une croissance constante de votre capital.</span></i>
-                        </h3>
-                        <div class="chart-container">
-                            <canvas id="cumulativePnlChart"></canvas>
-                        </div>
+                <!-- Évolution P&L et Drawdown (graphe fusionné paysage — remplace les 2 cards séparées #cumulativePnlChart + #drawdownChart) -->
+                <div class="trader-card p-6 mt-8 mb-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-chart-line mr-2" style="color: #ac862b;"></i>
+                        Évolution P&L et Drawdown <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">votre p&l cumulé (equity) et votre drawdown (baisse depuis le dernier pic), agrégés par jour sur les 30 derniers jours de trading.</span></i>
+                    </h3>
+                    <div style="position: relative; height: 320px;">
+                        <canvas id="pnlDrawdownChart"></canvas>
+                        <div id="pnlDrawdownEmpty" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; color:#ac862b; font-size:0.9rem; padding:0 1rem;">Pas assez de données — au moins 2 jours de trading sont nécessaires pour afficher la courbe.</div>
                     </div>
+                </div>
 
-                    <!-- Drawdown -->
-                    <div class="trader-card p-6">
-                        <h3 class="text-lg font-semibold mb-4 flex items-center">
-                            Drawdown <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">le drawdown mesure la baisse maximale de votre capital depuis un pic. un drawdown élevé indique un risque important.</span></i>
-                        </h3>
-                        <div class="chart-container">
-                            <canvas id="drawdownChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Trade Duration Performance -->
+                <!-- Performance par durée de trade -->
+                <div class="grid grid-cols-1 gap-8">
                     <div class="trader-card p-6">
                         <h3 class="text-lg font-semibold mb-4 flex items-center">
                             Performance par durée de trade <i class="fas fa-info-circle text-gray-400 ml-2"></i>
@@ -5700,7 +5691,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         let traderScoreChart = null;
         let tradeTimeChart = null;
         let dailyPnlChart = null;
-        let cumulativePnlChart = null;
         
         // Charger les préférences d'affichage du calendrier depuis localStorage
         function loadCalendarPreferences() {
@@ -5724,7 +5714,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         
         // Paramètres d'affichage du calendrier
         let calendarDisplay = loadCalendarPreferences();
-        let drawdownChart = null;
         let durationChart = null;
         let accountingChart = null;
         
@@ -12454,8 +12443,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             initTraderScoreChart();
             initTradeTimeChart();
             initDailyPnlChart();
-            initCumulativePnlChart();
-            initDrawdownChart();
             initDurationChart();
             updateCharts();
         }
@@ -12582,100 +12569,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             });
         }
 
-        function initCumulativePnlChart() {
-            const ctx = document.getElementById('cumulativePnlChart').getContext('2d');
-            cumulativePnlChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: generateDateLabels(30),
-                    datasets: [{
-                        data: generateCumulativeData(30),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-        }
-
-        function initDrawdownChart() {
-            const ctx = document.getElementById('drawdownChart').getContext('2d');
-            drawdownChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: generateDateLabels(30),
-                    datasets: [{
-                        data: generateDrawdownData(30),
-                        borderColor: '#8b5cf6',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            max: 0
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateDrawdownChart(filteredTrades) {
-            if (!drawdownChart || filteredTrades.length === 0) return;
-            
-            // Trier les trades par date
-            const sortedTrades = [...filteredTrades].sort((a, b) => new Date(a.date) - new Date(b.date));
-            
-            // Calculer le P&L cumulé et le drawdown
-            let cumulativePnl = 0;
-            let peak = 0;
-            const drawdowns = [];
-            const dates = [];
-            
-            sortedTrades.forEach(trade => {
-                cumulativePnl += trade.pnl;
-                
-                // Mettre à jour le pic si on atteint un nouveau sommet
-                if (cumulativePnl > peak) {
-                    peak = cumulativePnl;
-                }
-                
-                // Calculer le drawdown (toujours négatif ou zéro)
-                const drawdown = cumulativePnl - peak;
-                
-                drawdowns.push(drawdown);
-                dates.push(trade.date);
-            });
-            
-            // Mettre à jour le graphique
-            drawdownChart.data.labels = dates;
-            drawdownChart.data.datasets[0].data = drawdowns;
-            drawdownChart.update();
-            
-            console.log(' Drawdown mis à jour:', drawdowns.length, 'points');
-        }
-
         function initDurationChart() {
             const ctx = document.getElementById('durationChart').getContext('2d');
             durationChart = new Chart(ctx, {
@@ -12751,13 +12644,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             // 3. DAILY PNL
             updateDailyPnlChart(filteredTrades);
             
-            // 4. CUMULATIVE PNL
-            updateCumulativePnlChart(filteredTrades);
-            
-            // 5. DRAWDOWN
-            updateDrawdownChart(filteredTrades);
-            
-            // 6. TRADE DURATION
+            // TRADE DURATION
+            // (P&L cumulé + Drawdown fusionnés → graphe #pnlDrawdownChart, géré dans aube.js)
             updateDurationChart(filteredTrades);
         }
         
@@ -12797,25 +12685,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 dailyPnlChart.update('none');
             }
             
-            // 4. Cumulative P&L
-            if (cumulativePnlChart && cumulativePnlChart.data) {
-                cumulativePnlChart.data.labels = [];
-                if (cumulativePnlChart.data.datasets && cumulativePnlChart.data.datasets[0]) {
-                    cumulativePnlChart.data.datasets[0].data = [];
-                }
-                cumulativePnlChart.update('none');
-            }
-            
-            // 5. Drawdown
-            if (drawdownChart && drawdownChart.data) {
-                drawdownChart.data.labels = [];
-                if (drawdownChart.data.datasets && drawdownChart.data.datasets[0]) {
-                    drawdownChart.data.datasets[0].data = [];
-                }
-                drawdownChart.update('none');
-            }
-            
-            // 6. Trade Duration
+            // Trade Duration
             if (durationChart) {
                 // ✅ DÉTRUIRE complètement le graphique
                 durationChart.destroy();
@@ -13227,31 +13097,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             dailyPnlChart.data.datasets[0].data = data;
             dailyPnlChart.data.datasets[0].backgroundColor = backgroundColors;
             dailyPnlChart.update();
-        }
-        
-        function updateCumulativePnlChart(filteredTrades) {
-            if (!cumulativePnlChart) return;
-            
-            // Trier les trades par date
-            const sortedTrades = [...filteredTrades].sort((a, b) => 
-                new Date(a.date) - new Date(b.date)
-            );
-            
-            // Calculer le P&L cumulatif
-            let cumulative = 0;
-            const cumulativeData = [];
-            const labels = [];
-            
-            sortedTrades.forEach((trade, index) => {
-                cumulative += trade.pnl;
-                cumulativeData.push(cumulative);
-                const d = new Date(trade.date);
-                labels.push(`${d.getMonth()+1}/${d.getDate()}`);
-            });
-            
-            cumulativePnlChart.data.labels = labels;
-            cumulativePnlChart.data.datasets[0].data = cumulativeData;
-            cumulativePnlChart.update();
         }
         
         function updateDurationChart(filteredTrades) {
