@@ -154,18 +154,94 @@
     }
   }
 
-  // ---- Sparklines sur les 8 KPI cards du head (Dashboard) ----
-  // TODO: brancher la source de données réelle par KPI (30 derniers jours). Faute d'accès
-  // propre aux séries (calculées dans le JS inline / Chart.js), on trace un placeholder
-  // cohérent (marche aléatoire douce déterministe) — ne casse RIEN du V2 existant.
-  function lcg(seed) { return function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }; }
-  function buildSparkline(card, idx) {
-    if (card.querySelector('.aube-spark')) return;
-    var N = 14, rnd = lcg(idx * 97 + 7), v = 0.5, pts = [];
-    for (var i = 0; i < N; i++) { v += (rnd() - 0.45) * 0.16; v = Math.max(0.08, Math.min(0.92, v)); pts.push(v); }
-    var W = 100, H = 34, dark = document.body.classList.contains('dark-mode');
-    var trend = pts[N - 1] - pts[0];
-    var color = trend > 0.06 ? '#10b981' : trend < -0.06 ? '#ef4444' : (dark ? '#cf8e3c' : '#7b6018');
+  // ---- Sparklines sur les 8 KPI cards du head (Dashboard) : VRAIES données 30j ----
+  // Séries calculées depuis window.trades (déjà en mémoire, mêmes comptes filtrés que
+  // les KPI affichés) : valeur CUMULÉE du KPI jour après jour sur les ~30 derniers jours
+  // de trading → courbe de tendance lisse. Couleur = tendance réelle début→fin de fenêtre.
+  // Animation GSAP (tracé gauche→droite) jouée UNE seule fois au 1er rendu réel.
+  var SPARK_WINDOW = 30;                       // nb max de jours de trading affichés
+  var SPARK_GREEN = '#10b981', SPARK_RED = '#ef4444';
+  var SPARK_INVERTED = { 7: true };            // KPI dont la hausse est négative : Hors Méthode
+  function sparkGold() { return document.body.classList.contains('dark-mode') ? '#cf8e3c' : '#7b6018'; }
+
+  // Trades filtrés par comptes actifs (mêmes que les valeurs KPI affichées).
+  function sparkTrades() {
+    try { if (typeof window.getFilteredTrades === 'function') return window.getFilteredTrades() || []; }
+    catch (e) {}
+    return window.trades || [];
+  }
+
+  // Construit les 8 séries cumulées (ordre = mapping idx → KPI du #dashboard).
+  // Retourne null si < 2 jours de données → fallback géré par buildSparkline.
+  function computeKpiSeries() {
+    var trades = sparkTrades();
+    if (!Array.isArray(trades) || trades.length === 0) return null;
+
+    var byDay = {};
+    trades.forEach(function (t) {
+      var d = t && t.date; if (!d) return;
+      (byDay[d] || (byDay[d] = [])).push(t);
+    });
+    var days = Object.keys(byDay).sort();       // chronologique
+    if (days.length < 2) return null;
+    days = days.slice(-SPARK_WINDOW);           // 30 derniers jours de trading
+
+    var cumProfit = 0, cumLoss = 0, cumWins = 0, cumLossCnt = 0, cumDecided = 0,
+        cumWinDays = 0, cumDays = 0, cumPnl = 0, cumRR = 0, cumMeth = 0, cumHors = 0;
+    var netPnl = [], tradeWin = [], dayWin = [], pf = [], awl = [], rr = [], meth = [], hors = [];
+
+    days.forEach(function (d) {
+      var dayPnl = 0;
+      byDay[d].forEach(function (t) {
+        var pnl = parseFloat(t.pnl) || 0;
+        cumPnl += pnl; dayPnl += pnl;
+        if (pnl > 0) { cumProfit += pnl; cumWins++; cumDecided++; }
+        else if (pnl < 0) { cumLoss += Math.abs(pnl); cumLossCnt++; cumDecided++; }
+        if (t.type && t.type.indexOf('RR1 atteint') !== -1) cumRR++;
+        if (t.type && t.type.indexOf('RR2 atteint') !== -1) cumRR++;
+        if (t.is_methode === true) cumMeth++;
+        if (t.is_hors_methode === true) cumHors++;
+      });
+      cumDays++;
+      if (dayPnl > 0) cumWinDays++;
+
+      var avgWin = cumWins > 0 ? cumProfit / cumWins : 0;
+      var avgLoss = cumLossCnt > 0 ? cumLoss / cumLossCnt : 0;
+
+      netPnl.push(cumPnl);
+      tradeWin.push(cumDecided > 0 ? (cumWins / cumDecided) * 100 : 0);
+      dayWin.push(cumDays > 0 ? (cumWinDays / cumDays) * 100 : 0);
+      pf.push(cumLoss > 0 ? cumProfit / cumLoss : (cumProfit > 0 ? 99.99 : 0));
+      awl.push(avgLoss > 0 ? avgWin / avgLoss : (avgWin > 0 ? 99.99 : 0));
+      rr.push(cumRR);
+      meth.push(cumMeth);
+      hors.push(cumHors);
+    });
+
+    return [netPnl, tradeWin, dayWin, pf, awl, rr, meth, hors];
+  }
+
+  function buildSparkline(card, idx, series, animate) {
+    var old = card.querySelector('.aube-spark');
+    if (old) old.remove();                      // re-render propre (changement de comptes, etc.)
+
+    var raw = series && series[idx];
+    var W = 100, H = 34, pts, color;
+
+    if (raw && raw.length >= 2) {
+      var min = Math.min.apply(null, raw), max = Math.max.apply(null, raw), span = max - min;
+      pts = raw.map(function (v) { return span > 0 ? (v - min) / span : 0.5; });
+      var delta = raw[raw.length - 1] - raw[0];
+      var eps = span > 0 ? span * 0.02 : 0;     // seuil neutre : 2% de l'amplitude
+      var up = delta > eps, down = delta < -eps;
+      if (SPARK_INVERTED[idx]) { var sw = up; up = down; down = sw; }
+      color = up ? SPARK_GREEN : down ? SPARK_RED : sparkGold();
+    } else {
+      pts = [0.5, 0.5];                         // fallback honnête : ligne plate dorée (pas de fausse tendance)
+      color = sparkGold();
+    }
+
+    var N = pts.length;
     var X = function (i) { return (i / (N - 1)) * W; }, Y = function (p) { return H - p * (H - 4) - 2; };
     var line = 'M' + pts.map(function (p, i) { return X(i).toFixed(1) + ' ' + Y(p).toFixed(1); }).join(' L');
     var area = line + ' L' + W + ' ' + H + ' L0 ' + H + ' Z';
@@ -177,16 +253,42 @@
       '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
       '<path class="aube-spark-line" d="' + line + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     card.insertAdjacentHTML('beforeend', svg);
-    var path = card.querySelector('.aube-spark-line');
-    if (path && motionOk() && window.gsap) {
-      var len = path.getTotalLength();
-      window.gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
-      window.gsap.to(path, { strokeDashoffset: 0, duration: 1, ease: 'power3.out', delay: 0.1 + idx * 0.04 });
+
+    if (animate) {
+      var path = card.querySelector('.aube-spark-line');
+      if (path && motionOk() && window.gsap) {
+        var len = path.getTotalLength();
+        if (len > 0) {
+          window.gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+          window.gsap.to(path, { strokeDashoffset: 0, duration: 1, ease: 'power3.out', delay: 0.1 + idx * 0.04 });
+        }
+      }
     }
   }
+
+  var _sparkAnimated = false;                   // le tracé G→D ne s'anime qu'une fois
+  function renderSparklines() {
+    var cards = document.querySelectorAll('#dashboard .traderzella-banner .metric-item');
+    if (!cards.length) return;
+    var series = computeKpiSeries();
+    var animate = !_sparkAnimated && !!series;  // anime au 1er rendu où on a de vraies données
+    cards.forEach(function (c, i) { if (i < 8) buildSparkline(c, i, series, animate); });
+    if (animate) _sparkAnimated = true;
+  }
+  window.aubeRenderSparklines = renderSparklines;   // exposé si besoin d'un re-render externe
+
   function initSparklines() {
-    var cards = document.querySelectorAll('#dashboard .metric-item');
-    cards.forEach(function (c, i) { if (i < 8) buildSparkline(c, i); });
+    renderSparklines();                         // 1er passage (souvent fallback : trades pas encore chargés)
+    // Re-render quand les KPI changent (chargement trades, filtre comptes) — découplé du
+    // monolithe (pas d'édition des fonctions update*). 1er rendu réel immédiat, suivants debouncés.
+    var anchor = document.getElementById('netPnlValue');
+    if (!anchor) return;
+    var rt;
+    var obs = new MutationObserver(function () {
+      if (!_sparkAnimated) { renderSparklines(); return; }
+      clearTimeout(rt); rt = setTimeout(renderSparklines, 120);
+    });
+    obs.observe(anchor, { childList: true, characterData: true, subtree: true });
   }
 
   function init() { watchPnl(); initNavIndicator(); initParisClock(); initLogin(); initSparklines(); }
