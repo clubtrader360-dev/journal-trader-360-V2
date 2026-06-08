@@ -69,7 +69,6 @@
     tagRow(document.getElementById('calendarGrid'), 'grid-main');
     tagRow(document.getElementById('dailyPnlChart'), 'grid-charts');
     tagRow(document.getElementById('pnlDrawdownChart'), 'pnl-dd');
-    tagRow(document.getElementById('durationChart'), 'duration');
 
     // Pile latérale (colonne droite de la grille calendrier)
     function tagSide(node, id) { var c = closestCard(node) || node; if (c) { c.setAttribute('data-block-id', id); c.setAttribute('data-side', '1'); } }
@@ -85,6 +84,7 @@
     tagCell(document.getElementById('tradeTimeChart'), 'trade-time');
     tagCell(document.getElementById('consistencyRatio'), 'consistency');
     tagCell(document.getElementById('dailyPnlChart'), 'daily-pnl');
+    tagCell(document.getElementById('durationChart'), 'duration'); // désormais cellule de la grille charts (#27, carré)
 
     _tagged = true;
     return true;
