@@ -93,9 +93,12 @@
             /* Sidebar (its own palette — stays dark in both themes for brand) */
             --sidebar-bg: linear-gradient(180deg, #000B25 0%, #001530 60%, #00163a 100%);
             --sidebar-border: rgba(255, 255, 255, 0.08);
-            --sidebar-text: #e8edf5;
-            --sidebar-text-muted: #94a3b8;
-            --sidebar-hover: rgba(172, 134, 43, 0.14);
+            /* Valeurs LIGHT par défaut : navy lisible (la sidebar est transparente en light via aube.css) */
+            --sidebar-text: #000B25;                      /* navy logo */
+            --sidebar-text-muted: rgba(0, 11, 37, 0.6);   /* navy 60% pour méta */
+            --sidebar-text-hover: #d4af37;                /* or logo sur hover */
+            --sidebar-text-active: #d4af37;               /* or logo sur item actif */
+            --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
 
             /* Tokens */
             --radius-xs: 6px;
@@ -144,6 +147,12 @@
             --text-strong: #ffffff;
             --text-muted: #cbd5e1;
             --text-soft: #94a3b8;
+
+            /* Sidebar — restaure les valeurs DARK d'origine (zéro régression dark) */
+            --sidebar-text: #e8edf5;
+            --sidebar-text-muted: #94a3b8;
+            --sidebar-text-hover: #ffffff;
+            --sidebar-text-active: #ffffff;
             --text-disabled: #64748b;
 
             --border: rgba(148, 163, 184, 0.12);
@@ -456,13 +465,13 @@
         }
         .sidebar-item:hover {
             background: var(--sidebar-hover);
-            color: #ffffff;
+            color: var(--sidebar-text-hover);
         }
         .sidebar-item.active,
         .sidebar-item.coach-active {
             background: linear-gradient(90deg, rgba(172,134,43,0.18), rgba(172,134,43,0.02));
             border-left-color: var(--accent);
-            color: #ffffff;
+            color: var(--sidebar-text-active);
         }
         .sidebar-item .fas, .sidebar-item .fab { color: var(--accent); transition: color var(--t) var(--ease); }
         .sidebar-item:hover .fas, .sidebar-item:hover .fab { color: var(--accent-bright); }
