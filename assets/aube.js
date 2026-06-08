@@ -332,11 +332,11 @@
 
     if (!s) {                                    // < 2 jours → fallback message honnête
       if (_fusionChart) { _fusionChart.destroy(); _fusionChart = null; }
-      if (empty) empty.classList.remove('hidden');
+      if (empty) empty.style.display = 'flex';
       canvas.style.visibility = 'hidden';
       return;
     }
-    if (empty) empty.classList.add('hidden');
+    if (empty) empty.style.display = 'none';
     canvas.style.visibility = '';
 
     if (_fusionChart) {                          // changement de comptes : update silencieux
