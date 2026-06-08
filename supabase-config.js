@@ -45,6 +45,20 @@
     return t; // fallback sûr : valeur inconnue laissée telle quelle
   };
 
+  /**
+   * Direction logique d'un trade, toutes casses + sous-types RR1/RR2 gérés.
+   * Sert au code couleur (≠ formatTradeType qui sert à l'affichage texte).
+   * @param {string} rawType
+   * @returns {'LONG'|'SHORT'|null}
+   */
+  window.getTradeDirection = function (rawType) {
+    if (!rawType) return null;
+    const upper = String(rawType).toUpperCase();
+    if (upper.includes('LONG')) return 'LONG';
+    if (upper.includes('SHORT')) return 'SHORT';
+    return null;
+  };
+
   // ========================================
   // CONFIGURATION
   // ========================================
