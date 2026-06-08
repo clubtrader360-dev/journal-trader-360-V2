@@ -6615,7 +6615,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const accountColor = account ? (account.color || '#4A5568') : '#4A5568';
                 
                 const pnlClass = trade.pnl >= 0 ? 'text-green-600' : 'text-red-600';
-                const typeColor = trade.type === 'Long' ? 'text-green-600' : 'text-red-600';
+                const typeColor = window.getTradeDirection(trade.type) === 'LONG' ? 'text-green-600' : 'text-red-600';
                 
                 // ✅ CALCUL DES POINTS
                 const entryPrice = parseFloat(trade.entryPrice) || 0;
@@ -6648,7 +6648,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </td>
                         <td class="px-6 py-4 text-sm font-medium text-gray-900">${window.escapeHtml(trade.symbol)}</td>
                         <td class="px-6 py-4">
-                            <span class="${typeColor} text-sm font-medium">${window.escapeHtml(trade.type)}</span>
+                            <span class="${typeColor} text-sm font-medium">${window.escapeHtml(window.formatTradeType(trade.type))}</span>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900">${window.escapeHtml(trade.entryPrice)}</td>
                         <td class="px-6 py-4 text-sm text-gray-900">${window.escapeHtml(trade.exitPrice)}</td>
@@ -10789,8 +10789,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div class="flex-1">
                             <div class="flex items-center gap-3">
                                 <span class="font-semibold">${window.escapeHtml(trade.symbol)}</span>
-                                <span class="px-2 py-1 rounded text-xs ${trade.type === 'Long' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                    ${window.escapeHtml(trade.type)}
+                                <span class="px-2 py-1 rounded text-xs ${window.getTradeDirection(trade.type) === 'LONG' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${window.escapeHtml(window.formatTradeType(trade.type))}
                                 </span>
                                 ${trade.entryTime ? `<span class="text-xs text-gray-500">${window.escapeHtml(trade.entryTime)}</span>` : ''}
                             </div>
@@ -11948,8 +11948,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <div class="flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="font-semibold text-sm">${window.escapeHtml(trade.symbol)}</span>
-                                    <span class="text-xs px-2 py-0.5 rounded ${trade.type === 'Long' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
-                                        ${window.escapeHtml(trade.type)}
+                                    <span class="text-xs px-2 py-0.5 rounded ${window.getTradeDirection(trade.type) === 'LONG' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
+                                        ${window.escapeHtml(window.formatTradeType(trade.type))}
                                     </span>
                                     <span class="text-xs text-gray-500">${window.escapeHtml(trade.accountName)}</span>
                                 </div>
@@ -13703,8 +13703,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="view-modal-section">
                     <span class="view-modal-label">Type de Trade</span>
                     <div class="view-modal-value">
-                        <span class="px-3 py-1 rounded text-sm ${trade.type === 'Long' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                            ${window.escapeHtml(trade.type)}
+                        <span class="px-3 py-1 rounded text-sm ${window.getTradeDirection(trade.type) === 'LONG' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${window.escapeHtml(window.formatTradeType(trade.type))}
                         </span>
                     </div>
                 </div>

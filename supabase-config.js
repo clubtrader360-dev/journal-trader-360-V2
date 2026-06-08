@@ -28,6 +28,37 @@
     return String(value).replace(/[&<>"'`/]/g, (ch) => ESCAPE_MAP[ch]);
   };
 
+  /**
+   * Normalise l'affichage du type de trade (cosmétique seul, jamais en DB).
+   * Préserve les sous-types RR1/RR2 (déjà en casse mixte propre).
+   * "LONG"/"long" → "Long", "SHORT"/"short" → "Short", "Short (RR1 atteint)" → inchangé.
+   * @param {string} rawType - valeur brute de trade.type
+   * @returns {string} valeur normalisée pour l'affichage
+   */
+  window.formatTradeType = function (rawType) {
+    if (!rawType) return '';
+    const t = String(rawType).trim();
+    if (t.includes('RR1') || t.includes('RR2')) return t; // sous-types : ne pas toucher
+    const upper = t.toUpperCase();
+    if (upper === 'LONG') return 'Long';
+    if (upper === 'SHORT') return 'Short';
+    return t; // fallback sûr : valeur inconnue laissée telle quelle
+  };
+
+  /**
+   * Direction logique d'un trade, toutes casses + sous-types RR1/RR2 gérés.
+   * Sert au code couleur (≠ formatTradeType qui sert à l'affichage texte).
+   * @param {string} rawType
+   * @returns {'LONG'|'SHORT'|null}
+   */
+  window.getTradeDirection = function (rawType) {
+    if (!rawType) return null;
+    const upper = String(rawType).toUpperCase();
+    if (upper.includes('LONG')) return 'LONG';
+    if (upper.includes('SHORT')) return 'SHORT';
+    return null;
+  };
+
   // ========================================
   // CONFIGURATION
   // ========================================
