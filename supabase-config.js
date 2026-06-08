@@ -28,6 +28,23 @@
     return String(value).replace(/[&<>"'`/]/g, (ch) => ESCAPE_MAP[ch]);
   };
 
+  /**
+   * Normalise l'affichage du type de trade (cosmétique seul, jamais en DB).
+   * Préserve les sous-types RR1/RR2 (déjà en casse mixte propre).
+   * "LONG"/"long" → "Long", "SHORT"/"short" → "Short", "Short (RR1 atteint)" → inchangé.
+   * @param {string} rawType - valeur brute de trade.type
+   * @returns {string} valeur normalisée pour l'affichage
+   */
+  window.formatTradeType = function (rawType) {
+    if (!rawType) return '';
+    const t = String(rawType).trim();
+    if (t.includes('RR1') || t.includes('RR2')) return t; // sous-types : ne pas toucher
+    const upper = t.toUpperCase();
+    if (upper === 'LONG') return 'Long';
+    if (upper === 'SHORT') return 'Short';
+    return t; // fallback sûr : valeur inconnue laissée telle quelle
+  };
+
   // ========================================
   // CONFIGURATION
   // ========================================
