@@ -943,3 +943,100 @@ body:not(.dark-mode) #replayDayModal button[onclick*="closeReplayDayModal"]:not(
   letter-spacing: normal !important;
   font-variant: normal !important;
 }
+
+/* ============================================================
+   Dashboard personnalisable (#27) — mode édition & catalogue
+   Langage "Bourse à l'Aube" : cadre or pointillé, handles dorés, boutons ghost/gold.
+   ============================================================ */
+
+/* Barre d'outils (bouton Personnaliser / actions édition) */
+.dash-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin-bottom: 18px;
+}
+.dash-toolbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dash-edit-tag {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--color-gold, #d4af37);
+  padding: 4px 12px; border-radius: 999px;
+  border: 1px solid rgba(212,175,55,0.45); background: rgba(212,175,55,0.08);
+}
+.dash-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 10px;
+  cursor: pointer; transition: filter 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+.dash-btn-ghost {
+  background: rgba(10,15,28,0.5); color: var(--color-gold, #d4af37);
+  border: 1px solid rgba(212,175,55,0.45);
+}
+.dash-btn-ghost:hover { border-color: rgba(212,175,55,0.85); filter: brightness(1.08); }
+.dash-btn-gold {
+  background: var(--aube-btn-gold, linear-gradient(135deg,#e8c66a,#d4af37));
+  color: #0a1020; border: none;
+}
+.dash-btn-gold:hover { filter: brightness(1.06); }
+body:not(.dark-mode) .dash-btn-ghost { background: rgba(255,255,255,0.6); color: #7b6018; border-color: rgba(123,96,24,0.4); }
+
+/* Blocs draggables en mode édition : cadre or pointillé + léger fond teinté */
+#dashboard.dash-edit [data-block-id] {
+  outline: 2px dashed rgba(212,175,55,0.6); outline-offset: 3px;
+  border-radius: 12px; transition: outline-color 150ms ease;
+}
+#dashboard.dash-edit [data-block-id]:hover { outline-color: rgba(212,175,55,0.95); }
+#dashboard.dash-edit .traderzella-banner { outline-color: transparent; } /* le conteneur KPI lui-même non souligné, ses cards le sont */
+
+/* Handle de drag (✏️/grip) — haut gauche */
+.dash-handle {
+  position: absolute; top: 6px; left: 6px; z-index: 30;
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  color: var(--color-gold, #d4af37); cursor: grab;
+  background: rgba(10,15,28,0.78); border: 1px solid rgba(212,175,55,0.5); border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.dash-handle:active { cursor: grabbing; }
+body:not(.dark-mode) .dash-handle { background: rgba(255,255,255,0.92); }
+
+/* Bouton × masquer (KPI + Score) — haut droite */
+.dash-remove {
+  position: absolute; top: 6px; right: 6px; z-index: 30;
+  width: 24px; height: 24px; line-height: 1; font-size: 16px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  color: #ef4444; cursor: pointer;
+  background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); border-radius: 999px;
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+.dash-remove:hover { background: rgba(239,68,68,0.22); box-shadow: 0 0 0 4px rgba(239,68,68,0.12); }
+
+/* Placeholder fantôme pendant le drag */
+.dash-ghost { opacity: 0.45; outline: 2px dashed rgba(212,175,55,0.9) !important; }
+
+/* Catalogue (modale glass dark) */
+.dash-cat-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(0,0,0,0.55);
+}
+.dash-cat-overlay.hidden { display: none; }
+.dash-cat-card {
+  width: 100%; max-width: 420px; border-radius: 16px; padding: 22px;
+  background: rgba(10,15,24,0.94); backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(212,175,55,0.4); box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+  color: rgba(244,228,193,0.92);
+}
+.dash-cat-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 14px; color: var(--color-gold, #d4af37); }
+.dash-cat-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.dash-cat-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 14px;
+  transition: background 150ms ease;
+}
+.dash-cat-row:hover { background: rgba(212,175,55,0.12); }
+.dash-cat-row input { width: 17px; height: 17px; accent-color: var(--color-gold, #d4af37); cursor: pointer; }
+.dash-cat-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+body:not(.dark-mode) .dash-cat-card { background: rgba(252,250,245,0.97); color: #0d1116; }
+
+/* Reduced-motion : pas de transition sur les blocs draggables */
+@media (prefers-reduced-motion: reduce) {
+  #dashboard.dash-edit [data-block-id], .dash-btn, .dash-remove, .dash-cat-row { transition: none !important; }
+}
