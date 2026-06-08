@@ -3909,7 +3909,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Trade Time Performance -->
                     <div class="trader-card p-6">
                         <h3 class="text-lg font-semibold mb-4 flex items-center">
-                            Performance par heure <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">analyse de vos performances par heure de trading. identifiez les heures où vous êtes le plus performant.</span></i>
+                            Performance moyenne par heure <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">P&L moyen par trade à chaque heure de la journée. Taille du point = nombre de trades à cette heure. Identifiez vos plages horaires les plus rentables.</span></i>
                         </h3>
                         <div class="chart-container">
                             <canvas id="tradeTimeChart"></canvas>
@@ -12482,45 +12482,68 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function initTradeTimeChart() {
             if (tradeTimeChart) tradeTimeChart.destroy();
             const ctx = document.getElementById('tradeTimeChart').getContext('2d');
+            // ✅ #42 : 1 point par heure, Y = P&L MOYEN par trade, taille = densité (nb trades),
+            // couleur = signe du P&L moyen. Tooltip enrichi (moyen / nb / cumul).
+            const noMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             tradeTimeChart = new Chart(ctx, {
-                type: 'scatter',
+                type: 'bubble',
                 data: {
                     datasets: [{
-                        label: 'Winning Trades',
-                        data: generateScatterData(20, true),
-                        backgroundColor: '#10b981',
-                        pointRadius: 3
-                    }, {
-                        label: 'Losing Trades',
-                        data: generateScatterData(15, false),
-                        backgroundColor: '#ef4444',
-                        pointRadius: 3
+                        label: 'Performance moyenne',
+                        data: [],                 // rempli par updateTradeTimeChart()
+                        backgroundColor: [],      // dynamique selon le signe du P&L moyen
+                        borderColor: [],
+                        borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: noMotion ? false : { duration: 600 },
                     plugins: {
-                        legend: {
-                            display: false
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 11, 37, 0.95)',
+                            titleColor: '#d4af37',
+                            bodyColor: '#ffffff',
+                            padding: 12,
+                            borderColor: 'rgba(212, 175, 55, 0.3)',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(context) { return `🕐 ${context[0].raw.x}h`; },
+                                label: function(context) {
+                                    const d = context.raw;
+                                    const moyen = d.y >= 0 ? `+${d.y.toFixed(2)}` : d.y.toFixed(2);
+                                    const cumul = d.cumul >= 0 ? `+${d.cumul.toFixed(2)}` : d.cumul.toFixed(2);
+                                    return [
+                                        `P&L moyen : ${moyen} $`,
+                                        `N trades : ${d.nb} (cumul : ${cumul} $)`
+                                    ];
+                                }
+                            }
                         }
                     },
                     scales: {
                         x: {
-                            title: {
-                                display: true,
-                                text: 'Time'
-                            },
+                            min: 0, max: 23,
+                            title: { display: true, text: 'Heure de la journée', color: 'rgba(255,255,255,0.7)' },
                             ticks: {
-                                callback: function(value) {
-                                    return value + 'h';
-                                }
-                            }
+                                callback: function(value) { return value + 'h'; },
+                                color: 'rgba(255,255,255,0.6)',
+                                stepSize: 1
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
                         },
                         y: {
-                            title: {
-                                display: true,
-                                text: 'P&L'
+                            title: { display: true, text: 'P&L moyen ($)', color: 'rgba(255,255,255,0.7)' },
+                            ticks: {
+                                callback: function(value) { return value >= 0 ? '+$' + value : '-$' + Math.abs(value); },
+                                color: 'rgba(255,255,255,0.6)'
+                            },
+                            grid: {
+                                // Ligne y=0 dorée subtile (frontière gain/perte)
+                                color: function(context) { return context.tick.value === 0 ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255,255,255,0.05)'; },
+                                lineWidth: function(context) { return context.tick.value === 0 ? 1.5 : 1; }
                             }
                         }
                     }
@@ -12656,14 +12679,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 document.getElementById('traderScore').textContent = '0.0';
             }
             
-            // 2. Trade Time Performance
-            if (tradeTimeChart && tradeTimeChart.data && tradeTimeChart.data.datasets) {
-                if (tradeTimeChart.data.datasets[0]) {
-                    tradeTimeChart.data.datasets[0].data = [];
-                }
-                if (tradeTimeChart.data.datasets[1]) {
-                    tradeTimeChart.data.datasets[1].data = [];
-                }
+            // 2. Trade Time Performance (#42 : 1 seul dataset bubble)
+            if (tradeTimeChart && tradeTimeChart.data && tradeTimeChart.data.datasets && tradeTimeChart.data.datasets[0]) {
+                tradeTimeChart.data.datasets[0].data = [];
+                tradeTimeChart.data.datasets[0].backgroundColor = [];
+                tradeTimeChart.data.datasets[0].borderColor = [];
                 tradeTimeChart.update('none');
             }
             
@@ -12899,40 +12919,55 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         
         function updateTradeTimeChart(filteredTrades) {
             if (!tradeTimeChart) return;
-            
-            // Grouper les trades par heure
+
+            // Grouper par heure : compter les trades + sommer le P&L
             const tradesByHour = {};
             filteredTrades.forEach(trade => {
                 if (trade.entryTime) {
                     const hour = parseInt(trade.entryTime.split(':')[0]);
                     if (!tradesByHour[hour]) {
-                        tradesByHour[hour] = { wins: 0, losses: 0, pnl: 0 };
+                        tradesByHour[hour] = { count: 0, pnlSum: 0 };
                     }
-                    if (trade.pnl > 0) {
-                        tradesByHour[hour].wins++;
-                    } else {
-                        tradesByHour[hour].losses++;
-                    }
-                    tradesByHour[hour].pnl += trade.pnl;
+                    tradesByHour[hour].count++;
+                    tradesByHour[hour].pnlSum += (parseFloat(trade.pnl) || 0);
                 }
             });
-            
-            // Préparer les données pour le scatter plot
-            const winData = [];
-            const lossData = [];
-            
-            Object.keys(tradesByHour).forEach(hour => {
-                const hourData = tradesByHour[hour];
-                if (hourData.wins > 0) {
-                    winData.push({ x: parseInt(hour), y: hourData.pnl > 0 ? hourData.pnl : 100 });
-                }
-                if (hourData.losses > 0) {
-                    lossData.push({ x: parseInt(hour), y: hourData.pnl < 0 ? hourData.pnl : -100 });
-                }
+
+            // Densité min/max → rayon de bulle [4, 12]
+            const counts = Object.values(tradesByHour).map(h => h.count);
+            const minCount = counts.length ? Math.min(...counts) : 0;
+            const maxCount = counts.length ? Math.max(...counts) : 0;
+
+            const data = [];
+            const backgroundColor = [];
+            const borderColor = [];
+
+            Object.entries(tradesByHour).forEach(([hour, h]) => {
+                const moyen = h.pnlSum / h.count;
+                const r = (maxCount === minCount)
+                    ? 8
+                    : 4 + (h.count - minCount) / (maxCount - minCount) * 8;
+
+                data.push({
+                    x: parseInt(hour),
+                    y: parseFloat(moyen.toFixed(2)),
+                    r: r,
+                    nb: h.count,
+                    cumul: h.pnlSum
+                });
+
+                // Couleur selon le signe du P&L moyen (vert / rouge / or neutre)
+                let color;
+                if (moyen > 0) color = 'rgba(16, 185, 129, 0.7)';
+                else if (moyen < 0) color = 'rgba(239, 68, 68, 0.7)';
+                else color = 'rgba(212, 175, 55, 0.7)';
+                backgroundColor.push(color);
+                borderColor.push(color.replace('0.7', '1'));
             });
-            
-            tradeTimeChart.data.datasets[0].data = winData;
-            tradeTimeChart.data.datasets[1].data = lossData;
+
+            tradeTimeChart.data.datasets[0].data = data;
+            tradeTimeChart.data.datasets[0].backgroundColor = backgroundColor;
+            tradeTimeChart.data.datasets[0].borderColor = borderColor;
             tradeTimeChart.update();
         }
         
