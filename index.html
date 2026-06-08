@@ -95,7 +95,7 @@
             --sidebar-border: rgba(255, 255, 255, 0.08);
             /* Valeurs LIGHT par défaut : navy lisible (la sidebar est transparente en light via aube.css) */
             --sidebar-text: #000B25;                      /* navy logo */
-            --sidebar-text-muted: rgba(0, 11, 37, 0.6);   /* navy 60% pour méta */
+            --sidebar-text-muted: rgba(0, 11, 37, 0.78);  /* navy 78% : secondaire mais lisible */
             --sidebar-text-hover: #d4af37;                /* or logo sur hover */
             --sidebar-text-active: #d4af37;               /* or logo sur item actif */
             --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
@@ -475,6 +475,8 @@
         }
         .sidebar-item .fas, .sidebar-item .fab { color: var(--accent); transition: color var(--t) var(--ease); }
         .sidebar-item:hover .fas, .sidebar-item:hover .fab { color: var(--accent-bright); }
+        /* Titres de section & textes secondaires de la sidebar (thème-aware, remplace les text-gray-* fixes) */
+        .sidebar-section-title { color: var(--sidebar-text-muted); }
 
         /* Hamburger / mobile sidebar toggle */
         .sidebar-toggle {
@@ -1062,7 +1064,7 @@
             border-radius: 8px;
         }
         #mainApp .account-item:hover { background: rgba(172,134,43,0.1); }
-        #mainApp .account-size { color: #ccc; }
+        #mainApp .account-size { color: var(--sidebar-text-muted); }
 
         /* =====================================================================
            STUDENT DESIGN — SECTION 3: Modals rollback V2 → V1
@@ -2846,8 +2848,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div class="sidebar" id="coachAppSidebar">
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
-                <div class="text-gray-300 text-sm mt-3">MODE COACH</div>
-                <div class="text-gray-400 text-xs mt-1" id="coachUserInfo"></div>
+                <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
+                <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
             </div>
             
             <nav class="mt-6">
@@ -3452,14 +3454,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div class="sidebar" id="mainAppSidebar">
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
-                <div class="text-gray-300 text-sm mt-3" id="userInfo"></div>
+                <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
             </div>
             
             <!-- Accounts Section -->
             <div class="p-4 border-b border-gray-700">
                 <!-- Section Mes Comptes Actifs (avec accordion + drop zone) -->
                 <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('active')">
-                    <h3 class="text-sm font-semibold text-gray-300">
+                    <h3 class="text-sm font-semibold sidebar-section-title">
                         <i id="activeAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
                         Mes Comptes Actifs
                     </h3>
@@ -3488,7 +3490,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <!-- Section Comptes Cramés (avec accordion + drop zone) - TOUJOURS VISIBLE -->
                 <div id="blownAccountsSection" style="display: block; margin-top: 20px; padding-top: 15px; border-top: 1px solid #374151;">
                     <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('blown')">
-                        <h3 class="text-sm font-semibold text-gray-400">
+                        <h3 class="text-sm font-semibold sidebar-section-title">
                             <i id="blownAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
                             🔥 Comptes Cramés
                         </h3>
