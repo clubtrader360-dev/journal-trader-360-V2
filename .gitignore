@@ -32,3 +32,14 @@ CLAUDE.md
 PROMPT_*.md
 .agents/
 .claude/
+_GLOBAL_CLAUDE_RULES.md
+_init-project-rules.sh
+audit-polish-v2-eleve.md
+skills-lock.json
+
+# Préfixe _ réservé aux fichiers locaux internes
+_*.md
+_*.sh
+
+# Audits internes
+audit-*.md
