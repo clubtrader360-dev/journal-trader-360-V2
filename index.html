@@ -99,6 +99,7 @@
             --sidebar-text-hover: #d4af37;                /* or logo sur hover */
             --sidebar-text-active: #d4af37;               /* or logo sur item actif */
             --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
+            --sidebar-divider: rgba(0, 11, 37, 0.12);     /* séparateur navy léger (light) */
 
             /* Tokens */
             --radius-xs: 6px;
@@ -153,6 +154,7 @@
             --sidebar-text-muted: #94a3b8;
             --sidebar-text-hover: #ffffff;
             --sidebar-text-active: #ffffff;
+            --sidebar-divider: #374151;                   /* séparateur d'origine (dark) */
             --text-disabled: #64748b;
 
             --border: rgba(148, 163, 184, 0.12);
@@ -2871,7 +2873,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </nav>
 
             <nav class="mt-6">
-                <div id="logoutBtnCoach" class="sidebar-item logoutBtn" data-action="logout" onclick="window.logout()" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px; cursor: pointer;">
+                <div id="logoutBtnCoach" class="sidebar-item logoutBtn" data-action="logout" onclick="window.logout()" style="margin-top: 20px; border-top: 1px solid var(--sidebar-divider); padding-top: 20px; cursor: pointer;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
                 </div>
                 <!-- Theme Toggle + Zoom dans la Sidebar (Coach) -->
@@ -3488,7 +3490,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
                 
                 <!-- Section Comptes Cramés (avec accordion + drop zone) - TOUJOURS VISIBLE -->
-                <div id="blownAccountsSection" style="display: block; margin-top: 20px; padding-top: 15px; border-top: 1px solid #374151;">
+                <div id="blownAccountsSection" style="display: block; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--sidebar-divider);">
                     <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('blown')">
                         <h3 class="text-sm font-semibold sidebar-section-title">
                             <i id="blownAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
@@ -3527,7 +3529,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" data-section="replays" onclick="showSection('replays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
-                <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px;">
+                <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid var(--sidebar-divider); padding-top: 20px;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
                 </div>
                 <div class="sidebar-item" onclick="exportAllDataToCSV()" style="margin-top: 10px;">
@@ -12537,23 +12539,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     scales: {
                         x: {
                             min: 0, max: 23,
-                            title: { display: true, text: 'Heure de la journée', color: 'rgba(255,255,255,0.7)' },
+                            title: { display: true, text: 'Heure de la journée' },
                             ticks: {
                                 callback: function(value) { return value + 'h'; },
-                                color: 'rgba(255,255,255,0.6)',
                                 stepSize: 1
-                            },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
+                            }
+                            // grid : défauts Chart.js (gris neutre, OK light + dark)
                         },
                         y: {
-                            title: { display: true, text: 'P&L moyen ($)', color: 'rgba(255,255,255,0.7)' },
+                            title: { display: true, text: 'P&L moyen ($)' },
                             ticks: {
-                                callback: function(value) { return value >= 0 ? '+$' + value : '-$' + Math.abs(value); },
-                                color: 'rgba(255,255,255,0.6)'
+                                callback: function(value) { return value >= 0 ? '+$' + value : '-$' + Math.abs(value); }
                             },
                             grid: {
-                                // Ligne y=0 dorée subtile (frontière gain/perte)
-                                color: function(context) { return context.tick.value === 0 ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255,255,255,0.05)'; },
+                                // Ligne y=0 dorée subtile ; ailleurs → défaut Chart.js (undefined)
+                                color: function(context) { return context.tick.value === 0 ? 'rgba(212, 175, 55, 0.3)' : undefined; },
                                 lineWidth: function(context) { return context.tick.value === 0 ? 1.5 : 1; }
                             }
                         }
