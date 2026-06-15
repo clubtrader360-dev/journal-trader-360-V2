@@ -479,6 +479,10 @@
         .sidebar-item:hover .fas, .sidebar-item:hover .fab { color: var(--accent-bright); }
         /* Titres de section & textes secondaires de la sidebar (thème-aware, remplace les text-gray-* fixes) */
         .sidebar-section-title { color: var(--sidebar-text-muted); }
+        /* Lignes checklist : surbrillance hover lisible en light ET dark (remplace hover:bg-gray-50) */
+        .checklist-row { transition: background-color var(--t) var(--ease); }
+        .checklist-row:hover { background-color: rgba(0, 0, 0, 0.04); }
+        body.dark-mode .checklist-row:hover { background-color: rgba(255, 255, 255, 0.04); }
 
         /* Hamburger / mobile sidebar toggle */
         .sidebar-toggle {
@@ -4350,111 +4354,45 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">ÉTAT MENTAL</h3>
                         </div>
                         <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="coherence" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Cohérence cardiaque</span>
                             </label>
-                            <div class="ml-8">
-                                <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors text-sm">
-                                    <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="son-marconi" style="accent-color: #ac862b; width: 16px; height: 16px;">
-                                    <span class="text-gray-600">Écouter le son de Marconi</span>
-                                </label>
-                            </div>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="article" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Lire l'article / citation du jour</span>
                             </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="regles" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Relire mes règles de trading</span>
                             </label>
                         </div>
                     </div>
 
-                    <!-- Section 2: Préparation Technique -->
+                    <!-- Section 2: Préparation de séance -->
                     <div class="mb-8">
                         <div class="flex items-center mb-4">
                             <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
                                 <i class="fas fa-laptop-code" style="color: #ac862b; font-size: 20px;"></i>
                             </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">PRÉPARATION TECHNIQUE</h3>
+                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">PRÉPARATION DE SÉANCE</h3>
                         </div>
                         <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="technique" data-item="ordi" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">J'ouvre l'ordi</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="technique" data-item="news" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="news" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Je regarde s'il y a des News</span>
                             </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="technique" data-item="tendance" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="tendance" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Analyse tendance</span>
                             </label>
-                        </div>
-                    </div>
-
-                    <!-- Section 3: Analyse Marché -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-4">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-chart-line" style="color: #ac862b; font-size: 20px;"></i>
-                            </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">ANALYSE MARCHÉ</h3>
-                        </div>
-                        <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="marche" data-item="objectif" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="objectif" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Objectif séance</span>
                             </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="marche" data-item="budget" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Déterminer mon budget</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Section 4: Checklist Trade -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-4">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-clipboard-check" style="color: #ac862b; font-size: 20px;"></i>
-                            </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">CHECKLIST TRADE</h3>
-                        </div>
-                        <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="rr" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">RR suffisant</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="sl" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">SL bien placé</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="protection" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Protection</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="securisation" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Niveau de sécurisation</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Section 5: Analyse de Session -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-4">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-file-alt" style="color: #ac862b; font-size: 20px;"></i>
-                            </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">ANALYSE DE SESSION</h3>
-                        </div>
-                        <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="analyse" data-item="journal" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Journal de trading rempli</span>
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="budget" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                                <span class="text-gray-700">Déterminer mon budget max de la journée</span>
                             </label>
                         </div>
                     </div>
