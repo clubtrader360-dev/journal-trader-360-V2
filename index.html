@@ -488,6 +488,10 @@
         body.dark-mode .trader-inline-input { color: var(--aube-text-primary, #f4e4c1); }
         .trader-inline-input:focus { background-color: rgba(0, 0, 0, 0.04) !important; }
         body.dark-mode .trader-inline-input:focus { background-color: rgba(0, 11, 37, 0.75) !important; }
+        /* Wrapper hover des lignes éditables (qualités/défauts/erreurs) — lisible light + dark */
+        .editable-list-row { transition: background-color var(--t) var(--ease); }
+        .editable-list-row:hover { background-color: rgba(0, 0, 0, 0.05); }
+        body.dark-mode .editable-list-row:hover { background-color: rgba(255, 255, 255, 0.08); }
 
         /* Hamburger / mobile sidebar toggle */
         .sidebar-toggle {
@@ -9417,7 +9421,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (!container) return;
             
             container.innerHTML = qualities.map((quality, index) => `
-                <div class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 group">
+                <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
                     <i class="fas fa-star text-sm" style="color: #ac862b;"></i>
                     <input type="text"
                            value="${window.escapeHtml(quality)}"
@@ -9436,7 +9440,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (!container) return;
             
             container.innerHTML = defauts.map((defaut, index) => `
-                <div class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 group">
+                <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
                     <i class="fas fa-exclamation-triangle text-sm" style="color: #dc2626;"></i>
                     <input type="text"
                            value="${window.escapeHtml(defaut)}"
@@ -9502,7 +9506,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (!container) return;
 
             container.innerHTML = erreurs.map((erreur, index) => `
-                <div class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 group">
+                <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
                     <i class="fas fa-exclamation-triangle text-sm" style="color: #991b1b;"></i>
                     <input type="text"
                            value="${window.escapeHtml(erreur)}"
