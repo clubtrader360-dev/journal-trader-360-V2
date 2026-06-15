@@ -4433,6 +4433,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </button>
                         </div>
 
+                        <!-- Section Mes Pires Erreurs -->
+                        <div class="mt-8">
+                            <h3 class="text-xl font-bold mb-4" style="color: #991b1b; text-transform: uppercase;">Mes Pires Erreurs</h3>
+                            <div id="erreursList" class="space-y-2 mb-3">
+                                <!-- Les erreurs seront générées ici par JS -->
+                            </div>
+                            <button onclick="addErreur()" class="text-sm px-3 py-1 rounded transition-all" style="background: rgba(153, 27, 27, 0.1); color: #991b1b; border: 1px solid #991b1b;">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>Ajouter une erreur
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -9387,11 +9398,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function loadQualitiesDefauts() {
             const qualities = JSON.parse(localStorage.getItem('trader_qualities') || '[]');
             const defauts = JSON.parse(localStorage.getItem('trader_defauts') || '[]');
-            
+            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+
             renderQualities(qualities);
             renderDefauts(defauts);
-            
-            console.log('[QUALITÉS/DÉFAUTS] Chargées:', qualities.length, 'qualités,', defauts.length, 'défauts');
+            renderErreurs(erreurs);
+
+            console.log('[QUALITÉS/DÉFAUTS/ERREURS] Chargées:', qualities.length, 'qualités,', defauts.length, 'défauts,', erreurs.length, 'erreurs');
         }
         
         function renderQualities(qualities) {
@@ -9478,6 +9491,49 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
         }
         
+        // === MES PIRES ERREURS — pattern identique à défauts/qualités ===
+        function renderErreurs(erreurs) {
+            const container = document.getElementById('erreursList');
+            if (!container) return;
+
+            container.innerHTML = erreurs.map((erreur, index) => `
+                <div class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 group">
+                    <i class="fas fa-exclamation-triangle text-sm" style="color: #991b1b;"></i>
+                    <input type="text"
+                           value="${window.escapeHtml(erreur)}"
+                           onchange="updateErreur(${Number(index)}, this.value)"
+                           class="flex-1 bg-transparent border-none outline-none text-gray-700 focus:bg-white focus:ring-1 focus:ring-red-500 rounded px-2 py-1"
+                           placeholder="Votre erreur à éviter...">
+                    <button onclick="deleteErreur(${Number(index)})" class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700">
+                        <i class="fas fa-trash text-sm"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addErreur() {
+            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+            erreurs.push('');
+            localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+            renderErreurs(erreurs);
+        }
+
+        function updateErreur(index, value) {
+            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+            erreurs[index] = value;
+            localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+            console.log('[ERREURS] Mise à jour:', value);
+        }
+
+        function deleteErreur(index) {
+            if (confirm('Supprimer cette erreur ?')) {
+                const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+                erreurs.splice(index, 1);
+                localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+                renderErreurs(erreurs);
+            }
+        }
+
         // Exposer les fonctions globalement
         window.addQuality = addQuality;
         window.updateQuality = updateQuality;
@@ -9485,6 +9541,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         window.addDefaut = addDefaut;
         window.updateDefaut = updateDefaut;
         window.deleteDefaut = deleteDefaut;
+        window.addErreur = addErreur;
+        window.updateErreur = updateErreur;
+        window.deleteErreur = deleteErreur;
 
         // ========================================
         // FONCTIONS: Tracking & Alertes Checklist
