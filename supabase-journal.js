@@ -416,7 +416,7 @@
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-xs">
-                                <thead class="bg-gray-50">
+                                <thead>
                                     <tr>
                                         <th class="px-2 py-1 text-left text-gray-500">Heure</th>
                                         <th class="px-2 py-1 text-left text-gray-500">Type</th>

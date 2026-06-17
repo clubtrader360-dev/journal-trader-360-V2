@@ -100,6 +100,7 @@
             --sidebar-text-active: #d4af37;               /* or logo sur item actif */
             --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
             --sidebar-divider: rgba(0, 11, 37, 0.12);     /* séparateur navy léger (light) */
+            --surface-opacity-factor: 1;                  /* #53 : facteur d'opacité des surfaces glass-dark (slider sidebar). 1 = look d'origine. */
 
             /* Tokens */
             --radius-xs: 6px;
@@ -1486,12 +1487,27 @@
         body.dark-mode #coachLoginForm label { color: #0f172a !important; }
 
         /* Generic tables in dark mode */
-        body.dark-mode table { background: var(--surface) !important; }
-        body.dark-mode thead { background: var(--surface-2) !important; }
+        body.dark-mode table { background: transparent !important; }  /* #56 : laisse transparaître le glass du .trader-card */
+        body.dark-mode thead { background: rgba(10, 15, 24, calc(0.85 * var(--surface-opacity-factor, 1))) !important; }
         body.dark-mode th    { color: var(--text-muted) !important; }
-        body.dark-mode tbody tr { border-color: var(--border) !important; }
-        body.dark-mode tbody tr:hover { background: var(--surface-2) !important; }
-        body.dark-mode tbody td { color: var(--text) !important; }
+        /* #56 — taille des en-têtes de tableaux harmonisée (lisible au zoom 70% par défaut) */
+        body.dark-mode th,
+        body:not(.dark-mode) th {
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.02em;
+        }
+        /* Exception : modale Import CSV (tableau dense) garde des en-têtes compacts */
+        body.dark-mode #importCSVModal th,
+        body.dark-mode #csvPreviewTable th { font-size: 0.75rem !important; }
+        body.dark-mode tbody tr { border-color: rgba(201, 162, 75, 0.15) !important; }
+        body.dark-mode tbody tr:hover { background: rgba(255, 255, 255, calc(0.04 * var(--surface-opacity-factor, 1))) !important; }
+        body.dark-mode tbody td { color: rgba(255, 255, 255, 0.85) !important; }
+        /* #56 : footer pagination Journal des trades → glass cohérent avec le thead (override ciblé, pas la règle globale .bg-gray-50) */
+        body.dark-mode #tradesPagination {
+            background-color: rgba(10, 15, 24, calc(0.65 * var(--surface-opacity-factor, 1))) !important;
+            border-color: rgba(201, 162, 75, 0.15) !important;
+        }
 
         /* Exception: CSV import preview keeps light table */
         body.dark-mode #importCSVModal table,
@@ -1559,11 +1575,8 @@
         body.dark-mode #weeklyStatsContainer .text-gray-700 { color: var(--text-strong) !important; }
         body.dark-mode #weeklyStatsContainer .text-gray-500 { color: var(--text-muted) !important; }
 
-        /* Daily journal trades table */
-        body.dark-mode #journalEntries table { background: var(--surface) !important; }
-        body.dark-mode #journalEntries thead { background: var(--surface-2) !important; }
-        body.dark-mode #journalEntries th { color: var(--text-soft) !important; }
-        body.dark-mode #journalEntries td { color: var(--text) !important; border-color: var(--border) !important; }
+        /* #56 : vestiges #journalEntries (table/thead/td bleu marine opaque) SUPPRIMÉS → gérés par les
+           règles GLOBALES body.dark-mode table/thead/tbody (glass + facteur + séparateurs or). */
         body.dark-mode #journalEntries tbody tr:hover { background: var(--surface-2) !important; }
         body.dark-mode #journalEntries h5 { color: var(--text-strong) !important; }
         body.dark-mode #journalEntries .border-t { border-color: var(--border) !important; }
@@ -1587,25 +1600,9 @@
             border-left-color: rgba(239, 68, 68, 0.45) !important;
         }
 
-        /* Modals in dark mode — light surface for readability */
-        body.dark-mode .modal-content { background: #ffffff !important; color: #1f2937 !important; }
-        body.dark-mode .modal-content h2,
-        body.dark-mode .modal-content h3,
-        body.dark-mode .modal-content label,
-        body.dark-mode .modal-content p,
-        body.dark-mode .modal-content span,
-        body.dark-mode .modal-content div,
-        body.dark-mode .modal-content small,
-        body.dark-mode .modal-content .text-gray-600,
-        body.dark-mode .modal-content .text-gray-700,
-        body.dark-mode .modal-content .text-gray-800 { color: #1f2937 !important; }
-        body.dark-mode .modal-content input,
-        body.dark-mode .modal-content select,
-        body.dark-mode .modal-content textarea {
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            border-color: #e1e5e9 !important;
-        }
+        /* #53 : bloc obsolète "Modals dark = surface blanche" SUPPRIMÉ — le pattern glass-dark
+           (aube.css) + la variable --surface-opacity-factor (slider) gouvernent désormais le fond ;
+           couleurs de texte couvertes par aube.css (champagne h1-3/label, clair p/li/small/span). */
 
         /* View modal in dark mode */
         body.dark-mode .view-modal-content { background: var(--surface) !important; color: var(--text) !important; }
@@ -1613,23 +1610,23 @@
         body.dark-mode .view-modal-label { color: var(--text-muted) !important; }
         body.dark-mode .view-modal-value { color: var(--text-strong) !important; }
 
-        /* Daily trades display */
+        /* Daily trades display — #56 : glass-dark cohérent (ex-surface blanche, vestige) */
         body.dark-mode #dailyTradesDisplay .trader-card {
-            background: #ffffff !important;
-            border-color: #e5e7eb !important;
-            color: #1f2937 !important;
+            background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
+            border-color: var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            color: rgba(255, 255, 255, 0.92) !important;
         }
         body.dark-mode #dailyTradesDisplay .daily-trades-title,
         body.dark-mode #dailyTradesDisplay .daily-trade-item span,
-        body.dark-mode #dailyTradesDisplay button { color: #1f2937 !important; }
+        body.dark-mode #dailyTradesDisplay button { color: rgba(255, 255, 255, 0.92) !important; }
         body.dark-mode #dailyTradesDisplay .daily-trade-item {
-            background: #f9fafb !important;
-            border-color: #e5e7eb !important;
-            color: #1f2937 !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-color: rgba(201, 162, 75, 0.2) !important;
+            color: rgba(255, 255, 255, 0.92) !important;
         }
-        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-500 { color: #6b7280 !important; }
-        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-600 { color: #4b5563 !important; }
-        body.dark-mode #dailyTradesDisplay button:hover { background: #e5e7eb !important; }
+        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-500 { color: rgba(255, 255, 255, 0.6) !important; }
+        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-600 { color: rgba(255, 255, 255, 0.7) !important; }
+        body.dark-mode #dailyTradesDisplay button:hover { background: rgba(255, 255, 255, 0.08) !important; }
         body.dark-mode #dailyTradesDisplay .bg-green-100 { background: #dcfce7 !important; }
         body.dark-mode #dailyTradesDisplay .bg-red-100   { background: #fee2e2 !important; }
         body.dark-mode #dailyTradesDisplay .text-green-800 { color: #166534 !important; }
@@ -1660,7 +1657,7 @@
             border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55));
             transition: background var(--t) var(--ease), border-color var(--t) var(--ease);
         }
-        body.dark-mode .consistency-interpretation-card { background: rgba(255, 255, 255, 0.04); }
+        body.dark-mode .consistency-interpretation-card { background: rgba(255, 255, 255, calc(0.04 * var(--surface-opacity-factor, 1))); }
 
         /* =========================================================
            RESPONSIVE
@@ -2917,6 +2914,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
                     </div>
                 </div>
+                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
+                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
+                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
+                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
+                    </label>
+                    <input type="range" class="surface-opacity-slider" min="0.7" max="2.0" step="0.05" value="1.0"
+                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
+                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                </div>
             </nav>
         </div>
 
@@ -3579,7 +3585,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
                     </div>
                 </div>
-                
+                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
+                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
+                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
+                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
+                    </label>
+                    <input type="range" class="surface-opacity-slider" min="0.7" max="2.0" step="0.05" value="1.0"
+                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
+                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                </div>
+
                 <!-- Lien Instagram -->
                 <div style="margin-top: 20px; padding: 10px 20px; text-align: center;">
                     <a href="https://www.instagram.com/trader360_officiel/" target="_blank" rel="noopener noreferrer" 
@@ -4104,7 +4119,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="trader-card">
                     <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="bg-gray-50">
+                            <thead>
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heure</th>
@@ -4246,7 +4261,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         ">
                             <i class="fas fa-credit-card mr-2"></i>Ajouter un compte acheté
                         </button>
-                        <button id="addPayoutBtn" class="trader-btn-blue" onclick="
+                        <button id="addPayoutBtn" class="trader-btn-secondary" onclick="
                             // Réinitialiser le formulaire
                             document.getElementById('payoutForm').reset();
                             // Supprimer le mode édition
@@ -4589,7 +4604,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
                 <!-- Affichage de la motivation -->
                 <div id="motivationDisplay" class="hidden">
-                    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden" style="border: 4px solid #ac862b;">
+                    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden pourquoi-glass-card" style="border: 4px solid #ac862b;">
                         <!-- Image -->
                         <div id="motivationImageContainer" class="hidden">
                             <img id="motivationDisplayImage" src="" alt="Mon Pourquoi" class="w-full" style="max-height: 500px; object-fit: cover;">
@@ -4751,31 +4766,41 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <p class="col-span-7 text-center text-gray-500 py-4">Chargement...</p>
             </div>
             <!-- Weekly Replay Summary -->
-            <div class="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" id="replayWeeklyStatsContainer">
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 1</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek1Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek1Days">0 jour</div>
+            <div class="mt-6 traderzella-banner weekly-stats-banner" id="replayWeeklyStatsContainer">
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 1</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek1Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek1Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 2</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek2Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek2Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 2</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek2Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek2Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 3</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek3Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek3Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 3</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek3Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek3Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 4</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek4Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek4Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 4</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek4Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek4Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 5</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek5Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek5Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 5</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek5Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek5Days">0 jour</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -7441,8 +7466,41 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             syncThemeColorMeta(isDark);
 
             console.log('[THEME] Thème changé:', isDark ? 'Sombre' : 'Clair');
+            updateSurfaceOpacityControlVisibility();  // #53 : curseur opacité visible en dark uniquement
         }
-        
+
+        // === #53 — FACTEUR D'OPACITÉ DES SURFACES GLASS-DARK (dark mode uniquement) ===
+        // Facteur relatif : chaque surface = base × facteur (cartes 0.55, modales 0.92…).
+        // 1 = look d'origine ; >1 = plus opaque ; <1 = plus glass. Persisté en localStorage.
+        const SURFACE_OPACITY_KEY = 'surfaceOpacity';
+        const SURFACE_OPACITY_MIN = 0.7;
+        const SURFACE_OPACITY_MAX = 2.0;
+        const SURFACE_OPACITY_DEFAULT = 1.0;
+        function _readSurfaceOpacity() {
+            const stored = parseFloat(localStorage.getItem(SURFACE_OPACITY_KEY));
+            if (!isFinite(stored) || stored < SURFACE_OPACITY_MIN || stored > SURFACE_OPACITY_MAX) return SURFACE_OPACITY_DEFAULT;
+            return stored;
+        }
+        function applySurfaceOpacity(value) {
+            const clamped = Math.min(SURFACE_OPACITY_MAX, Math.max(SURFACE_OPACITY_MIN, value));
+            document.documentElement.style.setProperty('--surface-opacity-factor', String(clamped));
+            localStorage.setItem(SURFACE_OPACITY_KEY, String(clamped));
+            const label = Math.round(clamped * 100) + '%';
+            document.querySelectorAll('.surface-opacity-level').forEach(el => { el.textContent = label; });
+            document.querySelectorAll('.surface-opacity-slider').forEach(el => { el.value = String(clamped); });
+        }
+        function updateSurfaceOpacityControlVisibility() {
+            const isDark = document.body.classList.contains('dark-mode');
+            document.querySelectorAll('.surface-opacity-control').forEach(el => { el.style.display = isDark ? '' : 'none'; });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            applySurfaceOpacity(_readSurfaceOpacity());
+            updateSurfaceOpacityControlVisibility();
+            document.querySelectorAll('.surface-opacity-slider').forEach(slider => {
+                slider.addEventListener('input', (e) => applySurfaceOpacity(parseFloat(e.target.value)));
+            });
+        });
+
         // Load saved theme on page load. Falls back to system preference if nothing stored.
         function loadSavedTheme() {
             const savedTheme = localStorage.getItem('theme');
@@ -7463,6 +7521,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTheme(); }
                 });
             });
+            if (typeof updateSurfaceOpacityControlVisibility === 'function') updateSurfaceOpacityControlVisibility();  // #53 fix : révéler le slider après application du thème
             console.log('[THEME] Thème chargé:', useDark ? 'Sombre' : 'Clair');
         }
 
