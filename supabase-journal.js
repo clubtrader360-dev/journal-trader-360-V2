@@ -261,7 +261,10 @@
             }
             
             console.log('[JOURNAL] ✅ Opération réussie:', data);
-            
+
+            // #48 : rafraîchir les alertes d'erreurs redondantes (l'élève vient peut-être de cocher une erreur)
+            if (typeof window.loadRedundantErrors === 'function') window.loadRedundantErrors();
+
             // Fermer la modale et réinitialiser
             if (modal) {
                 modal.style.display = 'none';
