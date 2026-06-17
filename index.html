@@ -1598,23 +1598,23 @@
         body.dark-mode .view-modal-label { color: var(--text-muted) !important; }
         body.dark-mode .view-modal-value { color: var(--text-strong) !important; }
 
-        /* Daily trades display */
+        /* Daily trades display — #56 : glass-dark cohérent (ex-surface blanche, vestige) */
         body.dark-mode #dailyTradesDisplay .trader-card {
-            background: #ffffff !important;
-            border-color: #e5e7eb !important;
-            color: #1f2937 !important;
+            background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
+            border-color: var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            color: rgba(255, 255, 255, 0.92) !important;
         }
         body.dark-mode #dailyTradesDisplay .daily-trades-title,
         body.dark-mode #dailyTradesDisplay .daily-trade-item span,
-        body.dark-mode #dailyTradesDisplay button { color: #1f2937 !important; }
+        body.dark-mode #dailyTradesDisplay button { color: rgba(255, 255, 255, 0.92) !important; }
         body.dark-mode #dailyTradesDisplay .daily-trade-item {
-            background: #f9fafb !important;
-            border-color: #e5e7eb !important;
-            color: #1f2937 !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-color: rgba(201, 162, 75, 0.2) !important;
+            color: rgba(255, 255, 255, 0.92) !important;
         }
-        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-500 { color: #6b7280 !important; }
-        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-600 { color: #4b5563 !important; }
-        body.dark-mode #dailyTradesDisplay button:hover { background: #e5e7eb !important; }
+        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-500 { color: rgba(255, 255, 255, 0.6) !important; }
+        body.dark-mode #dailyTradesDisplay .daily-trade-item .text-gray-600 { color: rgba(255, 255, 255, 0.7) !important; }
+        body.dark-mode #dailyTradesDisplay button:hover { background: rgba(255, 255, 255, 0.08) !important; }
         body.dark-mode #dailyTradesDisplay .bg-green-100 { background: #dcfce7 !important; }
         body.dark-mode #dailyTradesDisplay .bg-red-100   { background: #fee2e2 !important; }
         body.dark-mode #dailyTradesDisplay .text-green-800 { color: #166534 !important; }
@@ -4592,7 +4592,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
                 <!-- Affichage de la motivation -->
                 <div id="motivationDisplay" class="hidden">
-                    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden" style="border: 4px solid #ac862b;">
+                    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden pourquoi-glass-card" style="border: 4px solid #ac862b;">
                         <!-- Image -->
                         <div id="motivationImageContainer" class="hidden">
                             <img id="motivationDisplayImage" src="" alt="Mon Pourquoi" class="w-full" style="max-height: 500px; object-fit: cover;">
@@ -4754,31 +4754,41 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <p class="col-span-7 text-center text-gray-500 py-4">Chargement...</p>
             </div>
             <!-- Weekly Replay Summary -->
-            <div class="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" id="replayWeeklyStatsContainer">
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 1</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek1Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek1Days">0 jour</div>
+            <div class="mt-6 traderzella-banner weekly-stats-banner" id="replayWeeklyStatsContainer">
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 1</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek1Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek1Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 2</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek2Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek2Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 2</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek2Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek2Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 3</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek3Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek3Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 3</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek3Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek3Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 4</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek4Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek4Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 4</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek4Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek4Days">0 jour</div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 5</div>
-                    <div class="text-xl font-bold mb-1 text-gray-400" id="replayWeek5Count">0 replay</div>
-                    <div class="text-xs text-gray-500" id="replayWeek5Days">0 jour</div>
+                <div class="metric-item">
+                    <div class="metric-header">Semaine 5</div>
+                    <div class="metric-main">
+                        <div class="metric-value-medium" id="replayWeek5Count">0 replay</div>
+                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek5Days">0 jour</div>
+                    </div>
                 </div>
             </div>
         </div>
