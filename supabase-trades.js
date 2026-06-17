@@ -34,7 +34,7 @@ async function loadAccounts() {
     try {
         const { data, error } = await supabase
             .from('accounts')
-            .select('id, name, type, initial_balance, current_balance, active')
+            .select('id, name, type, initial_balance, current_balance, active, risk_per_trade')
             .eq('user_id', window.currentUser.uuid)
             .order('created_at', { ascending: false });
         
@@ -242,10 +242,12 @@ async function loadAccounts() {
         return { data: null, error: 'Missing DOM fields' };
       }
 
+      const riskInput = document.getElementById('riskPerTrade');
       accountData = {
         name: nameInput.value.trim(),
         type: typeSelect ? typeSelect.value : 'demo', // Récupérer depuis le DOM ou valeur par défaut
-        initial_balance: parseFloat(sizeInput.value)
+        initial_balance: parseFloat(sizeInput.value),
+        risk_per_trade: riskInput && riskInput.value !== '' ? (parseFloat(riskInput.value) || null) : null
       };
 
       console.log('[TRADES] Données extraites du DOM:', accountData);
@@ -270,7 +272,8 @@ async function loadAccounts() {
       name: accountData.name,
       type: accountData.type || 'demo',
       initial_balance: accountData.initial_balance,
-      current_balance: accountData.current_balance || accountData.initial_balance
+      current_balance: accountData.current_balance || accountData.initial_balance,
+      risk_per_trade: (accountData.risk_per_trade !== undefined && accountData.risk_per_trade !== null && !isNaN(accountData.risk_per_trade)) ? parseFloat(accountData.risk_per_trade) : null
     };
 
     // ========================================
@@ -283,7 +286,7 @@ async function loadAccounts() {
       const { data, error } = await supabase
         .from('accounts')
         .insert([payloadFinal])
-        .select('id, name, type, initial_balance, current_balance')
+        .select('id, name, type, initial_balance, current_balance, active, risk_per_trade')
         .single();
 
       if (error) {

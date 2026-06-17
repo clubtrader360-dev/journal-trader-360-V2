@@ -1358,6 +1358,14 @@
         }
         .calendar-day-with-tooltip:hover .calendar-tooltip { display: block; }
 
+        /* #55 — taille adaptative des valeurs dans les cellules calendrier.
+           Le P&L (cell-pnl) reste TOUJOURS dominant ; les autres filtres rétrécissent selon leur nombre. */
+        .cell-pnl { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+        .cell-others-xl { font-size: 1.1rem;  font-weight: 600; }  /* 1 autre filtre */
+        .cell-others-lg { font-size: 0.95rem; font-weight: 600; }  /* 2 autres */
+        .cell-others-md { font-size: 0.85rem; font-weight: 500; }  /* 3 autres */
+        .cell-others-sm { font-size: 0.75rem; font-weight: 500; }  /* 4+ autres */
+
         /* =========================================================
            VIEW & ZOOM MODALS
            ========================================================= */
@@ -2635,10 +2643,12 @@ console.log('[OK] Fonctions modales exposées globalement');
             return;
         }
 
+        const riskInput = document.getElementById('riskPerTrade');
         const accountData = {
             name: nameInput.value.trim(),
             type: typeSelect.value,
-            initial_balance: parseFloat(sizeInput.value)
+            initial_balance: parseFloat(sizeInput.value),
+            risk_per_trade: riskInput && riskInput.value !== '' ? (parseFloat(riskInput.value) || null) : null
         };
 
         console.log('[UI] Données formulaire extraites:', accountData);
@@ -3822,6 +3832,18 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                                 <input type="checkbox" id="showWinRate" onchange="updateCalendarDisplay()" class="mr-2">
                                                 <span class="text-sm">Win rate %</span>
                                             </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showRR" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Performance en RR</span>
+                                            </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showPercent" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Performance en %</span>
+                                            </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showPoints" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Points (gagnés/perdus)</span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
@@ -3892,6 +3914,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                         <div class="metric-header">Net P&L <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">Profit ou perte net total sur le mois affiché (somme des P&L de tous les trades du mois).</span></i></div>
                                         <div class="metric-main">
                                             <div class="metric-value-large" id="monthNetPnl">—</div>
+                                            <div id="monthNetPnlInR" class="text-sm mt-1" style="font-style: italic; color: var(--aube-text-secondary, rgba(255,255,255,0.6));">— R</div>
                                         </div>
                                     </div>
                                     <!-- Trade win % -->
@@ -4144,13 +4167,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">RR</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Setup</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="tradesTableBody">
                                 <tr>
-                                    <td colspan="12" class="px-6 py-4 text-center text-gray-500">
+                                    <td colspan="13" class="px-6 py-4 text-center text-gray-500">
                                         Aucun trade enregistré. Cliquez sur "Ajouter un Trade" pour commencer.
                                     </td>
                                 </tr>
@@ -4897,7 +4921,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <label>Taille du compte</label>
                     <input type="number" id="accountSize" placeholder="Ex: 100000" required>
                 </div>
-                
+                <div class="form-group">
+                    <label>Risque par trade ($) <span style="font-weight: 400; opacity: 0.7;">— optionnel, pour les filtres Performance RR</span></label>
+                    <input type="number" id="riskPerTrade" min="1" step="any" placeholder="Ex: 500">
+                    <small style="display: block; margin-top: 4px; opacity: 0.7;">Indépendant de la taille du compte. Ex : compte 150K avec R = 1000$.</small>
+                </div>
+
                 <div class="flex gap-4 mt-6">
                     <button type="button" onclick="addAccountUI()" class="trader-btn flex-1">Ajouter</button>
                     <button type="button" onclick="closeModal('addAccountModal')" class="trader-btn-secondary flex-1">Annuler</button>
@@ -4927,7 +4956,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <option value="challenge">Challenge</option>
                     </select>
                 </div>
-                
+                <div class="form-group">
+                    <label>Risque par trade ($) <span style="font-weight: 400; opacity: 0.7;">— optionnel, pour les filtres Performance RR</span></label>
+                    <input type="number" id="editRiskPerTrade" min="1" step="any" placeholder="Ex: 500">
+                    <small style="display: block; margin-top: 4px; opacity: 0.7;">Indépendant de la taille du compte. Laisser vide = pas de calcul RR.</small>
+                </div>
+
                 <div class="flex gap-4 mt-6">
                     <button type="button" onclick="saveAccountEdit()" class="trader-btn-secondary flex-1">Enregistrer</button>
                     <button type="button" onclick="closeModal('editAccountModal')" class="trader-btn-secondary flex-1">Annuler</button>
@@ -5812,7 +5846,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             return {
                 showPnl: true,
                 showTradeCount: false,
-                showWinRate: false
+                showWinRate: false,
+                showRR: false,
+                showPercent: false,
+                showPoints: false
             };
         }
         
@@ -6698,7 +6735,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (totalTrades === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="12" class="px-6 py-4 text-center text-gray-500">
+                        <td colspan="13" class="px-6 py-4 text-center text-gray-500">
                             Aucun trade enregistré pour les comptes sélectionnés.
                         </td>
                     </tr>`;
@@ -6763,6 +6800,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <td class="px-6 py-4 text-sm font-medium ${pnlClass}">
                             ${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)} $
                         </td>
+                        <td class="px-6 py-4 text-sm">${window.formatTradeRR(trade)}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">${window.escapeHtml(trade.setup || '-')}</td>
                         <td class="px-6 py-4 text-sm">
                             <div class="flex items-center gap-2">
@@ -8639,6 +8677,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             document.getElementById('editAccountId').value = accountId;
             document.getElementById('editAccountName').value = account.name;
             document.getElementById('editAccountType').value = account.type;
+            const editRiskInput = document.getElementById('editRiskPerTrade');
+            if (editRiskInput) editRiskInput.value = (account.risk_per_trade !== null && account.risk_per_trade !== undefined) ? account.risk_per_trade : '';
             
             // Ouvrir la modal
             document.getElementById('editAccountModal').style.display = 'block';
@@ -8651,7 +8691,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const accountId = document.getElementById('editAccountId').value;
             const newName = document.getElementById('editAccountName').value.trim();
             const newType = document.getElementById('editAccountType').value;
-            
+            const editRiskInput = document.getElementById('editRiskPerTrade');
+            const newRisk = editRiskInput && editRiskInput.value !== '' ? (parseFloat(editRiskInput.value) || null) : null;
+
             if (!newName) {
                 alert('❌ Le nom du compte ne peut pas être vide');
                 return;
@@ -8667,9 +8709,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
             
             // Appeler la fonction updateAccount
-            const result = await window.updateAccount(accountId, { 
+            const result = await window.updateAccount(accountId, {
                 name: newName,
-                type: newType
+                type: newType,
+                risk_per_trade: newRisk
             });
             
             if (result && !result.error) {
@@ -11787,19 +11830,68 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     const winRate = ((winningTrades / tradeCount) * 100).toFixed(0);
                     
                     let statsHtml = '<div class="text-xs mt-1 space-y-0.5">';
-                    
+
+                    // #55 — taille adaptative : P&L toujours dominant (cell-pnl) ; les AUTRES filtres
+                    // rétrécissent selon leur nombre (xl=1, lg=2, md=3, sm=4+).
+                    const otherFiltersCount = ['showTradeCount', 'showWinRate', 'showRR', 'showPercent', 'showPoints']
+                        .filter(key => calendarDisplay[key] === true).length;
+                    const otherSizeClass = otherFiltersCount === 1 ? 'cell-others-xl'
+                                         : otherFiltersCount === 2 ? 'cell-others-lg'
+                                         : otherFiltersCount === 3 ? 'cell-others-md'
+                                         : 'cell-others-sm';
+
                     // Afficher selon les préférences
                     if (calendarDisplay.showPnl) {
-                        statsHtml += `<div class="font-bold text-xl">${dayPnl > 0 ? '+' : ''}${dayPnl.toFixed(0)}$</div>`;
+                        statsHtml += `<div class="cell-pnl">${dayPnl > 0 ? '+' : ''}${dayPnl.toFixed(0)}$</div>`;
                     }
                     if (calendarDisplay.showTradeCount) {
-                        statsHtml += `<div class="opacity-75">${tradeCount} trade${tradeCount > 1 ? 's' : ''}</div>`;
+                        statsHtml += `<div class="${otherSizeClass} opacity-75">${tradeCount} trade${tradeCount > 1 ? 's' : ''}</div>`;
                     }
                     if (calendarDisplay.showWinRate) {
                         const winRateColor = winRate >= 50 ? 'text-green-700' : 'text-red-700';
-                        statsHtml += `<div class="${winRateColor} font-medium">${winRate}% win</div>`;
+                        statsHtml += `<div class="${otherSizeClass} ${winRateColor}">${winRate}% win</div>`;
                     }
-                    
+                    // #39/#55 — Performance en RR (Somme P&L du jour ÷ Somme des R des comptes actifs)
+                    if (calendarDisplay.showRR) {
+                        const sumR = (window.accounts || [])
+                            .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
+                            .reduce((sum, a) => sum + parseFloat(a.risk_per_trade), 0);
+                        if (sumR > 0) {
+                            const rrValue = dayPnl / sumR;
+                            const rrColor = rrValue >= 0 ? 'text-green-700' : 'text-red-700';
+                            const sign = rrValue > 0 ? '+' : '';
+                            statsHtml += `<div class="${otherSizeClass} ${rrColor}">${sign}${rrValue.toFixed(1)}R</div>`;
+                        } else {
+                            statsHtml += `<div class="${otherSizeClass} text-gray-400 italic">— R</div>`;
+                        }
+                    }
+                    // #39/#55 — Performance en % (Somme P&L du jour ÷ Somme des tailles initiales × 100)
+                    if (calendarDisplay.showPercent) {
+                        const sumInitial = (window.accounts || [])
+                            .filter(a => a.active && a.initial_balance && parseFloat(a.initial_balance) > 0)
+                            .reduce((sum, a) => sum + parseFloat(a.initial_balance), 0);
+                        if (sumInitial > 0) {
+                            const pctValue = (dayPnl / sumInitial) * 100;
+                            const pctColor = pctValue >= 0 ? 'text-green-700' : 'text-red-700';
+                            const sign = pctValue > 0 ? '+' : '';
+                            statsHtml += `<div class="${otherSizeClass} ${pctColor}">${sign}${pctValue.toFixed(2)}%</div>`;
+                        } else {
+                            statsHtml += `<div class="${otherSizeClass} text-gray-400 italic">— %</div>`;
+                        }
+                    }
+                    // #55 — Points gagnés/perdus du jour ((sortie − entrée) × direction, somme des trades)
+                    if (calendarDisplay.showPoints) {
+                        const dayPoints = dayTrades.reduce((sum, t) => {
+                            const ep = parseFloat(t.entryPrice), xp = parseFloat(t.exitPrice);
+                            if (!isFinite(ep) || !isFinite(xp)) return sum;
+                            const direction = window.getTradeDirection(t.type) === 'SHORT' ? -1 : 1;
+                            return sum + (xp - ep) * direction;
+                        }, 0);
+                        const ptsColor = dayPoints >= 0 ? 'text-green-700' : 'text-red-700';
+                        const sign = dayPoints > 0 ? '+' : '';
+                        statsHtml += `<div class="${otherSizeClass} ${ptsColor}">${sign}${dayPoints.toFixed(2)} pts</div>`;
+                    }
+
                     statsHtml += '</div>';
                     cellContent += statsHtml;
                     
@@ -12098,6 +12190,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             updateMonthlyMetrics(currentYear, currentMonth);
         }
 
+        // #55 — Affiche l'équivalent en R sous le Net P&L du mois. monthRR null = pas de R défini / mois vide → "— R".
+        function updateMonthNetPnlInR(monthRR) {
+            const rEl = document.getElementById('monthNetPnlInR');
+            if (!rEl) return;
+            if (monthRR !== null && isFinite(monthRR)) {
+                const sign = monthRR >= 0 ? '+' : '';
+                rEl.textContent = `≈ ${sign}${monthRR.toFixed(1)}R`;
+                rEl.style.color = monthRR >= 0 ? '#10b981' : '#ef4444';
+                rEl.style.fontStyle = 'normal';
+            } else {
+                rEl.textContent = '— R';
+                rEl.style.color = 'var(--aube-text-secondary, rgba(255,255,255,0.6))';
+                rEl.style.fontStyle = 'italic';
+            }
+        }
+
         // ========================================
         // #51 — Performance du mois affiché (5 KPI scopés, sans sparkline)
         // Réutilise getFilteredTrades() (respecte les comptes actifs) ; mêmes formules qu'updateBanner.
@@ -12131,6 +12239,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 ['monthTradeWinBar', 'monthDayWinBar', 'monthProfitFactorBar'].forEach(id => setBar(id, 0));
                 set('monthAvgWinLabel', '$0', '#10b981');
                 set('monthAvgLossLabel', '-$0', '#ef4444');
+                updateMonthNetPnlInR(null);
                 return;
             }
 
@@ -12144,6 +12253,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             // Net P&L
             set('monthNetPnl', (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toFixed(2), netPnl >= 0 ? '#10b981' : '#ef4444');
+            // #55 — équivalent en R (netPnl ÷ Σ R des comptes actifs avec R défini)
+            const _sumR = (window.accounts || [])
+                .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
+                .reduce((s, a) => s + parseFloat(a.risk_per_trade), 0);
+            updateMonthNetPnlInR(_sumR > 0 ? netPnl / _sumR : null);
             // Trade win % + barre
             const tradeWinPct = decided > 0 ? (wins.length / decided * 100) : 0;
             set('monthTradeWin', decided > 0 ? tradeWinPct.toFixed(1) + '%' : '—');
@@ -12786,7 +12900,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             calendarDisplay.showPnl = document.getElementById('showPnl').checked;
             calendarDisplay.showTradeCount = document.getElementById('showTradeCount').checked;
             calendarDisplay.showWinRate = document.getElementById('showWinRate').checked;
-            
+            const showRREl = document.getElementById('showRR');
+            const showPercentEl = document.getElementById('showPercent');
+            if (showRREl) calendarDisplay.showRR = showRREl.checked;
+            if (showPercentEl) calendarDisplay.showPercent = showPercentEl.checked;
+            const showPointsEl = document.getElementById('showPoints');
+            if (showPointsEl) calendarDisplay.showPoints = showPointsEl.checked;
+
             // Sauvegarder les préférences dans localStorage
             localStorage.setItem('calendarDisplayPreferences', JSON.stringify(calendarDisplay));
             console.log('[CALENDAR] Préférences sauvegardées:', calendarDisplay);
@@ -12804,6 +12924,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (showPnlCheckbox) showPnlCheckbox.checked = calendarDisplay.showPnl;
             if (showTradeCountCheckbox) showTradeCountCheckbox.checked = calendarDisplay.showTradeCount;
             if (showWinRateCheckbox) showWinRateCheckbox.checked = calendarDisplay.showWinRate;
+            const showRRCheckbox = document.getElementById('showRR');
+            const showPercentCheckbox = document.getElementById('showPercent');
+            if (showRRCheckbox) showRRCheckbox.checked = !!calendarDisplay.showRR;
+            if (showPercentCheckbox) showPercentCheckbox.checked = !!calendarDisplay.showPercent;
+            const showPointsCheckbox = document.getElementById('showPoints');
+            if (showPointsCheckbox) showPointsCheckbox.checked = !!calendarDisplay.showPoints;
             
             console.log('[CALENDAR] Checkboxes synchronisées avec préférences:', calendarDisplay);
         }

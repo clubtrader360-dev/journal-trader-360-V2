@@ -59,6 +59,26 @@
     return null;
   };
 
+  /**
+   * Performance d'un trade en R (P&L ÷ risque par trade du compte). Chantier #39/#55.
+   * R indépendant de la taille du compte (account.risk_per_trade). NULL-safe : si le compte
+   * n'a pas de R défini → "—" gris italique (rétrocompat). Format "+5.2R" / "-3.1R" / "0R".
+   * @param {object} trade - doit avoir trade.pnl et trade.accountId
+   * @returns {string} HTML prêt à interpoler
+   */
+  window.formatTradeRR = function (trade) {
+    const accounts = window.accounts || [];
+    const account = accounts.find((a) => String(a.id) === String(trade.accountId));
+    const r = account ? parseFloat(account.risk_per_trade) : NaN;
+    if (!account || !isFinite(r) || r <= 0) {
+      return '<span class="text-gray-400 italic">—</span>';
+    }
+    const rrValue = (parseFloat(trade.pnl) || 0) / r;
+    const sign = rrValue > 0 ? '+' : '';
+    const color = rrValue >= 0 ? 'text-green-600' : 'text-red-600';
+    return `<span class="${color} font-medium">${sign}${rrValue.toFixed(1)}R</span>`;
+  };
+
   // ========================================
   // CONFIGURATION
   // ========================================
