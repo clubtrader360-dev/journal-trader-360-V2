@@ -3838,6 +3838,33 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                     <div class="text-xs text-gray-500" id="week5Days">0 jour</div>
                                 </div>
                             </div>
+
+                            <!-- Métriques du mois affiché (#51) — 5 KPI du header, scopés au mois du calendrier -->
+                            <div class="mt-6">
+                                <div class="text-sm font-semibold text-gray-700 mb-3" id="monthlyMetricsTitle">Performance du mois</div>
+                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" id="monthlyMetricsContainer">
+                                    <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
+                                        <div class="text-xs text-gray-500 mb-1">Net P&L</div>
+                                        <div class="text-xl font-bold" id="monthNetPnl">—</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
+                                        <div class="text-xs text-gray-500 mb-1">Trade win %</div>
+                                        <div class="text-xl font-bold" id="monthTradeWin">—</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
+                                        <div class="text-xs text-gray-500 mb-1">Day win %</div>
+                                        <div class="text-xl font-bold" id="monthDayWin">—</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
+                                        <div class="text-xs text-gray-500 mb-1">Profit factor</div>
+                                        <div class="text-xl font-bold" id="monthProfitFactor">—</div>
+                                    </div>
+                                    <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
+                                        <div class="text-xs text-gray-500 mb-1">Avg win/loss</div>
+                                        <div class="text-xl font-bold" id="monthAvgWinLoss">—</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -11937,7 +11964,65 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     daysEl.textContent = daysCount === 0 ? '0 jour' : (daysCount === 1 ? '1 jour' : `${daysCount} jours`);
                 }
             }
+
+            // #51 : métriques du mois affiché (5 KPI header, scopés au mois courant du calendrier)
+            updateMonthlyMetrics(currentYear, currentMonth);
         }
+
+        // ========================================
+        // #51 — Performance du mois affiché (5 KPI scopés, sans sparkline)
+        // Réutilise getFilteredTrades() (respecte les comptes actifs) ; mêmes formules qu'updateBanner.
+        // ========================================
+        window.updateMonthlyMetrics = function(year, month) {
+            const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const titleEl = document.getElementById('monthlyMetricsTitle');
+            if (titleEl) titleEl.textContent = `Performance — ${MONTHS[month]} ${year}`;
+
+            const set = (id, txt, color) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = txt;
+                el.style.color = color || '';
+            };
+
+            const all = (typeof getFilteredTrades === 'function') ? getFilteredTrades() : (window.trades || []);
+            const monthTrades = (all || []).filter(t => {
+                const d = String(t.date || t.trade_date || '').slice(0, 10);
+                const parts = d.split('-');
+                return Number(parts[0]) === year && (Number(parts[1]) - 1) === month;
+            });
+
+            if (monthTrades.length === 0) {
+                ['monthNetPnl', 'monthTradeWin', 'monthDayWin', 'monthProfitFactor', 'monthAvgWinLoss'].forEach(id => set(id, '—', ''));
+                return;
+            }
+
+            const pnls = monthTrades.map(t => parseFloat(t.pnl) || 0);
+            const netPnl = pnls.reduce((s, v) => s + v, 0);
+            const wins = pnls.filter(v => v > 0);
+            const losses = pnls.filter(v => v < 0);
+            const decided = pnls.filter(v => v !== 0).length;
+            const totalProfit = wins.reduce((s, v) => s + v, 0);
+            const totalLoss = Math.abs(losses.reduce((s, v) => s + v, 0));
+
+            // Net P&L
+            set('monthNetPnl', (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toFixed(2), netPnl >= 0 ? '#10b981' : '#ef4444');
+            // Trade win %
+            set('monthTradeWin', decided > 0 ? (wins.length / decided * 100).toFixed(1) + '%' : '—');
+            // Day win %
+            const byDay = {};
+            monthTrades.forEach(t => { const d = String(t.date || t.trade_date || '').slice(0, 10); byDay[d] = (byDay[d] || 0) + (parseFloat(t.pnl) || 0); });
+            const days = Object.keys(byDay);
+            const winDays = days.filter(d => byDay[d] > 0).length;
+            set('monthDayWin', days.length > 0 ? (winDays / days.length * 100).toFixed(1) + '%' : '—');
+            // Profit factor
+            set('monthProfitFactor', totalLoss > 0 ? (totalProfit / totalLoss).toFixed(2) : (totalProfit > 0 ? '∞' : '—'));
+            // Avg win/loss
+            const avgWin = wins.length > 0 ? totalProfit / wins.length : 0;
+            const avgLoss = losses.length > 0 ? totalLoss / losses.length : 0;
+            set('monthAvgWinLoss', avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : (avgWin > 0 ? '∞' : '—'));
+        };
 
         function previousMonth() {
             currentMonth--;
