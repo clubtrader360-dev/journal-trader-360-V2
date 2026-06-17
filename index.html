@@ -1609,9 +1609,9 @@
         /* Warnings banner — alerte CRITIQUE, doit ressortir (chantier #58). NON variabilisé par
            --surface-opacity-factor : reste visible quel que soit le réglage d'opacité globale. */
         body.dark-mode #warningsBanner {
-            background: rgba(239, 68, 68, 0.22) !important;
-            border: 2px solid rgba(239, 68, 68, 0.65) !important;
-            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
+            background: rgba(239, 68, 68, 0.40) !important;
+            border: 2px solid rgba(239, 68, 68, 0.75) !important;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25);
         }
         body.dark-mode #warningsBanner h3,
         body.dark-mode #warningsBanner p,
@@ -1619,8 +1619,8 @@
         body.dark-mode #warningsBanner span,
         body.dark-mode #warningsBanner div { color: #fecaca !important; }
         body.dark-mode #warningsContainer > div {
-            background: rgba(239, 68, 68, 0.18) !important;
-            border-left: 3px solid rgba(239, 68, 68, 0.70) !important;
+            background: rgba(239, 68, 68, 0.25) !important;
+            border-left: 3px solid rgba(239, 68, 68, 0.80) !important;
         }
         /* Light : bordure plus saturée + halo (override le style inline du banner) */
         body:not(.dark-mode) #warningsBanner {
@@ -3987,7 +3987,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div id="warningsBanner" style="display: none; background: #FEF2F2; border: 2px solid #FCA5A5; border-radius: 12px; padding: 20px;">
                             <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                 <i class="fas fa-exclamation-triangle" style="color: #DC2626; font-size: 20px; margin-right: 10px;"></i>
-                                <h3 style="font-size: 18px; font-weight: 600; color: #991B1B; margin: 0;">⚠️ POINTS À SURVEILLER</h3>
+                                <h3 style="font-size: 18px; font-weight: 600; color: #991B1B; margin: 0;">POINTS À SURVEILLER</h3>
                             </div>
                             <div id="warningsContainer" style="display: flex; flex-direction: column; gap: 12px;">
                                 <!-- Les alertes seront insérées ici dynamiquement -->
@@ -12817,51 +12817,59 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             // ===== Phase 4 — nouvelles alertes comportementales (sur 30j) =====
 
-            // 9. Revenge trading : trade pris <5min après une perte > moyenne des pertes
+            // 9. Revenge trading : trade pris <5min après une GROSSE perte = perte qui dépasse le R du
+            //    compte (SL dépassé). Une perte dans le R + ré-entrée rapide = stratégie normale, pas revenge.
             const recentLosses = recent.filter(t => t.pnl < 0);
             const avgLoss = recentLosses.length ? recentLosses.reduce((s, t) => s + Math.abs(t.pnl), 0) / recentLosses.length : 0;
+            // Grosse perte = |pnl| > R du compte ; fallback si R non défini : > 1.5 × perte moyenne (plus strict)
+            function isBigLoss(trade) {
+                if (trade.pnl >= 0) return false;
+                const account = (window.accounts || []).find(a => String(a.id) === String(trade.accountId));
+                if (account && account.risk_per_trade && parseFloat(account.risk_per_trade) > 0) {
+                    return Math.abs(trade.pnl) > parseFloat(account.risk_per_trade);
+                }
+                return avgLoss > 0 && Math.abs(trade.pnl) > avgLoss * 1.5;
+            }
             const revengeTrades = [];
-            if (avgLoss > 0) {
-                for (let i = 0; i < sortedRecent.length - 1; i++) {
-                    const t = sortedRecent[i];
-                    if (t.pnl < -avgLoss) {
-                        const nextT = sortedRecent[i + 1];
-                        if (tradeDateOf(t) === tradeDateOf(nextT) && t.exitTime && nextT.entryTime) {
-                            const ex = t.exitTime.split(':'), en = nextT.entryTime.split(':');
-                            const exitMin = (parseInt(ex[0]) || 0) * 60 + (parseInt(ex[1]) || 0);
-                            const entryMin = (parseInt(en[0]) || 0) * 60 + (parseInt(en[1]) || 0);
-                            const gap = entryMin - exitMin;
-                            if (gap >= 0 && gap <= 5) revengeTrades.push(nextT);
-                        }
+            for (let i = 0; i < sortedRecent.length - 1; i++) {
+                const t = sortedRecent[i];
+                if (isBigLoss(t)) {
+                    const nextT = sortedRecent[i + 1];
+                    if (tradeDateOf(t) === tradeDateOf(nextT) && t.exitTime && nextT.entryTime) {
+                        const ex = t.exitTime.split(':'), en = nextT.entryTime.split(':');
+                        const exitMin = (parseInt(ex[0]) || 0) * 60 + (parseInt(ex[1]) || 0);
+                        const entryMin = (parseInt(en[0]) || 0) * 60 + (parseInt(en[1]) || 0);
+                        const gap = entryMin - exitMin;
+                        if (gap >= 0 && gap <= 5) revengeTrades.push(nextT);
                     }
                 }
             }
             if (revengeTrades.length >= 3) {
                 warnings.push({ severity: 'high', icon: '😡',
-                    message: `${revengeTrades.length} trade(s) "revenge" sur 30j (pris <5min après une grosse perte) — gérez l'émotionnel` });
+                    message: `${revengeTrades.length} trade(s) revenge détecté(s) sur 30j (pris <5min après une perte > R du compte) — Gérez l'émotionnel` });
             }
 
             // 10. Surtrading : journées avec > 10 trades
             const tradesByDay = {};
             recent.forEach(t => { const d = tradeDateOf(t); if (d) tradesByDay[d] = (tradesByDay[d] || 0) + 1; });
-            const overTradingDays = Object.entries(tradesByDay).filter(([, c]) => c > 10);
+            const overTradingDays = Object.entries(tradesByDay).filter(([, c]) => c > 4);
             if (overTradingDays.length >= 2) {
                 const maxDay = Object.entries(tradesByDay).sort((a, b) => b[1] - a[1])[0];
                 warnings.push({ severity: 'medium', icon: '🔥',
-                    message: `${overTradingDays.length} journée(s) à >10 trades sur 30j (pic : ${maxDay[1]} trades le ${maxDay[0]})` });
+                    message: `${overTradingDays.length} journée(s) avec >4 trades sur 30j (pic : ${maxDay[1]} trades le ${maxDay[0]}) — Recentrez-vous sur 3-4 trades max par session` });
             }
 
-            // 11. Sessions tardives : trades après 16h avec WR faible
+            // 11. Sessions tardives : trades après 17h avec WR faible
             const lateTrades = recent.filter(t => {
                 if (!t.entryTime) return false;
                 const h = parseInt(t.entryTime.split(':')[0]);
-                return isFinite(h) && h >= 16;
+                return isFinite(h) && h >= 17;
             });
             if (lateTrades.length >= 5) {
                 const lateWR = calculateWinRate(lateTrades);
                 if (lateWR < 40) {
                     warnings.push({ severity: 'medium', icon: '🌙',
-                        message: `${lateTrades.length} trades après 16h sur 30j (Win Rate ${lateWR.toFixed(0)}%) — attention à la fatigue` });
+                        message: `${lateTrades.length} trades après 17h sur 30j (Win Rate ${lateWR.toFixed(0)}%) — attention à la fatigue` });
                 }
             }
 
