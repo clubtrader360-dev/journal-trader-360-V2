@@ -1488,11 +1488,16 @@
 
         /* Generic tables in dark mode */
         body.dark-mode table { background: transparent !important; }  /* #56 : laisse transparaître le glass du .trader-card */
-        body.dark-mode thead { background: rgba(10, 15, 24, calc(0.40 * var(--surface-opacity-factor, 1))) !important; }
+        body.dark-mode thead { background: rgba(10, 15, 24, calc(0.65 * var(--surface-opacity-factor, 1))) !important; }
         body.dark-mode th    { color: var(--text-muted) !important; }
         body.dark-mode tbody tr { border-color: rgba(201, 162, 75, 0.15) !important; }
         body.dark-mode tbody tr:hover { background: rgba(255, 255, 255, calc(0.04 * var(--surface-opacity-factor, 1))) !important; }
         body.dark-mode tbody td { color: rgba(255, 255, 255, 0.85) !important; }
+        /* #56 : footer pagination Journal des trades → glass cohérent avec le thead (override ciblé, pas la règle globale .bg-gray-50) */
+        body.dark-mode #tradesPagination {
+            background-color: rgba(10, 15, 24, calc(0.65 * var(--surface-opacity-factor, 1))) !important;
+            border-color: rgba(201, 162, 75, 0.15) !important;
+        }
 
         /* Exception: CSV import preview keeps light table */
         body.dark-mode #importCSVModal table,
