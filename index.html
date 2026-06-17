@@ -2264,14 +2264,19 @@ async function addTradeUI() {
     // - DEMO : Envoyer manual_pnl uniquement en CRÉATION
     // - ES/NQ/etc : NE JAMAIS envoyer manual_pnl (toujours calculé dans supabase-trades.js)
     let calculated_pnl = null;
-    
-    // Uniquement pour DEMO en mode CRÉATION
-    if (symbol === 'DEMO' && !isEditing && manual_pnl && parseFloat(manual_pnl) !== 0) {
-        calculated_pnl = parseFloat(manual_pnl);
-        console.log('[UI] 💰 P&L manuel DEMO (création uniquement):', calculated_pnl);
+
+    // #45 — Accepter un manual_pnl EXPLICITE pour TOUT symbole en création (cas import CSV / P&L neutre = 0).
+    // Avant : seul DEMO avec P&L ≠ 0 était accepté → un trade ES à P&L=0 partait en null et le trigger
+    // SQL tentait le calcul via instrument_multipliers (risque "Instrument inconnu").
+    if (!isEditing && manual_pnl !== undefined && manual_pnl !== null && manual_pnl !== '') {
+        const parsed = parseFloat(manual_pnl);
+        if (!isNaN(parsed)) {
+            calculated_pnl = parsed;  // P&L explicite (même = 0) utilisé tel quel
+            console.log('[UI] 💰 P&L manuel explicite (tout symbole, création):', calculated_pnl);
+        }
     } else {
-        // Pour ES/NQ/etc (toujours) OU DEMO en édition : calcul auto
-        calculated_pnl = null;  // Force null pour déclencher le calcul dans supabase-trades.js
+        // ES/NQ/etc sans P&L saisi, OU édition : calcul auto (prix + frais) côté supabase-trades.js
+        calculated_pnl = null;
         console.log('[UI] 💰 P&L sera calculé automatiquement à partir des prix + frais');
     }
     
