@@ -1164,6 +1164,16 @@
         body.dark-mode #mainApp .metric-item:hover   { background-color: #152843 !important; }
         body.dark-mode #mainApp .metric-value-medium { color: #e5e7eb !important; }
         body.dark-mode #mainApp .metric-value-large  { color: #ffffff !important; }
+        /* #61 — préserve vert/rouge des cards Semaines/Mois en dark (bat le default #e5e7eb via spécificité combinée) */
+        body.dark-mode #mainApp .metric-value-medium.text-green-600,
+        body.dark-mode #mainApp .metric-value-medium.text-green-700,
+        body.dark-mode #mainApp .metric-value-large.text-green-600,
+        body.dark-mode #mainApp .metric-value-large.text-green-700 { color: #10b981 !important; }
+        body.dark-mode #mainApp .metric-value-medium.text-red-600,
+        body.dark-mode #mainApp .metric-value-medium.text-red-700,
+        body.dark-mode #mainApp .metric-value-large.text-red-600,
+        body.dark-mode #mainApp .metric-value-large.text-red-700 { color: #ef4444 !important; }
+        body.dark-mode #mainApp .metric-value-medium.text-gray-400 { color: rgba(255, 255, 255, 0.4) !important; }
 
         /* Patch texte global élève — SCOPÉ (V1 avait body.dark-mode h1,p,span { color:#e5e7eb } global) */
         body.dark-mode #mainApp h1,
