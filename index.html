@@ -7691,15 +7691,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         // Idempotent (resize sur un chart déjà bien dimensionné ne fait rien de visible).
         function _forceChartsResize() {
             try {
-                if (window.Chart) {
-                    const instances = Chart.instances || {};
-                    Object.values(instances).forEach(chart => {
-                        try { chart.resize(); } catch (e) { /* skip si chart détruit */ }
-                    });
-                }
+                // NE PAS appeler chart.resize() — casse le rendering Chart.js (régression 19eb93f).
+                // Le dispatch de l'event resize suffit aux charts responsive (comportement initial qui marchait).
                 window.dispatchEvent(new Event('resize'));
             } catch (e) {
-                console.warn('[ZOOM] Resize charts failed:', e);
+                console.warn('[ZOOM] Resize dispatch failed:', e);
             }
         }
         function applyZoom(z) {
