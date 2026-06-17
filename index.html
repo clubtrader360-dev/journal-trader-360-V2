@@ -6919,6 +6919,48 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             return filtered;
         }
 
+        // ============================================================
+        // #66 — Helpers UNIQUES Win Rate / Profit Factor (formules alignées partout)
+        // Convention : Win Rate exclut les break-even (industry standard) ; Profit Factor = Total PF
+        // (Σwins / Σ|losses|), cap 99.99 affiché "∞".
+        // ============================================================
+        function computeWinRate(trades, options = {}) {
+            const { excludeBreakEven = true, includeBreakEvenAsWin = false } = options;
+            if (!Array.isArray(trades) || trades.length === 0) return 0;
+            let denominator = trades.length;
+            let numerator = 0;
+            for (const t of trades) {
+                const pnl = parseFloat(t.pnl) || 0;
+                const isBE = t.is_break_even === true || pnl === 0;
+                if (isBE) {
+                    if (excludeBreakEven) denominator -= 1;
+                    else if (includeBreakEvenAsWin) numerator += 1;
+                } else if (pnl > 0) {
+                    numerator += 1;
+                }
+            }
+            return denominator > 0 ? Math.round((numerator / denominator) * 100 * 100) / 100 : 0;
+        }
+        function computeProfitFactor(trades, options = {}) {
+            const { capValue = 99.99 } = options;
+            if (!Array.isArray(trades) || trades.length === 0) return 0;
+            let grossProfit = 0, grossLoss = 0;
+            for (const t of trades) {
+                const pnl = parseFloat(t.pnl) || 0;
+                if (pnl > 0) grossProfit += pnl;
+                else if (pnl < 0) grossLoss += Math.abs(pnl);
+            }
+            if (grossLoss === 0) return grossProfit > 0 ? capValue : 0;
+            return Math.round((grossProfit / grossLoss) * 100) / 100;
+        }
+        function formatProfitFactor(pf, capValue = 99.99) {
+            if (pf >= capValue) return '∞';
+            return Number(pf).toFixed(2);
+        }
+        window.computeWinRate = computeWinRate;
+        window.computeProfitFactor = computeProfitFactor;
+        window.formatProfitFactor = formatProfitFactor;
+
         // ========================================
         // DÉCLARATION GLOBALE: updateTradesTable
         // (Doit être définie APRÈS les variables globales)
@@ -9589,8 +9631,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
                 const avgWin = wins.length > 0 ? wins.reduce((sum, t) => sum + t.pnl, 0) / wins.length : 0;
                 const avgLoss = losses.length > 0 ? losses.reduce((sum, t) => sum + t.pnl, 0) / losses.length : 0;
-                const winRate = trades.length > 0 ? (wins.length / trades.length * 100).toFixed(2) : 0;
-                const profitFactor = Math.abs(avgLoss) > 0 ? (avgWin / Math.abs(avgLoss)).toFixed(2) : 0;
+                const winRate = computeWinRate(trades); // #66 unifié avec le dashboard (exclut break-even)
+                const profitFactor = formatProfitFactor(computeProfitFactor(trades)); // #66 unifié (Total PF, ≠ ancien Avg PF)
                 const bestTrade = trades.length > 0 ? Math.max(...trades.map(t => t.pnl || 0)) : 0;
                 const worstTrade = trades.length > 0 ? Math.min(...trades.map(t => t.pnl || 0)) : 0;
                 
@@ -11813,19 +11855,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             document.getElementById('netPnlValue').style.color = netPnl >= 0 ? '#10b981' : '#ef4444';
 
             // Calculer Trade Win %
-            const winningTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).length;
-            const decidedTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) !== 0).length;
-            const tradeWinPercent = decidedTrades > 0 ? (winningTrades / decidedTrades * 100) : 0;
+            const tradeWinPercent = computeWinRate(filteredTrades); // #66 helper unifié (exclut break-even)
             document.getElementById('tradeWinValue').textContent = tradeWinPercent.toFixed(1) + '%';
             document.getElementById('tradeWinBar').style.width = tradeWinPercent + '%';
 
             // Calculer Profit Factor
-            const totalProfit = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) > 0)
-                                     .reduce((sum, t) => sum + (parseFloat(t.pnl) || 0), 0);
-            const totalLoss = Math.abs(filteredTrades.filter(t => (parseFloat(t.pnl) || 0) < 0)
-                                            .reduce((sum, t) => sum + (parseFloat(t.pnl) || 0), 0));
-            const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : 0;
-            document.getElementById('profitFactorValue').textContent = profitFactor.toFixed(2);
+            const profitFactor = computeProfitFactor(filteredTrades); // #66 helper unifié (Total PF, cap 99.99)
+            document.getElementById('profitFactorValue').textContent = formatProfitFactor(profitFactor);
             const profitFactorPercent = Math.min(profitFactor * 50, 100); // Max 100%
             document.getElementById('profitFactorBar').style.width = profitFactorPercent + '%';
 
@@ -11844,7 +11880,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             
             console.log("[DAY WIN %] Jours tradés:", days.length, "| Jours gagnants:", winningDays, "| Day win %:", dayWinPercent.toFixed(1));
 
-            // Calculer Avg Win/Loss
+            // Calculer Avg Win/Loss (#66 : winningTrades/totalProfit/totalLoss rétablis localement —
+            // WR & PF passent désormais par les helpers, mais avgWin/avgLoss en ont encore besoin)
+            const winningTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).length;
+            const totalProfit = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) > 0).reduce((sum, t) => sum + (parseFloat(t.pnl) || 0), 0);
+            const totalLoss = Math.abs(filteredTrades.filter(t => (parseFloat(t.pnl) || 0) < 0).reduce((sum, t) => sum + (parseFloat(t.pnl) || 0), 0));
             const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
             const losingTrades = filteredTrades.filter(t => (parseFloat(t.pnl) || 0) < 0).length;
             const avgLoss = losingTrades > 0 ? totalLoss / losingTrades : 0;
@@ -11893,11 +11933,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const losingTrades = filteredTrades.filter(trade => trade.pnl < 0);
             const neutralTrades = filteredTrades.filter(trade => trade.pnl === 0);
             
-            const tradeWinRate = filteredTrades.length > 0 ? (winningTrades.length / filteredTrades.length) * 100 : 0;
-            
+            const tradeWinRate = computeWinRate(filteredTrades); // #66 helper unifié (exclut break-even)
+
             const grossProfit = winningTrades.reduce((sum, trade) => sum + trade.pnl, 0);
             const grossLoss = Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pnl, 0));
-            const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? 99.99 : 0);
+            const profitFactor = computeProfitFactor(filteredTrades); // #66 helper unifié (Total PF, cap 99.99)
             
             const avgWin = winningTrades.length > 0 ? grossProfit / winningTrades.length : 0;
             const avgLoss = losingTrades.length > 0 ? grossLoss / losingTrades.length : 0;
@@ -11927,7 +11967,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (tradeWinEl) tradeWinEl.textContent = `${tradeWinRate.toFixed(1)}%`;
             
             const profitFactorEl = document.getElementById('profitFactorValue');
-            if (profitFactorEl) profitFactorEl.textContent = profitFactor.toFixed(2);
+            if (profitFactorEl) profitFactorEl.textContent = formatProfitFactor(profitFactor);
             
             const dayWinEl = document.getElementById('dayWinValue');
             if (dayWinEl) dayWinEl.textContent = `${dayWinRate.toFixed(1)}%`;
@@ -12115,8 +12155,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 } else if (dayTrades.length > 0 && isCurrentMonth) {
                     // Calculer les statistiques du jour
                     const tradeCount = dayTrades.length;
-                    const winningTrades = dayTrades.filter(t => t.pnl > 0).length;
-                    const winRate = ((winningTrades / tradeCount) * 100).toFixed(0);
+                    const winRate = Math.round(computeWinRate(dayTrades)); // #66 helper unifié (exclut break-even)
                     
                     let statsHtml = '<div class="text-xs mt-1 space-y-0.5">';
 
@@ -12548,7 +12587,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 .reduce((s, a) => s + parseFloat(a.risk_per_trade), 0);
             updateMonthNetPnlInR(_sumR > 0 ? netPnl / _sumR : null);
             // Trade win % + barre
-            const tradeWinPct = decided > 0 ? (wins.length / decided * 100) : 0;
+            const tradeWinPct = computeWinRate(monthTrades); // #66 helper unifié (exclut break-even)
             set('monthTradeWin', decided > 0 ? tradeWinPct.toFixed(1) + '%' : '—');
             setBar('monthTradeWinBar', tradeWinPct);
             // Day win % + barre
@@ -12560,9 +12599,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             set('monthDayWin', days.length > 0 ? dayWinPct.toFixed(1) + '%' : '—');
             setBar('monthDayWinBar', dayWinPct);
             // Profit factor + barre (cappée à 100% : PF*50, comme le header)
-            const profitFactor = totalLoss > 0 ? (totalProfit / totalLoss) : (totalProfit > 0 ? Infinity : 0);
-            set('monthProfitFactor', totalLoss > 0 ? profitFactor.toFixed(2) : (totalProfit > 0 ? '∞' : '—'));
-            setBar('monthProfitFactorBar', isFinite(profitFactor) ? profitFactor * 50 : 100);
+            const profitFactor = computeProfitFactor(monthTrades); // #66 helper unifié (Total PF, cap 99.99)
+            set('monthProfitFactor', (totalProfit > 0 || totalLoss > 0) ? formatProfitFactor(profitFactor) : '—');
+            setBar('monthProfitFactorBar', profitFactor >= 99.99 ? 100 : Math.min(profitFactor * 50, 100));
             // Avg win/loss + compteurs win/loss
             const avgWin = wins.length > 0 ? totalProfit / wins.length : 0;
             const avgLoss = losses.length > 0 ? totalLoss / losses.length : 0;
