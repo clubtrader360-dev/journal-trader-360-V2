@@ -7700,13 +7700,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const label = Math.round(clamped * 100) + '%';
             document.querySelectorAll('.zoom-level').forEach(el => { el.textContent = label; });
 
-            // #61 fix : forcer Chart.js à recalculer ses dimensions APRÈS l'application du zoom
+            // #61 fix robuste : forcer Chart.js à recalculer ses dimensions APRÈS l'application du zoom
             // (sinon, au login en zoom 70%, les charts gardent leur taille pré-zoom et ne remplissent
-            //  pas leur container). Léger délai pour laisser le browser appliquer le zoom CSS d'abord.
+            //  pas leur container). Appel explicite chart.resize() sur chaque instance + fallback event.
             setTimeout(() => {
-                try { window.dispatchEvent(new Event('resize')); }
-                catch (e) { console.warn('[ZOOM] Resize event dispatch failed:', e); }
-            }, 100);
+                try {
+                    if (window.Chart) {
+                        const instances = Chart.instances || {};
+                        Object.values(instances).forEach(chart => {
+                            try { chart.resize(); } catch (e) { /* skip si chart détruit */ }
+                        });
+                    }
+                    window.dispatchEvent(new Event('resize'));
+                } catch (e) {
+                    console.warn('[ZOOM] Resize après zoom failed:', e);
+                }
+            }, 300);  // délai 300ms : laisser le browser finir le re-layout du zoom CSS
         }
         function zoomIn()    { applyZoom(_readZoom() + ZOOM_STEP); }
         function zoomOut()   { applyZoom(_readZoom() - ZOOM_STEP); }
@@ -12194,10 +12203,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     // Afficher le P&L
                     if (pnl !== 0) {
                         pnlEl.textContent = pnl >= 0 ? `+${pnl.toFixed(2)}$` : `-${Math.abs(pnl).toFixed(2)}$`;
-                        pnlEl.className = 'text-lg font-bold ' + (pnl >= 0 ? 'text-green-600' : 'text-red-600');
+                        pnlEl.className = 'metric-value-medium ' + (pnl >= 0 ? 'text-green-600' : 'text-red-600');
                     } else {
                         pnlEl.textContent = '0.00$';
-                        pnlEl.className = 'text-lg font-bold text-gray-400';
+                        pnlEl.className = 'metric-value-medium text-gray-400';
                     }
                     
                     // Afficher le nombre de jours
