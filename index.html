@@ -1588,25 +1588,9 @@
             border-left-color: rgba(239, 68, 68, 0.45) !important;
         }
 
-        /* Modals in dark mode — light surface for readability */
-        body.dark-mode .modal-content { background: #ffffff !important; color: #1f2937 !important; }
-        body.dark-mode .modal-content h2,
-        body.dark-mode .modal-content h3,
-        body.dark-mode .modal-content label,
-        body.dark-mode .modal-content p,
-        body.dark-mode .modal-content span,
-        body.dark-mode .modal-content div,
-        body.dark-mode .modal-content small,
-        body.dark-mode .modal-content .text-gray-600,
-        body.dark-mode .modal-content .text-gray-700,
-        body.dark-mode .modal-content .text-gray-800 { color: #1f2937 !important; }
-        body.dark-mode .modal-content input,
-        body.dark-mode .modal-content select,
-        body.dark-mode .modal-content textarea {
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            border-color: #e1e5e9 !important;
-        }
+        /* #53 : bloc obsolète "Modals dark = surface blanche" SUPPRIMÉ — le pattern glass-dark
+           (aube.css) + la variable --modal-bg-opacity (slider) gouvernent désormais le fond ;
+           couleurs de texte couvertes par aube.css (champagne h1-3/label, clair p/li/small/span). */
 
         /* View modal in dark mode */
         body.dark-mode .view-modal-content { background: var(--surface) !important; color: var(--text) !important; }
