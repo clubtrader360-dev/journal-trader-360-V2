@@ -492,6 +492,9 @@
         .editable-list-row { transition: background-color var(--t) var(--ease); }
         .editable-list-row:hover { background-color: rgba(0, 0, 0, 0.05); }
         body.dark-mode .editable-list-row:hover { background-color: rgba(255, 255, 255, 0.08); }
+        /* Date "commise le" des Pires Erreurs : lisible light + dark, un cran plus grande */
+        .erreur-date { color: rgba(0, 11, 37, 0.65); font-size: 0.875rem; font-weight: 500; }
+        body.dark-mode .erreur-date { color: rgba(255, 255, 255, 0.88); }
 
         /* Hamburger / mobile sidebar toggle */
         .sidebar-toggle {
@@ -4374,6 +4377,18 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="regles" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Relire mes règles de trading</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="engagement-session" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                                <span class="text-gray-700">Je m'engage à ne faire qu'une seule session</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="engagement-erreurs" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                                <span class="text-gray-700">Je m'engage à ne pas reproduire les mêmes erreurs</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="pourquoi" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                                <span class="text-gray-700">Je me souviens de mon pourquoi</span>
                             </label>
                         </div>
                     </div>
@@ -9407,7 +9422,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function loadQualitiesDefauts() {
             const qualities = JSON.parse(localStorage.getItem('trader_qualities') || '[]');
             const defauts = JSON.parse(localStorage.getItem('trader_defauts') || '[]');
-            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+            const erreurs = loadErreurs();
 
             renderQualities(qualities);
             renderDefauts(defauts);
@@ -9501,6 +9516,20 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
         
         // === MES PIRES ERREURS — pattern identique à défauts/qualités ===
+        // Lecture + migration silencieuse : ancien format string → { text, date:null }
+        function loadErreurs() {
+            const raw = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+            return raw.map(item => (typeof item === 'string' ? { text: item, date: null } : item));
+        }
+
+        // Date ISO (YYYY-MM-DD) → DD/MM/YYYY (ou — si absente). Nom dédié pour ne pas
+        // entrer en collision avec formatDateFR (format long, utilisé par le journal).
+        function formatErreurDate(isoDate) {
+            if (!isoDate) return '—';
+            const [year, month, day] = isoDate.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
         function renderErreurs(erreurs) {
             const container = document.getElementById('erreursList');
             if (!container) return;
@@ -9509,10 +9538,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
                     <i class="fas fa-exclamation-triangle text-sm" style="color: #991b1b;"></i>
                     <input type="text"
-                           value="${window.escapeHtml(erreur)}"
+                           value="${window.escapeHtml(erreur.text)}"
                            onchange="updateErreur(${Number(index)}, this.value)"
                            class="flex-1 bg-transparent border-none outline-none trader-inline-input focus:ring-1 focus:ring-red-500 rounded px-2 py-1"
                            placeholder="Votre erreur à éviter...">
+                    <span class="whitespace-nowrap erreur-date">${formatErreurDate(erreur.date)}</span>
                     <button onclick="deleteErreur(${Number(index)})" class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700">
                         <i class="fas fa-trash text-sm"></i>
                     </button>
@@ -9520,23 +9550,54 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             `).join('');
         }
 
+        // Mini-modale glass-dark (Bourse à l'Aube) : texte + date "commise le"
         function addErreur() {
-            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
-            erreurs.push('');
-            localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
-            renderErreurs(erreurs);
+            const today = new Date().toISOString().slice(0, 10);
+            const ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.55);';
+            ov.innerHTML = `
+                <div style="width:100%;max-width:420px;border-radius:16px;padding:22px;background:rgba(10,15,24,0.95);backdrop-filter:blur(20px);border:1px solid rgba(212,175,55,0.4);box-shadow:0 18px 50px rgba(0,0,0,0.5);color:rgba(244,228,193,0.92);">
+                    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;color:#991b1b;text-transform:uppercase;">Ajouter une erreur</h3>
+                    <label style="display:block;font-size:13px;margin-bottom:6px;opacity:0.85;">L'erreur à éviter</label>
+                    <input id="erreurModalText" type="text" placeholder="Ex : entrée impulsive sans setup" style="width:100%;padding:9px 12px;margin-bottom:14px;border-radius:9px;background:rgba(0,11,37,0.6);border:1px solid rgba(212,175,55,0.4);color:#f4e4c1;outline:none;box-sizing:border-box;">
+                    <label style="display:block;font-size:13px;margin-bottom:6px;opacity:0.85;">Commise le</label>
+                    <input id="erreurModalDate" type="date" value="${today}" style="width:100%;padding:9px 12px;margin-bottom:20px;border-radius:9px;background:rgba(0,11,37,0.6);border:1px solid rgba(212,175,55,0.4);color:#f4e4c1;outline:none;box-sizing:border-box;">
+                    <div style="display:flex;justify-content:flex-end;gap:10px;">
+                        <button id="erreurModalCancel" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:rgba(10,15,28,0.5);color:#d4af37;border:1px solid rgba(212,175,55,0.45);">Annuler</button>
+                        <button id="erreurModalAdd" style="padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#991b1b;color:#fff;border:none;">Ajouter</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(ov);
+            const close = () => ov.remove();
+            const txt = ov.querySelector('#erreurModalText');
+            txt.focus();
+            ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+            ov.querySelector('#erreurModalCancel').addEventListener('click', close);
+            const submit = () => {
+                const text = txt.value.trim();
+                if (!text) { txt.focus(); return; }
+                const date = ov.querySelector('#erreurModalDate').value || null;
+                const erreurs = loadErreurs();
+                erreurs.push({ text, date });
+                localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+                renderErreurs(erreurs);
+                close();
+            };
+            ov.querySelector('#erreurModalAdd').addEventListener('click', submit);
+            txt.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
         }
 
-        function updateErreur(index, value) {
-            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
-            erreurs[index] = value;
-            localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
-            console.log('[ERREURS] Mise à jour:', value);
+        function updateErreur(index, newText) {
+            const erreurs = loadErreurs(); // normalise au passage (migre strings → objets)
+            if (erreurs[index]) {
+                erreurs[index].text = newText;
+                localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+            }
         }
 
         function deleteErreur(index) {
             if (confirm('Supprimer cette erreur ?')) {
-                const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+                const erreurs = loadErreurs();
                 erreurs.splice(index, 1);
                 localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
                 renderErreurs(erreurs);
