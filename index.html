@@ -1360,7 +1360,14 @@
 
         /* #55 — taille adaptative des valeurs dans les cellules calendrier.
            Le P&L (cell-pnl) reste TOUJOURS dominant ; les autres filtres rétrécissent selon leur nombre. */
-        .cell-pnl { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+        .cell-pnl {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1.1;
+            font-feature-settings: "tnum" 1;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
         .cell-others-xl { font-size: 1.1rem;  font-weight: 600; }  /* 1 autre filtre */
         .cell-others-lg { font-size: 0.95rem; font-weight: 600; }  /* 2 autres */
         .cell-others-md { font-size: 0.85rem; font-weight: 500; }  /* 3 autres */
