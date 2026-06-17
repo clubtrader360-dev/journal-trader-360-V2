@@ -2635,10 +2635,12 @@ console.log('[OK] Fonctions modales exposées globalement');
             return;
         }
 
+        const riskInput = document.getElementById('riskPerTrade');
         const accountData = {
             name: nameInput.value.trim(),
             type: typeSelect.value,
-            initial_balance: parseFloat(sizeInput.value)
+            initial_balance: parseFloat(sizeInput.value),
+            risk_per_trade: riskInput && riskInput.value !== '' ? (parseFloat(riskInput.value) || null) : null
         };
 
         console.log('[UI] Données formulaire extraites:', accountData);
@@ -3822,6 +3824,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                                 <input type="checkbox" id="showWinRate" onchange="updateCalendarDisplay()" class="mr-2">
                                                 <span class="text-sm">Win rate %</span>
                                             </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showRR" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Performance en RR</span>
+                                            </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showPercent" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Performance en %</span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
@@ -4144,13 +4154,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">RR</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Setup</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="tradesTableBody">
                                 <tr>
-                                    <td colspan="12" class="px-6 py-4 text-center text-gray-500">
+                                    <td colspan="13" class="px-6 py-4 text-center text-gray-500">
                                         Aucun trade enregistré. Cliquez sur "Ajouter un Trade" pour commencer.
                                     </td>
                                 </tr>
@@ -4897,7 +4908,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <label>Taille du compte</label>
                     <input type="number" id="accountSize" placeholder="Ex: 100000" required>
                 </div>
-                
+                <div class="form-group">
+                    <label>Risque par trade ($) <span style="font-weight: 400; opacity: 0.7;">— optionnel, pour les filtres Performance RR</span></label>
+                    <input type="number" id="riskPerTrade" min="1" step="any" placeholder="Ex: 500">
+                    <small style="display: block; margin-top: 4px; opacity: 0.7;">Indépendant de la taille du compte. Ex : compte 150K avec R = 1000$.</small>
+                </div>
+
                 <div class="flex gap-4 mt-6">
                     <button type="button" onclick="addAccountUI()" class="trader-btn flex-1">Ajouter</button>
                     <button type="button" onclick="closeModal('addAccountModal')" class="trader-btn-secondary flex-1">Annuler</button>
@@ -4927,7 +4943,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <option value="challenge">Challenge</option>
                     </select>
                 </div>
-                
+                <div class="form-group">
+                    <label>Risque par trade ($) <span style="font-weight: 400; opacity: 0.7;">— optionnel, pour les filtres Performance RR</span></label>
+                    <input type="number" id="editRiskPerTrade" min="1" step="any" placeholder="Ex: 500">
+                    <small style="display: block; margin-top: 4px; opacity: 0.7;">Indépendant de la taille du compte. Laisser vide = pas de calcul RR.</small>
+                </div>
+
                 <div class="flex gap-4 mt-6">
                     <button type="button" onclick="saveAccountEdit()" class="trader-btn-secondary flex-1">Enregistrer</button>
                     <button type="button" onclick="closeModal('editAccountModal')" class="trader-btn-secondary flex-1">Annuler</button>
@@ -5812,7 +5833,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             return {
                 showPnl: true,
                 showTradeCount: false,
-                showWinRate: false
+                showWinRate: false,
+                showRR: false,
+                showPercent: false
             };
         }
         
@@ -6698,7 +6721,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (totalTrades === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="12" class="px-6 py-4 text-center text-gray-500">
+                        <td colspan="13" class="px-6 py-4 text-center text-gray-500">
                             Aucun trade enregistré pour les comptes sélectionnés.
                         </td>
                     </tr>`;
@@ -6763,6 +6786,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <td class="px-6 py-4 text-sm font-medium ${pnlClass}">
                             ${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)} $
                         </td>
+                        <td class="px-6 py-4 text-sm">${window.formatTradeRR(trade)}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">${window.escapeHtml(trade.setup || '-')}</td>
                         <td class="px-6 py-4 text-sm">
                             <div class="flex items-center gap-2">
@@ -8639,6 +8663,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             document.getElementById('editAccountId').value = accountId;
             document.getElementById('editAccountName').value = account.name;
             document.getElementById('editAccountType').value = account.type;
+            const editRiskInput = document.getElementById('editRiskPerTrade');
+            if (editRiskInput) editRiskInput.value = (account.risk_per_trade !== null && account.risk_per_trade !== undefined) ? account.risk_per_trade : '';
             
             // Ouvrir la modal
             document.getElementById('editAccountModal').style.display = 'block';
@@ -8651,7 +8677,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const accountId = document.getElementById('editAccountId').value;
             const newName = document.getElementById('editAccountName').value.trim();
             const newType = document.getElementById('editAccountType').value;
-            
+            const editRiskInput = document.getElementById('editRiskPerTrade');
+            const newRisk = editRiskInput && editRiskInput.value !== '' ? (parseFloat(editRiskInput.value) || null) : null;
+
             if (!newName) {
                 alert('❌ Le nom du compte ne peut pas être vide');
                 return;
@@ -8667,9 +8695,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
             
             // Appeler la fonction updateAccount
-            const result = await window.updateAccount(accountId, { 
+            const result = await window.updateAccount(accountId, {
                 name: newName,
-                type: newType
+                type: newType,
+                risk_per_trade: newRisk
             });
             
             if (result && !result.error) {
@@ -11799,7 +11828,35 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         const winRateColor = winRate >= 50 ? 'text-green-700' : 'text-red-700';
                         statsHtml += `<div class="${winRateColor} font-medium">${winRate}% win</div>`;
                     }
-                    
+                    // #39/#55 — Performance en RR (Somme P&L du jour ÷ Somme des R des comptes actifs)
+                    if (calendarDisplay.showRR) {
+                        const sumR = (window.accounts || [])
+                            .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
+                            .reduce((sum, a) => sum + parseFloat(a.risk_per_trade), 0);
+                        if (sumR > 0) {
+                            const rrValue = dayPnl / sumR;
+                            const rrColor = rrValue >= 0 ? 'text-green-700' : 'text-red-700';
+                            const sign = rrValue > 0 ? '+' : '';
+                            statsHtml += `<div class="${rrColor} font-medium">${sign}${rrValue.toFixed(1)}R</div>`;
+                        } else {
+                            statsHtml += `<div class="text-gray-400 text-xs italic">— R</div>`;
+                        }
+                    }
+                    // #39/#55 — Performance en % (Somme P&L du jour ÷ Somme des tailles initiales × 100)
+                    if (calendarDisplay.showPercent) {
+                        const sumInitial = (window.accounts || [])
+                            .filter(a => a.active && a.initial_balance && parseFloat(a.initial_balance) > 0)
+                            .reduce((sum, a) => sum + parseFloat(a.initial_balance), 0);
+                        if (sumInitial > 0) {
+                            const pctValue = (dayPnl / sumInitial) * 100;
+                            const pctColor = pctValue >= 0 ? 'text-green-700' : 'text-red-700';
+                            const sign = pctValue > 0 ? '+' : '';
+                            statsHtml += `<div class="${pctColor} font-medium">${sign}${pctValue.toFixed(2)}%</div>`;
+                        } else {
+                            statsHtml += `<div class="text-gray-400 text-xs italic">— %</div>`;
+                        }
+                    }
+
                     statsHtml += '</div>';
                     cellContent += statsHtml;
                     
@@ -12786,7 +12843,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             calendarDisplay.showPnl = document.getElementById('showPnl').checked;
             calendarDisplay.showTradeCount = document.getElementById('showTradeCount').checked;
             calendarDisplay.showWinRate = document.getElementById('showWinRate').checked;
-            
+            const showRREl = document.getElementById('showRR');
+            const showPercentEl = document.getElementById('showPercent');
+            if (showRREl) calendarDisplay.showRR = showRREl.checked;
+            if (showPercentEl) calendarDisplay.showPercent = showPercentEl.checked;
+
             // Sauvegarder les préférences dans localStorage
             localStorage.setItem('calendarDisplayPreferences', JSON.stringify(calendarDisplay));
             console.log('[CALENDAR] Préférences sauvegardées:', calendarDisplay);
@@ -12804,6 +12865,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (showPnlCheckbox) showPnlCheckbox.checked = calendarDisplay.showPnl;
             if (showTradeCountCheckbox) showTradeCountCheckbox.checked = calendarDisplay.showTradeCount;
             if (showWinRateCheckbox) showWinRateCheckbox.checked = calendarDisplay.showWinRate;
+            const showRRCheckbox = document.getElementById('showRR');
+            const showPercentCheckbox = document.getElementById('showPercent');
+            if (showRRCheckbox) showRRCheckbox.checked = !!calendarDisplay.showRR;
+            if (showPercentCheckbox) showPercentCheckbox.checked = !!calendarDisplay.showPercent;
             
             console.log('[CALENDAR] Checkboxes synchronisées avec préférences:', calendarDisplay);
         }
