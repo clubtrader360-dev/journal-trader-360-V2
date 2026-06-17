@@ -4470,7 +4470,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
                         <!-- Section Alertes Erreurs Redondantes (#48) : auto-détectées depuis le journal quotidien -->
                         <div class="mt-8">
-                            <h3 class="text-xl font-bold mb-4" style="color: #ea580c; text-transform: uppercase;">Alertes Erreurs Redondantes</h3>
+                            <h3 class="text-xl font-bold mb-4" style="color: #dc2626; text-transform: uppercase;">Alertes Erreurs Redondantes</h3>
                             <p class="text-xs mb-3" style="color: var(--aube-text-secondary, rgba(0, 11, 37, 0.6));">
                                 Erreurs cochées 3 fois ou plus dans ton journal quotidien sur les 30 derniers jours.
                             </p>
@@ -9643,12 +9643,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 return;
             }
             container.innerHTML = items.map(item => `
-                <div class="flex items-center justify-between p-2 rounded editable-list-row" style="background: rgba(234, 88, 12, 0.08); border-left: 3px solid #ea580c;">
+                <div class="flex items-center justify-between p-2 rounded editable-list-row" style="background: rgba(220, 38, 38, 0.05); border: 1px solid #dc2626;">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <i class="fas fa-exclamation-triangle text-sm" style="color: #ea580c;"></i>
+                        <i class="fas fa-exclamation-triangle text-sm" style="color: #dc2626;"></i>
                         <span class="text-sm truncate" style="color: var(--aube-text-primary, #1a1208);">${window.escapeHtml(item.erreur)}</span>
                     </div>
-                    <span class="text-xs whitespace-nowrap font-semibold ml-2 px-2 py-1 rounded" style="background: rgba(234, 88, 12, 0.15); color: #ea580c;">${item.count} fois</span>
+                    <span class="text-xs whitespace-nowrap font-semibold ml-2 px-2 py-1 rounded" style="background: rgba(220, 38, 38, 0.12); color: #dc2626;">${item.count} fois</span>
                 </div>
             `).join('');
         }
