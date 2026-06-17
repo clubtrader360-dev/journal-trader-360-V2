@@ -7687,6 +7687,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const v = parseFloat(stored);
             return isFinite(v) && v >= ZOOM_MIN && v <= ZOOM_MAX ? v : ZOOM_DEFAULT;
         }
+        // #61 — Helper réutilisable : force le resize de toutes les instances Chart.js + dispatch event.
+        // Idempotent (resize sur un chart déjà bien dimensionné ne fait rien de visible).
+        function _forceChartsResize() {
+            try {
+                if (window.Chart) {
+                    const instances = Chart.instances || {};
+                    Object.values(instances).forEach(chart => {
+                        try { chart.resize(); } catch (e) { /* skip si chart détruit */ }
+                    });
+                }
+                window.dispatchEvent(new Event('resize'));
+            } catch (e) {
+                console.warn('[ZOOM] Resize charts failed:', e);
+            }
+        }
         function applyZoom(z) {
             const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
             // On zoom UNIQUEMENT le contenu principal (.main-content) —
@@ -7710,22 +7725,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const label = Math.round(clamped * 100) + '%';
             document.querySelectorAll('.zoom-level').forEach(el => { el.textContent = label; });
 
-            // #61 fix robuste : forcer Chart.js à recalculer ses dimensions APRÈS l'application du zoom
-            // (sinon, au login en zoom 70%, les charts gardent leur taille pré-zoom et ne remplissent
-            //  pas leur container). Appel explicite chart.resize() sur chaque instance + fallback event.
-            setTimeout(() => {
-                try {
-                    if (window.Chart) {
-                        const instances = Chart.instances || {};
-                        Object.values(instances).forEach(chart => {
-                            try { chart.resize(); } catch (e) { /* skip si chart détruit */ }
-                        });
-                    }
-                    window.dispatchEvent(new Event('resize'));
-                } catch (e) {
-                    console.warn('[ZOOM] Resize après zoom failed:', e);
-                }
-            }, 300);  // délai 300ms : laisser le browser finir le re-layout du zoom CSS
+            // #61 — forcer Chart.js à recalculer ses dimensions après l'application du zoom (300ms)
+            setTimeout(_forceChartsResize, 300);
         }
         function zoomIn()    { applyZoom(_readZoom() + ZOOM_STEP); }
         function zoomOut()   { applyZoom(_readZoom() - ZOOM_STEP); }
@@ -7734,7 +7735,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         window.zoomOut = zoomOut;
         window.zoomReset = zoomReset;
         // Init au chargement
-        document.addEventListener('DOMContentLoaded', () => applyZoom(_readZoom()));
+        document.addEventListener('DOMContentLoaded', () => {
+            applyZoom(_readZoom());
+            // #61 — retries pour rattraper les charts Chart.js créés APRÈS le DOMContentLoaded
+            // (fetch Supabase async → instances créées en différé). Idempotent.
+            setTimeout(_forceChartsResize, 500);
+            setTimeout(_forceChartsResize, 1500);
+            setTimeout(_forceChartsResize, 3000);
+            setTimeout(_forceChartsResize, 5000);  // filet de sécurité (connexions lentes)
+        });
         // Raccourcis clavier Ctrl/Cmd + / - / 0
         document.addEventListener('keydown', (e) => {
             if (!(e.ctrlKey || e.metaKey)) return;
