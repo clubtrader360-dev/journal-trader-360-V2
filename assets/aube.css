@@ -1084,11 +1084,6 @@ body.dark-mode .pourquoi-glass-card .text-gray-700,
 body.dark-mode .pourquoi-glass-card .text-gray-800 { color: rgba(255, 255, 255, 0.92) !important; }
 body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 75, 0.2) !important; }
 
-/* Zones 1/5/6 — entêtes & lignes de tables internes (Journal des trades, Comptes Achetés, Payouts Reçus) :
-   plus de gris clair en dark, alignement glass + séparateurs or discrets. */
-body.dark-mode #tradelog thead,
-body.dark-mode #accounting thead { background: rgba(255, 255, 255, 0.04) !important; }
-body.dark-mode #tradelog thead th,
-body.dark-mode #accounting thead th { color: rgba(255, 255, 255, 0.6) !important; }
-body.dark-mode #accounting thead tr.border-b,
-body.dark-mode #accounting tbody tr { border-color: rgba(201, 162, 75, 0.15) !important; }
+/* Zones 1/5/6 (Journal trades, Comptes, Payouts) : tables internes harmonisées via les règles
+   GLOBALES body.dark-mode table/thead/tbody (index.html : glass + séparateurs or + facteur d'opacité).
+   Pas de règle spécifique ici → uniformité garantie (et pas d'override plus spécifique qui jurerait). */
