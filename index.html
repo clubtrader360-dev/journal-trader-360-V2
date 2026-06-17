@@ -100,6 +100,7 @@
             --sidebar-text-active: #d4af37;               /* or logo sur item actif */
             --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
             --sidebar-divider: rgba(0, 11, 37, 0.12);     /* séparateur navy léger (light) */
+            --modal-bg-opacity: 0.92;                     /* #53 : opacité fond modales (dark), réglable via slider sidebar */
 
             /* Tokens */
             --radius-xs: 6px;
@@ -2917,6 +2918,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
                     </div>
                 </div>
+                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
+                <div class="modal-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des modales (dark mode)">
+                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
+                        🎨 Opacité modales <span class="modal-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">92%</span>
+                    </label>
+                    <input type="range" class="modal-opacity-slider" min="0.6" max="1.0" step="0.01" value="0.92"
+                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
+                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                </div>
             </nav>
         </div>
 
@@ -3579,7 +3589,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
                     </div>
                 </div>
-                
+                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
+                <div class="modal-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des modales (dark mode)">
+                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
+                        🎨 Opacité modales <span class="modal-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">92%</span>
+                    </label>
+                    <input type="range" class="modal-opacity-slider" min="0.6" max="1.0" step="0.01" value="0.92"
+                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
+                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                </div>
+
                 <!-- Lien Instagram -->
                 <div style="margin-top: 20px; padding: 10px 20px; text-align: center;">
                     <a href="https://www.instagram.com/trader360_officiel/" target="_blank" rel="noopener noreferrer" 
@@ -7441,8 +7460,39 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             syncThemeColorMeta(isDark);
 
             console.log('[THEME] Thème changé:', isDark ? 'Sombre' : 'Clair');
+            updateModalOpacityControlVisibility();  // #53 : curseur opacité visible en dark uniquement
         }
-        
+
+        // === #53 — OPACITÉ FOND DES MODALES (dark mode uniquement) ===
+        const MODAL_OPACITY_KEY = 'modalOpacity';
+        const MODAL_OPACITY_MIN = 0.6;
+        const MODAL_OPACITY_MAX = 1.0;
+        const MODAL_OPACITY_DEFAULT = 0.92;
+        function _readModalOpacity() {
+            const stored = parseFloat(localStorage.getItem(MODAL_OPACITY_KEY));
+            if (!isFinite(stored) || stored < MODAL_OPACITY_MIN || stored > MODAL_OPACITY_MAX) return MODAL_OPACITY_DEFAULT;
+            return stored;
+        }
+        function applyModalOpacity(value) {
+            const clamped = Math.min(MODAL_OPACITY_MAX, Math.max(MODAL_OPACITY_MIN, value));
+            document.documentElement.style.setProperty('--modal-bg-opacity', String(clamped));
+            localStorage.setItem(MODAL_OPACITY_KEY, String(clamped));
+            const label = Math.round(clamped * 100) + '%';
+            document.querySelectorAll('.modal-opacity-level').forEach(el => { el.textContent = label; });
+            document.querySelectorAll('.modal-opacity-slider').forEach(el => { el.value = String(clamped); });
+        }
+        function updateModalOpacityControlVisibility() {
+            const isDark = document.body.classList.contains('dark-mode');
+            document.querySelectorAll('.modal-opacity-control').forEach(el => { el.style.display = isDark ? '' : 'none'; });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            applyModalOpacity(_readModalOpacity());
+            updateModalOpacityControlVisibility();
+            document.querySelectorAll('.modal-opacity-slider').forEach(slider => {
+                slider.addEventListener('input', (e) => applyModalOpacity(parseFloat(e.target.value)));
+            });
+        });
+
         // Load saved theme on page load. Falls back to system preference if nothing stored.
         function loadSavedTheme() {
             const savedTheme = localStorage.getItem('theme');
