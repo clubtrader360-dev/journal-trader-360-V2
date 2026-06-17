@@ -7499,6 +7499,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTheme(); }
                 });
             });
+            if (typeof updateSurfaceOpacityControlVisibility === 'function') updateSurfaceOpacityControlVisibility();  // #53 fix : révéler le slider après application du thème
             console.log('[THEME] Thème chargé:', useDark ? 'Sombre' : 'Clair');
         }
 
