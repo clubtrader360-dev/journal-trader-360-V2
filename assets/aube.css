@@ -749,23 +749,23 @@ body:not(.dark-mode) .aube-detail-modal [style*="6b7280"] { color: rgba(123, 96,
    en dark (sinon text-green-800/red-900 illisible sur fond rgba 0.12).
    ============================================================ */
 body.dark-mode #calendarGrid > div.bg-green-100 {
-  background-color: rgba(16, 185, 129, 0.12) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  border: 1px solid rgba(16, 185, 129, 0.55) !important;
 }
 body.dark-mode #calendarGrid > div.bg-red-200 {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
 }
 body.dark-mode #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #10b981 !important; }
 body.dark-mode #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #ef4444 !important; }
 
 body:not(.dark-mode) #calendarGrid > div.bg-green-100 {
-  background-color: rgba(16, 185, 129, 0.10) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  background-color: rgba(16, 185, 129, 0.20) !important;
+  border: 1px solid rgba(16, 185, 129, 0.50) !important;
 }
 body:not(.dark-mode) #calendarGrid > div.bg-red-200 {
-  background-color: rgba(239, 68, 68, 0.10) !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  background-color: rgba(239, 68, 68, 0.20) !important;
+  border: 1px solid rgba(239, 68, 68, 0.50) !important;
 }
 body:not(.dark-mode) #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #047857 !important; }
 body:not(.dark-mode) #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #b91c1c !important; }
