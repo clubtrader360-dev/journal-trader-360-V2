@@ -1358,6 +1358,14 @@
         }
         .calendar-day-with-tooltip:hover .calendar-tooltip { display: block; }
 
+        /* #55 — taille adaptative des valeurs dans les cellules calendrier.
+           Le P&L (cell-pnl) reste TOUJOURS dominant ; les autres filtres rétrécissent selon leur nombre. */
+        .cell-pnl { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+        .cell-others-xl { font-size: 1.1rem;  font-weight: 600; }  /* 1 autre filtre */
+        .cell-others-lg { font-size: 0.95rem; font-weight: 600; }  /* 2 autres */
+        .cell-others-md { font-size: 0.85rem; font-weight: 500; }  /* 3 autres */
+        .cell-others-sm { font-size: 0.75rem; font-weight: 500; }  /* 4+ autres */
+
         /* =========================================================
            VIEW & ZOOM MODALS
            ========================================================= */
@@ -3832,6 +3840,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                                 <input type="checkbox" id="showPercent" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
                                                 <span class="text-sm">Performance en %</span>
                                             </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showPoints" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Points (gagnés/perdus)</span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
@@ -3902,6 +3914,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                         <div class="metric-header">Net P&L <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">Profit ou perte net total sur le mois affiché (somme des P&L de tous les trades du mois).</span></i></div>
                                         <div class="metric-main">
                                             <div class="metric-value-large" id="monthNetPnl">—</div>
+                                            <div id="monthNetPnlInR" class="text-sm mt-1" style="font-style: italic; color: var(--aube-text-secondary, rgba(255,255,255,0.6));">— R</div>
                                         </div>
                                     </div>
                                     <!-- Trade win % -->
@@ -5835,7 +5848,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 showTradeCount: false,
                 showWinRate: false,
                 showRR: false,
-                showPercent: false
+                showPercent: false,
+                showPoints: false
             };
         }
         
@@ -11816,17 +11830,26 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     const winRate = ((winningTrades / tradeCount) * 100).toFixed(0);
                     
                     let statsHtml = '<div class="text-xs mt-1 space-y-0.5">';
-                    
+
+                    // #55 — taille adaptative : P&L toujours dominant (cell-pnl) ; les AUTRES filtres
+                    // rétrécissent selon leur nombre (xl=1, lg=2, md=3, sm=4+).
+                    const otherFiltersCount = ['showTradeCount', 'showWinRate', 'showRR', 'showPercent', 'showPoints']
+                        .filter(key => calendarDisplay[key] === true).length;
+                    const otherSizeClass = otherFiltersCount === 1 ? 'cell-others-xl'
+                                         : otherFiltersCount === 2 ? 'cell-others-lg'
+                                         : otherFiltersCount === 3 ? 'cell-others-md'
+                                         : 'cell-others-sm';
+
                     // Afficher selon les préférences
                     if (calendarDisplay.showPnl) {
-                        statsHtml += `<div class="font-bold text-xl">${dayPnl > 0 ? '+' : ''}${dayPnl.toFixed(0)}$</div>`;
+                        statsHtml += `<div class="cell-pnl">${dayPnl > 0 ? '+' : ''}${dayPnl.toFixed(0)}$</div>`;
                     }
                     if (calendarDisplay.showTradeCount) {
-                        statsHtml += `<div class="opacity-75">${tradeCount} trade${tradeCount > 1 ? 's' : ''}</div>`;
+                        statsHtml += `<div class="${otherSizeClass} opacity-75">${tradeCount} trade${tradeCount > 1 ? 's' : ''}</div>`;
                     }
                     if (calendarDisplay.showWinRate) {
                         const winRateColor = winRate >= 50 ? 'text-green-700' : 'text-red-700';
-                        statsHtml += `<div class="${winRateColor} font-medium">${winRate}% win</div>`;
+                        statsHtml += `<div class="${otherSizeClass} ${winRateColor}">${winRate}% win</div>`;
                     }
                     // #39/#55 — Performance en RR (Somme P&L du jour ÷ Somme des R des comptes actifs)
                     if (calendarDisplay.showRR) {
@@ -11837,9 +11860,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             const rrValue = dayPnl / sumR;
                             const rrColor = rrValue >= 0 ? 'text-green-700' : 'text-red-700';
                             const sign = rrValue > 0 ? '+' : '';
-                            statsHtml += `<div class="${rrColor} font-medium">${sign}${rrValue.toFixed(1)}R</div>`;
+                            statsHtml += `<div class="${otherSizeClass} ${rrColor}">${sign}${rrValue.toFixed(1)}R</div>`;
                         } else {
-                            statsHtml += `<div class="text-gray-400 text-xs italic">— R</div>`;
+                            statsHtml += `<div class="${otherSizeClass} text-gray-400 italic">— R</div>`;
                         }
                     }
                     // #39/#55 — Performance en % (Somme P&L du jour ÷ Somme des tailles initiales × 100)
@@ -11851,10 +11874,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             const pctValue = (dayPnl / sumInitial) * 100;
                             const pctColor = pctValue >= 0 ? 'text-green-700' : 'text-red-700';
                             const sign = pctValue > 0 ? '+' : '';
-                            statsHtml += `<div class="${pctColor} font-medium">${sign}${pctValue.toFixed(2)}%</div>`;
+                            statsHtml += `<div class="${otherSizeClass} ${pctColor}">${sign}${pctValue.toFixed(2)}%</div>`;
                         } else {
-                            statsHtml += `<div class="text-gray-400 text-xs italic">— %</div>`;
+                            statsHtml += `<div class="${otherSizeClass} text-gray-400 italic">— %</div>`;
                         }
+                    }
+                    // #55 — Points gagnés/perdus du jour ((sortie − entrée) × direction, somme des trades)
+                    if (calendarDisplay.showPoints) {
+                        const dayPoints = dayTrades.reduce((sum, t) => {
+                            const ep = parseFloat(t.entryPrice), xp = parseFloat(t.exitPrice);
+                            if (!isFinite(ep) || !isFinite(xp)) return sum;
+                            const direction = window.getTradeDirection(t.type) === 'SHORT' ? -1 : 1;
+                            return sum + (xp - ep) * direction;
+                        }, 0);
+                        const ptsColor = dayPoints >= 0 ? 'text-green-700' : 'text-red-700';
+                        const sign = dayPoints > 0 ? '+' : '';
+                        statsHtml += `<div class="${otherSizeClass} ${ptsColor}">${sign}${dayPoints.toFixed(2)} pts</div>`;
                     }
 
                     statsHtml += '</div>';
@@ -12155,6 +12190,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             updateMonthlyMetrics(currentYear, currentMonth);
         }
 
+        // #55 — Affiche l'équivalent en R sous le Net P&L du mois. monthRR null = pas de R défini / mois vide → "— R".
+        function updateMonthNetPnlInR(monthRR) {
+            const rEl = document.getElementById('monthNetPnlInR');
+            if (!rEl) return;
+            if (monthRR !== null && isFinite(monthRR)) {
+                const sign = monthRR >= 0 ? '+' : '';
+                rEl.textContent = `≈ ${sign}${monthRR.toFixed(1)}R`;
+                rEl.style.color = monthRR >= 0 ? '#10b981' : '#ef4444';
+                rEl.style.fontStyle = 'normal';
+            } else {
+                rEl.textContent = '— R';
+                rEl.style.color = 'var(--aube-text-secondary, rgba(255,255,255,0.6))';
+                rEl.style.fontStyle = 'italic';
+            }
+        }
+
         // ========================================
         // #51 — Performance du mois affiché (5 KPI scopés, sans sparkline)
         // Réutilise getFilteredTrades() (respecte les comptes actifs) ; mêmes formules qu'updateBanner.
@@ -12188,6 +12239,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 ['monthTradeWinBar', 'monthDayWinBar', 'monthProfitFactorBar'].forEach(id => setBar(id, 0));
                 set('monthAvgWinLabel', '$0', '#10b981');
                 set('monthAvgLossLabel', '-$0', '#ef4444');
+                updateMonthNetPnlInR(null);
                 return;
             }
 
@@ -12201,6 +12253,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             // Net P&L
             set('monthNetPnl', (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toFixed(2), netPnl >= 0 ? '#10b981' : '#ef4444');
+            // #55 — équivalent en R (netPnl ÷ Σ R des comptes actifs avec R défini)
+            const _sumR = (window.accounts || [])
+                .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
+                .reduce((s, a) => s + parseFloat(a.risk_per_trade), 0);
+            updateMonthNetPnlInR(_sumR > 0 ? netPnl / _sumR : null);
             // Trade win % + barre
             const tradeWinPct = decided > 0 ? (wins.length / decided * 100) : 0;
             set('monthTradeWin', decided > 0 ? tradeWinPct.toFixed(1) + '%' : '—');
@@ -12847,6 +12904,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const showPercentEl = document.getElementById('showPercent');
             if (showRREl) calendarDisplay.showRR = showRREl.checked;
             if (showPercentEl) calendarDisplay.showPercent = showPercentEl.checked;
+            const showPointsEl = document.getElementById('showPoints');
+            if (showPointsEl) calendarDisplay.showPoints = showPointsEl.checked;
 
             // Sauvegarder les préférences dans localStorage
             localStorage.setItem('calendarDisplayPreferences', JSON.stringify(calendarDisplay));
@@ -12869,6 +12928,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const showPercentCheckbox = document.getElementById('showPercent');
             if (showRRCheckbox) showRRCheckbox.checked = !!calendarDisplay.showRR;
             if (showPercentCheckbox) showPercentCheckbox.checked = !!calendarDisplay.showPercent;
+            const showPointsCheckbox = document.getElementById('showPoints');
+            if (showPointsCheckbox) showPointsCheckbox.checked = !!calendarDisplay.showPoints;
             
             console.log('[CALENDAR] Checkboxes synchronisées avec préférences:', calendarDisplay);
         }
