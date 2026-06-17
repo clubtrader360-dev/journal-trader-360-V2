@@ -5089,10 +5089,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 <span style="font-size: 14px;">Taille de position parfaite</span>
                             </label>
                             <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="positive-checkbox" value="Coupé rapidement mes pertes" onchange="updatePositiveCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
-                                <span style="font-size: 14px;">Coupé rapidement mes pertes</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
                                 <input type="checkbox" class="positive-checkbox" value="Laissé courir mes gains" onchange="updatePositiveCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
                                 <span style="font-size: 14px;">Laissé courir mes gains</span>
                             </label>
@@ -5114,14 +5110,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
                                 <input type="checkbox" class="positive-checkbox" value="Bonne lecture du marché" onchange="updatePositiveCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
                                 <span style="font-size: 14px;">Bonne lecture du marché</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="positive-checkbox" value="Setup parfait (A+)" onchange="updatePositiveCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
-                                <span style="font-size: 14px;">Setup parfait (A+)</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="positive-checkbox" value="Pris seulement mes meilleurs setups" onchange="updatePositiveCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
-                                <span style="font-size: 14px;">Pris seulement mes meilleurs setups</span>
                             </label>
                             <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
                                 <input type="checkbox" class="positive-checkbox" value="Bien analysé le contexte HTF" onchange="updatePositiveCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
@@ -5214,16 +5202,39 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 <span style="font-size: 14px;">Entrée trop tard</span>
                             </label>
                             <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="error-checkbox" value="Sorti trop tôt (par peur)" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
-                                <span style="font-size: 14px;">Sorti trop tôt (par peur)</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="error-checkbox" value="Laissé courir perte trop longtemps" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
-                                <span style="font-size: 14px;">Laissé courir perte trop longtemps</span>
+                                <input type="checkbox" class="error-checkbox" value="Sortir trop tôt" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
+                                <span style="font-size: 14px;">Sortir trop tôt</span>
                             </label>
                         </div>
                     </div>
                     
+                    <!-- Mental -->
+                    <div class="accordion-category mb-2" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                        <div class="accordion-header" onclick="toggleAccordion('error-mental')" style="display: flex; align-items: center; padding: 12px 16px; background: #f9fafb; cursor: pointer; user-select: none;">
+                            <span id="chevron-error-mental" style="margin-right: 8px; font-size: 14px; transition: transform 0.2s;">▶</span>
+                            <span style="font-weight: 500; flex: 1;">Mental</span>
+                            <span id="badge-error-mental" class="text-xs px-2 py-1 rounded" style="background: #ef4444; color: white; display: none;"></span>
+                        </div>
+                        <div id="error-mental" class="accordion-content" style="display: none; padding: 12px 16px; background: white;">
+                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+                                <input type="checkbox" class="error-checkbox" value="Mauvais état d'esprit" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
+                                <span style="font-size: 14px;">Mauvais état d'esprit</span>
+                            </label>
+                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+                                <input type="checkbox" class="error-checkbox" value="Très stressé pendant le trade" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
+                                <span style="font-size: 14px;">Très stressé pendant le trade</span>
+                            </label>
+                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+                                <input type="checkbox" class="error-checkbox" value="Pas confiant dans mon analyse" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
+                                <span style="font-size: 14px;">Pas confiant dans mon analyse</span>
+                            </label>
+                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+                                <input type="checkbox" class="error-checkbox" value="Je n'ai pas accepté ma perte" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
+                                <span style="font-size: 14px;">Je n'ai pas accepté ma perte</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- Risk Management -->
                     <div class="accordion-category mb-2" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
                         <div class="accordion-header" onclick="toggleAccordion('error-risk')" style="display: flex; align-items: center; padding: 12px 16px; background: #f9fafb; cursor: pointer; user-select: none;">
@@ -5251,33 +5262,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </div>
                     </div>
                     
-                    <!-- Plan de trading -->
-                    <div class="accordion-category mb-2" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-                        <div class="accordion-header" onclick="toggleAccordion('error-plan')" style="display: flex; align-items: center; padding: 12px 16px; background: #f9fafb; cursor: pointer; user-select: none;">
-                            <span id="chevron-error-plan" style="margin-right: 8px; font-size: 14px; transition: transform 0.2s;">▶</span>
-                            <span style="font-weight: 500; flex: 1;">Plan de trading</span>
-                            <span id="badge-error-plan" class="text-xs px-2 py-1 rounded" style="background: #ef4444; color: white; display: none;"></span>
-                        </div>
-                        <div id="error-plan" class="accordion-content" style="display: none; padding: 12px 16px; background: white;">
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="error-checkbox" value="Sorti du plan de trading" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
-                                <span style="font-size: 14px;">Sorti du plan de trading</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="error-checkbox" value="Trade hors de ma zone/setup" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
-                                <span style="font-size: 14px;">Trade hors de ma zone/setup</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="error-checkbox" value="Trade contre la tendance" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
-                                <span style="font-size: 14px;">Trade contre la tendance</span>
-                            </label>
-                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
-                                <input type="checkbox" class="error-checkbox" value="Pas attendu ma confirmation" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
-                                <span style="font-size: 14px;">Pas attendu ma confirmation</span>
-                            </label>
-                        </div>
-                    </div>
-                    
                     <!-- Analyse -->
                     <div class="accordion-category mb-2" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
                         <div class="accordion-header" onclick="toggleAccordion('error-analyse')" style="display: flex; align-items: center; padding: 12px 16px; background: #f9fafb; cursor: pointer; user-select: none;">
@@ -5286,6 +5270,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <span id="badge-error-analyse" class="text-xs px-2 py-1 rounded" style="background: #ef4444; color: white; display: none;"></span>
                         </div>
                         <div id="error-analyse" class="accordion-content" style="display: none; padding: 12px 16px; background: white;">
+                            <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
+                                <input type="checkbox" class="error-checkbox" value="Trade hors de ma zone/setup" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
+                                <span style="font-size: 14px;">Trade hors de ma zone/setup</span>
+                            </label>
                             <label style="display: flex; align-items: center; padding: 6px 0; cursor: pointer;">
                                 <input type="checkbox" class="error-checkbox" value="Mauvaise lecture du marché" onchange="updateErrorsCount()" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444;">
                                 <span style="font-size: 14px;">Mauvaise lecture du marché</span>
@@ -10582,7 +10570,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
             
             // Mettre à jour les badges par catégorie
-            const categories = ['discipline', 'execution', 'risk', 'plan', 'analyse'];
+            const categories = ['discipline', 'execution', 'mental', 'risk', 'analyse'];
             categories.forEach(cat => {
                 const catCheckboxes = document.querySelectorAll(`#error-${cat} .error-checkbox:checked`);
                 const catCount = catCheckboxes.length;
