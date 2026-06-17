@@ -7699,6 +7699,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             localStorage.setItem(ZOOM_KEY, String(clamped));
             const label = Math.round(clamped * 100) + '%';
             document.querySelectorAll('.zoom-level').forEach(el => { el.textContent = label; });
+
+            // #61 fix : forcer Chart.js à recalculer ses dimensions APRÈS l'application du zoom
+            // (sinon, au login en zoom 70%, les charts gardent leur taille pré-zoom et ne remplissent
+            //  pas leur container). Léger délai pour laisser le browser appliquer le zoom CSS d'abord.
+            setTimeout(() => {
+                try { window.dispatchEvent(new Event('resize')); }
+                catch (e) { console.warn('[ZOOM] Resize event dispatch failed:', e); }
+            }, 100);
         }
         function zoomIn()    { applyZoom(_readZoom() + ZOOM_STEP); }
         function zoomOut()   { applyZoom(_readZoom() - ZOOM_STEP); }

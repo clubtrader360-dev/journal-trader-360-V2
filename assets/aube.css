@@ -1087,3 +1087,19 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
 /* Zones 1/5/6 (Journal trades, Comptes, Payouts) : tables internes harmonisées via les règles
    GLOBALES body.dark-mode table/thead/tbody (index.html : glass + séparateurs or + facteur d'opacité).
    Pas de règle spécifique ici → uniformité garantie (et pas d'override plus spécifique qui jurerait). */
+
+/* ============================================================
+   #61 — Garantit JetBrains Mono + chiffres tabulaires sur TOUS les metric-value
+   (header KPI + cards Semaines + Mois). !important + sélecteurs ciblés pour battre
+   tout résidu (reset font-feature, Tailwind, etc.). Cohérent avec .cell-pnl (calendrier).
+   ============================================================ */
+#mainApp .metric-value-large,
+#mainApp .metric-value-medium,
+.weekly-stats-banner .metric-value-medium,
+.weekly-stats-banner .metric-value-large,
+.monthly-stats-banner .metric-value-medium,
+.monthly-stats-banner .metric-value-large {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+}
