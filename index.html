@@ -1023,13 +1023,9 @@
         #mainApp .metric-header { font-size: 16px; }
         #mainApp .metric-value-large {
             font-size: 28px;
-            font-feature-settings: normal;
-            font-variant-numeric: normal;
         }
         #mainApp .metric-value-medium {
             font-size: 24px;
-            font-feature-settings: normal;
-            font-variant-numeric: normal;
         }
 
         /* Light-mode colors */
@@ -1168,6 +1164,16 @@
         body.dark-mode #mainApp .metric-item:hover   { background-color: #152843 !important; }
         body.dark-mode #mainApp .metric-value-medium { color: #e5e7eb !important; }
         body.dark-mode #mainApp .metric-value-large  { color: #ffffff !important; }
+        /* #61 — préserve vert/rouge des cards Semaines/Mois en dark (bat le default #e5e7eb via spécificité combinée) */
+        body.dark-mode #mainApp .metric-value-medium.text-green-600,
+        body.dark-mode #mainApp .metric-value-medium.text-green-700,
+        body.dark-mode #mainApp .metric-value-large.text-green-600,
+        body.dark-mode #mainApp .metric-value-large.text-green-700 { color: #10b981 !important; }
+        body.dark-mode #mainApp .metric-value-medium.text-red-600,
+        body.dark-mode #mainApp .metric-value-medium.text-red-700,
+        body.dark-mode #mainApp .metric-value-large.text-red-600,
+        body.dark-mode #mainApp .metric-value-large.text-red-700 { color: #ef4444 !important; }
+        body.dark-mode #mainApp .metric-value-medium.text-gray-400 { color: rgba(255, 255, 255, 0.4) !important; }
 
         /* Patch texte global élève — SCOPÉ (V1 avait body.dark-mode h1,p,span { color:#e5e7eb } global) */
         body.dark-mode #mainApp h1,
@@ -1360,7 +1366,14 @@
 
         /* #55 — taille adaptative des valeurs dans les cellules calendrier.
            Le P&L (cell-pnl) reste TOUJOURS dominant ; les autres filtres rétrécissent selon leur nombre. */
-        .cell-pnl { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+        .cell-pnl {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1.1;
+            font-feature-settings: "tnum" 1;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+        }
         .cell-others-xl { font-size: 1.1rem;  font-weight: 600; }  /* 1 autre filtre */
         .cell-others-lg { font-size: 0.95rem; font-weight: 600; }  /* 2 autres */
         .cell-others-md { font-size: 0.85rem; font-weight: 500; }  /* 3 autres */
@@ -1606,28 +1619,41 @@
         body.dark-mode #journalEntries .text-green-600 { color: var(--success) !important; }
         body.dark-mode #journalEntries .text-red-600   { color: var(--danger) !important; }
 
-        /* Warnings banner — alerte CRITIQUE, doit ressortir (chantier #58). NON variabilisé par
-           --surface-opacity-factor : reste visible quel que soit le réglage d'opacité globale. */
+        /* #61 — Card "Points à surveiller" : glass-dark + cadre or + signalétique par item (lisibilité max).
+           NON variabilisé par --surface-opacity-factor (alerte critique). */
         body.dark-mode #warningsBanner {
-            background: rgba(239, 68, 68, 0.40) !important;
-            border: 2px solid rgba(239, 68, 68, 0.75) !important;
-            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25);
+            background: rgba(10, 15, 24, 0.55) !important;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
         }
-        body.dark-mode #warningsBanner h3,
-        body.dark-mode #warningsBanner p,
-        body.dark-mode #warningsBanner li,
-        body.dark-mode #warningsBanner span,
-        body.dark-mode #warningsBanner div { color: #fecaca !important; }
+        body.dark-mode #warningsBanner h3 { color: var(--color-champagne, #f4e4c1) !important; }
         body.dark-mode #warningsContainer > div {
-            background: rgba(239, 68, 68, 0.25) !important;
-            border-left: 3px solid rgba(239, 68, 68, 0.80) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-left-width: 4px !important;
+            border-left-style: solid !important;
         }
-        /* Light : bordure plus saturée + halo (override le style inline du banner) */
+        body.dark-mode #warningsContainer > div * { color: var(--color-champagne, #f4e4c1) !important; }
+        body.dark-mode #warningsContainer > div.severity-high   { border-left-color: #ef4444 !important; }
+        body.dark-mode #warningsContainer > div.severity-medium { border-left-color: #f59e0b !important; }
+        body.dark-mode #warningsContainer > div.severity-low    { border-left-color: #eab308 !important; }
+
+        /* Light mode */
         body:not(.dark-mode) #warningsBanner {
-            background: #FEF2F2 !important;
-            border: 2px solid #F87171 !important;
-            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.10);
+            background: var(--aube-glass, rgba(255, 250, 240, 0.65)) !important;
+            border: 1px solid var(--aube-glass-border, rgba(123, 96, 24, 0.30)) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
+        body:not(.dark-mode) #warningsBanner h3 { color: #991B1B !important; }
+        body:not(.dark-mode) #warningsContainer > div {
+            background: rgba(0, 0, 0, 0.03) !important;
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-left-width: 4px !important;
+            border-left-style: solid !important;
+        }
+        body:not(.dark-mode) #warningsContainer > div.severity-high   { border-left-color: #ef4444 !important; }
+        body:not(.dark-mode) #warningsContainer > div.severity-medium { border-left-color: #f59e0b !important; }
+        body:not(.dark-mode) #warningsContainer > div.severity-low    { border-left-color: #eab308 !important; }
 
         /* #53 : bloc obsolète "Modals dark = surface blanche" SUPPRIMÉ — le pattern glass-dark
            (aube.css) + la variable --surface-opacity-factor (slider) gouvernent désormais le fond ;
@@ -7674,6 +7700,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const v = parseFloat(stored);
             return isFinite(v) && v >= ZOOM_MIN && v <= ZOOM_MAX ? v : ZOOM_DEFAULT;
         }
+        // #61 — Helper réutilisable : force le resize de toutes les instances Chart.js + dispatch event.
+        // Idempotent (resize sur un chart déjà bien dimensionné ne fait rien de visible).
+        function _forceChartsResize() {
+            try {
+                // NE PAS appeler chart.resize() — casse le rendering Chart.js (régression 19eb93f).
+                // Le dispatch de l'event resize suffit aux charts responsive (comportement initial qui marchait).
+                window.dispatchEvent(new Event('resize'));
+            } catch (e) {
+                console.warn('[ZOOM] Resize dispatch failed:', e);
+            }
+        }
         function applyZoom(z) {
             const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
             // On zoom UNIQUEMENT le contenu principal (.main-content) —
@@ -7696,6 +7733,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             localStorage.setItem(ZOOM_KEY, String(clamped));
             const label = Math.round(clamped * 100) + '%';
             document.querySelectorAll('.zoom-level').forEach(el => { el.textContent = label; });
+
+            // #61 — forcer Chart.js à recalculer ses dimensions après l'application du zoom (300ms)
+            setTimeout(_forceChartsResize, 300);
         }
         function zoomIn()    { applyZoom(_readZoom() + ZOOM_STEP); }
         function zoomOut()   { applyZoom(_readZoom() - ZOOM_STEP); }
@@ -7704,7 +7744,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         window.zoomOut = zoomOut;
         window.zoomReset = zoomReset;
         // Init au chargement
-        document.addEventListener('DOMContentLoaded', () => applyZoom(_readZoom()));
+        document.addEventListener('DOMContentLoaded', () => {
+            applyZoom(_readZoom());
+            // #61 — retries pour rattraper les charts Chart.js créés APRÈS le DOMContentLoaded
+            // (fetch Supabase async → instances créées en différé). Idempotent.
+            setTimeout(_forceChartsResize, 500);
+            setTimeout(_forceChartsResize, 1500);
+            setTimeout(_forceChartsResize, 3000);
+            setTimeout(_forceChartsResize, 5000);  // filet de sécurité (connexions lentes)
+        });
         // Raccourcis clavier Ctrl/Cmd + / - / 0
         document.addEventListener('keydown', (e) => {
             if (!(e.ctrlKey || e.metaKey)) return;
@@ -12183,10 +12231,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     // Afficher le P&L
                     if (pnl !== 0) {
                         pnlEl.textContent = pnl >= 0 ? `+${pnl.toFixed(2)}$` : `-${Math.abs(pnl).toFixed(2)}$`;
-                        pnlEl.className = 'text-lg font-bold ' + (pnl >= 0 ? 'text-green-600' : 'text-red-600');
+                        pnlEl.className = 'metric-value-medium ' + (pnl >= 0 ? 'text-green-600' : 'text-red-600');
                     } else {
                         pnlEl.textContent = '0.00$';
-                        pnlEl.className = 'text-lg font-bold text-gray-400';
+                        pnlEl.className = 'metric-value-medium text-gray-400';
                     }
                     
                     // Afficher le nombre de jours
@@ -12898,18 +12946,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 return;
             }
 
-            const PALETTE = {
-                high:   { bg: '#FEE2E2', text: '#991B1B', border: '#DC2626' },
-                medium: { bg: '#FED7AA', text: '#EA580C', border: '#F97316' },
-                low:    { bg: '#FEF9C3', text: '#854D0E', border: '#EAB308' }
-            };
             banner.style.display = 'block';
+            // #61 — la signalétique (fond glass, bordure-gauche colorée, texte) est gérée par le CSS
+            // via la classe severity-{high|medium|low}. Inline = structure seulement.
+            const VALID_SEV = { high: 1, medium: 1, low: 1 };
             container.innerHTML = sortedWarnings.map(w => {
-                const c = PALETTE[w.severity] || PALETTE.medium;
+                const sev = VALID_SEV[w.severity] ? w.severity : 'medium';
                 return `
-                    <div style="background: ${c.bg}; border-left: 4px solid ${c.border}; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                    <div class="severity-${sev}" style="padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
                         <span style="font-size: 20px;">${w.icon}</span>
-                        <span style="color: ${c.text}; font-weight: 500; font-size: 14px;">${w.message}</span>
+                        <span style="font-weight: 500; font-size: 14px;">${w.message}</span>
                     </div>
                 `;
             }).join('');

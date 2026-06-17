@@ -168,7 +168,7 @@ body:not(.dark-mode) .aube-trust .aube-trust-d { color: rgba(26,18,8,0.7); }
   font-family: 'Fraunces', Georgia, serif; font-style: italic; letter-spacing: -0.01em;
 }
 /* Chiffres → JetBrains Mono tabular + tracking serré */
-#mainApp .metric-value-large, #mainApp .metric-value-medium, #netPnlValue, .metric-main .metric-value-large {
+#mainApp .metric-value-large, #mainApp .metric-value-medium, #netPnlValue, .metric-main .metric-value-large, .cell-pnl {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
   letter-spacing: -0.02em;
@@ -749,23 +749,23 @@ body:not(.dark-mode) .aube-detail-modal [style*="6b7280"] { color: rgba(123, 96,
    en dark (sinon text-green-800/red-900 illisible sur fond rgba 0.12).
    ============================================================ */
 body.dark-mode #calendarGrid > div.bg-green-100 {
-  background-color: rgba(16, 185, 129, 0.12) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  border: 1px solid rgba(16, 185, 129, 0.55) !important;
 }
 body.dark-mode #calendarGrid > div.bg-red-200 {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
 }
 body.dark-mode #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #10b981 !important; }
 body.dark-mode #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #ef4444 !important; }
 
 body:not(.dark-mode) #calendarGrid > div.bg-green-100 {
-  background-color: rgba(16, 185, 129, 0.10) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  background-color: rgba(16, 185, 129, 0.20) !important;
+  border: 1px solid rgba(16, 185, 129, 0.50) !important;
 }
 body:not(.dark-mode) #calendarGrid > div.bg-red-200 {
-  background-color: rgba(239, 68, 68, 0.10) !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  background-color: rgba(239, 68, 68, 0.20) !important;
+  border: 1px solid rgba(239, 68, 68, 0.50) !important;
 }
 body:not(.dark-mode) #calendarGrid > div.bg-green-100 .font-bold.text-xl { color: #047857 !important; }
 body:not(.dark-mode) #calendarGrid > div.bg-red-200   .font-bold.text-xl { color: #b91c1c !important; }
@@ -1087,3 +1087,19 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
 /* Zones 1/5/6 (Journal trades, Comptes, Payouts) : tables internes harmonisées via les règles
    GLOBALES body.dark-mode table/thead/tbody (index.html : glass + séparateurs or + facteur d'opacité).
    Pas de règle spécifique ici → uniformité garantie (et pas d'override plus spécifique qui jurerait). */
+
+/* ============================================================
+   #61 — Garantit JetBrains Mono + chiffres tabulaires sur TOUS les metric-value
+   (header KPI + cards Semaines + Mois). !important + sélecteurs ciblés pour battre
+   tout résidu (reset font-feature, Tailwind, etc.). Cohérent avec .cell-pnl (calendrier).
+   ============================================================ */
+#mainApp .metric-value-large,
+#mainApp .metric-value-medium,
+.weekly-stats-banner .metric-value-medium,
+.weekly-stats-banner .metric-value-large,
+.monthly-stats-banner .metric-value-medium,
+.monthly-stats-banner .metric-value-large {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-feature-settings: "tnum" 1 !important;
+  font-variant-numeric: tabular-nums !important;
+}
