@@ -14938,6 +14938,15 @@ function _shareDrawTimeframeDetails(ctx, metrics, timeframe, { x, y, w, h }) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
             }
             _shareRoundRect(ctx, cellX, cellY, cellW, cellH, 6); ctx.fill();
+            // #35 follow-up — P&L au centre de la case si trade ce jour-là (lisible sur vert ET rouge)
+            if (dd && dd.pnl !== 0) {
+                ctx.fillStyle = SHARE_PALETTE.champagne;
+                ctx.font = '600 13px "JetBrains Mono", ui-monospace, monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(_shareFmtPnl(dd.pnl), cellX + cellW / 2, cellY + cellH / 2);
+                ctx.textBaseline = 'alphabetic'; // restore défaut (sinon décale disclaimer/watermark)
+            }
         }
         const bestDay = (metrics.dailyBars || []).reduce((best, b) => b.pnl > (best ? best.pnl : -Infinity) ? b : best, null);
         if (bestDay && bestDay.pnl > 0) {
