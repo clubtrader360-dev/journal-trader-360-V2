@@ -294,7 +294,7 @@ body.dark-mode .modal-content,
 body.dark-mode #importCSVModal .modal-content,
 body.dark-mode [class*="view-modal"],
 body.dark-mode [id*="Modal"] .modal-content {
-  background: rgba(10, 15, 24, var(--modal-bg-opacity, 0.92)) !important;
+  background: rgba(10, 15, 24, calc(0.92 * var(--surface-opacity-factor, 1))) !important;
   -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
   backdrop-filter: blur(20px) saturate(140%) !important;
   border: 1px solid rgba(201, 162, 75, 0.35) !important;
@@ -709,7 +709,7 @@ body:not(.dark-mode) .tooltip, body:not(.dark-mode) [role="tooltip"], body:not(.
 
 /* DARK — carte interne (inline background:white) → glass dark */
 body.dark-mode .aube-detail-modal > div {
-  background: rgba(10, 15, 24, var(--modal-bg-opacity, 0.92)) !important;
+  background: rgba(10, 15, 24, calc(0.92 * var(--surface-opacity-factor, 1))) !important;
   -webkit-backdrop-filter: blur(20px) saturate(140%) !important; backdrop-filter: blur(20px) saturate(140%) !important;
   border: 1px solid rgba(201, 162, 75, 0.35) !important; color: rgba(255, 255, 255, 0.95) !important;
   border-radius: 12px !important; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 32px -8px rgba(201, 162, 75, 0.18) !important;
@@ -905,7 +905,7 @@ body:not(.dark-mode) .view-modal-close:hover { color: rgba(123, 96, 24, 1) !impo
 body.dark-mode #replayDayModal > div.bg-white,
 body.dark-mode #replayEditModal > div.bg-white,
 body.dark-mode #replayBrowseModal > div.bg-white {
-  background: rgba(10, 15, 24, var(--modal-bg-opacity, 0.92)) !important;
+  background: rgba(10, 15, 24, calc(0.92 * var(--surface-opacity-factor, 1))) !important;
   border: 1px solid rgba(201, 162, 75, 0.35) !important;
   color: rgba(255, 255, 255, 0.95) !important;
 }
@@ -1046,17 +1046,27 @@ body:not(.dark-mode) .dash-cat-card { background: rgba(252,250,245,0.97); color:
 /* ============================================================
    #53 — Curseur opacité modales (sidebar, dark mode) — thumb or
    ============================================================ */
-.modal-opacity-control { display: flex; flex-direction: column; gap: 6px; }
+.surface-opacity-control { display: flex; flex-direction: column; gap: 6px; }
 .sidebar-control-label { display: flex; align-items: center; gap: 6px; }
-.modal-opacity-slider {
+.surface-opacity-slider {
   -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
   background: rgba(255, 255, 255, 0.15); border-radius: 2px; outline: none;
 }
-.modal-opacity-slider::-webkit-slider-thumb {
+.surface-opacity-slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
   background: var(--accent, #ac862b); border-radius: 50%; cursor: pointer;
 }
-.modal-opacity-slider::-moz-range-thumb {
+.surface-opacity-slider::-moz-range-thumb {
   width: 16px; height: 16px; background: var(--accent, #ac862b);
   border-radius: 50%; cursor: pointer; border: none;
+}
+
+/* ============================================================
+   #53 — Facteur d'opacité des surfaces glass-dark (slider sidebar, DARK only).
+   base × var(--surface-opacity-factor) → préserve l'écart cartes(0.55)/modales(0.92)
+   au défaut (facteur 1). Light mode NON affecté (sélecteurs body.dark-mode uniquement).
+   ============================================================ */
+body.dark-mode #mainApp .trader-card,
+body.dark-mode #mainApp .metric-item {
+  background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
 }

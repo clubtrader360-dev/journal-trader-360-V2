@@ -100,7 +100,7 @@
             --sidebar-text-active: #d4af37;               /* or logo sur item actif */
             --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
             --sidebar-divider: rgba(0, 11, 37, 0.12);     /* séparateur navy léger (light) */
-            --modal-bg-opacity: 0.92;                     /* #53 : opacité fond modales (dark), réglable via slider sidebar */
+            --surface-opacity-factor: 1;                  /* #53 : facteur d'opacité des surfaces glass-dark (slider sidebar). 1 = look d'origine. */
 
             /* Tokens */
             --radius-xs: 6px;
@@ -1589,7 +1589,7 @@
         }
 
         /* #53 : bloc obsolète "Modals dark = surface blanche" SUPPRIMÉ — le pattern glass-dark
-           (aube.css) + la variable --modal-bg-opacity (slider) gouvernent désormais le fond ;
+           (aube.css) + la variable --surface-opacity-factor (slider) gouvernent désormais le fond ;
            couleurs de texte couvertes par aube.css (champagne h1-3/label, clair p/li/small/span). */
 
         /* View modal in dark mode */
@@ -1645,7 +1645,7 @@
             border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55));
             transition: background var(--t) var(--ease), border-color var(--t) var(--ease);
         }
-        body.dark-mode .consistency-interpretation-card { background: rgba(255, 255, 255, 0.04); }
+        body.dark-mode .consistency-interpretation-card { background: rgba(255, 255, 255, calc(0.04 * var(--surface-opacity-factor, 1))); }
 
         /* =========================================================
            RESPONSIVE
@@ -2903,11 +2903,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>
                 </div>
                 <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
-                <div class="modal-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des modales (dark mode)">
+                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
                     <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
-                        🎨 Opacité modales <span class="modal-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">92%</span>
+                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
                     </label>
-                    <input type="range" class="modal-opacity-slider" min="0.6" max="1.0" step="0.01" value="0.92"
+                    <input type="range" class="surface-opacity-slider" min="0.7" max="1.5" step="0.05" value="1.0"
                            style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
                            aria-label="Régler l'opacité du fond des modales (dark mode)">
                 </div>
@@ -3574,11 +3574,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>
                 </div>
                 <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
-                <div class="modal-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des modales (dark mode)">
+                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
                     <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
-                        🎨 Opacité modales <span class="modal-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">92%</span>
+                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
                     </label>
-                    <input type="range" class="modal-opacity-slider" min="0.6" max="1.0" step="0.01" value="0.92"
+                    <input type="range" class="surface-opacity-slider" min="0.7" max="1.5" step="0.05" value="1.0"
                            style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
                            aria-label="Régler l'opacité du fond des modales (dark mode)">
                 </div>
@@ -7444,36 +7444,38 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             syncThemeColorMeta(isDark);
 
             console.log('[THEME] Thème changé:', isDark ? 'Sombre' : 'Clair');
-            updateModalOpacityControlVisibility();  // #53 : curseur opacité visible en dark uniquement
+            updateSurfaceOpacityControlVisibility();  // #53 : curseur opacité visible en dark uniquement
         }
 
-        // === #53 — OPACITÉ FOND DES MODALES (dark mode uniquement) ===
-        const MODAL_OPACITY_KEY = 'modalOpacity';
-        const MODAL_OPACITY_MIN = 0.6;
-        const MODAL_OPACITY_MAX = 1.0;
-        const MODAL_OPACITY_DEFAULT = 0.92;
-        function _readModalOpacity() {
-            const stored = parseFloat(localStorage.getItem(MODAL_OPACITY_KEY));
-            if (!isFinite(stored) || stored < MODAL_OPACITY_MIN || stored > MODAL_OPACITY_MAX) return MODAL_OPACITY_DEFAULT;
+        // === #53 — FACTEUR D'OPACITÉ DES SURFACES GLASS-DARK (dark mode uniquement) ===
+        // Facteur relatif : chaque surface = base × facteur (cartes 0.55, modales 0.92…).
+        // 1 = look d'origine ; >1 = plus opaque ; <1 = plus glass. Persisté en localStorage.
+        const SURFACE_OPACITY_KEY = 'surfaceOpacity';
+        const SURFACE_OPACITY_MIN = 0.7;
+        const SURFACE_OPACITY_MAX = 1.5;
+        const SURFACE_OPACITY_DEFAULT = 1.0;
+        function _readSurfaceOpacity() {
+            const stored = parseFloat(localStorage.getItem(SURFACE_OPACITY_KEY));
+            if (!isFinite(stored) || stored < SURFACE_OPACITY_MIN || stored > SURFACE_OPACITY_MAX) return SURFACE_OPACITY_DEFAULT;
             return stored;
         }
-        function applyModalOpacity(value) {
-            const clamped = Math.min(MODAL_OPACITY_MAX, Math.max(MODAL_OPACITY_MIN, value));
-            document.documentElement.style.setProperty('--modal-bg-opacity', String(clamped));
-            localStorage.setItem(MODAL_OPACITY_KEY, String(clamped));
+        function applySurfaceOpacity(value) {
+            const clamped = Math.min(SURFACE_OPACITY_MAX, Math.max(SURFACE_OPACITY_MIN, value));
+            document.documentElement.style.setProperty('--surface-opacity-factor', String(clamped));
+            localStorage.setItem(SURFACE_OPACITY_KEY, String(clamped));
             const label = Math.round(clamped * 100) + '%';
-            document.querySelectorAll('.modal-opacity-level').forEach(el => { el.textContent = label; });
-            document.querySelectorAll('.modal-opacity-slider').forEach(el => { el.value = String(clamped); });
+            document.querySelectorAll('.surface-opacity-level').forEach(el => { el.textContent = label; });
+            document.querySelectorAll('.surface-opacity-slider').forEach(el => { el.value = String(clamped); });
         }
-        function updateModalOpacityControlVisibility() {
+        function updateSurfaceOpacityControlVisibility() {
             const isDark = document.body.classList.contains('dark-mode');
-            document.querySelectorAll('.modal-opacity-control').forEach(el => { el.style.display = isDark ? '' : 'none'; });
+            document.querySelectorAll('.surface-opacity-control').forEach(el => { el.style.display = isDark ? '' : 'none'; });
         }
         document.addEventListener('DOMContentLoaded', () => {
-            applyModalOpacity(_readModalOpacity());
-            updateModalOpacityControlVisibility();
-            document.querySelectorAll('.modal-opacity-slider').forEach(slider => {
-                slider.addEventListener('input', (e) => applyModalOpacity(parseFloat(e.target.value)));
+            applySurfaceOpacity(_readSurfaceOpacity());
+            updateSurfaceOpacityControlVisibility();
+            document.querySelectorAll('.surface-opacity-slider').forEach(slider => {
+                slider.addEventListener('input', (e) => applySurfaceOpacity(parseFloat(e.target.value)));
             });
         });
 
