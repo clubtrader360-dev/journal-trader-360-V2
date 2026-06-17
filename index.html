@@ -4468,6 +4468,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </button>
                         </div>
 
+                        <!-- Section Alertes Erreurs Redondantes (#48) : auto-détectées depuis le journal quotidien -->
+                        <div class="mt-8">
+                            <h3 class="text-xl font-bold mb-4" style="color: #dc2626; text-transform: uppercase;">Alertes Erreurs Redondantes</h3>
+                            <p class="text-xs mb-3" style="color: var(--aube-text-secondary, rgba(0, 11, 37, 0.6));">
+                                Erreurs cochées 3 fois ou plus dans ton journal quotidien sur les 30 derniers jours.
+                            </p>
+                            <div id="redundantErrorsList" class="space-y-2">
+                                <!-- Généré par JS (loadRedundantErrors) -->
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -9401,6 +9412,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             // Charger qualités et défauts
             loadQualitiesDefauts();
             updateChecklistKPIs();
+            loadRedundantErrors(); // #48 : alertes erreurs redondantes (async, fire-and-forget)
         });
 
         // ========================================
@@ -9602,6 +9614,76 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         window.addErreur = addErreur;
         window.updateErreur = updateErreur;
         window.deleteErreur = deleteErreur;
+
+        // === ALERTES ERREURS REDONDANTES (#48) — auto-détection depuis le journal quotidien ===
+        // Agrège errors_committed (text[]) des 30 derniers jours, garde les erreurs vues >= seuil.
+        function aggregateRedundantErrors(rows, threshold = 3) {
+            const counts = {};
+            (rows || []).forEach(row => {
+                if (Array.isArray(row.errors_committed)) {
+                    row.errors_committed.forEach(err => {
+                        if (err && err.trim()) counts[err] = (counts[err] || 0) + 1;
+                    });
+                }
+            });
+            return Object.entries(counts)
+                .filter(([, count]) => count >= threshold)
+                .map(([erreur, count]) => ({ erreur, count }))
+                .sort((a, b) => b.count - a.count);
+        }
+
+        function renderRedundantErrors(items) {
+            const container = document.getElementById('redundantErrorsList');
+            if (!container) return;
+            if (!items || items.length === 0) {
+                container.innerHTML = `
+                    <div class="p-3 rounded text-sm" style="background: rgba(16, 185, 129, 0.08); border-left: 3px solid #10b981; color: var(--aube-text-primary, #1a1208);">
+                        🎉 Aucune erreur récurrente sur les 30 derniers jours
+                    </div>`;
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="flex items-center justify-between p-2 rounded editable-list-row" style="background: rgba(220, 38, 38, 0.05); border: 1px solid #dc2626;">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <i class="fas fa-exclamation-triangle text-sm" style="color: #dc2626;"></i>
+                        <span class="text-sm truncate" style="color: var(--aube-text-primary, #1a1208);">${window.escapeHtml(item.erreur)}</span>
+                    </div>
+                    <span class="text-xs whitespace-nowrap font-semibold ml-2 px-2 py-1 rounded" style="background: rgba(220, 38, 38, 0.12); color: #dc2626;">${item.count} fois</span>
+                </div>
+            `).join('');
+        }
+
+        async function loadRedundantErrors() {
+            try {
+                if (!window.currentUser || !window.currentUser.uuid || !window.supabaseClient) {
+                    console.warn('[REDUNDANT] User/Supabase non prêt, skip');
+                    return;
+                }
+                const since = new Date();
+                since.setDate(since.getDate() - 30);
+                const sinceISO = since.toISOString().slice(0, 10);
+
+                const { data, error } = await window.supabaseClient
+                    .from('journal_entries')
+                    .select('entry_date, errors_committed')
+                    .eq('user_id', window.currentUser.uuid)
+                    .gte('entry_date', sinceISO)
+                    .not('errors_committed', 'is', null);
+
+                if (error) {
+                    console.error('[REDUNDANT] Erreur fetch journal_entries:', error);
+                    renderRedundantErrors([]);
+                    return;
+                }
+                const items = aggregateRedundantErrors(data || [], 3);
+                console.log('[REDUNDANT] Erreurs redondantes détectées:', items.length);
+                renderRedundantErrors(items);
+            } catch (err) {
+                console.error('[REDUNDANT] Exception:', err);
+                renderRedundantErrors([]);
+            }
+        }
+        window.loadRedundantErrors = loadRedundantErrors;
 
         // ========================================
         // FONCTIONS: Tracking & Alertes Checklist
