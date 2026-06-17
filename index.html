@@ -1619,28 +1619,41 @@
         body.dark-mode #journalEntries .text-green-600 { color: var(--success) !important; }
         body.dark-mode #journalEntries .text-red-600   { color: var(--danger) !important; }
 
-        /* Warnings banner — alerte CRITIQUE, doit ressortir (chantier #58). NON variabilisé par
-           --surface-opacity-factor : reste visible quel que soit le réglage d'opacité globale. */
+        /* #61 — Card "Points à surveiller" : glass-dark + cadre or + signalétique par item (lisibilité max).
+           NON variabilisé par --surface-opacity-factor (alerte critique). */
         body.dark-mode #warningsBanner {
-            background: rgba(239, 68, 68, 0.40) !important;
-            border: 2px solid rgba(239, 68, 68, 0.75) !important;
-            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25);
+            background: rgba(10, 15, 24, 0.55) !important;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
         }
-        body.dark-mode #warningsBanner h3,
-        body.dark-mode #warningsBanner p,
-        body.dark-mode #warningsBanner li,
-        body.dark-mode #warningsBanner span,
-        body.dark-mode #warningsBanner div { color: #fecaca !important; }
+        body.dark-mode #warningsBanner h3 { color: var(--color-champagne, #f4e4c1) !important; }
         body.dark-mode #warningsContainer > div {
-            background: rgba(239, 68, 68, 0.25) !important;
-            border-left: 3px solid rgba(239, 68, 68, 0.80) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-left-width: 4px !important;
+            border-left-style: solid !important;
         }
-        /* Light : bordure plus saturée + halo (override le style inline du banner) */
+        body.dark-mode #warningsContainer > div * { color: var(--color-champagne, #f4e4c1) !important; }
+        body.dark-mode #warningsContainer > div.severity-high   { border-left-color: #ef4444 !important; }
+        body.dark-mode #warningsContainer > div.severity-medium { border-left-color: #f59e0b !important; }
+        body.dark-mode #warningsContainer > div.severity-low    { border-left-color: #eab308 !important; }
+
+        /* Light mode */
         body:not(.dark-mode) #warningsBanner {
-            background: #FEF2F2 !important;
-            border: 2px solid #F87171 !important;
-            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.10);
+            background: var(--aube-glass, rgba(255, 250, 240, 0.65)) !important;
+            border: 1px solid var(--aube-glass-border, rgba(123, 96, 24, 0.30)) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
+        body:not(.dark-mode) #warningsBanner h3 { color: #991B1B !important; }
+        body:not(.dark-mode) #warningsContainer > div {
+            background: rgba(0, 0, 0, 0.03) !important;
+            border: 1px solid rgba(0, 0, 0, 0.08) !important;
+            border-left-width: 4px !important;
+            border-left-style: solid !important;
+        }
+        body:not(.dark-mode) #warningsContainer > div.severity-high   { border-left-color: #ef4444 !important; }
+        body:not(.dark-mode) #warningsContainer > div.severity-medium { border-left-color: #f59e0b !important; }
+        body:not(.dark-mode) #warningsContainer > div.severity-low    { border-left-color: #eab308 !important; }
 
         /* #53 : bloc obsolète "Modals dark = surface blanche" SUPPRIMÉ — le pattern glass-dark
            (aube.css) + la variable --surface-opacity-factor (slider) gouvernent désormais le fond ;
@@ -12933,18 +12946,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 return;
             }
 
-            const PALETTE = {
-                high:   { bg: '#FEE2E2', text: '#991B1B', border: '#DC2626' },
-                medium: { bg: '#FED7AA', text: '#EA580C', border: '#F97316' },
-                low:    { bg: '#FEF9C3', text: '#854D0E', border: '#EAB308' }
-            };
             banner.style.display = 'block';
+            // #61 — la signalétique (fond glass, bordure-gauche colorée, texte) est gérée par le CSS
+            // via la classe severity-{high|medium|low}. Inline = structure seulement.
+            const VALID_SEV = { high: 1, medium: 1, low: 1 };
             container.innerHTML = sortedWarnings.map(w => {
-                const c = PALETTE[w.severity] || PALETTE.medium;
+                const sev = VALID_SEV[w.severity] ? w.severity : 'medium';
                 return `
-                    <div style="background: ${c.bg}; border-left: 4px solid ${c.border}; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                    <div class="severity-${sev}" style="padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
                         <span style="font-size: 20px;">${w.icon}</span>
-                        <span style="color: ${c.text}; font-weight: 500; font-size: 14px;">${w.message}</span>
+                        <span style="font-weight: 500; font-size: 14px;">${w.message}</span>
                     </div>
                 `;
             }).join('');
