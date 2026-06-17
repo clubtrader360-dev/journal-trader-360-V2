@@ -483,7 +483,10 @@ async function loadAccounts() {
       take_profit: tradeData.take_profit || null,
       setup: tradeData.setup || null,
       notes: tradeData.notes || null,
-      manual_pnl: calculated_pnl || null,  // INVARIANT : toujours net-of-fees (frais déduits avant envoi, trigger l'utilise directement)
+      // #45 FIX : préserver un P&L = 0 (trade neutre). Avant : `calculated_pnl || null` transformait 0 en
+      // null → le trigger SQL tentait alors le calcul via instrument_multipliers et pouvait throw
+      // ("Instrument inconnu") à l'import CSV. Envoyer 0 explicitement → trigger RETURN NEW direct.
+      manual_pnl: (calculated_pnl !== null && calculated_pnl !== undefined && !isNaN(calculated_pnl)) ? calculated_pnl : null,  // INVARIANT : net-of-fees (trigger l'utilise directement)
       protections: tradeData.protections || null,
       trade_trend_type: tradeData.trade_trend_type || 'Non spécifié',  // ✅ AJOUT: Type de trade (Tendance/Contre-tendance)
       fees: tradeData.fees || 0,  // ✅ AJOUT: Frais de trading
