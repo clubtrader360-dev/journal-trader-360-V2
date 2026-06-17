@@ -1606,10 +1606,12 @@
         body.dark-mode #journalEntries .text-green-600 { color: var(--success) !important; }
         body.dark-mode #journalEntries .text-red-600   { color: var(--danger) !important; }
 
-        /* Warnings banner — keep red palette in both themes */
+        /* Warnings banner — alerte CRITIQUE, doit ressortir (chantier #58). NON variabilisé par
+           --surface-opacity-factor : reste visible quel que soit le réglage d'opacité globale. */
         body.dark-mode #warningsBanner {
-            background: rgba(239, 68, 68, 0.12) !important;
-            border-color: rgba(239, 68, 68, 0.45) !important;
+            background: rgba(239, 68, 68, 0.40) !important;
+            border: 2px solid rgba(239, 68, 68, 0.75) !important;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25);
         }
         body.dark-mode #warningsBanner h3,
         body.dark-mode #warningsBanner p,
@@ -1617,8 +1619,14 @@
         body.dark-mode #warningsBanner span,
         body.dark-mode #warningsBanner div { color: #fecaca !important; }
         body.dark-mode #warningsContainer > div {
-            background: rgba(239, 68, 68, 0.10) !important;
-            border-left-color: rgba(239, 68, 68, 0.45) !important;
+            background: rgba(239, 68, 68, 0.25) !important;
+            border-left: 3px solid rgba(239, 68, 68, 0.80) !important;
+        }
+        /* Light : bordure plus saturée + halo (override le style inline du banner) */
+        body:not(.dark-mode) #warningsBanner {
+            background: #FEF2F2 !important;
+            border: 2px solid #F87171 !important;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.10);
         }
 
         /* #53 : bloc obsolète "Modals dark = surface blanche" SUPPRIMÉ — le pattern glass-dark
@@ -3979,7 +3987,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div id="warningsBanner" style="display: none; background: #FEF2F2; border: 2px solid #FCA5A5; border-radius: 12px; padding: 20px;">
                             <div style="display: flex; align-items: center; margin-bottom: 16px;">
                                 <i class="fas fa-exclamation-triangle" style="color: #DC2626; font-size: 20px; margin-right: 10px;"></i>
-                                <h3 style="font-size: 18px; font-weight: 600; color: #991B1B; margin: 0;">⚠️ POINTS À SURVEILLER</h3>
+                                <h3 style="font-size: 18px; font-weight: 600; color: #991B1B; margin: 0;">POINTS À SURVEILLER</h3>
                             </div>
                             <div id="warningsContainer" style="display: flex; flex-direction: column; gap: 12px;">
                                 <!-- Les alertes seront insérées ici dynamiquement -->
@@ -12657,242 +12665,255 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
             
             const warnings = [];
-            
-            // Helper: Calcul Win Rate
+
+            // ===== Seuils Win Rate harmonisés (3 crans) — chantier #58 =====
+            const WR_HIGH = 30, WR_MEDIUM = 40, WR_LOW = 50;
+            const MIN_RECENT = 5;       // mini de trades sur 30j pour évaluer un WR
+            const MIN_HISTORICAL = 10;  // mini d'historique pour comparer (sinon fallback débutant)
+
+            // ===== Helpers =====
             function calculateWinRate(trades) {
-                if (trades.length === 0) return 0;
-                const winners = trades.filter(t => t.pnl > 0).length;
-                return (winners / trades.length) * 100;
+                if (!trades || trades.length === 0) return 0;
+                return (trades.filter(t => t.pnl > 0).length / trades.length) * 100;
             }
-            
-            // Helper: Détection Break-Even par points
             function isBreakEven(trade) {
-                const BE_THRESHOLDS = {
-                    'ES': 0.25, 'MES': 0.25,
-                    'NQ': 0.20, 'MNQ': 0.20,
-                    'GC': 0.10, 'MGC': 0.10,
-                    'CL': 0.05,
-                    'DEFAULT': 0.25
-                };
+                const BE_THRESHOLDS = { 'ES':0.5,'MES':0.5,'NQ':1.0,'MNQ':1.0,'GC':0.2,'MGC':0.10,'CL':0.05,'DEFAULT':0.25 };
                 const threshold = BE_THRESHOLDS[trade.symbol] || BE_THRESHOLDS[trade.instrument] || BE_THRESHOLDS['DEFAULT'];
                 const points = Math.abs((trade.exitPrice || 0) - (trade.entryPrice || 0));
                 return points <= threshold;
             }
-            
-            // Helper: Calcul durée en minutes
             function calculateDuration(entryTime, exitTime) {
                 if (!entryTime || !exitTime) return 0;
-                const [entryH, entryM] = entryTime.split(':').map(Number);
-                const [exitH, exitM] = exitTime.split(':').map(Number);
-                return (exitH * 60 + exitM) - (entryH * 60 + entryM);
+                const [eH, eM] = entryTime.split(':').map(Number);
+                const [xH, xM] = exitTime.split(':').map(Number);
+                return (xH * 60 + xM) - (eH * 60 + eM);
             }
-            
-            // ========================================
-            // 1. Win Rate sans protection
-            // ========================================
-            const noProtTrades = filteredTrades.filter(t => !t.protections || t.protections.length === 0);
-            if (noProtTrades.length >= 5) {
-                const wr = calculateWinRate(noProtTrades);
-                if (wr < 30) {
-                    warnings.push({
-                        severity: 'high',
-                        icon: '🛡️',
-                        message: `Trades sans protection : Win Rate ${wr.toFixed(1)}% (${noProtTrades.length} trades)`
-                    });
-                } else if (wr < 45) {
-                    warnings.push({
-                        severity: 'medium',
-                        icon: '🛡️',
-                        message: `Trades sans protection : Win Rate ${wr.toFixed(1)}% (${noProtTrades.length} trades)`
-                    });
+            const tradeDateOf = t => t.date || t.trade_date || null;
+            // Phase 1 — partition 30 derniers jours (recent) vs tout l'historique avant (norme)
+            function partitionTradesByPeriod(trades) {
+                const today = new Date();
+                const threshold = new Date(today);
+                threshold.setDate(today.getDate() - 30);
+                const thresholdISO = threshold.toISOString().slice(0, 10);
+                const recent = [], historical = [];
+                trades.forEach(t => {
+                    const d = tradeDateOf(t);
+                    if (!d) return;
+                    (d >= thresholdISO ? recent : historical).push(t);
+                });
+                return { recent, historical };
+            }
+            function severityFromWR(wr) { return wr < WR_HIGH ? 'high' : (wr < WR_MEDIUM ? 'medium' : (wr < WR_LOW ? 'low' : null)); }
+            function bumpSeverity(s) { return s === 'low' ? 'medium' : 'high'; }
+            // Phase 1 — message contextualisé "X sur 30j : a% (vs norme historique : b% → ±delta, tendance)"
+            function buildContextualMessage(label, recentValue, historicalValue, unit, isHigherWorse) {
+                unit = unit || '%';
+                const delta = recentValue - historicalValue;
+                const sign = delta >= 0 ? '+' : '';
+                let trend;
+                if (Math.abs(delta) < 3) trend = '≈ stable';
+                else if (isHigherWorse) trend = delta > 0 ? '⬆ dégradation' : '⬇ amélioration';
+                else trend = delta > 0 ? '⬆ amélioration' : '⬇ dégradation';
+                return `${label} sur 30j : ${recentValue.toFixed(1)}${unit} (vs norme historique : ${historicalValue.toFixed(1)}${unit} → ${sign}${delta.toFixed(1)}${unit}, ${trend})`;
+            }
+            // Alerte WR contextualisée (30j vs historique) + bump si dégradation > 10pts (Phase 2 bonus)
+            function pushWrAlert(label, icon, recentTrades, historicalTrades, minRecent) {
+                if (recentTrades.length < (minRecent || MIN_RECENT)) return;
+                const wrR = calculateWinRate(recentTrades);
+                let sev = severityFromWR(wrR);
+                if (!sev) return; // WR >= 50 → sain, pas d'alerte
+                let message;
+                if (historicalTrades && historicalTrades.length >= MIN_HISTORICAL) {
+                    const wrH = calculateWinRate(historicalTrades);
+                    message = buildContextualMessage(label, wrR, wrH, '%', false) + ` · ${recentTrades.length} trades`;
+                    if ((wrH - wrR) > 10) sev = bumpSeverity(sev); // régression importante → +1 cran
+                } else {
+                    message = `${label} sur 30j : ${wrR.toFixed(1)}% (historique insuffisant pour comparer · ${recentTrades.length} trades)`;
                 }
+                warnings.push({ severity: sev, icon, message });
             }
-            
-            // ========================================
-            // 2. Win Rate contre-tendance
-            // ========================================
-            const ctTrades = filteredTrades.filter(t => t.trade_trend_type && t.trade_trend_type.includes('Contre-tendance'));
-            if (ctTrades.length >= 5) {
-                const wr = calculateWinRate(ctTrades);
-                if (wr < 30) {
-                    warnings.push({
-                        severity: 'high',
-                        icon: '📉',
-                        message: `Trades contre-tendance : Win Rate ${wr.toFixed(1)}% (${ctTrades.length} trades)`
-                    });
-                } else if (wr < 45) {
-                    warnings.push({
-                        severity: 'medium',
-                        icon: '📉',
-                        message: `Trades contre-tendance : Win Rate ${wr.toFixed(1)}% (${ctTrades.length} trades)`
-                    });
-                }
-            }
-            
-            // ========================================
-            // 3. Break-Even (par points)
-            // ========================================
-            const beTrades = filteredTrades.filter(isBreakEven);
-            if (beTrades.length >= 3) {
-                const bePercent = (beTrades.length / filteredTrades.length) * 100;
-                if (bePercent > 30) {
-                    warnings.push({
-                        severity: 'medium',
-                        icon: '🔄',
-                        message: `Trop de Break-Even : ${beTrades.length} trades proches de l'entrée (${bePercent.toFixed(0)}%)`
-                    });
-                }
-            }
-            
-            // ========================================
-            // 4. Trades courts < 30min (si win rate faible)
-            // ========================================
-            const shortTrades = filteredTrades.filter(t => {
-                if (!t.entryTime || !t.exitTime) return false;
-                const duration = calculateDuration(t.entryTime, t.exitTime);
-                return duration > 0 && duration < 30;
+
+            const { recent, historical } = partitionTradesByPeriod(filteredTrades);
+
+            // Recent trié chronologiquement (date + heure d'entrée) — pour revenge / streak
+            const sortedRecent = recent.slice().filter(tradeDateOf).sort((a, b) => {
+                const da = `${tradeDateOf(a)} ${a.entryTime || '00:00'}`;
+                const db = `${tradeDateOf(b)} ${b.entryTime || '00:00'}`;
+                return da.localeCompare(db);
             });
-            
+
+            // ===== Phase 5 — 8 alertes existantes refondues (30j + comparaison + seuils harmonisés) =====
+
+            // 1. WR sans protection
+            pushWrAlert('Trades sans protection — WR', '🛡️',
+                recent.filter(t => !t.protections || t.protections.length === 0),
+                historical.filter(t => !t.protections || t.protections.length === 0));
+
+            // 2. WR contre-tendance
+            const ctFilter = t => t.trade_trend_type && t.trade_trend_type.includes('Contre-tendance');
+            pushWrAlert('Trades contre-tendance — WR', '📉', recent.filter(ctFilter), historical.filter(ctFilter));
+
+            // 3. Break-Even (nouveaux seuils par instrument) — ratio sur 30j
+            const beTrades = recent.filter(isBreakEven);
+            if (beTrades.length >= 3 && recent.length > 0) {
+                const bePercent = (beTrades.length / recent.length) * 100;
+                if (bePercent > 30) {
+                    warnings.push({ severity: 'medium', icon: '🔄',
+                        message: `Trop de Break-Even sur 30j : ${beTrades.length} trades proches de l'entrée (${bePercent.toFixed(0)}%)` });
+                }
+            }
+
+            // 4. Trades courts < 30min (WR faible vs trades longs) — sur 30j
+            const shortTrades = recent.filter(t => { const d = calculateDuration(t.entryTime, t.exitTime); return d > 0 && d < 30; });
             if (shortTrades.length >= 10) {
                 const shortWR = calculateWinRate(shortTrades);
-                const longTrades = filteredTrades.filter(t => {
-                    if (!t.entryTime || !t.exitTime) return false;
-                    const duration = calculateDuration(t.entryTime, t.exitTime);
-                    return duration >= 30;
-                });
+                const longTrades = recent.filter(t => calculateDuration(t.entryTime, t.exitTime) >= 30);
                 const longWR = calculateWinRate(longTrades);
-                
-                if (shortWR < 40 && longTrades.length > 0 && longWR > shortWR + 10) {
-                    warnings.push({
-                        severity: 'medium',
-                        icon: '⏱️',
-                        message: `Trades courts < 30min : Win Rate ${shortWR.toFixed(1)}% vs ${longWR.toFixed(1)}% pour trades > 30min (${shortTrades.length} trades)`
-                    });
+                if (shortWR < WR_MEDIUM && longTrades.length > 0 && longWR > shortWR + 10) {
+                    warnings.push({ severity: 'medium', icon: '⏱️',
+                        message: `Trades courts < 30min sur 30j : WR ${shortWR.toFixed(1)}% vs ${longWR.toFixed(1)}% (>30min) · ${shortTrades.length} trades` });
                 }
             }
-            
-            // ========================================
-            // 5. Win Rate par instrument (si faible)
-            // ========================================
-            const instruments = ['ES', 'MES', 'NQ', 'MNQ', 'GC'];
-            instruments.forEach(inst => {
-                const instTrades = filteredTrades.filter(t => t.symbol === inst || t.instrument === inst);
-                if (instTrades.length >= 10) {
-                    const wr = calculateWinRate(instTrades);
-                    if (wr < 30) {
-                        warnings.push({
-                            severity: 'high',
-                            icon: '📊',
-                            message: `${inst} : Win Rate ${wr.toFixed(1)}% (${instTrades.length} trades)`
-                        });
-                    } else if (wr < 40) {
-                        warnings.push({
-                            severity: 'medium',
-                            icon: '📊',
-                            message: `${inst} : Win Rate ${wr.toFixed(1)}% (${instTrades.length} trades)`
-                        });
-                    }
-                }
+
+            // 5. WR par instrument
+            ['ES','MES','NQ','MNQ','GC'].forEach(inst => {
+                const f = t => t.symbol === inst || t.instrument === inst;
+                pushWrAlert(`${inst} — WR`, '📊', recent.filter(f), historical.filter(f), 10);
             });
-            
-            // ========================================
-            // 6. Win Rate par protection (VWAP, MM20, Pivot, etc.)
-            // ========================================
-            const protectionTypes = ['VWAP', 'MM20', 'Pivot', 'Clôture veille', 'Liquidité 30m/H1/H4'];
-            protectionTypes.forEach(prot => {
-                const protTrades = filteredTrades.filter(t => {
-                    if (!t.protections) return false;
-                    // Gérer le cas où protections est un array ou une string
-                    if (Array.isArray(t.protections)) {
-                        return t.protections.includes(prot);
-                    }
-                    if (typeof t.protections === 'string') {
-                        return t.protections.includes(prot);
-                    }
-                    return false;
-                });
-                
-                if (protTrades.length >= 5) {
-                    const wr = calculateWinRate(protTrades);
-                    if (wr < 30) {
-                        warnings.push({
-                            severity: 'high',
-                            icon: '🛡️',
-                            message: `Protection ${prot} : Win Rate ${wr.toFixed(1)}% (${protTrades.length} trades)`
-                        });
-                    } else if (wr < 40) {
-                        warnings.push({
-                            severity: 'medium',
-                            icon: '⚠️',
-                            message: `Protection ${prot} : Win Rate ${wr.toFixed(1)}% (${protTrades.length} trades)`
-                        });
-                    }
-                }
+
+            // 6. WR par protection
+            const hasProt = (t, prot) => {
+                if (!t.protections) return false;
+                if (Array.isArray(t.protections)) return t.protections.includes(prot);
+                if (typeof t.protections === 'string') return t.protections.includes(prot);
+                return false;
+            };
+            ['VWAP','MM20','Pivot','Clôture veille','Liquidité 30m/H1/H4'].forEach(prot => {
+                pushWrAlert(`Protection ${prot} — WR`, '🛡️', recent.filter(t => hasProt(t, prot)), historical.filter(t => hasProt(t, prot)));
             });
-            
-            // ========================================
-            // 7. RR1/RR2 atteints mais clôturés en Break-Even
-            // ========================================
-            const rrTrades = filteredTrades.filter(t => 
-                t.type && (t.type.includes('RR1 atteint') || t.type.includes('RR2 atteint'))
-            );
+
+            // 7. RR1/RR2 atteints mais clôturés en Break-Even — sur 30j
+            const rrTrades = recent.filter(t => t.type && (t.type.includes('RR1 atteint') || t.type.includes('RR2 atteint')));
             const rrBeTrades = rrTrades.filter(t => t.is_break_even === true);
-            
-            if (rrBeTrades.length >= 3) {
+            if (rrBeTrades.length >= 3 && rrTrades.length > 0) {
                 const bePercent = (rrBeTrades.length / rrTrades.length) * 100;
-                warnings.push({
-                    severity: 'high',
-                    icon: '💰',
-                    message: `${rrBeTrades.length} trades RR1/RR2 atteints mais clôturés en BE (${bePercent.toFixed(0)}% des RR)`
-                });
+                warnings.push({ severity: 'high', icon: '💰',
+                    message: `${rrBeTrades.length} trades RR1/RR2 atteints mais clôturés en BE sur 30j (${bePercent.toFixed(0)}% des RR)` });
             }
-            
-            // ========================================
-            // 8. Plus de 3 trades hors méthode
-            // ========================================
-            const horsMethodeTrades = filteredTrades.filter(t => t.is_hors_methode === true);
-            if (horsMethodeTrades.length > 3) {
-                const horsMethodePercent = (horsMethodeTrades.length / filteredTrades.length) * 100;
-                warnings.push({
-                    severity: 'high',
-                    icon: '❌',
-                    message: `${horsMethodeTrades.length} trades hors méthode détectés (${horsMethodePercent.toFixed(0)}% du total) - Recentrez-vous sur votre plan de trading !`
-                });
+
+            // 8. Trades hors méthode — 30j + comparaison historique (% plus haut = pire)
+            const hmRecent = recent.filter(t => t.is_hors_methode === true);
+            if (hmRecent.length > 3 && recent.length > 0) {
+                const pctRecent = (hmRecent.length / recent.length) * 100;
+                let message;
+                if (historical.length >= MIN_HISTORICAL) {
+                    const pctHist = (historical.filter(t => t.is_hors_methode === true).length / historical.length) * 100;
+                    message = buildContextualMessage('Trades hors méthode', pctRecent, pctHist, '%', true) + ` · ${hmRecent.length} trades — Recentrez-vous sur votre plan !`;
+                } else {
+                    message = `${hmRecent.length} trades hors méthode sur 30j (${pctRecent.toFixed(0)}%) — Recentrez-vous sur votre plan de trading !`;
+                }
+                warnings.push({ severity: 'high', icon: '❌', message });
             }
-            
-            // ========================================
-            // Trier par sévérité et limiter à 5 alertes
-            // ========================================
+
+            // ===== Phase 4 — nouvelles alertes comportementales (sur 30j) =====
+
+            // 9. Revenge trading : trade pris <5min après une GROSSE perte = perte qui dépasse le R du
+            //    compte (SL dépassé). Une perte dans le R + ré-entrée rapide = stratégie normale, pas revenge.
+            const recentLosses = recent.filter(t => t.pnl < 0);
+            const avgLoss = recentLosses.length ? recentLosses.reduce((s, t) => s + Math.abs(t.pnl), 0) / recentLosses.length : 0;
+            // Grosse perte = |pnl| > R du compte ; fallback si R non défini : > 1.5 × perte moyenne (plus strict)
+            function isBigLoss(trade) {
+                if (trade.pnl >= 0) return false;
+                const account = (window.accounts || []).find(a => String(a.id) === String(trade.accountId));
+                if (account && account.risk_per_trade && parseFloat(account.risk_per_trade) > 0) {
+                    return Math.abs(trade.pnl) > parseFloat(account.risk_per_trade);
+                }
+                return avgLoss > 0 && Math.abs(trade.pnl) > avgLoss * 1.5;
+            }
+            const revengeTrades = [];
+            for (let i = 0; i < sortedRecent.length - 1; i++) {
+                const t = sortedRecent[i];
+                if (isBigLoss(t)) {
+                    const nextT = sortedRecent[i + 1];
+                    if (tradeDateOf(t) === tradeDateOf(nextT) && t.exitTime && nextT.entryTime) {
+                        const ex = t.exitTime.split(':'), en = nextT.entryTime.split(':');
+                        const exitMin = (parseInt(ex[0]) || 0) * 60 + (parseInt(ex[1]) || 0);
+                        const entryMin = (parseInt(en[0]) || 0) * 60 + (parseInt(en[1]) || 0);
+                        const gap = entryMin - exitMin;
+                        if (gap >= 0 && gap <= 5) revengeTrades.push(nextT);
+                    }
+                }
+            }
+            if (revengeTrades.length >= 3) {
+                warnings.push({ severity: 'high', icon: '😡',
+                    message: `${revengeTrades.length} trade(s) revenge détecté(s) sur 30j (pris <5min après une perte > R du compte) — Gérez l'émotionnel` });
+            }
+
+            // 10. Surtrading : journées avec > 10 trades
+            const tradesByDay = {};
+            recent.forEach(t => { const d = tradeDateOf(t); if (d) tradesByDay[d] = (tradesByDay[d] || 0) + 1; });
+            const overTradingDays = Object.entries(tradesByDay).filter(([, c]) => c > 4);
+            if (overTradingDays.length >= 2) {
+                const maxDay = Object.entries(tradesByDay).sort((a, b) => b[1] - a[1])[0];
+                warnings.push({ severity: 'medium', icon: '🔥',
+                    message: `${overTradingDays.length} journée(s) avec >4 trades sur 30j (pic : ${maxDay[1]} trades le ${maxDay[0]}) — Recentrez-vous sur 3-4 trades max par session` });
+            }
+
+            // 11. Sessions tardives : trades après 17h avec WR faible
+            const lateTrades = recent.filter(t => {
+                if (!t.entryTime) return false;
+                const h = parseInt(t.entryTime.split(':')[0]);
+                return isFinite(h) && h >= 17;
+            });
+            if (lateTrades.length >= 5) {
+                const lateWR = calculateWinRate(lateTrades);
+                if (lateWR < 40) {
+                    warnings.push({ severity: 'medium', icon: '🌙',
+                        message: `${lateTrades.length} trades après 17h sur 30j (Win Rate ${lateWR.toFixed(0)}%) — attention à la fatigue` });
+                }
+            }
+
+            // 12. Streak de pertes consécutives
+            let cur = 0, maxStreak = 0;
+            sortedRecent.forEach(t => { if (t.pnl < 0) { cur++; maxStreak = Math.max(maxStreak, cur); } else cur = 0; });
+            if (maxStreak >= 5) {
+                warnings.push({ severity: 'high', icon: '🔻',
+                    message: `Streak de ${maxStreak} pertes consécutives sur 30j — recentrez-vous` });
+            }
+
+            // ===== Tri par sévérité (high → medium → low) + max 5 =====
+            const sevRank = { high: 0, medium: 1, low: 2 };
             const sortedWarnings = warnings
-                .sort((a, b) => a.severity === 'high' ? -1 : (b.severity === 'high' ? 1 : 0))
+                .sort((a, b) => (sevRank[a.severity] ?? 9) - (sevRank[b.severity] ?? 9))
                 .slice(0, 5);
-            
-            // ========================================
-            // Affichage
-            // ========================================
+
+            // ===== Affichage =====
             const banner = document.getElementById('warningsBanner');
             const container = document.getElementById('warningsContainer');
-            
+            if (!banner || !container) return;
+
             if (sortedWarnings.length === 0) {
                 banner.style.display = 'none';
                 console.log(' Aucune alerte à afficher');
                 return;
             }
-            
+
+            const PALETTE = {
+                high:   { bg: '#FEE2E2', text: '#991B1B', border: '#DC2626' },
+                medium: { bg: '#FED7AA', text: '#EA580C', border: '#F97316' },
+                low:    { bg: '#FEF9C3', text: '#854D0E', border: '#EAB308' }
+            };
             banner.style.display = 'block';
             container.innerHTML = sortedWarnings.map(w => {
-                const bgColor = w.severity === 'high' ? '#FEE2E2' : '#FED7AA';
-                const textColor = w.severity === 'high' ? '#991B1B' : '#EA580C';
-                const borderColor = w.severity === 'high' ? '#DC2626' : '#F97316';
-                
+                const c = PALETTE[w.severity] || PALETTE.medium;
                 return `
-                    <div style="background: ${bgColor}; border-left: 4px solid ${borderColor}; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                    <div style="background: ${c.bg}; border-left: 4px solid ${c.border}; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
                         <span style="font-size: 20px;">${w.icon}</span>
-                        <span style="color: ${textColor}; font-weight: 500; font-size: 14px;">${w.message}</span>
+                        <span style="color: ${c.text}; font-weight: 500; font-size: 14px;">${w.message}</span>
                     </div>
                 `;
             }).join('');
-            
+
             console.log(` ${sortedWarnings.length} alertes affichées`);
         }
 
