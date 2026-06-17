@@ -1654,8 +1654,13 @@
         body.dark-mode .text-amber-600  { color: #fbbf24 !important; }
         body.dark-mode .text-blue-600   { color: #60a5fa !important; }
         /* Consistency cards: inline style JS → override par ID (pas de classe Tailwind) */
-        body.dark-mode #consistencyInterpretation,
-        body.dark-mode #globalConsistencyInterpretation { background-color: var(--surface-2) !important; }
+        /* Encadré interprétation Régularité (#consistency) : glass dark + cadre or (cohérence cards) */
+        .consistency-interpretation-card {
+            background: rgba(0, 11, 37, 0.25);
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55));
+            transition: background var(--t) var(--ease), border-color var(--t) var(--ease);
+        }
+        body.dark-mode .consistency-interpretation-card { background: rgba(255, 255, 255, 0.04); }
 
         /* =========================================================
            RESPONSIVE
@@ -3032,9 +3037,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
                             
                             <!-- Interprétation -->
-                            <div class="mt-4 p-4 rounded-lg" id="globalConsistencyInterpretation" style="background-color: #f0fdf4; border-left: 4px solid #10b981;">
-                                <div class="text-sm font-semibold text-gray-800" id="globalConsistencyLabel">Excellent</div>
-                                <div class="text-xs text-gray-600 mt-1" id="globalConsistencyDesc">Les profits des élèves sont bien répartis</div>
+                            <div class="mt-4 p-4 rounded-lg consistency-interpretation-card" id="globalConsistencyInterpretation">
+                                <div class="text-sm font-semibold" id="globalConsistencyLabel" style="color: var(--aube-text-primary, #1a1208);">Excellent</div>
+                                <div class="text-xs mt-1" id="globalConsistencyDesc" style="color: var(--aube-text-secondary, rgba(0, 11, 37, 0.6));">Les profits des élèves sont bien répartis</div>
                             </div>
                         </div>
                     </div>
@@ -3812,36 +3817,41 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
 
                             <!-- Weekly Performance Summary -->
-                            <div class="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3" id="weeklyStatsContainer">
-                                <!-- Semaine 1 -->
-                                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 1</div>
-                                    <div class="text-xl font-bold mb-1" id="week1Pnl">0.00$</div>
-                                    <div class="text-xs text-gray-500" id="week1Days">0 jour</div>
+                            <div class="mt-6 traderzella-banner weekly-stats-banner" id="weeklyStatsContainer">
+                                <div class="metric-item">
+                                    <div class="metric-header">Semaine 1</div>
+                                    <div class="metric-main">
+                                        <div class="metric-value-medium" id="week1Pnl">0.00$</div>
+                                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="week1Days">0 jour</div>
+                                    </div>
                                 </div>
-                                <!-- Semaine 2 -->
-                                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 2</div>
-                                    <div class="text-xl font-bold mb-1" id="week2Pnl">0.00$</div>
-                                    <div class="text-xs text-gray-500" id="week2Days">0 jour</div>
+                                <div class="metric-item">
+                                    <div class="metric-header">Semaine 2</div>
+                                    <div class="metric-main">
+                                        <div class="metric-value-medium" id="week2Pnl">0.00$</div>
+                                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="week2Days">0 jour</div>
+                                    </div>
                                 </div>
-                                <!-- Semaine 3 -->
-                                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 3</div>
-                                    <div class="text-xl font-bold mb-1" id="week3Pnl">0.00$</div>
-                                    <div class="text-xs text-gray-500" id="week3Days">0 jour</div>
+                                <div class="metric-item">
+                                    <div class="metric-header">Semaine 3</div>
+                                    <div class="metric-main">
+                                        <div class="metric-value-medium" id="week3Pnl">0.00$</div>
+                                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="week3Days">0 jour</div>
+                                    </div>
                                 </div>
-                                <!-- Semaine 4 -->
-                                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 4</div>
-                                    <div class="text-xl font-bold mb-1" id="week4Pnl">0.00$</div>
-                                    <div class="text-xs text-gray-500" id="week4Days">0 jour</div>
+                                <div class="metric-item">
+                                    <div class="metric-header">Semaine 4</div>
+                                    <div class="metric-main">
+                                        <div class="metric-value-medium" id="week4Pnl">0.00$</div>
+                                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="week4Days">0 jour</div>
+                                    </div>
                                 </div>
-                                <!-- Semaine 5 -->
-                                <div class="bg-white rounded-lg border border-gray-200 p-3 text-center hover:shadow-md transition">
-                                    <div class="text-sm font-semibold text-gray-700 mb-2">Semaine 5</div>
-                                    <div class="text-xl font-bold mb-1" id="week5Pnl">0.00$</div>
-                                    <div class="text-xs text-gray-500" id="week5Days">0 jour</div>
+                                <div class="metric-item">
+                                    <div class="metric-header">Semaine 5</div>
+                                    <div class="metric-main">
+                                        <div class="metric-value-medium" id="week5Pnl">0.00$</div>
+                                        <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="week5Days">0 jour</div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -4033,9 +4043,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
                             
                             <!-- Interprétation -->
-                            <div class="mt-4 p-4 rounded-lg" id="consistencyInterpretation" style="background-color: #f0fdf4; border-left: 4px solid #10b981;">
-                                <div class="text-sm font-semibold text-gray-800" id="consistencyLabel">Excellent</div>
-                                <div class="text-xs text-gray-600 mt-1" id="consistencyDesc">Vos profits sont bien répartis sur plusieurs jours</div>
+                            <div class="mt-4 p-4 rounded-lg consistency-interpretation-card" id="consistencyInterpretation">
+                                <div class="text-sm font-semibold" id="consistencyLabel" style="color: var(--aube-text-primary, #1a1208);">Excellent</div>
+                                <div class="text-xs mt-1" id="consistencyDesc" style="color: var(--aube-text-secondary, rgba(0, 11, 37, 0.6));">Vos profits sont bien répartis sur plusieurs jours</div>
                             </div>
                         </div>
                     </div>
@@ -13278,8 +13288,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 barEl.style.width = '0%';
                 labelEl.textContent = 'Aucune donnée';
                 descEl.textContent = 'Ajoutez des trades pour voir votre régularité';
-                interpEl.style.backgroundColor = '#f3f4f6';
-                interpEl.style.borderLeftColor = '#9ca3af';
                 return;
             }
             
@@ -13303,8 +13311,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 barEl.style.width = '0%';
                 labelEl.textContent = 'Aucun jour profitable';
                 descEl.textContent = 'Vos trades n\'ont généré aucun profit net journalier';
-                interpEl.style.backgroundColor = '#fef2f2';
-                interpEl.style.borderLeftColor = '#ef4444';
                 return;
             }
             
@@ -13321,8 +13327,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 barEl.style.width = '100%';
                 labelEl.textContent = '🔴 Critique';
                 descEl.textContent = 'P&L net négatif ou nul, régularité non calculable';
-                interpEl.style.backgroundColor = '#fef2f2';
-                interpEl.style.borderLeftColor = '#ef4444';
                 ratioEl.style.color = '#ef4444';
                 return;
             }
@@ -13374,10 +13378,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 desc = 'Sans votre meilleur jour, vous seriez en perte globale';
             }
             
-            // Appliquer les styles
+            // Appliquer les styles (fond/bordure uniformes via .consistency-interpretation-card ;
+            // signal sémantique conservé via l'emoji du label + la couleur du gros chiffre)
             ratioEl.style.color = textColor;
-            interpEl.style.backgroundColor = bgColor;
-            interpEl.style.borderLeftColor = borderColor;
             labelEl.textContent = label;
             descEl.textContent = desc;
             
