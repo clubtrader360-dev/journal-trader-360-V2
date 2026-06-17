@@ -93,9 +93,13 @@
             /* Sidebar (its own palette — stays dark in both themes for brand) */
             --sidebar-bg: linear-gradient(180deg, #000B25 0%, #001530 60%, #00163a 100%);
             --sidebar-border: rgba(255, 255, 255, 0.08);
-            --sidebar-text: #e8edf5;
-            --sidebar-text-muted: #94a3b8;
-            --sidebar-hover: rgba(172, 134, 43, 0.14);
+            /* Valeurs LIGHT par défaut : navy lisible (la sidebar est transparente en light via aube.css) */
+            --sidebar-text: #000B25;                      /* navy logo */
+            --sidebar-text-muted: rgba(0, 11, 37, 0.78);  /* navy 78% : secondaire mais lisible */
+            --sidebar-text-hover: #d4af37;                /* or logo sur hover */
+            --sidebar-text-active: #d4af37;               /* or logo sur item actif */
+            --sidebar-hover: rgba(172, 134, 43, 0.14);    /* fond hover or léger (inchangé) */
+            --sidebar-divider: rgba(0, 11, 37, 0.12);     /* séparateur navy léger (light) */
 
             /* Tokens */
             --radius-xs: 6px;
@@ -144,6 +148,13 @@
             --text-strong: #ffffff;
             --text-muted: #cbd5e1;
             --text-soft: #94a3b8;
+
+            /* Sidebar — restaure les valeurs DARK d'origine (zéro régression dark) */
+            --sidebar-text: #e8edf5;
+            --sidebar-text-muted: #94a3b8;
+            --sidebar-text-hover: #ffffff;
+            --sidebar-text-active: #ffffff;
+            --sidebar-divider: #374151;                   /* séparateur d'origine (dark) */
             --text-disabled: #64748b;
 
             --border: rgba(148, 163, 184, 0.12);
@@ -456,16 +467,31 @@
         }
         .sidebar-item:hover {
             background: var(--sidebar-hover);
-            color: #ffffff;
+            color: var(--sidebar-text-hover);
         }
         .sidebar-item.active,
         .sidebar-item.coach-active {
             background: linear-gradient(90deg, rgba(172,134,43,0.18), rgba(172,134,43,0.02));
             border-left-color: var(--accent);
-            color: #ffffff;
+            color: var(--sidebar-text-active);
         }
         .sidebar-item .fas, .sidebar-item .fab { color: var(--accent); transition: color var(--t) var(--ease); }
         .sidebar-item:hover .fas, .sidebar-item:hover .fab { color: var(--accent-bright); }
+        /* Titres de section & textes secondaires de la sidebar (thème-aware, remplace les text-gray-* fixes) */
+        .sidebar-section-title { color: var(--sidebar-text-muted); }
+        /* Lignes checklist : surbrillance hover lisible en light ET dark (remplace hover:bg-gray-50) */
+        .checklist-row { transition: background-color var(--t) var(--ease); }
+        .checklist-row:hover { background-color: rgba(0, 0, 0, 0.04); }
+        body.dark-mode .checklist-row:hover { background-color: rgba(255, 255, 255, 0.04); }
+        /* Inputs éditables qualités/défauts/erreurs : texte + focus thème-aware (remplace text-gray-700 + focus:bg-white) */
+        .trader-inline-input { color: var(--aube-text-primary, #1a1208); }
+        body.dark-mode .trader-inline-input { color: var(--aube-text-primary, #f4e4c1); }
+        .trader-inline-input:focus { background-color: rgba(0, 0, 0, 0.04) !important; }
+        body.dark-mode .trader-inline-input:focus { background-color: rgba(0, 11, 37, 0.75) !important; }
+        /* Wrapper hover des lignes éditables (qualités/défauts/erreurs) — lisible light + dark */
+        .editable-list-row { transition: background-color var(--t) var(--ease); }
+        .editable-list-row:hover { background-color: rgba(0, 0, 0, 0.05); }
+        body.dark-mode .editable-list-row:hover { background-color: rgba(255, 255, 255, 0.08); }
 
         /* Hamburger / mobile sidebar toggle */
         .sidebar-toggle {
@@ -1053,7 +1079,7 @@
             border-radius: 8px;
         }
         #mainApp .account-item:hover { background: rgba(172,134,43,0.1); }
-        #mainApp .account-size { color: #ccc; }
+        #mainApp .account-size { color: var(--sidebar-text-muted); }
 
         /* =====================================================================
            STUDENT DESIGN — SECTION 3: Modals rollback V2 → V1
@@ -2837,8 +2863,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div class="sidebar" id="coachAppSidebar">
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
-                <div class="text-gray-300 text-sm mt-3">MODE COACH</div>
-                <div class="text-gray-400 text-xs mt-1" id="coachUserInfo"></div>
+                <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
+                <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
             </div>
             
             <nav class="mt-6">
@@ -2860,7 +2886,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </nav>
 
             <nav class="mt-6">
-                <div id="logoutBtnCoach" class="sidebar-item logoutBtn" data-action="logout" onclick="window.logout()" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px; cursor: pointer;">
+                <div id="logoutBtnCoach" class="sidebar-item logoutBtn" data-action="logout" onclick="window.logout()" style="margin-top: 20px; border-top: 1px solid var(--sidebar-divider); padding-top: 20px; cursor: pointer;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
                 </div>
                 <!-- Theme Toggle + Zoom dans la Sidebar (Coach) -->
@@ -3443,14 +3469,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div class="sidebar" id="mainAppSidebar">
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
-                <div class="text-gray-300 text-sm mt-3" id="userInfo"></div>
+                <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
             </div>
             
             <!-- Accounts Section -->
             <div class="p-4 border-b border-gray-700">
                 <!-- Section Mes Comptes Actifs (avec accordion + drop zone) -->
                 <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('active')">
-                    <h3 class="text-sm font-semibold text-gray-300">
+                    <h3 class="text-sm font-semibold sidebar-section-title">
                         <i id="activeAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
                         Mes Comptes Actifs
                     </h3>
@@ -3477,9 +3503,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
                 
                 <!-- Section Comptes Cramés (avec accordion + drop zone) - TOUJOURS VISIBLE -->
-                <div id="blownAccountsSection" style="display: block; margin-top: 20px; padding-top: 15px; border-top: 1px solid #374151;">
+                <div id="blownAccountsSection" style="display: block; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--sidebar-divider);">
                     <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('blown')">
-                        <h3 class="text-sm font-semibold text-gray-400">
+                        <h3 class="text-sm font-semibold sidebar-section-title">
                             <i id="blownAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
                             🔥 Comptes Cramés
                         </h3>
@@ -3516,7 +3542,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" data-section="replays" onclick="showSection('replays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
-                <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px;">
+                <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid var(--sidebar-divider); padding-top: 20px;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
                 </div>
                 <div class="sidebar-item" onclick="exportAllDataToCSV()" style="margin-top: 10px;">
@@ -4337,111 +4363,45 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">ÉTAT MENTAL</h3>
                         </div>
                         <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="coherence" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Cohérence cardiaque</span>
                             </label>
-                            <div class="ml-8">
-                                <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors text-sm">
-                                    <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="son-marconi" style="accent-color: #ac862b; width: 16px; height: 16px;">
-                                    <span class="text-gray-600">Écouter le son de Marconi</span>
-                                </label>
-                            </div>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="article" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Lire l'article / citation du jour</span>
                             </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
                                 <input type="checkbox" class="checklist-item mr-3" data-category="mental" data-item="regles" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Relire mes règles de trading</span>
                             </label>
                         </div>
                     </div>
 
-                    <!-- Section 2: Préparation Technique -->
+                    <!-- Section 2: Préparation de séance -->
                     <div class="mb-8">
                         <div class="flex items-center mb-4">
                             <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
                                 <i class="fas fa-laptop-code" style="color: #ac862b; font-size: 20px;"></i>
                             </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">PRÉPARATION TECHNIQUE</h3>
+                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">PRÉPARATION DE SÉANCE</h3>
                         </div>
                         <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="technique" data-item="ordi" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">J'ouvre l'ordi</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="technique" data-item="news" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="news" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Je regarde s'il y a des News</span>
                             </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="technique" data-item="tendance" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="tendance" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Analyse tendance</span>
                             </label>
-                        </div>
-                    </div>
-
-                    <!-- Section 3: Analyse Marché -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-4">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-chart-line" style="color: #ac862b; font-size: 20px;"></i>
-                            </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">ANALYSE MARCHÉ</h3>
-                        </div>
-                        <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="marche" data-item="objectif" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="objectif" style="accent-color: #ac862b; width: 18px; height: 18px;">
                                 <span class="text-gray-700">Objectif séance</span>
                             </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="marche" data-item="budget" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Déterminer mon budget</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Section 4: Checklist Trade -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-4">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-clipboard-check" style="color: #ac862b; font-size: 20px;"></i>
-                            </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">CHECKLIST TRADE</h3>
-                        </div>
-                        <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="rr" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">RR suffisant</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="sl" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">SL bien placé</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="protection" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Protection</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="trade" data-item="securisation" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Niveau de sécurisation</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Section 5: Analyse de Session -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-4">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4" style="background: rgba(172, 134, 43, 0.1);">
-                                <i class="fas fa-file-alt" style="color: #ac862b; font-size: 20px;"></i>
-                            </div>
-                            <h3 class="text-xl font-bold" style="color: #ac862b; text-transform: uppercase;">ANALYSE DE SESSION</h3>
-                        </div>
-                        <div class="ml-16 space-y-3">
-                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                                <input type="checkbox" class="checklist-item mr-3" data-category="analyse" data-item="journal" style="accent-color: #ac862b; width: 18px; height: 18px;">
-                                <span class="text-gray-700">Journal de trading rempli</span>
+                            <label class="flex items-center cursor-pointer checklist-row p-2 rounded">
+                                <input type="checkbox" class="checklist-item mr-3" data-category="preparation" data-item="budget" style="accent-color: #ac862b; width: 18px; height: 18px;">
+                                <span class="text-gray-700">Déterminer mon budget max de la journée</span>
                             </label>
                         </div>
                     </div>
@@ -4479,6 +4439,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
                             <button onclick="addDefaut()" class="text-sm px-3 py-1 rounded transition-all" style="background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid #dc2626;">
                                 <i class="fas fa-plus mr-1"></i>Ajouter un défaut
+                            </button>
+                        </div>
+
+                        <!-- Section Mes Pires Erreurs -->
+                        <div class="mt-8">
+                            <h3 class="text-xl font-bold mb-4" style="color: #991b1b; text-transform: uppercase;">Mes Pires Erreurs</h3>
+                            <div id="erreursList" class="space-y-2 mb-3">
+                                <!-- Les erreurs seront générées ici par JS -->
+                            </div>
+                            <button onclick="addErreur()" class="text-sm px-3 py-1 rounded transition-all" style="background: rgba(153, 27, 27, 0.1); color: #991b1b; border: 1px solid #991b1b;">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>Ajouter une erreur
                             </button>
                         </div>
 
@@ -9436,11 +9407,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function loadQualitiesDefauts() {
             const qualities = JSON.parse(localStorage.getItem('trader_qualities') || '[]');
             const defauts = JSON.parse(localStorage.getItem('trader_defauts') || '[]');
-            
+            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+
             renderQualities(qualities);
             renderDefauts(defauts);
-            
-            console.log('[QUALITÉS/DÉFAUTS] Chargées:', qualities.length, 'qualités,', defauts.length, 'défauts');
+            renderErreurs(erreurs);
+
+            console.log('[QUALITÉS/DÉFAUTS/ERREURS] Chargées:', qualities.length, 'qualités,', defauts.length, 'défauts,', erreurs.length, 'erreurs');
         }
         
         function renderQualities(qualities) {
@@ -9448,12 +9421,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (!container) return;
             
             container.innerHTML = qualities.map((quality, index) => `
-                <div class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 group">
+                <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
                     <i class="fas fa-star text-sm" style="color: #ac862b;"></i>
                     <input type="text"
                            value="${window.escapeHtml(quality)}"
                            onchange="updateQuality(${Number(index)}, this.value)"
-                           class="flex-1 bg-transparent border-none outline-none text-gray-700 focus:bg-white focus:ring-1 focus:ring-gold rounded px-2 py-1"
+                           class="flex-1 bg-transparent border-none outline-none trader-inline-input focus:ring-1 focus:ring-gold rounded px-2 py-1"
                            placeholder="Votre qualité...">
                     <button onclick="deleteQuality(${Number(index)})" class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700">
                         <i class="fas fa-trash text-sm"></i>
@@ -9467,12 +9440,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (!container) return;
             
             container.innerHTML = defauts.map((defaut, index) => `
-                <div class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 group">
+                <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
                     <i class="fas fa-exclamation-triangle text-sm" style="color: #dc2626;"></i>
                     <input type="text"
                            value="${window.escapeHtml(defaut)}"
                            onchange="updateDefaut(${Number(index)}, this.value)"
-                           class="flex-1 bg-transparent border-none outline-none text-gray-700 focus:bg-white focus:ring-1 focus:ring-red-500 rounded px-2 py-1"
+                           class="flex-1 bg-transparent border-none outline-none trader-inline-input focus:ring-1 focus:ring-red-500 rounded px-2 py-1"
                            placeholder="Votre défaut...">
                     <button onclick="deleteDefaut(${Number(index)})" class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700">
                         <i class="fas fa-trash text-sm"></i>
@@ -9527,6 +9500,49 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
         }
         
+        // === MES PIRES ERREURS — pattern identique à défauts/qualités ===
+        function renderErreurs(erreurs) {
+            const container = document.getElementById('erreursList');
+            if (!container) return;
+
+            container.innerHTML = erreurs.map((erreur, index) => `
+                <div class="flex items-center gap-2 p-2 rounded editable-list-row group">
+                    <i class="fas fa-exclamation-triangle text-sm" style="color: #991b1b;"></i>
+                    <input type="text"
+                           value="${window.escapeHtml(erreur)}"
+                           onchange="updateErreur(${Number(index)}, this.value)"
+                           class="flex-1 bg-transparent border-none outline-none trader-inline-input focus:ring-1 focus:ring-red-500 rounded px-2 py-1"
+                           placeholder="Votre erreur à éviter...">
+                    <button onclick="deleteErreur(${Number(index)})" class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700">
+                        <i class="fas fa-trash text-sm"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addErreur() {
+            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+            erreurs.push('');
+            localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+            renderErreurs(erreurs);
+        }
+
+        function updateErreur(index, value) {
+            const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+            erreurs[index] = value;
+            localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+            console.log('[ERREURS] Mise à jour:', value);
+        }
+
+        function deleteErreur(index) {
+            if (confirm('Supprimer cette erreur ?')) {
+                const erreurs = JSON.parse(localStorage.getItem('trader_erreurs') || '[]');
+                erreurs.splice(index, 1);
+                localStorage.setItem('trader_erreurs', JSON.stringify(erreurs));
+                renderErreurs(erreurs);
+            }
+        }
+
         // Exposer les fonctions globalement
         window.addQuality = addQuality;
         window.updateQuality = updateQuality;
@@ -9534,6 +9550,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         window.addDefaut = addDefaut;
         window.updateDefaut = updateDefaut;
         window.deleteDefaut = deleteDefaut;
+        window.addErreur = addErreur;
+        window.updateErreur = updateErreur;
+        window.deleteErreur = deleteErreur;
 
         // ========================================
         // FONCTIONS: Tracking & Alertes Checklist
@@ -12526,23 +12545,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     scales: {
                         x: {
                             min: 0, max: 23,
-                            title: { display: true, text: 'Heure de la journée', color: 'rgba(255,255,255,0.7)' },
+                            title: { display: true, text: 'Heure de la journée' },
                             ticks: {
                                 callback: function(value) { return value + 'h'; },
-                                color: 'rgba(255,255,255,0.6)',
                                 stepSize: 1
-                            },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
+                            }
+                            // grid : défauts Chart.js (gris neutre, OK light + dark)
                         },
                         y: {
-                            title: { display: true, text: 'P&L moyen ($)', color: 'rgba(255,255,255,0.7)' },
+                            title: { display: true, text: 'P&L moyen ($)' },
                             ticks: {
-                                callback: function(value) { return value >= 0 ? '+$' + value : '-$' + Math.abs(value); },
-                                color: 'rgba(255,255,255,0.6)'
+                                callback: function(value) { return value >= 0 ? '+$' + value : '-$' + Math.abs(value); }
                             },
                             grid: {
-                                // Ligne y=0 dorée subtile (frontière gain/perte)
-                                color: function(context) { return context.tick.value === 0 ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255,255,255,0.05)'; },
+                                // Ligne y=0 dorée subtile ; ailleurs → défaut Chart.js (undefined)
+                                color: function(context) { return context.tick.value === 0 ? 'rgba(212, 175, 55, 0.3)' : undefined; },
                                 lineWidth: function(context) { return context.tick.value === 0 ? 1.5 : 1; }
                             }
                         }

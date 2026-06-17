@@ -348,10 +348,7 @@
     }
 
     var dark = document.body.classList.contains('dark-mode');
-    var tick = dark ? 'rgba(244,228,193,0.75)' : 'rgba(13,17,22,0.65)';
-    var grid = dark ? 'rgba(212,175,55,0.10)' : 'rgba(0,0,0,0.06)';
-    var legendCol = dark ? 'rgba(244,228,193,0.92)' : 'rgba(13,17,22,0.82)';
-    var pointBorder = dark ? '#0a1020' : '#ffffff';
+    var pointBorder = dark ? '#0a1020' : '#ffffff'; // contour des points (cosmétique, pas un texte)
     var animate = !_fusionAnimated && motionOk();
 
     _fusionChart = new window.Chart(canvas.getContext('2d'), {
@@ -375,7 +372,7 @@
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: true, position: 'top',
-            labels: { usePointStyle: true, padding: 15, color: legendCol, font: { size: 12, weight: 'bold' } } },
+            labels: { usePointStyle: true, padding: 15, font: { size: 12, weight: 'bold' } } },
           tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(0,0,0,0.8)', padding: 12,
             callbacks: { label: function (c) {
               var l = c.dataset.label || ''; if (l) l += ': ';
@@ -384,8 +381,8 @@
             } } }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { color: tick, font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
-          y: { grid: { color: grid }, ticks: { color: tick, font: { size: 11 },
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+          y: { grid: {}, ticks: { font: { size: 11 },
               callback: function (v) { return '$' + v.toFixed(0); } } }
         }
       }
