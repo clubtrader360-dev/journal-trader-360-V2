@@ -1317,6 +1317,12 @@
         }
         .info-icon:hover .tooltip,
         .info-icon.active .tooltip { display: block; }
+        /* #57 Mesure 1 : casse normale garantie sur le tooltip ET tous ses descendants */
+        .tooltip, .tooltip * {
+            text-transform: none !important;
+            letter-spacing: normal !important;
+            font-variant: normal !important;
+        }
 
         .calendar-day-with-tooltip { position: relative; }
         .calendar-tooltip {
@@ -3665,7 +3671,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Net P&L -->
                     <div class="metric-item net-pnl">
                         <div class="metric-header">
-                            Net P&L <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">le p&l net représente votre profit ou perte total sur tous vos trades. c'est la somme de tous les gains moins toutes les pertes.</span></i>
+                            Net P&L <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Le P&L net représente votre profit ou perte total sur tous vos trades. C'est la somme de tous les gains moins toutes les pertes.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-large" id="netPnlValue">$0.00</div>
@@ -3675,7 +3681,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Trade win % -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            Trade win % <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">le pourcentage de trades gagnants. calculé en divisant le nombre de trades gagnants par le nombre total de trades.</span></i>
+                            Trade win % <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Le pourcentage de trades gagnants. Calculé en divisant le nombre de trades gagnants par le nombre total de trades.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="tradeWinValue">0%</div>
@@ -3690,7 +3696,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Day win % -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            Day win % <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">le pourcentage de journées gagnantes. calculé en divisant le nombre de jours avec p&l positif par le nombre total de jours tradés.</span></i>
+                            Day win % <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Le pourcentage de journées gagnantes. Calculé en divisant le nombre de jours avec P&L positif par le nombre total de jours tradés.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="dayWinValue">0%</div>
@@ -3705,7 +3711,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Profit factor -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            Profit factor <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">ratio entre les profits bruts et les pertes brutes. un profit factor > 1 signifie que vous gagnez plus que vous ne perdez. > 2 est excellent.</span></i>
+                            Profit factor <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Ratio entre les profits bruts et les pertes brutes. Un profit factor > 1 signifie que vous gagnez plus que vous ne perdez. > 2 est excellent.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="profitFactorValue">0.00</div>
@@ -3721,7 +3727,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Avg win/loss trade -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            Avg win/loss trade <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">le ratio entre le gain moyen par trade gagnant et la perte moyenne par trade perdant. un ratio > 1 signifie que vos gains moyens dépassent vos pertes moyennes.</span></i>
+                            Avg win/loss trade <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Le ratio entre le gain moyen par trade gagnant et la perte moyenne par trade perdant. Un ratio > 1 signifie que vos gains moyens dépassent vos pertes moyennes.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="avgWinLossValue">0.00</div>
@@ -3739,7 +3745,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- RR1/RR2 Atteint -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            RR1/RR2 atteint <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">nombre de trades où vous avez atteint RR1 ou RR2 pendant le trade. cela permet d'identifier les opportunités où vous auriez pu optimiser votre sortie.</span></i>
+                            RR1/RR2 atteint <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre de trades où vous avez atteint RR1 ou RR2 pendant le trade. Cela permet d'identifier les opportunités où vous auriez pu optimiser votre sortie.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="rrAtteintsValue">0 trades</div>
@@ -3759,7 +3765,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Trades Méthode -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            Trades Méthode <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">nombre de trades réalisés en respectant votre méthode de trading.</span></i>
+                            Trades Méthode <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre de trades réalisés en respectant votre méthode de trading.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" style="color: #10b981;" id="tradesMethodeValue">0</div>
@@ -3770,7 +3776,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Trades Hors Méthode -->
                     <div class="metric-item">
                         <div class="metric-header">
-                            Trades Hors Méthode <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">nombre de trades réalisés en dehors de votre méthode de trading.</span></i>
+                            Trades Hors Méthode <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre de trades réalisés en dehors de votre méthode de trading.</span></i>
                         </div>
                         <div class="metric-main">
                             <div class="metric-value-medium" style="color: #ef4444;" id="tradesHorsMethodeValue">0</div>
@@ -4016,7 +4022,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Trader 360 Score - MASQUÉ -->
                     <div class="trader-card p-6" style="display: none;">
                         <h3 class="text-lg font-semibold mb-4 flex items-center">
-                            Trader 360 Score <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">score global évaluant votre performance de trading sur plusieurs critères : win rate, profit factor, consistency, et gestion du risque.</span></i>
+                            Trader 360 Score <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">Score global évaluant votre performance de trading sur plusieurs critères : win rate, profit factor, consistency, et gestion du risque.</span></i>
                         </h3>
                         <div class="chart-container" style="height: 250px;">
                             <canvas id="traderScoreChart"></canvas>
@@ -4075,7 +4081,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Net Daily P&L -->
                     <div class="trader-card p-6">
                         <h3 class="text-lg font-semibold mb-4 flex items-center">
-                            P&L quotidien net <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">graphique montrant votre profit/perte net par jour. visualisez vos jours gagnants (vert) et perdants (rouge).</span></i>
+                            P&L quotidien net <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">Graphique montrant votre profit/perte net par jour. Visualisez vos jours gagnants (vert) et perdants (rouge).</span></i>
                         </h3>
                         <div class="chart-container">
                             <canvas id="dailyPnlChart"></canvas>
@@ -4097,7 +4103,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="trader-card p-6 mt-8 mb-6">
                     <h3 class="text-lg font-semibold mb-4 flex items-center">
                         <i class="fas fa-chart-line mr-2" style="color: #ac862b;"></i>
-                        Évolution P&L et Drawdown <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">votre p&l cumulé (equity) et votre drawdown (baisse depuis le dernier pic), agrégés par jour sur les 30 derniers jours de trading.</span></i>
+                        Évolution P&L et Drawdown <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">Votre P&L cumulé (equity) et votre drawdown (baisse depuis le dernier pic), agrégés par jour sur les 30 derniers jours de trading.</span></i>
                     </h3>
                     <div style="position: relative; height: 320px;">
                         <canvas id="pnlDrawdownChart"></canvas>
