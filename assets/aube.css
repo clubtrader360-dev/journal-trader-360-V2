@@ -168,7 +168,7 @@ body:not(.dark-mode) .aube-trust .aube-trust-d { color: rgba(26,18,8,0.7); }
   font-family: 'Fraunces', Georgia, serif; font-style: italic; letter-spacing: -0.01em;
 }
 /* Chiffres → JetBrains Mono tabular + tracking serré */
-#mainApp .metric-value-large, #mainApp .metric-value-medium, #netPnlValue, .metric-main .metric-value-large {
+#mainApp .metric-value-large, #mainApp .metric-value-medium, #netPnlValue, .metric-main .metric-value-large, .cell-pnl {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
   letter-spacing: -0.02em;
