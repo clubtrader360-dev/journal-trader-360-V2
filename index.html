@@ -1687,29 +1687,59 @@
             border-color: rgba(201, 162, 75, 0.15) !important;
         }
 
-        /* Exception: CSV import preview keeps light table */
+        /* #63 — Modal Import CSV harmonisé Bourse à l'Aube (glass-dark + cadre or, ex-table blanche) */
         body.dark-mode #importCSVModal table,
         body.dark-mode #csvPreviewTable {
-            background: #ffffff !important;
-            color: #1f2937 !important;
+            background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            border-radius: var(--aube-frame-radius, 14px) !important;
+            color: var(--aube-text-primary, #f4e4c1) !important;
         }
         body.dark-mode #importCSVModal thead,
         body.dark-mode #csvPreviewTable thead {
-            background: #f9fafb !important;
-            color: #1f2937 !important;
+            background: rgba(212, 175, 55, 0.10) !important;
+            color: var(--color-gold, #d4af37) !important;
+            border-bottom: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.40)) !important;
+        }
+        body.dark-mode #importCSVModal th,
+        body.dark-mode #csvPreviewTable th {
+            color: var(--color-gold, #d4af37) !important;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
         body.dark-mode #importCSVModal tbody tr,
         body.dark-mode #csvPreviewTable tbody tr {
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            border-color: #e5e7eb !important;
+            background: transparent !important;
+            color: var(--aube-text-primary, #f4e4c1) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
         }
-        body.dark-mode #importCSVModal tbody tr:hover,
-        body.dark-mode #csvPreviewTable tbody tr:hover { background: #f9fafb !important; }
-        body.dark-mode #importCSVModal th,
         body.dark-mode #importCSVModal td,
-        body.dark-mode #csvPreviewTable th,
-        body.dark-mode #csvPreviewTable td { color: #1f2937 !important; }
+        body.dark-mode #csvPreviewTable td { color: var(--aube-text-primary, #f4e4c1) !important; }
+        body.dark-mode #importCSVModal tbody tr:hover,
+        body.dark-mode #csvPreviewTable tbody tr:hover { background: rgba(212, 175, 55, 0.08) !important; }
+        /* Light mode — harmoniser également */
+        body:not(.dark-mode) #importCSVModal table,
+        body:not(.dark-mode) #csvPreviewTable {
+            background: var(--aube-glass, rgba(255, 250, 240, 0.65)) !important;
+            border: 1px solid var(--aube-glass-border, rgba(123, 96, 24, 0.30)) !important;
+            border-radius: var(--aube-frame-radius, 14px) !important;
+        }
+        /* Champ "Frais par trade" (#csvDefaultFees) — input dark cohérent */
+        .csv-fees-input {
+            padding: 8px 12px; border-radius: 8px;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55));
+            background: rgba(10, 15, 24, 0.55);
+            color: var(--aube-text-primary, #f4e4c1);
+            font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px;
+            transition: border-color 200ms ease, background 200ms ease;
+        }
+        .csv-fees-input:focus { outline: none; border-color: var(--color-gold, #d4af37); background: rgba(10, 15, 24, 0.75); }
+        .csv-fees-input::placeholder { color: rgba(185, 163, 126, 0.5); }
+        body:not(.dark-mode) .csv-fees-input {
+            background: var(--aube-glass, rgba(255, 250, 240, 0.65));
+            border-color: var(--aube-glass-border, rgba(123, 96, 24, 0.30));
+            color: #1a1208;
+        }
 
         /* Mantra block */
         body.dark-mode #mantraContainer {
@@ -4057,6 +4087,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                                 <input type="checkbox" id="showPoints" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
                                                 <span class="text-sm">Points (gagnés/perdus)</span>
                                             </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showActionsErrors" checked onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Actions / Erreurs (✅/❌)</span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
@@ -5918,11 +5952,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </label>
                     <div class="flex items-center gap-3">
                         <div class="flex-1">
-                            <input 
-                                type="number" 
-                                id="csvDefaultFees" 
-                                class="w-full border border-gray-300 rounded px-3 py-2" 
-                                placeholder="Ex: 4.50" 
+                            <input
+                                type="number"
+                                id="csvDefaultFees"
+                                class="w-full csv-fees-input"
+                                placeholder="Ex: 4.50"
                                 step="0.01" 
                                 min="0"
                                 value="0"
@@ -6062,7 +6096,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 showWinRate: false,
                 showRR: false,
                 showPercent: false,
-                showPoints: false
+                showPoints: false,
+                showActionsErrors: true
             };
         }
         
@@ -12058,7 +12093,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     cellContent += statsHtml;
                     
                     // ✅ NOUVEAU : Afficher badges points positifs / erreurs
-                    if (positiveCount > 0 || errorsCount > 0) {
+                    if (calendarDisplay.showActionsErrors !== false && (positiveCount > 0 || errorsCount > 0)) {
                         let badgesHtml = '<div class="flex items-center justify-center gap-1 mt-1">';
                         if (positiveCount > 0) {
                             badgesHtml += `<span class="text-xs px-1.5 py-0.5 rounded" style="background: #10b981; color: white; font-weight: 600;">✅ ${positiveCount}</span>`;
@@ -12077,7 +12112,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>`;
                     
                     // ✅ NOUVEAU : Afficher badges même pour "no trade"
-                    if (positiveCount > 0 || errorsCount > 0) {
+                    if (calendarDisplay.showActionsErrors !== false && (positiveCount > 0 || errorsCount > 0)) {
                         let badgesHtml = '<div class="flex items-center justify-center gap-1 mt-1">';
                         if (positiveCount > 0) {
                             badgesHtml += `<span class="text-xs px-1.5 py-0.5 rounded" style="background: #10b981; color: white; font-weight: 600;">✅ ${positiveCount}</span>`;
@@ -12088,7 +12123,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         badgesHtml += '</div>';
                         cellContent += badgesHtml;
                     }
-                } else if (isCurrentMonth && (positiveCount > 0 || errorsCount > 0)) {
+                } else if (isCurrentMonth && calendarDisplay.showActionsErrors !== false && (positiveCount > 0 || errorsCount > 0)) {
                     // ✅ NOUVEAU : Jour sans trade mais avec journal (points positifs/erreurs seulement)
                     let badgesHtml = '<div class="flex items-center justify-center gap-1 mt-1">';
                     if (positiveCount > 0) {
@@ -13079,6 +13114,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (showPercentEl) calendarDisplay.showPercent = showPercentEl.checked;
             const showPointsEl = document.getElementById('showPoints');
             if (showPointsEl) calendarDisplay.showPoints = showPointsEl.checked;
+            const showActionsErrorsEl = document.getElementById('showActionsErrors');
+            calendarDisplay.showActionsErrors = showActionsErrorsEl ? showActionsErrorsEl.checked : true;
 
             // Sauvegarder les préférences dans localStorage
             localStorage.setItem('calendarDisplayPreferences', JSON.stringify(calendarDisplay));
@@ -13103,6 +13140,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (showPercentCheckbox) showPercentCheckbox.checked = !!calendarDisplay.showPercent;
             const showPointsCheckbox = document.getElementById('showPoints');
             if (showPointsCheckbox) showPointsCheckbox.checked = !!calendarDisplay.showPoints;
+            const showActionsErrorsCheckbox = document.getElementById('showActionsErrors');
+            // défaut TRUE : si la pref n'a jamais été définie (élève existant), garder les badges affichés
+            if (showActionsErrorsCheckbox) showActionsErrorsCheckbox.checked = (calendarDisplay.showActionsErrors !== false);
             
             console.log('[CALENDAR] Checkboxes synchronisées avec préférences:', calendarDisplay);
         }
