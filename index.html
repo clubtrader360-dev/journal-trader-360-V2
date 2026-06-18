@@ -1687,29 +1687,137 @@
             border-color: rgba(201, 162, 75, 0.15) !important;
         }
 
-        /* Exception: CSV import preview keeps light table */
+        /* #63 — Modal Import CSV harmonisé Bourse à l'Aube (glass-dark + cadre or, ex-table blanche) */
         body.dark-mode #importCSVModal table,
         body.dark-mode #csvPreviewTable {
-            background: #ffffff !important;
-            color: #1f2937 !important;
+            background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            border-radius: var(--aube-frame-radius, 14px) !important;
+            color: var(--aube-text-primary, #f4e4c1) !important;
         }
         body.dark-mode #importCSVModal thead,
         body.dark-mode #csvPreviewTable thead {
-            background: #f9fafb !important;
-            color: #1f2937 !important;
+            background: rgba(212, 175, 55, 0.10) !important;
+            color: var(--color-gold, #d4af37) !important;
+            border-bottom: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.40)) !important;
+        }
+        body.dark-mode #importCSVModal th,
+        body.dark-mode #csvPreviewTable th {
+            color: var(--color-gold, #d4af37) !important;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
         body.dark-mode #importCSVModal tbody tr,
         body.dark-mode #csvPreviewTable tbody tr {
-            background: #ffffff !important;
-            color: #1f2937 !important;
-            border-color: #e5e7eb !important;
+            background: transparent !important;
+            color: var(--aube-text-primary, #f4e4c1) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
         }
-        body.dark-mode #importCSVModal tbody tr:hover,
-        body.dark-mode #csvPreviewTable tbody tr:hover { background: #f9fafb !important; }
-        body.dark-mode #importCSVModal th,
         body.dark-mode #importCSVModal td,
-        body.dark-mode #csvPreviewTable th,
-        body.dark-mode #csvPreviewTable td { color: #1f2937 !important; }
+        body.dark-mode #csvPreviewTable td { color: var(--aube-text-primary, #f4e4c1) !important; }
+        body.dark-mode #importCSVModal tbody tr:hover,
+        body.dark-mode #csvPreviewTable tbody tr:hover { background: rgba(212, 175, 55, 0.08) !important; }
+        /* Light mode — harmoniser également */
+        body:not(.dark-mode) #importCSVModal table,
+        body:not(.dark-mode) #csvPreviewTable {
+            background: var(--aube-glass, rgba(255, 250, 240, 0.65)) !important;
+            border: 1px solid var(--aube-glass-border, rgba(123, 96, 24, 0.30)) !important;
+            border-radius: var(--aube-frame-radius, 14px) !important;
+        }
+        /* Champ "Frais par trade" (#csvDefaultFees) — input dark cohérent */
+        .csv-fees-input {
+            padding: 8px 12px; border-radius: 8px;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55));
+            background: rgba(10, 15, 24, 0.55);
+            color: var(--aube-text-primary, #f4e4c1);
+            font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px;
+            transition: border-color 200ms ease, background 200ms ease;
+        }
+        .csv-fees-input:focus { outline: none; border-color: var(--color-gold, #d4af37); background: rgba(10, 15, 24, 0.75); }
+        .csv-fees-input::placeholder { color: rgba(185, 163, 126, 0.5); }
+        body:not(.dark-mode) .csv-fees-input {
+            background: var(--aube-glass, rgba(255, 250, 240, 0.65));
+            border-color: var(--aube-glass-border, rgba(123, 96, 24, 0.30));
+            color: #1a1208;
+        }
+        /* #63 finition — badge statut "En attente" (or transparent, lisible dark + light) */
+        .csv-status-pending {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; font-size: 11px; font-weight: 500; letter-spacing: 0.04em;
+            color: var(--color-gold, #d4af37);
+            background: rgba(212, 175, 55, 0.12);
+            border: 1px solid rgba(212, 175, 55, 0.35);
+            border-radius: 10px;
+        }
+        .csv-status-pending i { font-size: 10px; opacity: 0.85; }
+        body:not(.dark-mode) .csv-status-pending {
+            color: var(--color-bronze, #7b6018);
+            background: rgba(212, 175, 55, 0.18);
+            border-color: rgba(123, 96, 24, 0.30);
+        }
+
+        /* #76 — Modale "Détails du Trade" en lecture seule épurée (SCOPÉ #viewTradeModal pour ne pas
+           dégrader #viewJournalModal qui partage .view-modal-*) */
+        #viewTradeModal .view-modal-content {
+            background: rgba(10, 15, 24, calc(0.92 * var(--surface-opacity-factor, 1))) !important;
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.55)) !important;
+            border-radius: var(--aube-frame-radius, 14px) !important;
+            padding: 28px 32px;
+            max-width: 560px;
+        }
+        #viewTradeModal .view-modal-section {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 8px 0 !important;
+            margin-bottom: 4px !important;
+        }
+        /* Reset bordures/fond sur les labels, valeurs et enfants du Hero (vue lecture épurée) */
+        #viewTradeModal .view-modal-label,
+        #viewTradeModal .view-modal-value,
+        #viewTradeModal .view-modal-hero .view-modal-label,
+        #viewTradeModal .view-modal-hero .view-modal-hero-value,
+        #viewTradeModal .view-modal-hero .view-modal-hero-rr {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+        #viewTradeModal .view-modal-label {
+            display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.10em;
+            text-transform: uppercase; color: var(--color-gold, #d4af37) !important; margin-bottom: 4px;
+        }
+        #viewTradeModal .view-modal-value {
+            font-size: 15px; font-weight: 500;
+            color: var(--aube-text-primary, #f4e4c1) !important;
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+        }
+        #viewTradeModal .view-modal-hero {
+            background: rgba(212, 175, 55, 0.05);
+            border: 1px solid var(--aube-frame, rgba(201, 162, 75, 0.40));
+            border-radius: 12px; padding: 20px; margin: 16px 0; text-align: center;
+        }
+        #viewTradeModal .view-modal-hero-value {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 38px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+        }
+        #viewTradeModal .view-modal-hero-rr {
+            font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 16px; margin-top: 4px; opacity: 0.85;
+        }
+        #viewTradeModal .view-modal-hairline {
+            height: 1px; border: none; margin: 16px 0;
+            background: linear-gradient(to right, transparent, var(--aube-frame, rgba(201, 162, 75, 0.55)) 50%, transparent);
+        }
+        body:not(.dark-mode) #viewTradeModal .view-modal-content {
+            background: var(--aube-glass, rgba(255, 250, 240, 0.95)) !important;
+            border-color: var(--aube-glass-border, rgba(123, 96, 24, 0.30)) !important;
+        }
+        body:not(.dark-mode) #viewTradeModal .view-modal-label { color: var(--color-bronze, #7b6018) !important; }
+        body:not(.dark-mode) #viewTradeModal .view-modal-value { color: #1a1208 !important; }
+        body:not(.dark-mode) #viewTradeModal .view-modal-hero {
+            background: rgba(212, 175, 55, 0.10); border-color: var(--aube-glass-border, rgba(123, 96, 24, 0.30));
+        }
 
         /* Mantra block */
         body.dark-mode #mantraContainer {
@@ -4057,6 +4165,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                                 <input type="checkbox" id="showPoints" onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
                                                 <span class="text-sm">Points (gagnés/perdus)</span>
                                             </label>
+                                            <label class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                <input type="checkbox" id="showActionsErrors" checked onchange="updateCalendarDisplay()" class="mr-2" style="accent-color: #ac862b;">
+                                                <span class="text-sm">Actions / Erreurs (✅/❌)</span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
@@ -5918,11 +6030,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </label>
                     <div class="flex items-center gap-3">
                         <div class="flex-1">
-                            <input 
-                                type="number" 
-                                id="csvDefaultFees" 
-                                class="w-full border border-gray-300 rounded px-3 py-2" 
-                                placeholder="Ex: 4.50" 
+                            <input
+                                type="number"
+                                id="csvDefaultFees"
+                                class="w-full csv-fees-input"
+                                placeholder="Ex: 4.50"
                                 step="0.01" 
                                 min="0"
                                 value="0"
@@ -6062,7 +6174,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 showWinRate: false,
                 showRR: false,
                 showPercent: false,
-                showPoints: false
+                showPoints: false,
+                showActionsErrors: true
             };
         }
         
@@ -6705,8 +6818,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </td>
                         <td class="px-3 py-2 text-sm ${pnlColor} font-semibold" id="csvPnl_${Number(idx)}">${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}$</td>
                         <td class="px-3 py-2 text-center">
-                            <span class="px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-700">
-                                <i class="fas fa-clock mr-1"></i>En attente
+                            <span class="csv-status-pending">
+                                <i class="fas fa-clock"></i>En attente
                             </span>
                         </td>
                     </tr>
@@ -12058,7 +12171,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     cellContent += statsHtml;
                     
                     // ✅ NOUVEAU : Afficher badges points positifs / erreurs
-                    if (positiveCount > 0 || errorsCount > 0) {
+                    if (calendarDisplay.showActionsErrors !== false && (positiveCount > 0 || errorsCount > 0)) {
                         let badgesHtml = '<div class="flex items-center justify-center gap-1 mt-1">';
                         if (positiveCount > 0) {
                             badgesHtml += `<span class="text-xs px-1.5 py-0.5 rounded" style="background: #10b981; color: white; font-weight: 600;">✅ ${positiveCount}</span>`;
@@ -12077,7 +12190,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>`;
                     
                     // ✅ NOUVEAU : Afficher badges même pour "no trade"
-                    if (positiveCount > 0 || errorsCount > 0) {
+                    if (calendarDisplay.showActionsErrors !== false && (positiveCount > 0 || errorsCount > 0)) {
                         let badgesHtml = '<div class="flex items-center justify-center gap-1 mt-1">';
                         if (positiveCount > 0) {
                             badgesHtml += `<span class="text-xs px-1.5 py-0.5 rounded" style="background: #10b981; color: white; font-weight: 600;">✅ ${positiveCount}</span>`;
@@ -12088,7 +12201,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         badgesHtml += '</div>';
                         cellContent += badgesHtml;
                     }
-                } else if (isCurrentMonth && (positiveCount > 0 || errorsCount > 0)) {
+                } else if (isCurrentMonth && calendarDisplay.showActionsErrors !== false && (positiveCount > 0 || errorsCount > 0)) {
                     // ✅ NOUVEAU : Jour sans trade mais avec journal (points positifs/erreurs seulement)
                     let badgesHtml = '<div class="flex items-center justify-center gap-1 mt-1">';
                     if (positiveCount > 0) {
@@ -13079,6 +13192,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (showPercentEl) calendarDisplay.showPercent = showPercentEl.checked;
             const showPointsEl = document.getElementById('showPoints');
             if (showPointsEl) calendarDisplay.showPoints = showPointsEl.checked;
+            const showActionsErrorsEl = document.getElementById('showActionsErrors');
+            calendarDisplay.showActionsErrors = showActionsErrorsEl ? showActionsErrorsEl.checked : true;
 
             // Sauvegarder les préférences dans localStorage
             localStorage.setItem('calendarDisplayPreferences', JSON.stringify(calendarDisplay));
@@ -13103,6 +13218,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (showPercentCheckbox) showPercentCheckbox.checked = !!calendarDisplay.showPercent;
             const showPointsCheckbox = document.getElementById('showPoints');
             if (showPointsCheckbox) showPointsCheckbox.checked = !!calendarDisplay.showPoints;
+            const showActionsErrorsCheckbox = document.getElementById('showActionsErrors');
+            // défaut TRUE : si la pref n'a jamais été définie (élève existant), garder les badges affichés
+            if (showActionsErrorsCheckbox) showActionsErrorsCheckbox.checked = (calendarDisplay.showActionsErrors !== false);
             
             console.log('[CALENDAR] Checkboxes synchronisées avec préférences:', calendarDisplay);
         }
@@ -14349,7 +14467,23 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </span>
                     </div>
                 </div>
+            `;
 
+            // #76 — Hero P&L central (vue lecture hiérarchisée)
+            {
+                const pnlSign = trade.pnl >= 0 ? '+' : '';
+                const pnlColorHero = trade.pnl >= 0 ? '#10b981' : '#ef4444';
+                html += `<div class="view-modal-hero"><div class="view-modal-label" style="margin-bottom:6px;">Net P&L</div>` +
+                        `<div class="view-modal-hero-value" style="color:${pnlColorHero};">${pnlSign}$${Math.abs(trade.pnl).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`;
+                if (account && account.risk_per_trade && parseFloat(account.risk_per_trade) > 0) {
+                    const rr = trade.pnl / parseFloat(account.risk_per_trade);
+                    const rrColor = rr >= 0 ? '#34d399' : '#f87171';
+                    html += `<div class="view-modal-hero-rr" style="color:${rrColor};">≈ ${rr >= 0 ? '+' : ''}${rr.toFixed(1)}R</div>`;
+                }
+                html += `</div><hr class="view-modal-hairline">`;
+            }
+
+            html += `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div class="view-modal-section">
                         <span class="view-modal-label">Date</span>
@@ -14428,12 +14562,23 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 html += `</div>`;
             }
 
-            html += `
-                <div class="view-modal-section">
-                    <span class="view-modal-label">P&L</span>
-                    <div class="view-modal-value ${pnlClass}" style="font-size: 2rem; font-weight: bold;">$${trade.pnl.toFixed(2)}</div>
-                </div>
-            `;
+            // #76 — P&L déplacé dans le hero (haut). Ici : Direction + Classification.
+            html += `<hr class="view-modal-hairline">`;
+            const dir76 = (window.getTradeDirection && window.getTradeDirection(trade.type)) || (trade.direction || '').toUpperCase();
+            if (dir76 === 'LONG' || dir76 === 'SHORT') {
+                const dirBg = dir76 === 'LONG' ? 'background: rgba(16,185,129,0.15); color:#10b981;' : 'background: rgba(239,68,68,0.15); color:#ef4444;';
+                html += `<div class="view-modal-section"><span class="view-modal-label">Direction</span><div class="view-modal-value"><span style="${dirBg} padding:4px 10px; border-radius:8px; font-size:13px; font-weight:600;">${dir76}</span></div></div>`;
+            }
+            if (trade.trade_trend_type && trade.trade_trend_type !== 'Non spécifié') {
+                html += `<div class="view-modal-section"><span class="view-modal-label">Type Trade</span><div class="view-modal-value">${window.escapeHtml(trade.trade_trend_type)}</div></div>`;
+            }
+            const classifTags76 = [];
+            if (trade.is_methode || trade.isMethode) classifTags76.push('<span style="color:#10b981;">✅ Méthode</span>');
+            if (trade.is_hors_methode || trade.isHorsMethode) classifTags76.push('<span style="color:#ef4444;">❌ Hors méthode</span>');
+            if (trade.is_break_even || trade.isBreakEven) classifTags76.push('<span style="color:#d4af37;">⚖ Break-Even</span>');
+            if (classifTags76.length > 0) {
+                html += `<div class="view-modal-section"><span class="view-modal-label">Classification</span><div class="view-modal-value" style="display:flex; gap:16px; font-size:13px; font-family:inherit;">${classifTags76.join('')}</div></div>`;
+            }
 
             if (trade.setup) {
                 html += `
