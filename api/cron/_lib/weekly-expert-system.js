@@ -440,7 +440,7 @@ function buildT360RadarSVG(components) {
     { label: 'Avg win/loss',    value: Math.round(c.avgRatio || 0) },
     { label: 'Recovery factor', value: Math.round(c.recovery || 0) },
   ];
-  const cx = 150, cy = 150, R = 100;
+  const cx = 180, cy = 180, R = 100;
   const angleAt = i => (-90 + i * 60) * Math.PI / 180;
   const point = (i, v) => ({ x: cx + R * (v / 100) * Math.cos(angleAt(i)), y: cy + R * (v / 100) * Math.sin(angleAt(i)) });
   const colorFor = v => v >= 80 ? PALETTE.emerald : (v >= 50 ? PALETTE.amber : PALETTE.coral);
@@ -455,13 +455,13 @@ function buildT360RadarSVG(components) {
   const valuePolygon = `<polygon points="${valuePts}" fill="rgba(172,134,43,0.20)" stroke="${PALETTE.gold}" stroke-width="2"/>`;
   const dots = axes.map((a, i) => { const p = point(i, a.value); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${PALETTE.gold}"/>`; }).join('');
   const labelsAndValues = axes.map((a, i) => {
-    const lp = { x: cx + (R + 30) * Math.cos(angleAt(i)), y: cy + (R + 30) * Math.sin(angleAt(i)) };
-    const vp = { x: cx + (R + 44) * Math.cos(angleAt(i)), y: cy + (R + 44) * Math.sin(angleAt(i)) };
+    const lp = { x: cx + (R + 32) * Math.cos(angleAt(i)), y: cy + (R + 32) * Math.sin(angleAt(i)) };
+    const vp = { x: cx + (R + 54) * Math.cos(angleAt(i)), y: cy + (R + 54) * Math.sin(angleAt(i)) };
     return `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" text-anchor="middle" font-family="Inter" font-size="11" fill="${PALETTE.textPrimary}" font-weight="600" dominant-baseline="middle">${a.label}</text>`
       + `<text x="${vp.x.toFixed(1)}" y="${vp.y.toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="${colorFor(a.value)}" font-weight="700" dominant-baseline="middle">${a.value}</text>`;
   }).join('');
 
-  return `<svg viewBox="0 0 300 300" width="280" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; height:auto;" role="img" aria-label="Radar T360 Score">${gridLevels}${axesLines}${valuePolygon}${dots}${labelsAndValues}</svg>`;
+  return `<svg viewBox="0 0 360 360" width="280" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; height:auto;" role="img" aria-label="Radar T360 Score">${gridLevels}${axesLines}${valuePolygon}${dots}${labelsAndValues}</svg>`;
 }
 
 // #19 — Conversion du radar SVG en PNG data URI (Gmail/Outlook strippent le SVG inline).
@@ -469,7 +469,7 @@ function buildT360RadarSVG(components) {
 function buildT360RadarPNG(components) {
   try {
     const svgString = buildT360RadarSVG(components);
-    const resvg = new Resvg(svgString, { fitTo: { mode: 'width', value: 600 }, background: 'rgba(0,0,0,0)' });
+    const resvg = new Resvg(svgString, { fitTo: { mode: 'width', value: 720 }, background: 'rgba(0,0,0,0)' });
     const pngBuffer = resvg.render().asPng();
     return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch (e) {
@@ -482,7 +482,7 @@ function buildT360RadarPNG(components) {
 function buildT360RadarPNGBuffer(components) {
   const svgString = buildT360RadarSVG(components);
   const resvg = new Resvg(svgString, {
-    fitTo: { mode: 'width', value: 600 },
+    fitTo: { mode: 'width', value: 720 },
     background: 'rgba(0,0,0,0)',
     font: {
       fontFiles: FONT_FILES.filter(f => fs.existsSync(f)),
