@@ -456,9 +456,9 @@ function buildT360RadarSVG(components) {
   const dots = axes.map((a, i) => { const p = point(i, a.value); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${PALETTE.gold}"/>`; }).join('');
   const labelsAndValues = axes.map((a, i) => {
     const lp = { x: cx + (R + 32) * Math.cos(angleAt(i)), y: cy + (R + 32) * Math.sin(angleAt(i)) };
-    const vp = { x: cx + (R + 54) * Math.cos(angleAt(i)), y: cy + (R + 54) * Math.sin(angleAt(i)) };
-    return `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" text-anchor="middle" font-family="Inter" font-size="11" fill="${PALETTE.textPrimary}" font-weight="600" dominant-baseline="middle">${a.label}</text>`
-      + `<text x="${vp.x.toFixed(1)}" y="${vp.y.toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="${colorFor(a.value)}" font-weight="700" dominant-baseline="middle">${a.value}</text>`;
+    const vp = { x: lp.x, y: lp.y - 16 }; // valeur centrée PILE au-dessus du label (même X, offset Y constant)
+    return `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" text-anchor="middle" font-family="Inter" font-size="12" fill="${PALETTE.textPrimary}" font-weight="700" dominant-baseline="middle">${a.label}</text>`
+      + `<text x="${vp.x.toFixed(1)}" y="${vp.y.toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono" font-size="13" fill="${colorFor(a.value)}" font-weight="700" dominant-baseline="middle">${a.value}</text>`;
   }).join('');
 
   return `<svg viewBox="0 0 360 360" width="280" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; height:auto;" role="img" aria-label="Radar T360 Score">${gridLevels}${axesLines}${valuePolygon}${dots}${labelsAndValues}</svg>`;
