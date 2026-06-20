@@ -464,7 +464,16 @@ function buildT360RadarPNG(components) {
   }
 }
 
-function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, historicalTrades, startDate, endDate }) {
+// #19 — Buffer PNG brut du radar (pour attachment CID inline Resend — Gmail bloque les data URI).
+function buildT360RadarPNGBuffer(components) {
+  const svgString = buildT360RadarSVG(components);
+  const resvg = new Resvg(svgString, { fitTo: { mode: 'width', value: 600 }, background: 'rgba(0,0,0,0)' });
+  return resvg.render().asPng(); // Buffer Node natif
+}
+
+// radarMode : 'cid' (email — img cid: + attachment, Gmail-safe) ou 'datauri' (preview navigateur).
+// Retourne { html, attachments } (attachments vide en mode datauri).
+function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, historicalTrades, startDate, endDate, radarMode = 'cid' }) {
   const totalTrades = trades.length;
   const totalPnl = trades.reduce((s, t) => s + pnlOf(t), 0);
   const winRate = computeWinRate(trades);
@@ -475,10 +484,25 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   const weakest = findWeakestComponent(score.components);
   const insights = runExpertSystem(trades, journalEntries, score, accounts, historicalTrades);
   const actions = buildActionPlan(insights, weakest);
-  const radarPNG = buildT360RadarPNG(score.components);
-  const radarHtml = radarPNG
-    ? `<img src="${radarPNG}" width="280" height="280" alt="Radar T360 Score" style="max-width:100%; height:auto; display:inline-block;">`
-    : buildT360RadarSVG(score.components); // fallback SVG si rendu PNG indisponible
+  const RADAR_CID = 'radar-t360';
+  let radarHtml, attachments = [];
+  if (radarMode === 'cid') {
+    // Email : PNG en attachment CID inline (Gmail bloque les data URI <img>).
+    try {
+      const buf = buildT360RadarPNGBuffer(score.components);
+      radarHtml = `<img src="cid:${RADAR_CID}" width="280" height="280" alt="Radar T360 Score" style="max-width:100%; height:auto; display:inline-block;">`;
+      attachments = [{ filename: 'radar-t360.png', content: buf.toString('base64'), content_id: RADAR_CID, content_type: 'image/png' }];
+    } catch (e) {
+      console.error('[WEEKLY-REPORT] ❌ Radar CID échoué, fallback SVG:', e);
+      radarHtml = buildT360RadarSVG(score.components);
+    }
+  } else {
+    // Preview navigateur : data URI (cid: ne s'affiche pas hors client mail).
+    const dataUri = buildT360RadarPNG(score.components);
+    radarHtml = dataUri
+      ? `<img src="${dataUri}" width="280" height="280" alt="Radar T360 Score" style="max-width:100%; height:auto; display:inline-block;">`
+      : buildT360RadarSVG(score.components);
+  }
 
   const pnlColor = totalPnl >= 0 ? PALETTE.emerald : PALETTE.coral;
   const pnlSign = totalPnl >= 0 ? '+' : '-';
@@ -488,7 +512,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:28px 0;"></div>`;
   const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
 
-  return `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Rapport hebdomadaire — Trader 360</title></head>
 <body style="margin:0; padding:0; background:${PALETTE.bgNavy};">
 <div style="background:${PALETTE.bgNavy}; padding:40px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:${PALETTE.champagne};">
@@ -551,6 +575,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   </table>
 </div>
 </body></html>`;
+  return { html, attachments };
 }
 
 export {

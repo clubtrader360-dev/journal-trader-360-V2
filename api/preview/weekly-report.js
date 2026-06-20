@@ -35,7 +35,8 @@ export default async function handler(req, res) {
     if (!user) return res.status(404).json({ error: 'User not found for this uuid' });
 
     const period = getWeekBounds();
-    const report = await buildUserReport(supabase, user, period);
+    // preview navigateur → radar en data URI (le cid: ne s'affiche que dans un client mail)
+    const report = await buildUserReport(supabase, user, period, { preview: true });
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     if (report.skip) {

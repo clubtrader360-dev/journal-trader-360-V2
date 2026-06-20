@@ -51,7 +51,7 @@ export async function fetchEligibleStudents(supabase) {
 }
 
 // ---- Construit le rapport d'UN élève. Retourne { html } ou { skip: '<raison>' }. ----
-export async function buildUserReport(supabase, user, period) {
+export async function buildUserReport(supabase, user, period, { preview = false } = {}) {
   const { startDateStr, endDateStr } = period;
   const uid = user.uuid; // toutes les tables référencent user_id = auth uuid
 
@@ -68,7 +68,7 @@ export async function buildUserReport(supabase, user, period) {
   if (weekTrades.length === 0) return { skip: '0 trades' };
   if (weekJournal.length === 0) return { skip: 'no journal entries' };
 
-  const html = generateWeeklyReportHTML({
+  const { html, attachments } = generateWeeklyReportHTML({
     user,
     trades: weekTrades,
     journalEntries: weekJournal,
@@ -76,8 +76,9 @@ export async function buildUserReport(supabase, user, period) {
     historicalTrades: historicalTrades || [],
     startDate: startDateStr,
     endDate: endDateStr,
+    radarMode: preview ? 'datauri' : 'cid', // preview navigateur = data URI ; email = CID attachment
   });
-  return { html };
+  return { html, attachments };
 }
 
 // ========================================
@@ -147,6 +148,7 @@ export default async function handler(req, res) {
           to: recipientForSend,
           subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
           html: report.html,
+          attachments: report.attachments,
         });
         results.push(sent.success
           ? { email: user.email, status: 'sent', sentTo: recipientForSend, emailId: sent.id }
@@ -168,12 +170,14 @@ export default async function handler(req, res) {
 // ========================================
 // Envoi email via Resend
 // ========================================
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html, attachments }) {
   try {
+    const payload = { from: 'Trader 360 <noreply@mail.journaltrader360.fr>', to: [to], subject, html };
+    if (Array.isArray(attachments) && attachments.length > 0) payload.attachments = attachments;
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'Trader 360 <reports@resend.dev>', to: [to], subject, html }),
+      body: JSON.stringify(payload),
     });
     const data = await response.json();
     if (!response.ok) return { success: false, error: data.message || 'Unknown error' };
