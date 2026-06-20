@@ -99,6 +99,15 @@ export default async function handler(req, res) {
   // Mode test ciblé : ?onlyUserId=<uuid> → n'envoie qu'à cet élève (filtre éligibilité conservé).
   const onlyUserId = req.query.onlyUserId || null;
   if (onlyUserId) console.log(`[WEEKLY-REPORT] 🎯 Mode test : envoi UNIQUEMENT à ${onlyUserId}`);
+
+  // Override destinataire (test sans domaine Resend validé) — PREVIEW UNIQUEMENT.
+  const testTo = req.query.testTo || null;
+  if (testTo) {
+    if (!isPreview) return res.status(403).json({ error: 'testTo only allowed in preview deployments' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)) return res.status(400).json({ error: 'testTo : email invalide' });
+    if (!onlyUserId) return res.status(400).json({ error: 'testTo requires onlyUserId (évite d\'envoyer tous les élèves au testeur)' });
+    console.log(`[WEEKLY-REPORT] 🧪 Override destinataire actif → ${testTo}`);
+  }
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
   try {
@@ -132,13 +141,15 @@ export default async function handler(req, res) {
           results.push({ email: user.email, status: 'dry_run' });
           continue;
         }
+        const recipientForSend = testTo || user.email;
+        if (testTo) console.log(`[WEEKLY-REPORT][TEST-OVERRIDE] user=${user.uuid} originalEmail=${user.email} → sentTo=${testTo}`);
         const sent = await sendEmail({
-          to: user.email,
+          to: recipientForSend,
           subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
           html: report.html,
         });
         results.push(sent.success
-          ? { email: user.email, status: 'sent', emailId: sent.id }
+          ? { email: user.email, status: 'sent', sentTo: recipientForSend, emailId: sent.id }
           : { email: user.email, status: 'failed', error: sent.error });
       } catch (e) {
         console.error(`[WEEKLY-REPORT] ❌ ${user.email}:`, e);
@@ -147,7 +158,7 @@ export default async function handler(req, res) {
     }
 
     console.log('[WEEKLY-REPORT] ========== FIN ==========', JSON.stringify(results));
-    return res.status(200).json({ success: true, period, eligible: eligible.length, dryRun: DRY_RUN, results });
+    return res.status(200).json({ success: true, period, eligible: eligible.length, dryRun: DRY_RUN, onlyUserId: onlyUserId || undefined, testToOverride: testTo || undefined, results });
   } catch (error) {
     console.error('[WEEKLY-REPORT] ❌ Erreur globale:', error);
     return res.status(500).json({ error: error.message });
