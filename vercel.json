@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "api/cron/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" },
+    "api/preview/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" }
+  },
   "crons": [
     {
       "path": "/api/cron/replays-sync",

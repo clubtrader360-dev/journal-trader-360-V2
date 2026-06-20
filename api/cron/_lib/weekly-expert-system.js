@@ -5,6 +5,20 @@
 // ========================================================================
 
 import { Resvg } from '@resvg/resvg-js';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// resvg-js (Vercel Linux) ne charge AUCUNE font système → on embarque 2 .ttf open-source.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FONT_DIR = path.join(__dirname, 'fonts');
+const FONT_FILES = [
+  path.join(FONT_DIR, 'Inter-Regular.ttf'),
+  path.join(FONT_DIR, 'JetBrainsMono-Regular.ttf'),
+];
+for (const f of FONT_FILES) {
+  if (!fs.existsSync(f)) console.warn(`[WEEKLY-REPORT] ⚠️ Font manquante : ${f} — labels radar invisibles`);
+}
 
 // ---- Helpers numériques de base ----
 const num = (v) => (parseFloat(v) || 0);
@@ -443,8 +457,8 @@ function buildT360RadarSVG(components) {
   const labelsAndValues = axes.map((a, i) => {
     const lp = { x: cx + (R + 30) * Math.cos(angleAt(i)), y: cy + (R + 30) * Math.sin(angleAt(i)) };
     const vp = { x: cx + (R + 44) * Math.cos(angleAt(i)), y: cy + (R + 44) * Math.sin(angleAt(i)) };
-    return `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="${PALETTE.textPrimary}" font-weight="600" dominant-baseline="middle">${a.label}</text>`
-      + `<text x="${vp.x.toFixed(1)}" y="${vp.y.toFixed(1)}" text-anchor="middle" font-family="Courier New, Courier, monospace" font-size="10" fill="${colorFor(a.value)}" font-weight="700" dominant-baseline="middle">${a.value}</text>`;
+    return `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" text-anchor="middle" font-family="Inter" font-size="11" fill="${PALETTE.textPrimary}" font-weight="600" dominant-baseline="middle">${a.label}</text>`
+      + `<text x="${vp.x.toFixed(1)}" y="${vp.y.toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="${colorFor(a.value)}" font-weight="700" dominant-baseline="middle">${a.value}</text>`;
   }).join('');
 
   return `<svg viewBox="0 0 300 300" width="280" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; height:auto;" role="img" aria-label="Radar T360 Score">${gridLevels}${axesLines}${valuePolygon}${dots}${labelsAndValues}</svg>`;
@@ -467,7 +481,17 @@ function buildT360RadarPNG(components) {
 // #19 — Buffer PNG brut du radar (pour attachment CID inline Resend — Gmail bloque les data URI).
 function buildT360RadarPNGBuffer(components) {
   const svgString = buildT360RadarSVG(components);
-  const resvg = new Resvg(svgString, { fitTo: { mode: 'width', value: 600 }, background: 'rgba(0,0,0,0)' });
+  const resvg = new Resvg(svgString, {
+    fitTo: { mode: 'width', value: 600 },
+    background: 'rgba(0,0,0,0)',
+    font: {
+      fontFiles: FONT_FILES.filter(f => fs.existsSync(f)),
+      loadSystemFonts: false,
+      defaultFontFamily: 'Inter',
+      sansSerifFamily: 'Inter',
+      monospaceFamily: 'JetBrains Mono',
+    },
+  });
   return resvg.render().asPng(); // Buffer Node natif
 }
 
