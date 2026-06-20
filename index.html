@@ -7074,6 +7074,33 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         window.computeProfitFactor = computeProfitFactor;
         window.formatProfitFactor = formatProfitFactor;
 
+        // #78 — RR/% PAR TRADE (R/initial_balance du compte de CHAQUE trade), pas ΣP&L/ΣR de tous les
+        // comptes (bug multi-comptes). Cas single compte = Σ(pnl/R) = ΣP&L/R → identique (pas de régression).
+        function computeTotalRR(trades, accountsArg) {
+            if (!Array.isArray(trades) || trades.length === 0) return null;
+            const accountsList = accountsArg || window.accounts || [];
+            let totalRR = 0, hasAny = false;
+            for (const t of trades) {
+                const account = accountsList.find(a => a.id === t.account_id || a.id === t.accountId);
+                const r = account && account.risk_per_trade ? parseFloat(account.risk_per_trade) : 0;
+                if (r > 0) { totalRR += (parseFloat(t.pnl) || 0) / r; hasAny = true; }
+            }
+            return hasAny ? totalRR : null;
+        }
+        function computeTotalPercent(trades, accountsArg) {
+            if (!Array.isArray(trades) || trades.length === 0) return null;
+            const accountsList = accountsArg || window.accounts || [];
+            let totalPct = 0, hasAny = false;
+            for (const t of trades) {
+                const account = accountsList.find(a => a.id === t.account_id || a.id === t.accountId);
+                const initial = account && account.initial_balance ? parseFloat(account.initial_balance) : 0;
+                if (initial > 0) { totalPct += ((parseFloat(t.pnl) || 0) / initial) * 100; hasAny = true; }
+            }
+            return hasAny ? totalPct : null;
+        }
+        window.computeTotalRR = computeTotalRR;
+        window.computeTotalPercent = computeTotalPercent;
+
         // ========================================
         // DÉCLARATION GLOBALE: updateTradesTable
         // (Doit être définie APRÈS les variables globales)
@@ -12128,11 +12155,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     }
                     // #39/#55 — Performance en RR (Somme P&L du jour ÷ Somme des R des comptes actifs)
                     if (calendarDisplay.showRR) {
-                        const sumR = (window.accounts || [])
-                            .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
-                            .reduce((sum, a) => sum + parseFloat(a.risk_per_trade), 0);
-                        if (sumR > 0) {
-                            const rrValue = dayPnl / sumR;
+                        const rrValue = computeTotalRR(dayTrades); // #78 — par trade (R du compte de chaque trade)
+                        if (rrValue !== null) {
                             const rrColor = rrValue >= 0 ? 'text-green-700' : 'text-red-700';
                             const sign = rrValue > 0 ? '+' : '';
                             statsHtml += `<div class="${otherSizeClass} ${rrColor}">${sign}${rrValue.toFixed(1)}R</div>`;
@@ -12142,11 +12166,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     }
                     // #39/#55 — Performance en % (Somme P&L du jour ÷ Somme des tailles initiales × 100)
                     if (calendarDisplay.showPercent) {
-                        const sumInitial = (window.accounts || [])
-                            .filter(a => a.active && a.initial_balance && parseFloat(a.initial_balance) > 0)
-                            .reduce((sum, a) => sum + parseFloat(a.initial_balance), 0);
-                        if (sumInitial > 0) {
-                            const pctValue = (dayPnl / sumInitial) * 100;
+                        const pctValue = computeTotalPercent(dayTrades); // #78 — par trade (initial_balance du compte)
+                        if (pctValue !== null) {
                             const pctColor = pctValue >= 0 ? 'text-green-700' : 'text-red-700';
                             const sign = pctValue > 0 ? '+' : '';
                             statsHtml += `<div class="${otherSizeClass} ${pctColor}">${sign}${pctValue.toFixed(2)}%</div>`;
@@ -12528,11 +12549,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             // Net P&L
             set('monthNetPnl', (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toFixed(2), netPnl >= 0 ? '#10b981' : '#ef4444');
-            // #55 — équivalent en R (netPnl ÷ Σ R des comptes actifs avec R défini)
-            const _sumR = (window.accounts || [])
-                .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
-                .reduce((s, a) => s + parseFloat(a.risk_per_trade), 0);
-            updateMonthNetPnlInR(_sumR > 0 ? netPnl / _sumR : null);
+            // #78 — équivalent en R PAR TRADE (R du compte de chaque trade ; null si aucun R défini)
+            updateMonthNetPnlInR(computeTotalRR(monthTrades));
             // Trade win % + barre
             const tradeWinPct = computeWinRate(monthTrades); // #66 helper unifié (exclut break-even)
             set('monthTradeWin', decided > 0 ? tradeWinPct.toFixed(1) + '%' : '—');
@@ -14988,10 +15006,8 @@ function _computeShareKpis(tradesArr) {
     const grossLoss = Math.abs(losses.reduce((s, v) => s + v, 0));
     const winRate = decided > 0 ? Math.round(wins.length / decided * 100) : 0;
     const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : null;
-    const sumR = (window.accounts || [])
-        .filter(a => a.active && a.risk_per_trade && parseFloat(a.risk_per_trade) > 0)
-        .reduce((s, a) => s + parseFloat(a.risk_per_trade), 0);
-    const netPnlInR = sumR > 0 ? netPnl / sumR : null;
+    // #78 — R PAR TRADE (R du compte de chaque trade) au lieu de ΣP&L / ΣR de tous les comptes
+    const netPnlInR = (typeof window.computeTotalRR === 'function') ? window.computeTotalRR(tradesArr) : null;
     return { netPnl, winRate, profitFactor, netPnlInR, totalTrades: tradesArr.length };
 }
 function _capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
