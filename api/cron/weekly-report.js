@@ -86,10 +86,19 @@ export async function buildUserReport(supabase, user, period) {
 export default async function handler(req, res) {
   console.log('[WEEKLY-REPORT] ========== START ==========', DRY_RUN ? '(DRY_RUN)' : '');
 
+  // En preview, l'URL est protégée par Vercel Authentication → on relâche le check CRON_SECRET
+  // UNIQUEMENT en preview. En production, le Bearer reste obligatoire (tâche Cowork).
+  const isPreview = process.env.VERCEL_ENV !== 'production';
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return res.status(500).json({ error: 'Missing CRON_SECRET' });
-  if (req.headers.authorization !== `Bearer ${cronSecret}`) return res.status(401).json({ error: 'Unauthorized' });
+  if (!isPreview) {
+    if (!cronSecret) return res.status(500).json({ error: 'Missing CRON_SECRET' });
+    if (req.headers.authorization !== `Bearer ${cronSecret}`) return res.status(401).json({ error: 'Unauthorized' });
+  }
   if (!SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' });
+
+  // Mode test ciblé : ?onlyUserId=<uuid> → n'envoie qu'à cet élève (filtre éligibilité conservé).
+  const onlyUserId = req.query.onlyUserId || null;
+  if (onlyUserId) console.log(`[WEEKLY-REPORT] 🎯 Mode test : envoi UNIQUEMENT à ${onlyUserId}`);
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
   try {
@@ -100,8 +109,17 @@ export default async function handler(req, res) {
     const eligible = await fetchEligibleStudents(supabase);
     console.log(`[WEEKLY-REPORT] 👥 ${eligible.length} élève(s) éligible(s) (actifs, non en pause)`);
 
+    let usersToProcess = eligible;
+    if (onlyUserId) {
+      usersToProcess = eligible.filter(u => u.uuid === onlyUserId);
+      if (usersToProcess.length === 0) {
+        return res.status(404).json({ error: `User ${onlyUserId} non trouvé dans les éligibles (vérifier ≥1 trade ET ≥1 entrée journal cette semaine, et pas en mode Pause)` });
+      }
+      console.log(`[WEEKLY-REPORT] 🎯 1 user ciblé, ${eligible.length - usersToProcess.length} autres skippés`);
+    }
+
     const results = [];
-    for (const user of eligible) {
+    for (const user of usersToProcess) {
       try {
         const report = await buildUserReport(supabase, user, period);
         if (report.skip) {

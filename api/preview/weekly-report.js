@@ -8,13 +8,16 @@
 import { createServiceClient, getWeekBounds, buildUserReport } from '../cron/weekly-report.js';
 
 export default async function handler(req, res) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return res.status(500).json({ error: 'Missing CRON_SECRET' });
-
-  const authHeader = req.headers.authorization;
+  // En preview, les déploiements Vercel sont déjà protégés par "Vercel Authentication"
+  // (seul un compte Vercel autorisé y accède) → on relâche le check token UNIQUEMENT en preview.
+  // En production, le token reste obligatoire.
+  const isPreview = process.env.VERCEL_ENV !== 'production';
   const queryToken = req.query.token;
-  if (authHeader !== `Bearer ${cronSecret}` && queryToken !== cronSecret) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.authorization;
+  if (!isPreview) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && queryToken !== process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
 
   const userId = req.query.userId;
