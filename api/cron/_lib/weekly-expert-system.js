@@ -384,17 +384,22 @@ function buildActionPlan(insights, weakest) {
 // ========================================================================
 // DESIGN EMAIL — Bourse à l'Aube (dark, table-based, compatible clients mail)
 // ========================================================================
+// #19 — Palette LIGHT theme Bourse à l'Aube (meilleure délivrabilité + cohérence inbox claire).
+// Approche A : aliases legacy (bgNavy/glass/champagne/bronze) remappés vers le clair → diff minimal.
 const PALETTE = {
-  bgNavy: '#000B25', gold: '#d4af37', goldFrame: 'rgba(201, 162, 75, 0.55)',
-  champagne: '#f4e4c1', bronze: '#b9a37e', emerald: '#10b981', coral: '#ef4444',
-  glass: 'rgba(15, 28, 58, 0.65)'
+  bgPage: '#fdfaf3', bgCard: '#ffffff', bgInside: '#fdf8ed', bgInsightSoft: '#faf6ec',
+  gold: '#ac862b', goldBright: '#d4af37', goldFrame: '#d4af37', goldFrameSoft: 'rgba(212, 175, 55, 0.45)',
+  textPrimary: '#1a1208', textSecondary: '#5a5040', textMuted: '#7a6b50',
+  emerald: '#067a4f', coral: '#c62828', amber: '#d97706', yellow: '#ca8a04',
+  // aliases legacy (remappés clair)
+  bgNavy: '#fdfaf3', glass: '#ffffff', champagne: '#1a1208', bronze: '#5a5040',
 };
-const SEV_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#eab308', positive: '#10b981' };
+const SEV_COLOR = { high: '#c62828', medium: '#d97706', low: '#ca8a04', positive: '#067a4f' };
 
 function kpiCard(label, value, color) {
   return `<td style="width:25%; padding:4px; vertical-align:top;">
-    <div style="background:rgba(212,175,55,0.05); border:1px solid rgba(201,162,75,0.40); border-radius:10px; padding:14px 6px; text-align:center;">
-      <div style="color:${PALETTE.bronze}; font-size:10px; letter-spacing:0.10em; text-transform:uppercase;">${label}</div>
+    <div style="background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; border-radius:10px; padding:14px 6px; text-align:center;">
+      <div style="color:${PALETTE.textSecondary}; font-size:10px; letter-spacing:0.10em; text-transform:uppercase;">${label}</div>
       <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:22px; font-weight:700; color:${color || PALETTE.champagne}; margin-top:6px;">${value}</div>
     </div>
   </td>`;
@@ -402,10 +407,45 @@ function kpiCard(label, value, color) {
 
 function insightCard(i) {
   const color = SEV_COLOR[i.severity] || PALETTE.gold;
-  return `<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-left:4px solid ${color}; border-radius:8px; padding:14px 16px; margin-bottom:12px;">
-    <div style="color:${PALETTE.champagne}; font-size:14px; line-height:1.5; margin-bottom:6px;">${i.message}</div>
-    <div style="color:${PALETTE.bronze}; font-size:13px; line-height:1.5;">→ ${i.action}</div>
+  return `<div style="background:${PALETTE.bgInsightSoft}; border:1px solid rgba(212,175,55,0.20); border-left:4px solid ${color}; border-radius:8px; padding:14px 16px; margin-bottom:12px;">
+    <div style="color:${PALETTE.textPrimary}; font-size:14px; line-height:1.5; margin-bottom:6px;">${i.message}</div>
+    <div style="color:${PALETTE.textSecondary}; font-size:13px; line-height:1.5;">→ ${i.action}</div>
   </div>`;
+}
+
+// #19 — Radar hexagonal SVG inline (reproduit la card T360 Score du dashboard, compat email).
+function buildT360RadarSVG(components) {
+  const c = components || {};
+  const axes = [
+    { label: 'Win %',           value: Math.round(c.winRate || 0) },
+    { label: 'Consistency',     value: Math.round(c.consistency || 0) },
+    { label: 'Profit factor',   value: Math.round(c.profitFactor || 0) },
+    { label: 'Max drawdown',    value: Math.round(c.drawdown || 0) },
+    { label: 'Avg win/loss',    value: Math.round(c.avgRatio || 0) },
+    { label: 'Recovery factor', value: Math.round(c.recovery || 0) },
+  ];
+  const cx = 150, cy = 150, R = 100;
+  const angleAt = i => (-90 + i * 60) * Math.PI / 180;
+  const point = (i, v) => ({ x: cx + R * (v / 100) * Math.cos(angleAt(i)), y: cy + R * (v / 100) * Math.sin(angleAt(i)) });
+  const colorFor = v => v >= 80 ? PALETTE.emerald : (v >= 50 ? PALETTE.amber : PALETTE.coral);
+
+  const gridLevels = [25, 50, 75, 100].map(level => {
+    const pts = [0,1,2,3,4,5].map(i => { const p = point(i, level); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+    const opacity = (0.10 + (level / 100) * 0.20).toFixed(2);
+    return `<polygon points="${pts}" fill="none" stroke="rgba(172,134,43,${opacity})" stroke-width="1"/>`;
+  }).join('');
+  const axesLines = [0,1,2,3,4,5].map(i => { const p = point(i, 100); return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="rgba(172,134,43,0.20)" stroke-width="1"/>`; }).join('');
+  const valuePts = axes.map((a, i) => { const p = point(i, a.value); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+  const valuePolygon = `<polygon points="${valuePts}" fill="rgba(172,134,43,0.20)" stroke="${PALETTE.gold}" stroke-width="2"/>`;
+  const dots = axes.map((a, i) => { const p = point(i, a.value); return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${PALETTE.gold}"/>`; }).join('');
+  const labelsAndValues = axes.map((a, i) => {
+    const lp = { x: cx + (R + 30) * Math.cos(angleAt(i)), y: cy + (R + 30) * Math.sin(angleAt(i)) };
+    const vp = { x: cx + (R + 44) * Math.cos(angleAt(i)), y: cy + (R + 44) * Math.sin(angleAt(i)) };
+    return `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="${PALETTE.textPrimary}" font-weight="600" dominant-baseline="middle">${a.label}</text>`
+      + `<text x="${vp.x.toFixed(1)}" y="${vp.y.toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono,ui-monospace,monospace" font-size="10" fill="${colorFor(a.value)}" font-weight="700" dominant-baseline="middle">${a.value}</text>`;
+  }).join('');
+
+  return `<svg viewBox="0 0 300 300" width="280" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; height:auto;" role="img" aria-label="Radar T360 Score">${gridLevels}${axesLines}${valuePolygon}${dots}${labelsAndValues}</svg>`;
 }
 
 function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, historicalTrades, startDate, endDate }) {
@@ -425,7 +465,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   const pnlAbs = Math.abs(totalPnl).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const rrLine = totalRR !== null ? `<div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:16px; color:${pnlColor}; opacity:0.85; margin-top:4px;">≈ ${totalRR >= 0 ? '+' : ''}${totalRR.toFixed(1)}R</div>` : '';
 
-  const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, rgba(201,162,55,0.55) 50%, transparent); margin:28px 0;"></div>`;
+  const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:28px 0;"></div>`;
   const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
 
   return `<!DOCTYPE html>
@@ -441,8 +481,8 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
         <p style="color:${PALETTE.bronze}; font-style:italic; margin:0; font-size:14px;">${userName} · semaine du ${formatDate(startDate)} au ${formatDate(endDate)}</p>
       </div>
 
-      <div style="background:rgba(212,175,55,0.05); border:1px solid rgba(201,162,75,0.40); border-radius:12px; padding:24px; text-align:center; margin-bottom:20px;">
-        <div style="color:${PALETTE.bronze}; font-size:12px; letter-spacing:0.14em; text-transform:uppercase;">Net P&L de la semaine</div>
+      <div style="background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; border-radius:12px; padding:24px; text-align:center; margin-bottom:20px;">
+        <div style="color:${PALETTE.textSecondary}; font-size:12px; letter-spacing:0.14em; text-transform:uppercase;">Net P&L de la semaine</div>
         <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:40px; font-weight:700; color:${pnlColor}; line-height:1.2; margin-top:8px;">${pnlSign}$${pnlAbs}</div>
         ${rrLine}
       </div>
@@ -454,12 +494,19 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
         ${kpiCard('T360 Score', String(score.globalScore), PALETTE.gold)}
       </tr></table>
 
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;"><tr><td style="background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; border-radius:12px; padding:22px 16px; text-align:center;">
+        <div style="color:${PALETTE.gold}; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:4px;">Trader 360 Score</div>
+        <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:32px; font-weight:700; color:${PALETTE.gold}; line-height:1; margin-bottom:14px;">${score.globalScore.toFixed(1)}<span style="font-size:14px; color:${PALETTE.textSecondary};"> / 100</span></div>
+        ${buildT360RadarSVG(score.components)}
+        <div style="margin-top:10px; color:${PALETTE.textSecondary}; font-size:11px; font-style:italic;">Tes 6 dimensions de performance cette semaine</div>
+      </td></tr></table>
+
       ${hairline}
 
       <h2 style="color:${PALETTE.gold}; font-size:15px; letter-spacing:0.12em; text-transform:uppercase; margin:0 0 16px;">📊 Analyse de ta semaine</h2>
       ${insights.length > 0 ? insights.map(insightCard).join('') : `<p style="color:${PALETTE.bronze}; font-size:14px;">Semaine propre, aucun pattern problématique détecté. Continue comme ça.</p>`}
 
-      ${weakest ? `<div style="background:rgba(212,175,55,0.08); border-left:4px solid ${PALETTE.gold}; padding:16px 20px; border-radius:8px; margin:24px 0;">
+      ${weakest ? `<div style="background:${PALETTE.bgInside}; border-left:4px solid ${PALETTE.gold}; padding:16px 20px; border-radius:8px; margin:24px 0;">
         <div style="color:${PALETTE.gold}; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px;">Axe prioritaire — Trader 360 Score</div>
         <div style="color:${PALETTE.champagne}; font-size:14px; line-height:1.6;"><strong>${weakest.label}</strong> : ${weakest.score}/100<br>${weakest.recommendation}</div>
       </div>` : ''}
@@ -472,10 +519,10 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
       </ol>
 
       <div style="text-align:center; margin-top:32px;">
-        <a href="https://journaltrader360.fr" style="display:inline-block; background:${PALETTE.gold}; color:${PALETTE.bgNavy}; padding:14px 32px; border-radius:10px; text-decoration:none; font-weight:600; letter-spacing:0.04em;">Ouvrir mon journal →</a>
+        <a href="https://journaltrader360.fr" style="display:inline-block; background:${PALETTE.goldBright}; color:#000B25; padding:14px 32px; border-radius:10px; text-decoration:none; font-weight:600; letter-spacing:0.04em;">Ouvrir mon journal →</a>
       </div>
 
-      <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.08); color:${PALETTE.bronze}; font-size:11px;">
+      <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
         Trader 360 · rapport généré le ${formatDate(new Date().toISOString().split('T')[0])}<br>
         <em>Le trading comporte des risques de perte en capital.</em>
       </div>
