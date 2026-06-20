@@ -4,6 +4,8 @@
 // 100% rules-based (0€ d'IA). Formules répliquées du dashboard pour cohérence.
 // ========================================================================
 
+import { Resvg } from '@resvg/resvg-js';
+
 // ---- Helpers numériques de base ----
 const num = (v) => (parseFloat(v) || 0);
 const pnlOf = (t) => num(t.pnl);
@@ -448,6 +450,20 @@ function buildT360RadarSVG(components) {
   return `<svg viewBox="0 0 300 300" width="280" height="280" xmlns="http://www.w3.org/2000/svg" style="max-width:100%; height:auto;" role="img" aria-label="Radar T360 Score">${gridLevels}${axesLines}${valuePolygon}${dots}${labelsAndValues}</svg>`;
 }
 
+// #19 — Conversion du radar SVG en PNG data URI (Gmail/Outlook strippent le SVG inline).
+// Rendu 600px (retina) pour un affichage net à 280px. Fond transparent (la card a déjà son fond).
+function buildT360RadarPNG(components) {
+  try {
+    const svgString = buildT360RadarSVG(components);
+    const resvg = new Resvg(svgString, { fitTo: { mode: 'width', value: 600 }, background: 'rgba(0,0,0,0)' });
+    const pngBuffer = resvg.render().asPng();
+    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
+  } catch (e) {
+    console.error('[WEEKLY-REPORT] ❌ Rendu radar PNG échoué:', e);
+    return null; // fallback géré côté template (image omise)
+  }
+}
+
 function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, historicalTrades, startDate, endDate }) {
   const totalTrades = trades.length;
   const totalPnl = trades.reduce((s, t) => s + pnlOf(t), 0);
@@ -459,6 +475,10 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   const weakest = findWeakestComponent(score.components);
   const insights = runExpertSystem(trades, journalEntries, score, accounts, historicalTrades);
   const actions = buildActionPlan(insights, weakest);
+  const radarPNG = buildT360RadarPNG(score.components);
+  const radarHtml = radarPNG
+    ? `<img src="${radarPNG}" width="280" height="280" alt="Radar T360 Score" style="max-width:100%; height:auto; display:inline-block;">`
+    : buildT360RadarSVG(score.components); // fallback SVG si rendu PNG indisponible
 
   const pnlColor = totalPnl >= 0 ? PALETTE.emerald : PALETTE.coral;
   const pnlSign = totalPnl >= 0 ? '+' : '-';
@@ -497,7 +517,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;"><tr><td style="background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; border-radius:12px; padding:22px 16px; text-align:center;">
         <div style="color:${PALETTE.gold}; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:4px;">Trader 360 Score</div>
         <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:32px; font-weight:700; color:${PALETTE.gold}; line-height:1; margin-bottom:14px;">${score.globalScore.toFixed(1)}<span style="font-size:14px; color:${PALETTE.textSecondary};"> / 100</span></div>
-        ${buildT360RadarSVG(score.components)}
+        ${radarHtml}
         <div style="margin-top:10px; color:${PALETTE.textSecondary}; font-size:11px; font-style:italic;">Tes 6 dimensions de performance cette semaine</div>
       </td></tr></table>
 

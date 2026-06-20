@@ -9,6 +9,7 @@
     "test-weekly-report": "node --experimental-modules api/cron/weekly-report.js"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@supabase/supabase-js": "^2.39.0",
     "framer-motion": "^12.40.0"
   },
