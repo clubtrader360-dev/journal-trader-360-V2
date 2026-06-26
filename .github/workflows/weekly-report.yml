@@ -12,6 +12,10 @@ on:
         description: 'Raison du déclenchement manuel (log)'
         required: false
         default: 'Test manuel'
+      only_user_id:
+        description: 'UUID élève cible (test ciblé — vide = envoi à TOUS les éligibles)'
+        required: false
+        default: ''
 
 jobs:
   send-weekly-report:
@@ -25,16 +29,28 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           REASON: ${{ github.event.inputs.reason || 'cron auto' }}
+          ONLY_USER_ID: ${{ github.event.inputs.only_user_id }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::error::CRON_SECRET secret manquant côté GitHub. Settings → Secrets and variables → Actions → crée 'CRON_SECRET' (même valeur que l'env var Vercel)."
             exit 1
           fi
 
-          echo "🚀 Déclenchement du rapport hebdo (raison: $REASON)"
+          # URL avec ?onlyUserId=<uuid> optionnel (test ciblé). Validation format UUID (anti-injection URL).
+          URL="https://journaltrader360.fr/api/cron/weekly-report"
+          if [ -n "$ONLY_USER_ID" ]; then
+            if ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
+              echo "::error::only_user_id invalide (UUID attendu) : '$ONLY_USER_ID'"
+              exit 1
+            fi
+            URL="${URL}?onlyUserId=${ONLY_USER_ID}"
+            echo "🎯 Mode test ciblé : onlyUserId=$ONLY_USER_ID"
+          else
+            echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
+          fi
 
           response=$(curl -sS -w "\n---HTTP_STATUS:%{http_code}---" -X GET \
-            "https://journaltrader360.fr/api/cron/weekly-report" \
+            "$URL" \
             -H "Authorization: Bearer $CRON_SECRET" \
             --max-time 240 \
             --retry 2 --retry-delay 10)
