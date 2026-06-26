@@ -1184,3 +1184,15 @@ body:not(.dark-mode) #coachApp .traderzella-banner {
 
 /* Hover doré sur les lignes de la table élèves */
 #coachApp #coachStudentsTable tr:hover { background: rgba(212, 175, 55, 0.06) !important; }
+
+/* #33 2b-i — Banner coach à 5 KPI (responsive) + engrenage filtres calendrier */
+#coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1100px) { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px)  { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: 1fr; } }
+.coach-cal-settings {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 230px;
+  background: rgba(10, 15, 24, 0.96); border: 1px solid var(--aube-frame, rgba(201,162,75,0.55));
+  border-radius: 12px; padding: 12px 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+body:not(.dark-mode) .coach-cal-settings { background: rgba(255,250,240,0.97); }
+.coach-cal-settings label { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13px; cursor: pointer; }

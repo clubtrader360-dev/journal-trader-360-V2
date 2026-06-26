@@ -3251,8 +3251,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <div id="coachHeroSub" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;">— élèves actifs ce mois</div>
                 </div>
 
-                <!-- 4 KPI agrégés (mois) -->
-                <div class="traderzella-banner">
+                <!-- 5 KPI agrégés (mois) -->
+                <div class="traderzella-banner coach-kpi-5">
+                    <div class="metric-item">
+                        <div class="metric-header">Élèves actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves ayant tradé au moins une fois ce mois.</span></i></div>
+                        <div class="metric-main"><div class="metric-value-medium" id="coachActiveStudents">0</div></div>
+                    </div>
                     <div class="metric-item">
                         <div class="metric-header">Win Rate moyen <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Moyenne du Win Rate de chaque élève actif ce mois (chaque élève compte pour 1).</span></i></div>
                         <div class="metric-main">
@@ -3265,7 +3269,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div class="metric-main"><div class="metric-value-medium" id="coachProfitFactor">0.00</div></div>
                     </div>
                     <div class="metric-item">
-                        <div class="metric-header">Total Trades (mois) <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves ce mois.</span></i></div>
+                        <div class="metric-header">Total Trades <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves ce mois.</span></i></div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="coachTotalTrades">0</div>
                             <div class="metric-counters">
@@ -3275,12 +3279,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </div>
                     </div>
                     <div class="metric-item net-pnl">
-                        <div class="metric-header">T360 Score moyen <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Score Trader 360 moyen des élèves (moyenne simple). Détail des 6 composantes dans le radar ci-dessous.</span></i></div>
-                        <div class="metric-main"><div class="metric-value-large" id="coachT360Score">0.0</div></div>
+                        <div class="metric-header">T360 Score <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Score Trader 360 moyen des élèves (moyenne simple). Composantes : Win % · Consistency · Profit factor · Max drawdown · Avg win/loss · Recovery factor. Détail dans le radar ci-dessous.</span></i></div>
+                        <div class="metric-main" style="display:flex; align-items:center; gap:10px; justify-content:center;">
+                            <div class="metric-value-large" id="coachT360Score">0.0</div>
+                            <div id="coachT360MiniRadar" style="flex-shrink:0;"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Carte T360 Score moyen + radar hexagonal (6 composantes moyennes) -->
+                <!-- Carte grand radar T360 (6 composantes moyennes, avec labels) -->
                 <div class="trader-card" style="padding: 24px; margin-top: 24px; text-align: center;">
                     <h2 class="text-xl font-bold mb-2" style="color: var(--color-gold, #d4af37);">Trader 360 Score — moyenne des élèves</h2>
                     <div style="font-size: 0.8rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 12px;">Moyenne simple des 6 composantes sur les élèves ayant tradé ce mois</div>
@@ -3300,11 +3307,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 <i class="fas fa-calendar-alt mr-2 text-indigo-600"></i>
                                 <span id="globalCalendarMonthYear">Janvier 2026</span>
                             </h2>
-                            <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
-                                <i class="fas fa-chevron-right text-xl"></i>
-                            </button>
+                            <div style="position: relative;">
+                                <button type="button" onclick="toggleCoachCalendarSettings(event)" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition" title="Affichage du calendrier" style="margin-right:4px;">
+                                    <i class="fas fa-cog text-lg"></i>
+                                </button>
+                                <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
+                                    <i class="fas fa-chevron-right text-xl"></i>
+                                </button>
+                                <div id="coachCalendarSettings" class="coach-cal-settings" style="display:none;">
+                                    <label><input type="checkbox" id="coachShowDollar" checked onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> P&L ($)</label>
+                                    <label><input type="checkbox" id="coachShowR" onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> Performance en RR</label>
+                                    <label><input type="checkbox" id="coachShowPercent" onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> Performance en %</label>
+                                    <label><input type="checkbox" id="coachShowActionsErrors" checked onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> Actions / Erreurs (✅/❌)</label>
+                                </div>
+                            </div>
                         </div>
-                        
+
                         <!-- Header jours -->
                         <div class="grid grid-cols-7 gap-2 mb-3">
                             <div class="text-center font-semibold text-gray-600 text-xs py-1">Dim</div>
@@ -3315,10 +3333,19 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <div class="text-center font-semibold text-gray-600 text-xs py-1">Ven</div>
                             <div class="text-center font-semibold text-gray-600 text-xs py-1">Sam</div>
                         </div>
-                        
+
                         <!-- Grille calendrier -->
                         <div id="globalCalendarGrid" class="grid grid-cols-7 gap-2">
                             <!-- Sera rempli par JS -->
+                        </div>
+
+                        <!-- 5 KPI du mois sous le calendrier (parité #51, agrégé tous élèves) -->
+                        <div class="traderzella-banner coach-month-kpi" style="margin-top:18px; margin-bottom:0; grid-template-columns: repeat(5, 1fr);">
+                            <div class="metric-item"><div class="metric-header">Net P&L mois</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthNetPnl">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Win Rate mois</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthWinRate">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Profit Factor</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthPF">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Trades</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthTrades">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Trade moyen</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthAvg">—</div></div></div>
                         </div>
                     </div>
                     
