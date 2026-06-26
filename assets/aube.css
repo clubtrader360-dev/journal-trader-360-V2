@@ -1103,3 +1103,84 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
   font-feature-settings: "tnum" 1 !important;
   font-variant-numeric: tabular-nums !important;
 }
+
+/* ============================================================================
+   #33 COMMIT 1 — Palette "Bourse à l'Aube" appliquée au MODE COACH (#coachApp).
+   Les sections coach utilisent DÉJÀ les mêmes classes que l'élève (.trader-card,
+   .metric-item, .traderzella-banner, .sidebar, .main-content, .section) ; seul le
+   scope #mainApp les privait du traitement. Ce bloc réplique les mêmes valeurs pour
+   #coachApp. 100% additif, #mainApp (élève) strictement intact.
+   ============================================================================ */
+
+/* Fond executive NY à l'aube + overlay (dark / light) */
+#coachApp {
+  background: linear-gradient(rgba(0,11,37,0.45), rgba(0,11,37,0.45)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+body:not(.dark-mode) #coachApp {
+  background: linear-gradient(rgba(255,250,240,0.55), rgba(255,250,240,0.55)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+#coachApp .main-content, body.dark-mode #coachApp .main-content { background: transparent !important; }
+
+/* Sidebar coach : glass translucide + blur + séparateur doré (idem élève) */
+#coachAppSidebar > * { background: transparent !important; }
+#coachAppSidebar, #coachApp .sidebar {
+  background: rgba(10, 15, 24, 0.55) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+  border-right: 1px solid rgba(201, 162, 75, 0.15) !important;
+}
+body:not(.dark-mode) #coachAppSidebar > * { background: transparent !important; }
+body:not(.dark-mode) #coachAppSidebar,
+body:not(.dark-mode) #coachApp .sidebar { background: rgba(255, 250, 240, 0.75) !important; }
+body.dark-mode #coachAppSidebar .sidebar-item,
+body.dark-mode #coachAppSidebar h3,
+body.dark-mode #coachAppSidebar #coachUserInfo,
+body.dark-mode #coachAppSidebar a,
+body.dark-mode #coachAppSidebar span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+body.dark-mode #coachAppSidebar .text-gray-300,
+body.dark-mode #coachAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85) !important; }
+
+/* Typo chiffres : JetBrains Mono + tabular-nums */
+#coachApp .metric-value-large, #coachApp .metric-value-medium {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
+/* Cards "photo encadrée" : cadre or fin + fond navy translucide + hover lift */
+#coachApp .trader-card, body.dark-mode #coachApp .trader-card,
+#coachApp .metric-item, body.dark-mode #coachApp .metric-item {
+  background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
+  border: 1px solid var(--aube-frame) !important;
+  border-radius: var(--aube-frame-radius) !important;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 200ms var(--aube-ease), filter 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+#coachApp .trader-card:hover, body.dark-mode #coachApp .trader-card:hover,
+#coachApp .metric-item:hover, body.dark-mode #coachApp .metric-item:hover {
+  transform: translateY(-1px); filter: brightness(1.08);
+  border-color: var(--aube-frame-hover) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42), 0 0 22px -8px rgba(212, 175, 55, 0.4) !important;
+}
+body:not(.dark-mode) #coachApp .trader-card,
+body:not(.dark-mode) #coachApp .metric-item {
+  background: rgba(255, 250, 240, 0.75) !important; color: #1a1208 !important;
+}
+
+/* Banner head metrics quasi-transparent (laisse respirer le fond) */
+body.dark-mode #coachApp .traderzella-banner {
+  background: rgba(0, 11, 37, 0.15) !important; border-color: transparent !important; box-shadow: none !important;
+}
+body:not(.dark-mode) #coachApp .traderzella-banner {
+  background: rgba(255, 250, 240, 0.18) !important; box-shadow: none !important; border: none !important;
+}
+
+/* Animation d'entrée des sections + cards (idem élève) */
+#coachApp .section:not(.hidden) { animation: aubeSectionIn 240ms var(--aube-ease); }
+#coachApp .section:not(.hidden) .trader-card { animation: aubeCardIn 420ms var(--aube-ease) both; }
+
+/* Hover doré sur les lignes de la table élèves */
+#coachApp #coachStudentsTable tr:hover { background: rgba(212, 175, 55, 0.06) !important; }
