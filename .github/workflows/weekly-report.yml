@@ -37,7 +37,7 @@ jobs:
           fi
 
           # URL avec ?onlyUserId=<uuid> optionnel (test ciblé). Validation format UUID (anti-injection URL).
-          URL="https://journaltrader360.fr/api/cron/weekly-report"
+          URL="https://www.journaltrader360.fr/api/cron/weekly-report"
           if [ -n "$ONLY_USER_ID" ]; then
             if ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
               echo "::error::only_user_id invalide (UUID attendu) : '$ONLY_USER_ID'"
