@@ -1,9 +1,9 @@
 {
+  "functions": {
+    "api/cron/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" },
+    "api/preview/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" }
+  },
   "crons": [
-    {
-      "path": "/api/cron/weekly-report",
-      "schedule": "0 19 * * 0"
-    },
     {
       "path": "/api/cron/replays-sync",
       "schedule": "0 18 * * 1-5"
