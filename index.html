@@ -3244,64 +3244,47 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
             <!-- Dashboard Global -->
             <div id="coachDashboard" class="section">
-                <!-- Banner Style Coach -->
-                <div class="traderzella-banner">
-                    <!-- Élèves Actifs -->
-                    <div class="metric-item">
-                        <div class="metric-header">
-                            Élèves Actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves avec le statut actif dans l'école</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-large" id="coachTotalStudents">0</div>
-                            <i class="fas fa-users" style="color: #3b82f6; font-size: 20px;"></i>
-                        </div>
-                    </div>
+                <!-- #33 — Hero P&L agrégé (mois courant, tous élèves) -->
+                <div class="trader-card" style="padding: 24px; text-align: center; margin-bottom: 24px;">
+                    <div class="metric-header" style="justify-content:center;">P&L global — <span id="coachHeroMonthLabel">ce mois</span></div>
+                    <div class="metric-value-large" id="coachHeroPnl" style="font-size: 2.75rem;">$0.00</div>
+                    <div id="coachHeroSub" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;">— élèves actifs ce mois</div>
+                </div>
 
-                    <!-- Win Rate Global -->
+                <!-- 4 KPI agrégés (mois) -->
+                <div class="traderzella-banner">
                     <div class="metric-item">
-                        <div class="metric-header">
-                            Win Rate Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Pourcentage de trades gagnants de tous les élèves actifs combinés</span></i>
-                        </div>
+                        <div class="metric-header">Win Rate moyen <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Moyenne du Win Rate de chaque élève actif ce mois (chaque élève compte pour 1).</span></i></div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="coachGlobalWinRate">0%</div>
-                            <div class="metric-bar-container">
-                                <div class="metric-bar-bg">
-                                    <div class="metric-bar-fill green" id="coachWinRateBar" style="width: 0%;"></div>
-                                </div>
-                            </div>
+                            <div class="metric-bar-container"><div class="metric-bar-bg"><div class="metric-bar-fill green" id="coachWinRateBar" style="width: 0%;"></div></div></div>
                         </div>
                     </div>
-
-                    <!-- Total Trades -->
                     <div class="metric-item">
-                        <div class="metric-header">
-                            Total Trades <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves</span></i>
-                        </div>
+                        <div class="metric-header">Profit Factor <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profits bruts ÷ pertes brutes, agrégés sur tous les élèves ce mois.</span></i></div>
+                        <div class="metric-main"><div class="metric-value-medium" id="coachProfitFactor">0.00</div></div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-header">Total Trades (mois) <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves ce mois.</span></i></div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="coachTotalTrades">0</div>
                             <div class="metric-counters">
-                                <div class="counter-item">
-                                    <div class="counter-label">Gagnants</div>
-                                    <div class="counter-value green" id="coachTotalWins">0</div>
-                                </div>
-                                <div class="counter-item">
-                                    <div class="counter-label">Perdants</div>
-                                    <div class="counter-value red" id="coachTotalLosses">0</div>
-                                </div>
+                                <div class="counter-item"><div class="counter-label">Gagnants</div><div class="counter-value green" id="coachTotalWins">0</div></div>
+                                <div class="counter-item"><div class="counter-label">Perdants</div><div class="counter-value red" id="coachTotalLosses">0</div></div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- P&L Global -->
                     <div class="metric-item net-pnl">
-                        <div class="metric-header">
-                            P&L Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte total de tous les élèves combinés</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-large" id="coachGlobalPnL">$0.00</div>
-                            <i class="fas fa-dollar-sign" style="color: #10b981; font-size: 20px;"></i>
-                        </div>
+                        <div class="metric-header">T360 Score moyen <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Score Trader 360 moyen des élèves (moyenne simple). Détail des 6 composantes dans le radar ci-dessous.</span></i></div>
+                        <div class="metric-main"><div class="metric-value-large" id="coachT360Score">0.0</div></div>
                     </div>
+                </div>
+
+                <!-- Carte T360 Score moyen + radar hexagonal (6 composantes moyennes) -->
+                <div class="trader-card" style="padding: 24px; margin-top: 24px; text-align: center;">
+                    <h2 class="text-xl font-bold mb-2" style="color: var(--color-gold, #d4af37);">Trader 360 Score — moyenne des élèves</h2>
+                    <div style="font-size: 0.8rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 12px;">Moyenne simple des 6 composantes sur les élèves ayant tradé ce mois</div>
+                    <div id="coachT360Radar" style="display:flex; justify-content:center;"></div>
                 </div>
 
                 <!-- Grille 2 colonnes: Calendrier + Trader 360 Score -->
@@ -15321,5 +15304,6 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
     <script src="/assets/dashboard-customizer.js" defer></script>
+    <script src="/assets/coach-dashboard.js" defer></script>
 </body>
 </html>
