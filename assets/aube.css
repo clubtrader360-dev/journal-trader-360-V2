@@ -1185,10 +1185,14 @@ body:not(.dark-mode) #coachApp .traderzella-banner {
 /* Hover doré sur les lignes de la table élèves */
 #coachApp #coachStudentsTable tr:hover { background: rgba(212, 175, 55, 0.06) !important; }
 
-/* #33 2b-i — Banner coach à 5 KPI (responsive) + engrenage filtres calendrier */
-#coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(5, 1fr); }
-@media (max-width: 1100px) { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px)  { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: 1fr; } }
+/* #33 2b — Banner coach à 6 KPI (responsive) + engrenage filtres calendrier */
+#coachApp .traderzella-banner.coach-kpi-6 { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 1280px) { #coachApp .traderzella-banner.coach-kpi-6 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px)  { #coachApp .traderzella-banner.coach-kpi-6 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px)  { #coachApp .traderzella-banner.coach-kpi-6 { grid-template-columns: 1fr; } }
+/* Calendrier coach pleine page : cellules plus grandes */
+#coachApp #globalCalendarGrid > div { min-height: 70px; }
+#coachApp #globalCalendarGrid .cell-pnl { font-size: 1.05rem; }
 .coach-cal-settings {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 230px;
   background: rgba(10, 15, 24, 0.96); border: 1px solid var(--aube-frame, rgba(201,162,75,0.55));

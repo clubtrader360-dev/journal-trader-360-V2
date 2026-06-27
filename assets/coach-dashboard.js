@@ -269,17 +269,157 @@
       set('coachMonthTrades', monthTrades > 0 ? monthTrades.toLocaleString('fr-FR') : '—');
       set('coachMonthAvg', monthTrades > 0 ? fmt$(monthPnl / monthTrades) : '—');
 
-      // Radars (grand + mini)
+      // P&L global ALL-TIME (somme de l'agrégat journalier complet)
+      var allTimePnl = 0; Object.keys(cache.dailyDollar).forEach(function (k) { allTimePnl += parseFloat(cache.dailyDollar[k].total_pnl) || 0; });
+      var gp = document.getElementById('coachGlobalPnl');
+      if (gp) { gp.textContent = fmt$(allTimePnl); gp.style.color = allTimePnl >= 0 ? '#10b981' : '#ef4444'; }
+
+      // Mini-radar dans la KPI T360 (le grand radar dédié a été retiré en 2b-ii)
       var comps = null;
       if (scoreCount > 0) { comps = {}; Object.keys(compAcc).forEach(function (k) { comps[k] = compAcc[k] / scoreCount; }); }
-      var big = document.getElementById('coachT360Radar');
-      if (big) big.innerHTML = comps ? radarSVG(comps, { mini: false }) : '<div style="color:var(--aube-text-secondary,rgba(255,255,255,0.6));padding:40px;">Aucune donnée élève</div>';
       var mini = document.getElementById('coachT360MiniRadar');
       if (mini) mini.innerHTML = comps ? radarSVG(comps, { mini: true }) : '';
 
-      console.log('[COACH-DASH] ✅ ' + fmt$(monthPnl) + ' · WR ' + avgWR + '% · PF ' + pfStr + ' · T360 ' + avgScore.toFixed(1) + ' (' + scoreCount + ' élèves)');
+      // Charts secondaires + régularité + protections + alertes (agrégation front)
+      renderSecondary(students, mKey, comps ? comps.consistency : 0);
+
+      console.log('[COACH-DASH] ✅ all-time ' + fmt$(allTimePnl) + ' · mois ' + fmt$(monthPnl) + ' · WR ' + avgWR + '% · T360 ' + avgScore.toFixed(1) + ' (' + scoreCount + ' élèves)');
     } catch (e) { console.error('[COACH-DASH] ❌', e); }
   };
+
+  // ===== Charts secondaires (Chart.js) + régularité + protections + Points à surveiller =====
+  var charts = {};
+  function destroyChart(k) { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } }
+
+  function hourOf(t) { return parseInt(String(t.entry_time || '').split(':')[0], 10); }
+  function durationMin(t) {
+    var e = t.entry_time, x = t.exit_time; if (!e || !x) return null;
+    var ep = e.split(':'), xp = x.split(':');
+    var d = ((parseInt(xp[0]) || 0) * 60 + (parseInt(xp[1]) || 0)) - ((parseInt(ep[0]) || 0) * 60 + (parseInt(ep[1]) || 0));
+    if (d < 0) d += 1440; return d;
+  }
+  function dirOf(t) { return String(t.direction || t.trade_type || '').toUpperCase(); }
+
+  function renderSecondary(students, mKey, avgConsistencyScore) {
+    var allTrades = [];
+    students.forEach(function (s) { ((s.data && s.data.trades) || []).forEach(function (t) { allTrades.push(t); }); });
+
+    // 1) Régularité (concentration moyenne = 100 - score moyen ; plus bas = mieux)
+    var ratio = Math.max(0, Math.round(100 - (avgConsistencyScore || 0)));
+    var rEl = document.getElementById('globalConsistencyRatio'); if (rEl) rEl.textContent = ratio + '%';
+    var bar = document.getElementById('globalConsistencyBar'); if (bar) bar.style.width = Math.min(100, ratio) + '%';
+    var lbl = document.getElementById('globalConsistencyLabel'), desc = document.getElementById('globalConsistencyDesc');
+    if (lbl && desc) {
+      if (ratio <= 40) { lbl.textContent = 'Excellent'; desc.textContent = 'Profits bien répartis chez les élèves'; }
+      else if (ratio <= 60) { lbl.textContent = 'Correct'; desc.textContent = 'Régularité moyenne'; }
+      else { lbl.textContent = 'À surveiller'; desc.textContent = 'Profits trop concentrés sur peu de jours'; }
+    }
+
+    if (!window.Chart) return;
+    var axisColor = 'rgba(244,228,193,0.7)', gridColor = 'rgba(255,255,255,0.06)';
+
+    // 2) Performance par Heure (bubble)
+    var byHour = {};
+    allTrades.forEach(function (t) { var h = hourOf(t); if (!isFinite(h)) return; (byHour[h] = byHour[h] || []).push(parseFloat(t.pnl) || 0); });
+    var bubbles = Object.keys(byHour).map(function (h) {
+      var arr = byHour[h]; var avg = arr.reduce(function (a, b) { return a + b; }, 0) / arr.length;
+      return { x: parseInt(h), y: Math.round(avg), r: Math.min(26, 4 + Math.sqrt(arr.length)), _c: avg >= 0 ? '#10b981' : '#ef4444' };
+    });
+    var hc = document.getElementById('globalHourlyChart');
+    if (hc) {
+      destroyChart('hourly');
+      charts.hourly = new Chart(hc.getContext('2d'), {
+        type: 'bubble',
+        data: { datasets: [{ data: bubbles, backgroundColor: bubbles.map(function (b) { return b._c + '88'; }), borderColor: bubbles.map(function (b) { return b._c; }) }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { min: 6, max: 23, title: { display: true, text: 'Heure', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } },
+                    y: { title: { display: true, text: 'P&L moyen ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
+      });
+    }
+
+    // 3) Performance par Durée (bar par bucket)
+    var buckets = [{ l: '<15min', min: 0, max: 15 }, { l: '15-60', min: 15, max: 60 }, { l: '1-4h', min: 60, max: 240 }, { l: '>4h', min: 240, max: 1e9 }];
+    var bvals = buckets.map(function (b) {
+      var arr = allTrades.filter(function (t) { var d = durationMin(t); return d != null && d >= b.min && d < b.max; }).map(function (t) { return parseFloat(t.pnl) || 0; });
+      return arr.length ? Math.round(arr.reduce(function (a, c) { return a + c; }, 0) / arr.length) : 0;
+    });
+    var dc = document.getElementById('globalDurationChart');
+    if (dc) {
+      destroyChart('duration');
+      charts.duration = new Chart(dc.getContext('2d'), {
+        type: 'bar',
+        data: { labels: buckets.map(function (b) { return b.l; }), datasets: [{ data: bvals, backgroundColor: bvals.map(function (v) { return v >= 0 ? '#10b98188' : '#ef444488'; }), borderColor: bvals.map(function (v) { return v >= 0 ? '#10b981' : '#ef4444'; }), borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: axisColor }, grid: { color: gridColor } }, y: { title: { display: true, text: 'P&L moyen ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
+      });
+    }
+
+    // 4) P&L cumulé / Drawdown global (line) — depuis l'agrégat journalier trié
+    var days = Object.keys(cache.dailyDollar).sort();
+    var cum = 0; var cumData = days.map(function (d) { cum += parseFloat(cache.dailyDollar[d].total_pnl) || 0; return cum; });
+    var ddc = document.getElementById('globalDrawdownChart');
+    if (ddc) {
+      destroyChart('drawdown');
+      charts.drawdown = new Chart(ddc.getContext('2d'), {
+        type: 'line',
+        data: { labels: days, datasets: [{ data: cumData, borderColor: '#d4af37', backgroundColor: 'rgba(212,175,55,0.12)', fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { ticks: { display: false }, grid: { display: false } }, y: { title: { display: true, text: 'P&L cumulé ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
+      });
+    }
+
+    // 5) Analyse Protections (% SL placé / TP placé / protections cochées). Hit-rate SL vs TP = Phase 2 (pas d'exit_reason).
+    var pc = document.getElementById('globalProtectionAnalysisContainer');
+    if (pc) {
+      var n = allTrades.length || 1;
+      var slPct = Math.round(allTrades.filter(function (t) { return t.stop_loss != null && t.stop_loss !== ''; }).length / n * 100);
+      var tpPct = Math.round(allTrades.filter(function (t) { return t.take_profit != null && t.take_profit !== ''; }).length / n * 100);
+      var protPct = Math.round(allTrades.filter(function (t) { var p = t.protections; return Array.isArray(p) ? p.length > 0 : (p != null && String(p).trim() !== ''); }).length / n * 100);
+      var row = function (label, v) { return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;"><span>' + label + '</span><span style="font-weight:700;color:var(--color-gold,#d4af37);">' + v + '%</span></div><div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin-bottom:6px;"><div style="height:100%;width:' + v + '%;background:#d4af37;"></div></div>'; };
+      pc.innerHTML = row('Trades avec Stop Loss placé', slPct) + row('Trades avec Take Profit placé', tpPct) + row('Trades avec protections cochées', protPct)
+        + '<div style="font-size:11px;color:var(--aube-text-secondary,rgba(255,255,255,0.55));font-style:italic;margin-top:6px;">Hit-rate SL vs TP : Phase 2 (nécessite exit_reason).</div>';
+    }
+
+    // 6) Points à surveiller agrégés (communauté, mois affiché)
+    var counts = { surtrading: 0, revenge: 0, late: 0, streak: 0 };
+    students.forEach(function (s) {
+      var trades = ((s.data && s.data.trades) || []).filter(function (t) { return String(t.trade_date || t.date || '').slice(0, 7) === mKey; });
+      if (!trades.length) return;
+      var byDay = {}; trades.forEach(function (t) { var d = String(t.trade_date || t.date).slice(0, 10); (byDay[d] = byDay[d] || []).push(t); });
+      if (Object.keys(byDay).filter(function (d) { return byDay[d].length > 4; }).length >= 1) counts.surtrading++;
+      var sorted = trades.slice().sort(function (a, b) { return (String(a.trade_date) + (a.entry_time || '')).localeCompare(String(b.trade_date) + (b.entry_time || '')); });
+      var lossesArr = sorted.filter(function (t) { return (parseFloat(t.pnl) || 0) < 0; });
+      var avgLoss = lossesArr.length ? lossesArr.reduce(function (a, t) { return a + Math.abs(parseFloat(t.pnl) || 0); }, 0) / lossesArr.length : 0;
+      var rev = false, cur = 0, maxStreak = 0;
+      for (var i = 0; i < sorted.length; i++) {
+        var p = parseFloat(sorted[i].pnl) || 0;
+        if (p < 0) { cur++; maxStreak = Math.max(maxStreak, cur); } else cur = 0;
+        if (i < sorted.length - 1 && avgLoss > 0 && Math.abs(p) > avgLoss * 1.5 && p < 0) {
+          var nx = sorted[i + 1];
+          if (String(sorted[i].trade_date) === String(nx.trade_date) && sorted[i].exit_time && nx.entry_time) {
+            var ex = sorted[i].exit_time.split(':'), en = nx.entry_time.split(':');
+            var gapM = ((parseInt(en[0]) || 0) * 60 + (parseInt(en[1]) || 0)) - ((parseInt(ex[0]) || 0) * 60 + (parseInt(ex[1]) || 0));
+            if (gapM >= 0 && gapM <= 5) rev = true;
+          }
+        }
+      }
+      if (rev) counts.revenge++;
+      if (maxStreak >= 5) counts.streak++;
+      if (trades.filter(function (t) { var h = hourOf(t); return isFinite(h) && h >= 17; }).length >= 3) counts.late++;
+    });
+    var items = [];
+    if (counts.surtrading > 0) items.push({ sev: '#ef4444', icon: '🔥', txt: counts.surtrading + ' élève(s) en surtrading ce mois (≥1 journée >4 trades)' });
+    if (counts.revenge > 0) items.push({ sev: '#ef4444', icon: '😡', txt: counts.revenge + ' élève(s) avec du revenge trading (ré-entrée <5min après grosse perte)' });
+    if (counts.streak > 0) items.push({ sev: '#f59e0b', icon: '🔻', txt: counts.streak + ' élève(s) avec une série ≥5 pertes consécutives' });
+    if (counts.late > 0) items.push({ sev: '#f59e0b', icon: '🌙', txt: counts.late + ' élève(s) avec ≥3 trades après 17h' });
+    var banner = document.getElementById('coachWarningsBanner'), cont = document.getElementById('coachWarningsContainer');
+    if (banner && cont) {
+      if (items.length) {
+        banner.style.display = 'block';
+        cont.innerHTML = items.map(function (it) { return '<div style="background:rgba(255,255,255,0.04);border-left:4px solid ' + it.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;"><span style="font-size:20px;">' + it.icon + '</span><span style="font-weight:500;">' + it.txt + '</span></div>'; }).join('');
+      } else { banner.style.display = 'none'; }
+    }
+  }
 
   window.previousGlobalMonth = function () { calDate = new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1); window.loadCoachDashboard(); };
   window.nextGlobalMonth = function () { calDate = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1); window.loadCoachDashboard(); };

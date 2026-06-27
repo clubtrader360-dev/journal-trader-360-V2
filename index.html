@@ -3244,15 +3244,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
             <!-- Dashboard Global -->
             <div id="coachDashboard" class="section">
-                <!-- #33 — Hero P&L agrégé (mois courant, tous élèves) -->
-                <div class="trader-card" style="padding: 24px; text-align: center; margin-bottom: 24px;">
-                    <div class="metric-header" style="justify-content:center;">P&L global — <span id="coachHeroMonthLabel">ce mois</span></div>
-                    <div class="metric-value-large" id="coachHeroPnl" style="font-size: 2.75rem;">$0.00</div>
-                    <div id="coachHeroSub" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;">— élèves actifs ce mois</div>
-                </div>
-
-                <!-- 5 KPI agrégés (mois) -->
-                <div class="traderzella-banner coach-kpi-5">
+                <!-- #33 — 6 KPI agrégés -->
+                <div class="traderzella-banner coach-kpi-6">
+                    <div class="metric-item net-pnl">
+                        <div class="metric-header">P&L global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte cumulé de tous les élèves depuis toujours (all-time).</span></i></div>
+                        <div class="metric-main"><div class="metric-value-large" id="coachGlobalPnl" style="font-size:1.7rem;">$0.00</div></div>
+                    </div>
                     <div class="metric-item">
                         <div class="metric-header">Élèves actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves ayant tradé au moins une fois ce mois.</span></i></div>
                         <div class="metric-main"><div class="metric-value-medium" id="coachActiveStudents">0</div></div>
@@ -3278,8 +3275,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
                         </div>
                     </div>
-                    <div class="metric-item net-pnl">
-                        <div class="metric-header">T360 Score <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Score Trader 360 moyen des élèves (moyenne simple). Composantes : Win % · Consistency · Profit factor · Max drawdown · Avg win/loss · Recovery factor. Détail dans le radar ci-dessous.</span></i></div>
+                    <div class="metric-item">
+                        <div class="metric-header">T360 Score <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Score Trader 360 moyen des élèves (moyenne simple). Composantes : Win % · Consistency · Profit factor · Max drawdown · Avg win/loss · Recovery factor.</span></i></div>
                         <div class="metric-main" style="display:flex; align-items:center; gap:10px; justify-content:center;">
                             <div class="metric-value-large" id="coachT360Score">0.0</div>
                             <div id="coachT360MiniRadar" style="flex-shrink:0;"></div>
@@ -3287,18 +3284,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     </div>
                 </div>
 
-                <!-- Carte grand radar T360 (6 composantes moyennes, avec labels) -->
-                <div class="trader-card" style="padding: 24px; margin-top: 24px; text-align: center;">
-                    <h2 class="text-xl font-bold mb-2" style="color: var(--color-gold, #d4af37);">Trader 360 Score — moyenne des élèves</h2>
-                    <div style="font-size: 0.8rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 12px;">Moyenne simple des 6 composantes sur les élèves ayant tradé ce mois</div>
-                    <div id="coachT360Radar" style="display:flex; justify-content:center;"></div>
-                </div>
-
-                <!-- Grille 2 colonnes: Calendrier + Trader 360 Score -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    
-                    <!-- Calendrier Global -->
-                    <div class="trader-card" style="padding: 24px;">
+                <!-- Calendrier Global — pleine largeur -->
+                <div class="trader-card" style="padding: 24px; margin-top: 24px;">
                         <div class="flex justify-between items-center mb-4">
                             <button onclick="previousGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
                                 <i class="fas fa-chevron-left text-xl"></i>
@@ -3348,37 +3335,29 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <div class="metric-item"><div class="metric-header">Trade moyen</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthAvg">—</div></div></div>
                         </div>
                     </div>
-                    
-                    <!-- Régularité des Profits Globale (Coach) -->
+
+                <!-- Graphiques -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+
+                    <!-- Régularité des Profits Globale (Coach) — repositionnée -->
                     <div class="trader-card" style="padding: 24px;">
                         <h2 class="text-xl font-bold mb-4 flex items-center">
                             📊 Régularité des Profits (Moyenne Élèves)
                             <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Mesure la concentration des profits. Plus le pourcentage est faible, plus les gains sont réguliers. Moyenne calculée sur tous les élèves actifs."></i>
                         </h2>
-                        
                         <div class="text-center mt-6">
-                            <!-- Pourcentage de concentration -->
                             <div class="text-5xl font-bold mb-2" id="globalConsistencyRatio" style="color: #f59e0b;">0%</div>
                             <div class="text-sm text-gray-600 mb-4">moyenne de régularité des élèves</div>
-                            
-                            <!-- Barre de progression -->
                             <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
                                 <div id="globalConsistencyBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%; background: linear-gradient(to right, #10b981, #f59e0b, #ef4444);"></div>
                             </div>
-                            
-                            <!-- Interprétation -->
                             <div class="mt-4 p-4 rounded-lg consistency-interpretation-card" id="globalConsistencyInterpretation">
                                 <div class="text-sm font-semibold" id="globalConsistencyLabel" style="color: var(--aube-text-primary, #1a1208);">Excellent</div>
                                 <div class="text-xs mt-1" id="globalConsistencyDesc" style="color: var(--aube-text-secondary, rgba(0, 11, 37, 0.6));">Les profits des élèves sont bien répartis</div>
                             </div>
                         </div>
                     </div>
-                    
-                </div>
 
-                <!-- Graphiques -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    
                     <!-- Performance par Heure -->
                     <div class="trader-card" style="padding: 24px;">
                         <h2 class="text-lg font-bold mb-4 flex items-center">
@@ -3426,7 +3405,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
                         </div>
                     </div>
-                    
+
+                </div>
+
+                <!-- Points à surveiller — alertes comportementales agrégées (communauté) -->
+                <div id="coachWarningsBanner" class="trader-card" style="display:none; margin-top: 24px; border:2px solid rgba(239,68,68,0.55) !important;">
+                    <h2 class="text-xl font-bold mb-4 flex items-center" style="color:#ef4444;">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Points à surveiller — communauté (ce mois)
+                    </h2>
+                    <div id="coachWarningsContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
                 </div>
             </div>
 
