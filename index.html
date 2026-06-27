@@ -3244,8 +3244,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
             <!-- Dashboard Global -->
             <div id="coachDashboard" class="section">
-                <!-- #33 — 6 KPI agrégés -->
-                <div class="traderzella-banner coach-kpi-6">
+                <!-- #33 — 5 KPI agrégés -->
+                <div class="traderzella-banner coach-kpi-5">
                     <div class="metric-item net-pnl">
                         <div class="metric-header">P&L global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte cumulé de tous les élèves depuis toujours (all-time).</span></i></div>
                         <div class="metric-main"><div class="metric-value-large" id="coachGlobalPnl" style="font-size:1.7rem;">$0.00</div></div>
@@ -3273,13 +3273,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 <div class="counter-item"><div class="counter-label">Gagnants</div><div class="counter-value green" id="coachTotalWins">0</div></div>
                                 <div class="counter-item"><div class="counter-label">Perdants</div><div class="counter-value red" id="coachTotalLosses">0</div></div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="metric-item">
-                        <div class="metric-header">T360 Score <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Score Trader 360 moyen des élèves (moyenne simple). Composantes : Win % · Consistency · Profit factor · Max drawdown · Avg win/loss · Recovery factor.</span></i></div>
-                        <div class="metric-main" style="display:flex; align-items:center; gap:10px; justify-content:center;">
-                            <div class="metric-value-large" id="coachT360Score">0.0</div>
-                            <div id="coachT360MiniRadar" style="flex-shrink:0;"></div>
                         </div>
                     </div>
                 </div>
@@ -3336,14 +3329,25 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </div>
                     </div>
 
-                <!-- Graphiques -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <!-- Performance par Heure — pleine largeur (FIX C) -->
+                <div class="trader-card" style="padding: 24px; margin-top: 24px;">
+                    <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-clock mr-2 text-blue-600"></i>Performance par Heure (tous élèves)</h2>
+                    <div style="height: 360px;"><canvas id="globalHourlyChart"></canvas></div>
+                </div>
 
-                    <!-- Régularité des Profits Globale (Coach) — repositionnée -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <!-- Trader 360 Score — card dédiée avec grand radar (FIX B) -->
+                    <div class="trader-card" style="padding: 24px; text-align: center;">
+                        <h2 class="text-xl font-bold mb-1" style="color: var(--color-gold, #d4af37);">Trader 360 Score — moyenne des élèves</h2>
+                        <div class="metric-value-large" id="coachT360Score" style="font-size: 2.2rem;">0.0</div>
+                        <div style="font-size: 0.78rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 6px;">moyenne simple des 6 composantes</div>
+                        <div id="coachT360Radar" style="display:flex; justify-content:center;"></div>
+                    </div>
+
+                    <!-- Régularité des Profits Globale -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-xl font-bold mb-4 flex items-center">
-                            📊 Régularité des Profits (Moyenne Élèves)
-                            <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Mesure la concentration des profits. Plus le pourcentage est faible, plus les gains sont réguliers. Moyenne calculée sur tous les élèves actifs."></i>
+                        <h2 class="text-xl font-bold mb-4 flex items-center">📊 Régularité des Profits (Moyenne Élèves)
+                            <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Concentration moyenne des profits des élèves. Plus bas = plus régulier."></i>
                         </h2>
                         <div class="text-center mt-6">
                             <div class="text-5xl font-bold mb-2" id="globalConsistencyRatio" style="color: #f59e0b;">0%</div>
@@ -3357,55 +3361,32 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Performance par Heure -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-clock mr-2 text-blue-600"></i>
-                            Performance par Heure
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalHourlyChart"></canvas>
-                        </div>
-                    </div>
-                    
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                     <!-- Performance par Durée -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-hourglass-half mr-2 text-purple-600"></i>
-                            Performance par Durée
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalDurationChart"></canvas>
-                        </div>
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-hourglass-half mr-2 text-purple-600"></i>Performance par Durée</h2>
+                        <div style="height: 300px;"><canvas id="globalDurationChart"></canvas></div>
                     </div>
-                    
-                    <!-- Drawdown -->
+                    <!-- P&L cumulé / Drawdown -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-chart-line mr-2 text-red-600"></i>
-                            Drawdown Global
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalDrawdownChart"></canvas>
-                        </div>
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-chart-line mr-2 text-red-600"></i>P&L cumulé / Drawdown global</h2>
+                        <div style="height: 300px;"><canvas id="globalDrawdownChart"></canvas></div>
                     </div>
-                    
-                    <!-- Win Rate par Protection -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-shield-alt mr-2 text-green-600"></i>
-                            Analyse des Protections (Tous les Élèves)
-                        </h2>
-                        <div id="globalProtectionAnalysisContainer" class="space-y-3">
-                            <!-- Les analyses de protections seront insérées ici -->
-                            <div class="text-center text-gray-500 py-6">
-                                <i class="fas fa-chart-bar text-3xl mb-2"></i>
-                                <p class="text-sm">Aucune donnée disponible</p>
-                            </div>
-                        </div>
-                    </div>
+                </div>
 
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <!-- Discipline de sortie (ex-Analyse Protections, FIX D : renommage SL/TP) -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-shield-alt mr-2 text-green-600"></i>Discipline de sortie (tous élèves)</h2>
+                        <div id="globalDisciplineContainer" class="space-y-3"><div class="text-center text-gray-500 py-6 text-sm">Chargement…</div></div>
+                    </div>
+                    <!-- Analyse des Protections — types réels (FIX D : parse trades.protections) -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-layer-group mr-2 text-amber-600"></i>Analyse des Protections (types, ce mois)</h2>
+                        <div id="globalProtTypesContainer" class="space-y-3"><div class="text-center text-gray-500 py-6 text-sm">Chargement…</div></div>
+                    </div>
                 </div>
 
                 <!-- Points à surveiller — alertes comportementales agrégées (communauté) -->
@@ -15317,6 +15298,17 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     <script src="/assets/candles-bg.js" defer></script>
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
+    <!-- #33 FIX F — Modale drill-down d'une alerte "Points à surveiller" -->
+    <div id="alertDetailModal" class="view-modal" style="display:none;">
+        <div class="view-modal-content" style="max-width: 620px;">
+            <span class="view-modal-close" onclick="closeAlertDetailModal()" style="cursor:pointer; float:right; font-size:24px;">&times;</span>
+            <h2 id="alertDetailTitle" class="text-xl font-bold mb-1" style="color: var(--color-gold, #d4af37);">Détail de l'alerte</h2>
+            <div id="alertDetailDesc" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 14px;"></div>
+            <div id="alertDetailList" style="max-height: 50vh; overflow-y: auto;"></div>
+            <div style="text-align:right; margin-top:16px;"><button onclick="closeAlertDetailModal()" class="trader-btn-secondary">Fermer</button></div>
+        </div>
+    </div>
+
     <script src="/assets/dashboard-customizer.js" defer></script>
     <script src="/assets/coach-dashboard.js" defer></script>
 </body>

@@ -140,6 +140,7 @@
       if (hasTrades) { var p = rec.total_pnl; cls += p > 0 ? ' bg-green-100 text-green-800' : (p < 0 ? ' bg-red-200 text-red-900' : ' bg-gray-100'); }
       else cls += ' text-gray-400';
       var inner = '<div class="font-semibold">' + d + '</div>' + (hasTrades || (cache.dailyActions[iso] || cache.dailyErrors[iso]) ? fmtCell(iso) : '');
+      if (hasTrades && rec.active_students) inner += '<div style="font-size:10px;color:var(--aube-text-secondary,rgba(255,255,255,0.55));">' + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
       html += '<div class="' + cls + '">' + inner + '</div>';
     }
     grid.innerHTML = html;
@@ -249,7 +250,7 @@
       if (heroEl) { heroEl.textContent = fmt$(monthPnl); heroEl.style.color = monthPnl >= 0 ? '#10b981' : '#ef4444'; }
       set('coachHeroMonthLabel', MONTHS_FR[calDate.getMonth()] + ' ' + calDate.getFullYear());
       set('coachHeroSub', activeMonth + ' élève' + (activeMonth > 1 ? 's' : '') + ' actif' + (activeMonth > 1 ? 's' : '') + ' ce mois');
-      set('coachActiveStudents', activeMonth);
+      set('coachActiveStudents', activeMonth + ' / ' + students.length);
 
       var avgWR = wrCount > 0 ? Math.round(wrSum / wrCount) : 0;
       set('coachGlobalWinRate', avgWR + '%');
@@ -274,11 +275,11 @@
       var gp = document.getElementById('coachGlobalPnl');
       if (gp) { gp.textContent = fmt$(allTimePnl); gp.style.color = allTimePnl >= 0 ? '#10b981' : '#ef4444'; }
 
-      // Mini-radar dans la KPI T360 (le grand radar dédié a été retiré en 2b-ii)
+      // Grand radar T360 dans la card dédiée (FIX B 2b-iii)
       var comps = null;
       if (scoreCount > 0) { comps = {}; Object.keys(compAcc).forEach(function (k) { comps[k] = compAcc[k] / scoreCount; }); }
-      var mini = document.getElementById('coachT360MiniRadar');
-      if (mini) mini.innerHTML = comps ? radarSVG(comps, { mini: true }) : '';
+      var big = document.getElementById('coachT360Radar');
+      if (big) big.innerHTML = comps ? radarSVG(comps, { mini: false }) : '<div style="color:var(--aube-text-secondary,rgba(255,255,255,0.6));padding:30px;">Aucune donnée élève</div>';
 
       // Charts secondaires + régularité + protections + alertes (agrégation front)
       renderSecondary(students, mKey, comps ? comps.consistency : 0);
@@ -291,9 +292,11 @@
   var charts = {};
   function destroyChart(k) { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } }
 
-  function hourOf(t) { return parseInt(String(t.entry_time || '').split(':')[0], 10); }
+  // entry_time/exit_time sont des TIMESTAMP ("YYYY-MM-DDTHH:MM:SS") en DB → extraire "HH:MM:SS".
+  function timeStr(v) { v = String(v || ''); if (v.indexOf('T') >= 0) v = v.split('T')[1]; return v; }
+  function hourOf(t) { var s = timeStr(t.entry_time); return s ? parseInt(s.split(':')[0], 10) : NaN; }
   function durationMin(t) {
-    var e = t.entry_time, x = t.exit_time; if (!e || !x) return null;
+    var e = timeStr(t.entry_time), x = timeStr(t.exit_time); if (!e || !x) return null;
     var ep = e.split(':'), xp = x.split(':');
     var d = ((parseInt(xp[0]) || 0) * 60 + (parseInt(xp[1]) || 0)) - ((parseInt(ep[0]) || 0) * 60 + (parseInt(ep[1]) || 0));
     if (d < 0) d += 1440; return d;
@@ -368,58 +371,109 @@
       });
     }
 
-    // 5) Analyse Protections (% SL placé / TP placé / protections cochées). Hit-rate SL vs TP = Phase 2 (pas d'exit_reason).
-    var pc = document.getElementById('globalProtectionAnalysisContainer');
-    if (pc) {
+    function pctRow(label, v) { return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;"><span>' + label + '</span><span style="font-weight:700;color:var(--color-gold,#d4af37);">' + v + '%</span></div><div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin-bottom:4px;"><div style="height:100%;width:' + v + '%;background:#d4af37;"></div></div>'; }
+    function parseProt(t) { var p = t.protections; if (!p) return []; if (Array.isArray(p)) return p; try { var a = JSON.parse(p); return Array.isArray(a) ? a : []; } catch (e) { return String(p).split(',').map(function (s) { return s.trim(); }).filter(Boolean); } }
+
+    // 5a) Discipline de sortie (% SL / TP / protections cochées) — all-time. Hit-rate SL vs TP = Phase 2 (pas d'exit_reason).
+    var disc = document.getElementById('globalDisciplineContainer');
+    if (disc) {
       var n = allTrades.length || 1;
       var slPct = Math.round(allTrades.filter(function (t) { return t.stop_loss != null && t.stop_loss !== ''; }).length / n * 100);
       var tpPct = Math.round(allTrades.filter(function (t) { return t.take_profit != null && t.take_profit !== ''; }).length / n * 100);
-      var protPct = Math.round(allTrades.filter(function (t) { var p = t.protections; return Array.isArray(p) ? p.length > 0 : (p != null && String(p).trim() !== ''); }).length / n * 100);
-      var row = function (label, v) { return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;"><span>' + label + '</span><span style="font-weight:700;color:var(--color-gold,#d4af37);">' + v + '%</span></div><div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;margin-bottom:6px;"><div style="height:100%;width:' + v + '%;background:#d4af37;"></div></div>'; };
-      pc.innerHTML = row('Trades avec Stop Loss placé', slPct) + row('Trades avec Take Profit placé', tpPct) + row('Trades avec protections cochées', protPct)
+      var protPct = Math.round(allTrades.filter(function (t) { return parseProt(t).length > 0; }).length / n * 100);
+      disc.innerHTML = pctRow('Trades avec Stop Loss placé', slPct) + pctRow('Trades avec Take Profit placé', tpPct) + pctRow('Trades avec protections renseignées', protPct)
         + '<div style="font-size:11px;color:var(--aube-text-secondary,rgba(255,255,255,0.55));font-style:italic;margin-top:6px;">Hit-rate SL vs TP : Phase 2 (nécessite exit_reason).</div>';
     }
 
-    // 6) Points à surveiller agrégés (communauté, mois affiché)
-    var counts = { surtrading: 0, revenge: 0, late: 0, streak: 0 };
+    // 5b) Analyse des Protections — répartition des types réels (parse trades.protections JSON, mois affiché)
+    var pt = document.getElementById('globalProtTypesContainer');
+    if (pt) {
+      var monthTrades = allTrades.filter(function (t) { return String(t.trade_date || t.date || '').slice(0, 7) === mKey; });
+      var typeCount = {}, withProt = 0;
+      monthTrades.forEach(function (t) { var arr = parseProt(t); if (arr.length) withProt++; arr.forEach(function (x) { typeCount[x] = (typeCount[x] || 0) + 1; }); });
+      var entries = Object.keys(typeCount).map(function (k) { return [k, typeCount[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+      if (entries.length && withProt > 0) {
+        pt.innerHTML = entries.map(function (e) { return pctRow(e[0], Math.round(e[1] / withProt * 100)); }).join('')
+          + '<div style="font-size:11px;color:var(--aube-text-secondary,rgba(255,255,255,0.55));margin-top:4px;">% des trades protégés (' + withProt + ') utilisant ce type.</div>';
+      } else {
+        pt.innerHTML = '<div class="text-center text-gray-500 py-6 text-sm">Aucune protection renseignée ce mois</div>';
+      }
+    }
+
+    // 6) Points à surveiller agrégés (communauté, mois affiché) + cache élèves concernés (drill-down FIX F)
+    alertCache = { surtrading: [], revenge: [], streak: [], late: [] };
     students.forEach(function (s) {
+      var name = (s.user && (s.user.name || s.user.email)) || 'Élève';
       var trades = ((s.data && s.data.trades) || []).filter(function (t) { return String(t.trade_date || t.date || '').slice(0, 7) === mKey; });
       if (!trades.length) return;
+      var monthPnl = trades.reduce(function (a, t) { return a + (parseFloat(t.pnl) || 0); }, 0);
       var byDay = {}; trades.forEach(function (t) { var d = String(t.trade_date || t.date).slice(0, 10); (byDay[d] = byDay[d] || []).push(t); });
-      if (Object.keys(byDay).filter(function (d) { return byDay[d].length > 4; }).length >= 1) counts.surtrading++;
+      var overDays = Object.keys(byDay).filter(function (d) { return byDay[d].length > 4; });
+      if (overDays.length >= 1) alertCache.surtrading.push({ name: name, pnl: monthPnl, n: overDays.length, unit: 'journée(s) >4 trades' });
       var sorted = trades.slice().sort(function (a, b) { return (String(a.trade_date) + (a.entry_time || '')).localeCompare(String(b.trade_date) + (b.entry_time || '')); });
       var lossesArr = sorted.filter(function (t) { return (parseFloat(t.pnl) || 0) < 0; });
       var avgLoss = lossesArr.length ? lossesArr.reduce(function (a, t) { return a + Math.abs(parseFloat(t.pnl) || 0); }, 0) / lossesArr.length : 0;
-      var rev = false, cur = 0, maxStreak = 0;
+      var revN = 0, cur = 0, maxStreak = 0;
       for (var i = 0; i < sorted.length; i++) {
         var p = parseFloat(sorted[i].pnl) || 0;
         if (p < 0) { cur++; maxStreak = Math.max(maxStreak, cur); } else cur = 0;
-        if (i < sorted.length - 1 && avgLoss > 0 && Math.abs(p) > avgLoss * 1.5 && p < 0) {
+        if (i < sorted.length - 1 && avgLoss > 0 && p < 0 && Math.abs(p) > avgLoss * 1.5) {
           var nx = sorted[i + 1];
-          if (String(sorted[i].trade_date) === String(nx.trade_date) && sorted[i].exit_time && nx.entry_time) {
-            var ex = sorted[i].exit_time.split(':'), en = nx.entry_time.split(':');
+          if (String(sorted[i].trade_date).slice(0,10) === String(nx.trade_date).slice(0,10) && sorted[i].exit_time && nx.entry_time) {
+            var ex = timeStr(sorted[i].exit_time).split(':'), en = timeStr(nx.entry_time).split(':');
             var gapM = ((parseInt(en[0]) || 0) * 60 + (parseInt(en[1]) || 0)) - ((parseInt(ex[0]) || 0) * 60 + (parseInt(ex[1]) || 0));
-            if (gapM >= 0 && gapM <= 5) rev = true;
+            if (gapM >= 0 && gapM <= 5) revN++;
           }
         }
       }
-      if (rev) counts.revenge++;
-      if (maxStreak >= 5) counts.streak++;
-      if (trades.filter(function (t) { var h = hourOf(t); return isFinite(h) && h >= 17; }).length >= 3) counts.late++;
+      if (revN > 0) alertCache.revenge.push({ name: name, pnl: monthPnl, n: revN, unit: 'ré-entrée(s) <5min' });
+      if (maxStreak >= 5) alertCache.streak.push({ name: name, pnl: monthPnl, n: maxStreak, unit: 'pertes consécutives' });
+      var lateN = trades.filter(function (t) { var h = hourOf(t); return isFinite(h) && h >= 17; }).length;
+      if (lateN >= 3) alertCache.late.push({ name: name, pnl: monthPnl, n: lateN, unit: 'trades ≥17h' });
     });
-    var items = [];
-    if (counts.surtrading > 0) items.push({ sev: '#ef4444', icon: '🔥', txt: counts.surtrading + ' élève(s) en surtrading ce mois (≥1 journée >4 trades)' });
-    if (counts.revenge > 0) items.push({ sev: '#ef4444', icon: '😡', txt: counts.revenge + ' élève(s) avec du revenge trading (ré-entrée <5min après grosse perte)' });
-    if (counts.streak > 0) items.push({ sev: '#f59e0b', icon: '🔻', txt: counts.streak + ' élève(s) avec une série ≥5 pertes consécutives' });
-    if (counts.late > 0) items.push({ sev: '#f59e0b', icon: '🌙', txt: counts.late + ' élève(s) avec ≥3 trades après 17h' });
+    alertMeta = {
+      surtrading: { sev: '#ef4444', icon: '🔥', title: 'Surtrading', crit: 'Au moins une journée avec plus de 4 trades.' },
+      revenge: { sev: '#ef4444', icon: '😡', title: 'Revenge trading', crit: 'Ré-entrée moins de 5 min après une perte supérieure au R habituel.' },
+      streak: { sev: '#f59e0b', icon: '🔻', title: 'Séries de pertes', crit: '5 pertes consécutives ou plus.' },
+      late: { sev: '#f59e0b', icon: '🌙', title: 'Sessions tardives', crit: 'Au moins 3 trades pris après 17h.' }
+    };
+    var order = ['surtrading', 'revenge', 'streak', 'late'];
     var banner = document.getElementById('coachWarningsBanner'), cont = document.getElementById('coachWarningsContainer');
     if (banner && cont) {
-      if (items.length) {
+      var shown = order.filter(function (k) { return alertCache[k].length > 0; });
+      if (shown.length) {
         banner.style.display = 'block';
-        cont.innerHTML = items.map(function (it) { return '<div style="background:rgba(255,255,255,0.04);border-left:4px solid ' + it.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;"><span style="font-size:20px;">' + it.icon + '</span><span style="font-weight:500;">' + it.txt + '</span></div>'; }).join('');
+        cont.innerHTML = shown.map(function (k) {
+          var m = alertMeta[k];
+          return '<div class="clickable" onclick="openCoachAlertDetail(\'' + k + '\')" style="background:rgba(255,255,255,0.04);border-left:4px solid ' + m.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'
+            + '<span style="font-size:20px;">' + m.icon + '</span><span style="font-weight:500;flex:1;">' + alertCache[k].length + ' élève(s) — ' + m.title + ' ce mois</span>'
+            + '<span style="color:var(--color-gold,#d4af37);font-size:12px;">détail ›</span></div>';
+        }).join('');
       } else { banner.style.display = 'none'; }
     }
   }
+
+  // FIX F — modale drill-down d'une alerte
+  var alertCache = {}, alertMeta = {};
+  window.openCoachAlertDetail = function (key) {
+    var m = alertMeta[key], list = alertCache[key] || [];
+    var modal = document.getElementById('alertDetailModal');
+    if (!modal || !m) return;
+    document.getElementById('alertDetailTitle').textContent = m.title + ' — ' + (list.length) + ' élève(s)';
+    document.getElementById('alertDetailDesc').textContent = m.crit;
+    var fmt$ = function (v) { return (v >= 0 ? '+$' : '-$') + Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); };
+    var rows = list.slice().sort(function (a, b) { return b.n - a.n; }).map(function (e) {
+      var pc = e.pnl >= 0 ? '#10b981' : '#ef4444';
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid rgba(212,175,55,0.12);">'
+        + '<span style="flex:1;font-weight:600;">' + e.name + '</span>'
+        + '<span style="font-family:\'JetBrains Mono\',monospace;color:' + pc + ';min-width:90px;text-align:right;">' + fmt$(e.pnl) + '</span>'
+        + '<span style="min-width:130px;text-align:right;color:var(--aube-text-secondary,rgba(255,255,255,0.6));font-size:12px;">' + e.n + ' ' + e.unit + '</span>'
+        + '<button class="trader-btn-secondary" disabled title="Bientôt (#80 impersonation coach)" style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 8px;">Voir journal</button></div>';
+    }).join('');
+    document.getElementById('alertDetailList').innerHTML = rows || '<div style="padding:20px;text-align:center;color:var(--aube-text-secondary,rgba(255,255,255,0.6));">Aucun élève</div>';
+    modal.style.display = 'block';
+  };
+  window.closeAlertDetailModal = function () { var m = document.getElementById('alertDetailModal'); if (m) m.style.display = 'none'; };
 
   window.previousGlobalMonth = function () { calDate = new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1); window.loadCoachDashboard(); };
   window.nextGlobalMonth = function () { calDate = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1); window.loadCoachDashboard(); };
