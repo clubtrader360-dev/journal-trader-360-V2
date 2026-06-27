@@ -1203,3 +1203,6 @@ body:not(.dark-mode) #coachApp .traderzella-banner {
 }
 body:not(.dark-mode) .coach-cal-settings { background: rgba(255,250,240,0.97); }
 .coach-cal-settings label { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13px; cursor: pointer; }
+
+/* #33 2b-iv — "X élèves" lisible dans les cellules calendrier coach (fond clair vert/rouge) */
+#coachApp #globalCalendarGrid .coach-cal-students { color: #1a1208; }

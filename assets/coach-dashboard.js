@@ -140,7 +140,7 @@
       if (hasTrades) { var p = rec.total_pnl; cls += p > 0 ? ' bg-green-100 text-green-800' : (p < 0 ? ' bg-red-200 text-red-900' : ' bg-gray-100'); }
       else cls += ' text-gray-400';
       var inner = '<div class="font-semibold">' + d + '</div>' + (hasTrades || (cache.dailyActions[iso] || cache.dailyErrors[iso]) ? fmtCell(iso) : '');
-      if (hasTrades && rec.active_students) inner += '<div style="font-size:10px;color:var(--aube-text-secondary,rgba(255,255,255,0.55));">' + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
+      if (hasTrades && rec.active_students) inner += '<div class="coach-cal-students" style="font-size:11px;font-weight:700;">' + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
       html += '<div class="' + cls + '">' + inner + '</div>';
     }
     grid.innerHTML = html;
@@ -229,14 +229,17 @@
         if (sc) { scoreSum += sc.global; scoreCount++; Object.keys(compAcc).forEach(function (k) { compAcc[k] += sc.components[k]; }); }
       });
 
-      // Actions / Erreurs par jour (journal_entries, RLS coach)
+      // Actions/Erreurs + Engagement (checklist/journal) par jour (journal_entries, RLS coach)
+      var dailyChecklist = {}, dailyJournal = {};
       if (sb) {
         try {
-          var jr = await sb.from('journal_entries').select('user_id, entry_date, positive_points, errors_committed');
+          var jr = await sb.from('journal_entries').select('user_id, entry_date, positive_points, errors_committed, checklist_completed');
           if (!jr.error && jr.data) jr.data.forEach(function (e) {
             var d = String(e.entry_date).slice(0, 10);
             if (Array.isArray(e.positive_points) && e.positive_points.length) cache.dailyActions[d] = (cache.dailyActions[d] || 0) + 1;
             if (Array.isArray(e.errors_committed) && e.errors_committed.length) cache.dailyErrors[d] = (cache.dailyErrors[d] || 0) + 1;
+            dailyJournal[d] = (dailyJournal[d] || 0) + 1; // 1 entrée journal = 1 élève ce jour
+            if (e.checklist_completed === true) dailyChecklist[d] = (dailyChecklist[d] || 0) + 1;
           });
         } catch (e) { /* journal optionnel */ }
       }
@@ -283,6 +286,7 @@
 
       // Charts secondaires + régularité + protections + alertes (agrégation front)
       renderSecondary(students, mKey, comps ? comps.consistency : 0);
+      window.renderCoachEngagement(dailyChecklist, dailyJournal);
 
       console.log('[COACH-DASH] ✅ all-time ' + fmt$(allTimePnl) + ' · mois ' + fmt$(monthPnl) + ' · WR ' + avgWR + '% · T360 ' + avgScore.toFixed(1) + ' (' + scoreCount + ' élèves)');
     } catch (e) { console.error('[COACH-DASH] ❌', e); }
@@ -321,22 +325,23 @@
     if (!window.Chart) return;
     var axisColor = 'rgba(244,228,193,0.7)', gridColor = 'rgba(255,255,255,0.06)';
 
-    // 2) Performance par Heure (bubble)
-    var byHour = {};
-    allTrades.forEach(function (t) { var h = hourOf(t); if (!isFinite(h)) return; (byHour[h] = byHour[h] || []).push(parseFloat(t.pnl) || 0); });
-    var bubbles = Object.keys(byHour).map(function (h) {
-      var arr = byHour[h]; var avg = arr.reduce(function (a, b) { return a + b; }, 0) / arr.length;
-      return { x: parseInt(h), y: Math.round(avg), r: Math.min(26, 4 + Math.sqrt(arr.length)), _c: avg >= 0 ? '#10b981' : '#ef4444' };
-    });
+    // 2) Performance par Heure (BAR, P&L TOTAL par heure) — FIX A
+    var hLabels = [], hTotals = [], hCounts = [];
+    for (var hh = 0; hh <= 23; hh++) {
+      var arr = allTrades.filter(function (t) { return hourOf(t) === hh; });
+      hLabels.push(hh + 'h'); hCounts.push(arr.length);
+      hTotals.push(Math.round(arr.reduce(function (a, t) { return a + (parseFloat(t.pnl) || 0); }, 0)));
+    }
     var hc = document.getElementById('globalHourlyChart');
     if (hc) {
       destroyChart('hourly');
       charts.hourly = new Chart(hc.getContext('2d'), {
-        type: 'bubble',
-        data: { datasets: [{ data: bubbles, backgroundColor: bubbles.map(function (b) { return b._c + '88'; }), borderColor: bubbles.map(function (b) { return b._c; }) }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-          scales: { x: { min: 6, max: 23, title: { display: true, text: 'Heure', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } },
-                    y: { title: { display: true, text: 'P&L moyen ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
+        type: 'bar',
+        data: { labels: hLabels, datasets: [{ data: hTotals, backgroundColor: hTotals.map(function (v) { return v >= 0 ? '#10b98188' : '#ef444488'; }), borderColor: hTotals.map(function (v) { return v >= 0 ? '#10b981' : '#ef4444'; }), borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+            tooltip: { callbacks: { label: function (ctx) { var v = ctx.parsed.y; return 'P&L total : ' + (v >= 0 ? '+' : '') + v.toLocaleString('fr-FR') + ' $ · ' + (hCounts[ctx.dataIndex] || 0) + ' trades'; } } } },
+          scales: { x: { title: { display: true, text: 'Heure', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } },
+                    y: { title: { display: true, text: 'P&L total ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
       });
     }
 
@@ -344,7 +349,7 @@
     var buckets = [{ l: '<15min', min: 0, max: 15 }, { l: '15-60', min: 15, max: 60 }, { l: '1-4h', min: 60, max: 240 }, { l: '>4h', min: 240, max: 1e9 }];
     var bvals = buckets.map(function (b) {
       var arr = allTrades.filter(function (t) { var d = durationMin(t); return d != null && d >= b.min && d < b.max; }).map(function (t) { return parseFloat(t.pnl) || 0; });
-      return arr.length ? Math.round(arr.reduce(function (a, c) { return a + c; }, 0) / arr.length) : 0;
+      return Math.round(arr.reduce(function (a, c) { return a + c; }, 0)); // FIX C : P&L TOTAL par bucket
     });
     var dc = document.getElementById('globalDurationChart');
     if (dc) {
@@ -353,11 +358,11 @@
         type: 'bar',
         data: { labels: buckets.map(function (b) { return b.l; }), datasets: [{ data: bvals, backgroundColor: bvals.map(function (v) { return v >= 0 ? '#10b98188' : '#ef444488'; }), borderColor: bvals.map(function (v) { return v >= 0 ? '#10b981' : '#ef4444'; }), borderWidth: 1 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-          scales: { x: { ticks: { color: axisColor }, grid: { color: gridColor } }, y: { title: { display: true, text: 'P&L moyen ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
+          scales: { x: { ticks: { color: axisColor }, grid: { color: gridColor } }, y: { title: { display: true, text: 'P&L total ($)', color: axisColor }, ticks: { color: axisColor }, grid: { color: gridColor } } } }
       });
     }
 
-    // 4) P&L cumulé / Drawdown global (line) — depuis l'agrégat journalier trié
+    // 4) P&L cumulé (line) — depuis l'agrégat journalier trié
     var days = Object.keys(cache.dailyDollar).sort();
     var cum = 0; var cumData = days.map(function (d) { cum += parseFloat(cache.dailyDollar[d].total_pnl) || 0; return cum; });
     var ddc = document.getElementById('globalDrawdownChart');
@@ -445,7 +450,7 @@
         banner.style.display = 'block';
         cont.innerHTML = shown.map(function (k) {
           var m = alertMeta[k];
-          return '<div class="clickable" onclick="openCoachAlertDetail(\'' + k + '\')" style="background:rgba(255,255,255,0.04);border-left:4px solid ' + m.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'
+          return '<div class="clickable" data-alert="' + k + '" style="background:rgba(255,255,255,0.04);border-left:4px solid ' + m.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'
             + '<span style="font-size:20px;">' + m.icon + '</span><span style="font-weight:500;flex:1;">' + alertCache[k].length + ' élève(s) — ' + m.title + ' ce mois</span>'
             + '<span style="color:var(--color-gold,#d4af37);font-size:12px;">détail ›</span></div>';
         }).join('');
@@ -475,6 +480,38 @@
   };
   window.closeAlertDetailModal = function () { var m = document.getElementById('alertDetailModal'); if (m) m.style.display = 'none'; };
 
-  window.previousGlobalMonth = function () { calDate = new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1); window.loadCoachDashboard(); };
-  window.nextGlobalMonth = function () { calDate = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1); window.loadCoachDashboard(); };
+  // FIX E — délégation de clic (robuste vs re-render) : ouvre la modale au clic sur un item alerte
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('#coachWarningsContainer [data-alert]') : null;
+    if (el) window.openCoachAlertDetail(el.getAttribute('data-alert'));
+  });
+
+  // FIX G — card "Engagement quotidien" (checklist + journal par jour du mois)
+  // dailyEngage : { 'YYYY-MM-DD': { checklist: Set, journal: Set } } construit depuis journal_entries.
+  window.renderCoachEngagement = function (dailyChecklist, dailyJournal) {
+    if (!window.Chart) return;
+    var y = calDate.getFullYear(), m = calDate.getMonth();
+    var nbDays = new Date(y, m + 1, 0).getDate();
+    var labels = [], chk = [], jr = [];
+    for (var d = 1; d <= nbDays; d++) {
+      var iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      labels.push(String(d)); chk.push(dailyChecklist[iso] || 0); jr.push(dailyJournal[iso] || 0);
+    }
+    var c = document.getElementById('coachEngagementChart');
+    if (!c) return;
+    destroyChart('engage');
+    var axisColor = 'rgba(244,228,193,0.7)', gridColor = 'rgba(255,255,255,0.06)';
+    charts.engage = new Chart(c.getContext('2d'), {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { label: 'Checklist', data: chk, backgroundColor: '#d4af3799', borderColor: '#d4af37', borderWidth: 1 },
+        { label: 'Journal', data: jr, backgroundColor: '#3b82f699', borderColor: '#3b82f6', borderWidth: 1 }
+      ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { color: axisColor } },
+          tooltip: { callbacks: { title: function (it) { return 'Jour ' + it[0].label; } } } },
+        scales: { x: { ticks: { color: axisColor, maxRotation: 0, autoSkip: true }, grid: { display: false } },
+                  y: { beginAtZero: true, title: { display: true, text: "Nb d'élèves", color: axisColor }, ticks: { color: axisColor, precision: 0 }, grid: { color: gridColor } } } }
+    });
+  };
 })();
