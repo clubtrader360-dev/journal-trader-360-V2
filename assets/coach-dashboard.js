@@ -229,19 +229,26 @@
         if (sc) { scoreSum += sc.global; scoreCount++; Object.keys(compAcc).forEach(function (k) { compAcc[k] += sc.components[k]; }); }
       });
 
-      // Actions/Erreurs + Engagement (checklist/journal) par jour (journal_entries, RLS coach)
-      var dailyChecklist = {}, dailyJournal = {};
+      // Actions/Erreurs + Engagement par jour (journal_entries, RLS coach).
+      // ⚠️ SCOPÉ au mois affiché : sans filtre, Supabase plafonne à 1000 lignes (les plus anciennes)
+      // → le mois courant manquait (bug 2b-iv : ~3 élèves au lieu de ~22).
+      var dailyJournal = {};
       if (sb) {
         try {
-          var jr = await sb.from('journal_entries').select('user_id, entry_date, positive_points, errors_committed, checklist_completed');
-          if (!jr.error && jr.data) jr.data.forEach(function (e) {
-            var d = String(e.entry_date).slice(0, 10);
-            if (Array.isArray(e.positive_points) && e.positive_points.length) cache.dailyActions[d] = (cache.dailyActions[d] || 0) + 1;
-            if (Array.isArray(e.errors_committed) && e.errors_committed.length) cache.dailyErrors[d] = (cache.dailyErrors[d] || 0) + 1;
-            dailyJournal[d] = (dailyJournal[d] || 0) + 1; // 1 entrée journal = 1 élève ce jour
-            if (e.checklist_completed === true) dailyChecklist[d] = (dailyChecklist[d] || 0) + 1;
-          });
-        } catch (e) { /* journal optionnel */ }
+          var mStart = mKey + '-01';
+          var nextM = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1);
+          var mEnd = nextM.getFullYear() + '-' + String(nextM.getMonth() + 1).padStart(2, '0') + '-01';
+          var jr = await sb.from('journal_entries').select('user_id, entry_date, positive_points, errors_committed').gte('entry_date', mStart).lt('entry_date', mEnd);
+          if (!jr.error && jr.data) {
+            var seenJ = {}; // distinct user par jour
+            jr.data.forEach(function (e) {
+              var d = String(e.entry_date).slice(0, 10);
+              if (Array.isArray(e.positive_points) && e.positive_points.length) cache.dailyActions[d] = (cache.dailyActions[d] || 0) + 1;
+              if (Array.isArray(e.errors_committed) && e.errors_committed.length) cache.dailyErrors[d] = (cache.dailyErrors[d] || 0) + 1;
+              var k = d + '|' + e.user_id; if (!seenJ[k]) { seenJ[k] = 1; dailyJournal[d] = (dailyJournal[d] || 0) + 1; }
+            });
+          }
+        } catch (e) { console.warn('[COACH-DASH] journal fetch', e); }
       }
 
       renderCalendar();
@@ -286,7 +293,7 @@
 
       // Charts secondaires + régularité + protections + alertes (agrégation front)
       renderSecondary(students, mKey, comps ? comps.consistency : 0);
-      window.renderCoachEngagement(dailyChecklist, dailyJournal);
+      window.renderCoachEngagement(dailyJournal);
 
       console.log('[COACH-DASH] ✅ all-time ' + fmt$(allTimePnl) + ' · mois ' + fmt$(monthPnl) + ' · WR ' + avgWR + '% · T360 ' + avgScore.toFixed(1) + ' (' + scoreCount + ' élèves)');
     } catch (e) { console.error('[COACH-DASH] ❌', e); }
@@ -442,6 +449,8 @@
       streak: { sev: '#f59e0b', icon: '🔻', title: 'Séries de pertes', crit: '5 pertes consécutives ou plus.' },
       late: { sev: '#f59e0b', icon: '🌙', title: 'Sessions tardives', crit: 'Au moins 3 trades pris après 17h.' }
     };
+    // Expose la data des alertes sur window (zéro ambiguïté de scope pour le handler)
+    window.__coachAlerts = { cache: alertCache, meta: alertMeta };
     var order = ['surtrading', 'revenge', 'streak', 'late'];
     var banner = document.getElementById('coachWarningsBanner'), cont = document.getElementById('coachWarningsContainer');
     if (banner && cont) {
@@ -450,10 +459,11 @@
         banner.style.display = 'block';
         cont.innerHTML = shown.map(function (k) {
           var m = alertMeta[k];
-          return '<div class="clickable" data-alert="' + k + '" style="background:rgba(255,255,255,0.04);border-left:4px solid ' + m.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'
-            + '<span style="font-size:20px;">' + m.icon + '</span><span style="font-weight:500;flex:1;">' + alertCache[k].length + ' élève(s) — ' + m.title + ' ce mois</span>'
-            + '<span style="color:var(--color-gold,#d4af37);font-size:12px;">détail ›</span></div>';
+          return '<div class="clickable" data-alert="' + k + '" onclick="window.openCoachAlertDetail(\'' + k + '\')" style="background:rgba(255,255,255,0.04);border-left:4px solid ' + m.sev + ';border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;">'
+            + '<span style="font-size:20px;pointer-events:none;">' + m.icon + '</span><span style="font-weight:500;flex:1;pointer-events:none;">' + alertCache[k].length + ' élève(s) — ' + m.title + ' ce mois</span>'
+            + '<span style="color:var(--color-gold,#d4af37);font-size:12px;pointer-events:none;">détail ›</span></div>';
         }).join('');
+        console.log('[COACH-ALERT] ' + shown.length + ' alerte(s) rendues:', shown.join(','));
       } else { banner.style.display = 'none'; }
     }
   }
@@ -461,8 +471,10 @@
   // FIX F — modale drill-down d'une alerte
   var alertCache = {}, alertMeta = {};
   window.openCoachAlertDetail = function (key) {
-    var m = alertMeta[key], list = alertCache[key] || [];
+    var data = window.__coachAlerts || { cache: alertCache, meta: alertMeta };
+    var m = data.meta[key], list = data.cache[key] || [];
     var modal = document.getElementById('alertDetailModal');
+    console.log('[COACH-ALERT] click', key, '· meta?', !!m, '· modal?', !!modal, '· n=', list.length);
     if (!modal || !m) return;
     document.getElementById('alertDetailTitle').textContent = m.title + ' — ' + (list.length) + ' élève(s)';
     document.getElementById('alertDetailDesc').textContent = m.crit;
@@ -488,28 +500,29 @@
 
   // FIX G — card "Engagement quotidien" (checklist + journal par jour du mois)
   // dailyEngage : { 'YYYY-MM-DD': { checklist: Set, journal: Set } } construit depuis journal_entries.
-  window.renderCoachEngagement = function (dailyChecklist, dailyJournal) {
+  window.renderCoachEngagement = function (dailyJournal) {
     if (!window.Chart) return;
     var y = calDate.getFullYear(), m = calDate.getMonth();
     var nbDays = new Date(y, m + 1, 0).getDate();
-    var labels = [], chk = [], jr = [];
+    var labels = [], jr = [];
     for (var d = 1; d <= nbDays; d++) {
       var iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-      labels.push(String(d)); chk.push(dailyChecklist[iso] || 0); jr.push(dailyJournal[iso] || 0);
+      labels.push(String(d)); jr.push(dailyJournal[iso] || 0);
     }
     var c = document.getElementById('coachEngagementChart');
     if (!c) return;
     destroyChart('engage');
     var axisColor = 'rgba(244,228,193,0.7)', gridColor = 'rgba(255,255,255,0.06)';
+    // NB checklist : la complétion n'est PAS persistée en DB (checklist_completed toujours false,
+    // checklist JSON vide) → 1 seul dataset 'Journal'. Checklist = Phase 2 quand le tracking sera stocké.
     charts.engage = new Chart(c.getContext('2d'), {
       type: 'bar',
       data: { labels: labels, datasets: [
-        { label: 'Checklist', data: chk, backgroundColor: '#d4af3799', borderColor: '#d4af37', borderWidth: 1 },
-        { label: 'Journal', data: jr, backgroundColor: '#3b82f699', borderColor: '#3b82f6', borderWidth: 1 }
+        { label: 'Élèves ayant rempli leur journal', data: jr, backgroundColor: '#d4af3799', borderColor: '#d4af37', borderWidth: 1 }
       ] },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: true, labels: { color: axisColor } },
-          tooltip: { callbacks: { title: function (it) { return 'Jour ' + it[0].label; } } } },
+          tooltip: { callbacks: { title: function (it) { return 'Jour ' + it[0].label; }, label: function (ctx) { return ctx.parsed.y + ' élève(s)'; } } } },
         scales: { x: { ticks: { color: axisColor, maxRotation: 0, autoSkip: true }, grid: { display: false } },
                   y: { beginAtZero: true, title: { display: true, text: "Nb d'élèves", color: axisColor }, ticks: { color: axisColor, precision: 0 }, grid: { color: gridColor } } } }
     });
