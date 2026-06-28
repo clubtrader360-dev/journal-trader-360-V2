@@ -3365,8 +3365,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
                 <!-- Engagement quotidien — checklist & journal (FIX G), pleine largeur -->
                 <div class="trader-card" style="padding: 24px; margin-top: 24px;">
-                    <h2 class="text-lg font-bold mb-1 flex items-center"><i class="fas fa-clipboard-check mr-2 text-amber-600"></i>Engagement quotidien — Journal des élèves (ce mois)</h2>
-                    <div style="font-size:11px; color:var(--aube-text-secondary, rgba(255,255,255,0.55)); margin-bottom:10px;">Nb d'élèves ayant rempli leur journal chaque jour. (Suivi checklist : Phase 2 — non encore persisté en base.)</div>
+                    <h2 class="text-lg font-bold mb-1 flex items-center"><i class="fas fa-clipboard-check mr-2 text-amber-600"></i>Engagement quotidien — Checklist &amp; Journal (ce mois)</h2>
+                    <div style="font-size:11px; color:var(--aube-text-secondary, rgba(255,255,255,0.55)); margin-bottom:10px;">Nb d'élèves ayant validé leur checklist et rempli leur journal chaque jour.</div>
                     <div style="height: 300px;"><canvas id="coachEngagementChart"></canvas></div>
                 </div>
 
@@ -10149,7 +10149,31 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             };
             
             localStorage.setItem('checklist_validations', JSON.stringify(validations));
-            
+
+            // Persistance en base (best-effort, silent fail) — alimente le tracking checklist
+            // côté coach (#33). N'altère JAMAIS l'UX élève : si le réseau échoue, rien de visible,
+            // le localStorage ci-dessus reste la source d'état immédiat. Table dédiée
+            // checklist_validations (PK user_id+validation_date) → upsert sans risque.
+            (async () => {
+                try {
+                    if (window.supabaseClient && window.currentUser && window.currentUser.uuid) {
+                        const { error } = await window.supabaseClient
+                            .from('checklist_validations')
+                            .upsert({
+                                user_id: window.currentUser.uuid,
+                                validation_date: today,
+                                items_checked: checked,
+                                total_items: total,
+                                completion_rate: parseFloat(completionRate)
+                            }, { onConflict: 'user_id,validation_date' });
+                        if (error) console.warn('[CHECKLIST] Upsert base (silent):', error.message);
+                        else console.log('[CHECKLIST] ✅ Validation persistée en base:', today);
+                    }
+                } catch (err) {
+                    console.warn('[CHECKLIST] Upsert base a échoué (silent):', err);
+                }
+            })();
+
             // Feedback visuel
             alert(`✅ Checklist validée !\n\n${checked}/${total} items cochés (${completionRate}%)\nDate: ${today}`);
             

@@ -232,12 +232,12 @@
       // Actions/Erreurs + Engagement par jour (journal_entries, RLS coach).
       // ⚠️ SCOPÉ au mois affiché : sans filtre, Supabase plafonne à 1000 lignes (les plus anciennes)
       // → le mois courant manquait (bug 2b-iv : ~3 élèves au lieu de ~22).
-      var dailyJournal = {};
+      var dailyJournal = {}, dailyChecklist = {};
       if (sb) {
+        var mStart = mKey + '-01';
+        var nextM = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1);
+        var mEnd = nextM.getFullYear() + '-' + String(nextM.getMonth() + 1).padStart(2, '0') + '-01';
         try {
-          var mStart = mKey + '-01';
-          var nextM = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1);
-          var mEnd = nextM.getFullYear() + '-' + String(nextM.getMonth() + 1).padStart(2, '0') + '-01';
           var jr = await sb.from('journal_entries').select('user_id, entry_date, positive_points, errors_committed').gte('entry_date', mStart).lt('entry_date', mEnd);
           if (!jr.error && jr.data) {
             var seenJ = {}; // distinct user par jour
@@ -249,6 +249,18 @@
             });
           }
         } catch (e) { console.warn('[COACH-DASH] journal fetch', e); }
+        // Validations checklist (table dédiée #33, RLS coach). PK (user_id, validation_date)
+        // → 1 ligne max / élève / jour, pas de dédup nécessaire. Historique vide avant le
+        // déploiement de la persistance (normal) puis s'enrichit dès aujourd'hui.
+        try {
+          var cv = await sb.from('checklist_validations').select('user_id, validation_date').gte('validation_date', mStart).lt('validation_date', mEnd);
+          if (!cv.error && cv.data) {
+            cv.data.forEach(function (e) {
+              var d = String(e.validation_date).slice(0, 10);
+              dailyChecklist[d] = (dailyChecklist[d] || 0) + 1;
+            });
+          }
+        } catch (e) { console.warn('[COACH-DASH] checklist fetch', e); }
       }
 
       renderCalendar();
@@ -293,7 +305,7 @@
 
       // Charts secondaires + régularité + protections + alertes (agrégation front)
       renderSecondary(students, mKey, comps ? comps.consistency : 0);
-      window.renderCoachEngagement(dailyJournal);
+      window.renderCoachEngagement(dailyJournal, dailyChecklist);
 
       console.log('[COACH-DASH] ✅ all-time ' + fmt$(allTimePnl) + ' · mois ' + fmt$(monthPnl) + ' · WR ' + avgWR + '% · T360 ' + avgScore.toFixed(1) + ' (' + scoreCount + ' élèves)');
     } catch (e) { console.error('[COACH-DASH] ❌', e); }
@@ -500,29 +512,33 @@
 
   // FIX G — card "Engagement quotidien" (checklist + journal par jour du mois)
   // dailyEngage : { 'YYYY-MM-DD': { checklist: Set, journal: Set } } construit depuis journal_entries.
-  window.renderCoachEngagement = function (dailyJournal) {
+  window.renderCoachEngagement = function (dailyJournal, dailyChecklist) {
     if (!window.Chart) return;
+    dailyChecklist = dailyChecklist || {};
     var y = calDate.getFullYear(), m = calDate.getMonth();
     var nbDays = new Date(y, m + 1, 0).getDate();
-    var labels = [], jr = [];
+    var labels = [], jr = [], cl = [];
     for (var d = 1; d <= nbDays; d++) {
       var iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-      labels.push(String(d)); jr.push(dailyJournal[iso] || 0);
+      labels.push(String(d));
+      jr.push(dailyJournal[iso] || 0);
+      cl.push(dailyChecklist[iso] || 0);
     }
     var c = document.getElementById('coachEngagementChart');
     if (!c) return;
     destroyChart('engage');
     var axisColor = 'rgba(244,228,193,0.7)', gridColor = 'rgba(255,255,255,0.06)';
-    // NB checklist : la complétion n'est PAS persistée en DB (checklist_completed toujours false,
-    // checklist JSON vide) → 1 seul dataset 'Journal'. Checklist = Phase 2 quand le tracking sera stocké.
+    // Checklist (or) = vrai critère : clic "Valider la checklist" persisté en base
+    // (table checklist_validations, #33). Journal (bleu) = élèves ayant rempli leur journal.
     charts.engage = new Chart(c.getContext('2d'), {
       type: 'bar',
       data: { labels: labels, datasets: [
-        { label: 'Élèves ayant rempli leur journal', data: jr, backgroundColor: '#d4af3799', borderColor: '#d4af37', borderWidth: 1 }
+        { label: 'Checklist validée', data: cl, backgroundColor: '#d4af3799', borderColor: '#d4af37', borderWidth: 1 },
+        { label: 'Journal rempli', data: jr, backgroundColor: '#3b82f699', borderColor: '#3b82f6', borderWidth: 1 }
       ] },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: true, labels: { color: axisColor } },
-          tooltip: { callbacks: { title: function (it) { return 'Jour ' + it[0].label; }, label: function (ctx) { return ctx.parsed.y + ' élève(s)'; } } } },
+          tooltip: { callbacks: { title: function (it) { return 'Jour ' + it[0].label; }, label: function (ctx) { return ctx.dataset.label + ' : ' + ctx.parsed.y + ' élève(s)'; } } } },
         scales: { x: { ticks: { color: axisColor, maxRotation: 0, autoSkip: true }, grid: { display: false } },
                   y: { beginAtZero: true, title: { display: true, text: "Nb d'élèves", color: axisColor }, ticks: { color: axisColor, precision: 0 }, grid: { color: gridColor } } } }
     });
