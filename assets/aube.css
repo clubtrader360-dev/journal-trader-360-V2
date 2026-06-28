@@ -1112,6 +1112,13 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
    #coachApp. 100% additif, #mainApp (élève) strictement intact.
    ============================================================================ */
 
+/* #33 Commit 2b-viii — Modale drill-down alertes "Points à surveiller" : garantir qu'elle
+   peint AU-DESSUS de tout le contexte coach. La base .view-modal est à z-index:1000 ;
+   l'overlay du customizer (.dash-cat-overlay) est à 10000 et une particule décorative
+   (aube.js) à 9999. On remonte la modale à 10001 (défensif, scopé, sans effet sur les
+   autres modales). Le diagnostic runtime (topElAtCenter) confirmera si c'était bien ça. */
+#alertDetailModal { z-index: 10001 !important; }
+
 /* Fond executive NY à l'aube + overlay (dark / light) */
 #coachApp {
   background: linear-gradient(rgba(0,11,37,0.45), rgba(0,11,37,0.45)),

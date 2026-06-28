@@ -501,8 +501,20 @@
     }).join('');
     document.getElementById('alertDetailList').innerHTML = rows || '<div style="padding:20px;text-align:center;color:var(--aube-text-secondary,rgba(255,255,255,0.6));">Aucun élève</div>';
     modal.style.display = 'block';
+    modal.setAttribute('aria-hidden', 'false');
+    // Diagnostic 2b-viii — si la modale reste invisible malgré display:block, ces mesures
+    // runtime disent EXACTEMENT pourquoi : computedDisplay (un !important caché ?), rect
+    // (géométrie 0x0 / hors-écran ?), et SURTOUT topElAtCenter = l'élément réellement peint
+    // au centre du viewport (= ce qui couvre la modale, si guerre de z-index).
+    try {
+      var cs = getComputedStyle(modal), r = modal.getBoundingClientRect();
+      var top = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2));
+      console.log('[COACH-ALERT] modal opened · display=', cs.display, '· visibility=', cs.visibility, '· opacity=', cs.opacity, '· z=', cs.zIndex,
+        '· rect=', Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.left) + ',' + Math.round(r.top),
+        '· topElAtCenter=', top ? (top.id || top.className || top.tagName) : null);
+    } catch (e) { /* diagnostic only */ }
   };
-  window.closeAlertDetailModal = function () { var m = document.getElementById('alertDetailModal'); if (m) m.style.display = 'none'; };
+  window.closeAlertDetailModal = function () { var m = document.getElementById('alertDetailModal'); if (m) { m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); } };
 
   // FIX E — délégation de clic (robuste vs re-render) : ouvre la modale au clic sur un item alerte
   document.addEventListener('click', function (e) {
