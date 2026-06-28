@@ -501,6 +501,9 @@
     }).join('');
     document.getElementById('alertDetailList').innerHTML = rows || '<div style="padding:20px;text-align:center;color:var(--aube-text-secondary,rgba(255,255,255,0.6));">Aucun élève</div>';
     modal.style.display = 'block';
+    modal.style.visibility = 'visible'; // 2b-ix : visibility est héritée → un ancêtre la passe à
+    // 'hidden' (sonde 2b-viii : display=block mais visibility=hidden). display='block' ne la reset
+    // pas. On force visible à l'ouverture (display:none au close suffit à masquer).
     modal.setAttribute('aria-hidden', 'false');
     // Diagnostic 2b-viii — si la modale reste invisible malgré display:block, ces mesures
     // runtime disent EXACTEMENT pourquoi : computedDisplay (un !important caché ?), rect
