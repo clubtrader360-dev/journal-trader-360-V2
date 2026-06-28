@@ -1124,15 +1124,11 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
    l'overlay du customizer (.dash-cat-overlay) est à 10000 et une particule décorative
    (aube.js) à 9999. On remonte la modale à 10001 (défensif, scopé, sans effet sur les
    autres modales). Le diagnostic runtime (topElAtCenter) confirmera si c'était bien ça. */
-#alertDetailModal { z-index: 10001 !important; }
-/* 2b-x — CAUSE RACINE de "visible seulement avec DevTools ouverte" : .view-modal porte
-   backdrop-filter: blur(4px), et la page a un fond background-attachment:fixed (#coachApp
-   executive-bg). Cette combinaison déclenche un bug de compositing Chrome : l'élément filtré
-   n'est pas repeint tant qu'un reflow n'a pas lieu (ouvrir DevTools = reflow). On retire le
-   backdrop-filter sur cette seule modale et on compense par un voile navy plus opaque.
-   Aucun stacking-context fautif trouvé sur les ancêtres (audit grep) → ce n'était PAS un
-   souci de z-index. Scopé #alertDetailModal, les autres modales gardent leur blur. */
-#alertDetailModal {
+/* 2b-x + commit 4 — modales ouvertes en contexte coach : z-index au-dessus du customizer (10000)
+   + retrait du backdrop-filter (bug de compositing Chrome avec background-attachment:fixed →
+   "visible seulement avec DevTools"). Voile navy plus opaque pour compenser le blur perdu. */
+#alertDetailModal, #coachStudentDetailModal { z-index: 10001 !important; }
+#alertDetailModal, #coachStudentDetailModal {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   background: rgba(0, 11, 37, 0.82) !important;
@@ -1232,3 +1228,88 @@ body:not(.dark-mode) .coach-cal-settings { background: rgba(255,250,240,0.97); }
 
 /* #33 2b-iv — "X élèves" lisible dans les cellules calendrier coach (fond clair vert/rouge) */
 #coachApp #globalCalendarGrid .coach-cal-students { color: #1a1208; }
+
+/* ============================================================
+   #33 commit 4 — Table élèves premium (Bourse à l'Aube)
+   ============================================================ */
+.coach-students-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin-bottom:18px; }
+.coach-search-wrap { position:relative; flex:1 1 280px; max-width:420px; }
+.coach-search-ico { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:rgba(212,175,55,0.6); font-size:13px; pointer-events:none; }
+.coach-search-input { width:100%; padding:10px 14px 10px 38px; border-radius:10px; font-size:14px;
+  background:rgba(10,15,24,0.55); border:1px solid rgba(212,175,55,0.25); color:var(--aube-text-primary,#f4e4c1); outline:none; transition:border-color .15s; }
+.coach-search-input::placeholder { color:rgba(244,228,193,0.45); }
+.coach-search-input:focus { border-color:rgba(212,175,55,0.7); }
+.coach-status-filters { display:flex; gap:8px; flex-wrap:wrap; }
+.coach-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:600; cursor:pointer;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(212,175,55,0.2); color:rgba(244,228,193,0.55); transition:all .15s; }
+.coach-chip.is-on { background:rgba(212,175,55,0.14); border-color:rgba(212,175,55,0.55); color:var(--aube-text-primary,#f4e4c1); }
+.coach-chip:hover { border-color:rgba(212,175,55,0.7); }
+.coach-students-count { margin-left:auto; font-size:12.5px; color:rgba(244,228,193,0.55); font-variant-numeric:tabular-nums; }
+
+.coach-dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex:none; }
+.coach-dot.green { background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,0.18); }
+.coach-dot.amber { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.18); }
+.coach-dot.red   { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,0.18); }
+
+.coach-students-table { border-collapse:separate; border-spacing:0; }
+.coach-th { padding:11px 14px; text-align:left; font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+  color:rgba(212,175,55,0.8); border-bottom:1px solid rgba(212,175,55,0.2); white-space:nowrap; }
+.coach-th.text-right { text-align:right; }
+.coach-th.sortable { cursor:pointer; user-select:none; transition:color .15s; }
+.coach-th.sortable:hover { color:var(--color-gold,#d4af37); }
+.coach-th.sortable::after { content:'\2195'; opacity:0.3; margin-left:6px; font-size:10px; }
+.coach-th.sort-asc::after { content:'\2191'; opacity:1; }
+.coach-th.sort-desc::after { content:'\2193'; opacity:1; }
+.coach-student-row { cursor:pointer; transition:background .12s; }
+.coach-student-row:hover { background:rgba(212,175,55,0.07); }
+.coach-td { padding:13px 14px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:13.5px; color:var(--aube-text-primary,#f4e4c1); vertical-align:middle; }
+.coach-td.text-right { text-align:right; }
+.coach-num { font-family:'JetBrains Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+.coach-num.pos { color:#10b981; } .coach-num.neg { color:#ef4444; } .coach-num.mid { color:#f59e0b; }
+
+.coach-student-id { display:flex; align-items:center; gap:12px; }
+.coach-avatar { width:38px; height:38px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:800; color:#0d1116; letter-spacing:0.02em;
+  background:linear-gradient(135deg, hsl(var(--h,42) 55% 62%), hsl(var(--h,42) 60% 48%)); box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.coach-student-meta { min-width:0; }
+.coach-student-name { font-weight:600; color:var(--aube-text-primary,#f4e4c1); }
+.coach-student-email { font-size:12px; color:rgba(244,228,193,0.5); }
+.coach-status { display:inline-flex; align-items:center; gap:8px; font-size:13px; }
+.coach-last { font-size:12.5px; color:rgba(244,228,193,0.7); }
+.coach-row-btn { width:30px; height:30px; border-radius:8px; border:1px solid rgba(212,175,55,0.3); background:rgba(255,255,255,0.04);
+  color:rgba(244,228,193,0.8); cursor:pointer; font-size:12px; transition:all .15s; }
+.coach-row-btn:hover { border-color:rgba(212,175,55,0.7); color:var(--color-gold,#d4af37); }
+.coach-row-btn.danger:hover { border-color:rgba(239,68,68,0.7); color:#ef4444; background:rgba(239,68,68,0.1); }
+
+body:not(.dark-mode) .coach-search-input { background:rgba(255,250,240,0.8); color:#1a1208; border-color:rgba(123,96,24,0.3); }
+body:not(.dark-mode) .coach-search-input::placeholder { color:rgba(123,96,24,0.5); }
+body:not(.dark-mode) .coach-chip { color:rgba(123,96,24,0.6); }
+body:not(.dark-mode) .coach-chip.is-on { color:#1a1208; }
+body:not(.dark-mode) .coach-td, body:not(.dark-mode) .coach-student-name { color:#1a1208; }
+body:not(.dark-mode) .coach-student-email, body:not(.dark-mode) .coach-last, body:not(.dark-mode) .coach-students-count { color:rgba(123,96,24,0.7); }
+
+/* Modale détails élève */
+.csd-head { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+.csd-avatar { width:54px; height:54px; font-size:18px; }
+.csd-name { font-size:18px; font-weight:700; color:var(--aube-text-primary,#f4e4c1); }
+.csd-email { font-size:13px; color:rgba(244,228,193,0.55); margin:2px 0 4px; }
+.csd-status { font-size:12.5px; display:inline-flex; align-items:center; gap:7px; color:rgba(244,228,193,0.75); }
+.csd-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
+.csd-stat { background:rgba(255,255,255,0.04); border:1px solid rgba(212,175,55,0.18); border-radius:10px; padding:12px 10px; text-align:center; }
+.csd-stat-lbl { font-size:10.5px; text-transform:uppercase; letter-spacing:0.03em; color:rgba(212,175,55,0.7); margin-bottom:5px; }
+.csd-stat-val { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:16px; font-weight:700; color:var(--aube-text-primary,#f4e4c1); }
+.csd-stat-val.pos { color:#10b981; } .csd-stat-val.neg { color:#ef4444; }
+.csd-soon { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.csd-soon-row { display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:10px;
+  background:rgba(212,175,55,0.06); border:1px dashed rgba(212,175,55,0.3); }
+.csd-soon-row i { font-size:17px; color:rgba(212,175,55,0.7); width:22px; text-align:center; flex:none; }
+.csd-soon-row strong { display:block; font-size:13px; color:var(--aube-text-primary,#f4e4c1); }
+.csd-soon-row span { font-size:11.5px; color:rgba(244,228,193,0.5); }
+.csd-actions { display:flex; justify-content:space-between; gap:10px; }
+.csd-revoke:hover { color:#ef4444 !important; border-color:rgba(239,68,68,0.6) !important; }
+body:not(.dark-mode) .csd-name, body:not(.dark-mode) .csd-stat-val, body:not(.dark-mode) .csd-soon-row strong { color:#1a1208; }
+
+@media (max-width: 720px) {
+  .csd-stats { grid-template-columns:repeat(2,1fr); }
+  .coach-students-count { margin-left:0; }
+}

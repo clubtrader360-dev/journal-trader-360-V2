@@ -63,6 +63,8 @@
     var avg = function (k) { return rows.reduce(function (s, r) { return s + r[k]; }, 0) / rows.length; };
     return { global: avg('global'), components: { winRate: avg('winRate'), profitFactor: avg('profitFactor'), avgRatio: avg('avgRatio'), consistency: avg('consistency'), drawdown: avg('drawdown'), recovery: avg('recovery') } };
   }
+  // #33 commit 4 — réutilisé par la table élèves premium (T360 Score par élève).
+  window.coachStudentScore = studentScore;
 
   // Radar SVG. opts.mini = true → compact, sans labels.
   function radarSVG(c, opts) {

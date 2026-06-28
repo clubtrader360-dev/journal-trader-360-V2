@@ -3417,31 +3417,39 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <p class="text-gray-600">Liste de tous les élèves avec vue détaillée</p>
                 </div>
 
-                <div class="trader-card" style="padding: 24px;">
-                    <!-- Barre de recherche live -->
-                    <div class="mb-4">
-                        <input type="text" id="coachStudentSearch"
-                               placeholder="Rechercher un élève par nom ou email..."
-                               oninput="filterCoachStudents(this.value)"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                               style="max-width: 400px;">
+                <div class="trader-card coach-students-card" style="padding: 24px;">
+                    <!-- Barre d'outils : recherche live + filtres statut + compteur -->
+                    <div class="coach-students-toolbar">
+                        <div class="coach-search-wrap">
+                            <i class="fas fa-search coach-search-ico"></i>
+                            <input type="text" id="coachStudentSearch"
+                                   placeholder="Rechercher un élève par nom ou email…"
+                                   oninput="window.renderCoachStudentsTable && window.renderCoachStudentsTable()"
+                                   class="coach-search-input">
+                        </div>
+                        <div class="coach-status-filters" id="coachStatusFilters">
+                            <button type="button" class="coach-chip is-on" data-status="green"><span class="coach-dot green"></span> Actifs</button>
+                            <button type="button" class="coach-chip is-on" data-status="amber"><span class="coach-dot amber"></span> Peu actifs</button>
+                            <button type="button" class="coach-chip is-on" data-status="red"><span class="coach-dot red"></span> Inactifs</button>
+                        </div>
+                        <div class="coach-students-count" id="coachStudentsCount"></div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="w-full coach-students-table">
                             <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom/Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comptes</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <tr>
+                                    <th class="coach-th sortable" data-sort="name">Élève</th>
+                                    <th class="coach-th sortable" data-sort="status">Statut</th>
+                                    <th class="coach-th sortable text-right" data-sort="monthPnl">P&L (mois)</th>
+                                    <th class="coach-th sortable text-right" data-sort="monthWR">Win Rate (mois)</th>
+                                    <th class="coach-th sortable text-right" data-sort="t360">T360 Score</th>
+                                    <th class="coach-th sortable" data-sort="lastTs">Dernière activité</th>
+                                    <th class="coach-th text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="coachStudentsTable">
                                 <tr>
-                                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">Aucun élève</td>
+                                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">Chargement…</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -14184,99 +14192,200 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
         
         
-        async function loadCoachStudents() {
-            console.log(" Chargement liste élèves...");
-            const studentsData = await getAllStudentsData();
-            
-            if (studentsData.length === 0) {
-                document.getElementById('coachStudentsTable').innerHTML = `
-                    <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Aucun élève actif</td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            // Trier par P&L décroissant
-            const sorted = [...studentsData].sort((a, b) => {
-                const pnlA = (a.data.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
-                const pnlB = (b.data.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
-                return pnlB - pnlA;
-            });
-            window.coachStudentsDataCache = sorted;
-
-            // #59 — états Mode Pause des élèves (query légère séparée + Map ; coach lit via is_coach())
-            let vacationMap = new Map();
-            try {
-                const ids = sorted.map(s => s.user && s.user.uuid).filter(Boolean);
-                if (ids.length && window.supabaseClient) {
-                    const { data: prefs } = await window.supabaseClient
-                        .from('user_preferences')
-                        .select('user_id, vacation_mode')
-                        .in('user_id', ids);
-                    if (prefs) vacationMap = new Map(prefs.map(p => [p.user_id, p.vacation_mode === true]));
-                }
-            } catch (e) { console.warn('[VACATION] badges coach:', e); }
-
-            const tableHTML = sorted.map((studentData, index) => {
-                const student = studentData.user;
-                const trades = studentData.data.trades || [];
-                const accounts = studentData.data.accounts || [];
-                const wins = trades.filter(t => t.pnl > 0).length;
-                const winRate = trades.length > 0 ? ((wins / trades.length) * 100).toFixed(1) : 0;
-                const pnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-                const idx = Number(index);
-
-                return `
-                    <tr class="border-b border-gray-200 hover:bg-gray-50"
-                        data-student-idx="${idx}"
-                        data-name="${window.escapeHtml((student.name || '').toLowerCase())}"
-                        data-email="${window.escapeHtml((student.email || '').toLowerCase())}">
-                        <td class="px-6 py-4">
-                            <div class="font-semibold">${window.escapeHtml(student.name)}${vacationMap.get(student.uuid) === true ? ' <span class="student-vacation-badge" title="Cet élève est en mode Pause (vacances)" aria-label="En pause">🌴 Pause</span>' : ''}</div>
-                            <div class="text-sm text-gray-600">${window.escapeHtml(student.email)}</div>
-                        </td>
-                        <td class="px-6 py-4">${accounts.length} compte(s)</td>
-                        <td class="px-6 py-4">
-                            <span class="text-green-600 font-semibold">${winRate}%</span>
-                        </td>
-                        <td class="px-6 py-4">${trades.length}</td>
-                        <td class="px-6 py-4">
-                            <span class="${pnl >= 0 ? 'text-green-600' : 'text-red-600'} font-semibold">$${pnl.toFixed(2)}</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Actif</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex space-x-2">
-                                <button onclick="viewStudentDetails(window.coachStudentsDataCache[${idx}])"
-                                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
-                                        title="Voir les détails">
-                                    <i class="fas fa-eye mr-1"></i>Détails
-                                </button>
-                                <button onclick="confirmRevokeStudent(${idx})"
-                                        class="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition"
-                                        title="Révoquer l'accès">
-                                    <i class="fas fa-ban mr-1"></i>Révoquer
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('coachStudentsTable').innerHTML = tableHTML;
+        // ============================================================
+        // #33 commit 4 — Table élèves premium (Bourse à l'Aube)
+        // Élève (avatar initiales) · Statut 🟢/🟠/🔴 (last_activity proxy) · P&L mois ·
+        // Win Rate mois · T360 Score (réutilise window.coachStudentScore) · Dernière activité.
+        // Tri par colonne (clic header) + filtres statut + recherche nom/email.
+        // ============================================================
+        function coachInitials(name) {
+            const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return '?';
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        function coachAvatarHue(seed) {
+            let h = 0; const s = String(seed || '');
+            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+            return h;
+        }
+        function coachMoney(v) {
+            return (v >= 0 ? '+$' : '−$') + Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+        }
+        function coachRelTime(ts) {
+            if (!ts) return { label: 'Jamais', days: Infinity };
+            const then = new Date(ts).getTime();
+            if (isNaN(then)) return { label: 'Jamais', days: Infinity };
+            const days = Math.floor((Date.now() - then) / 86400000);
+            let label;
+            if (days <= 0) label = "Aujourd'hui";
+            else if (days === 1) label = 'Hier';
+            else if (days < 7) label = 'Il y a ' + days + ' jours';
+            else if (days < 30) label = 'Il y a ' + Math.floor(days / 7) + ' sem.';
+            else if (days < 365) label = 'Il y a ' + Math.floor(days / 30) + ' mois';
+            else label = 'Il y a ' + Math.floor(days / 365) + ' an(s)';
+            return { label, days };
+        }
+        function coachStatusOf(days) {
+            if (days <= 7) return { key: 'green', label: 'Actif' };
+            if (days <= 30) return { key: 'amber', label: 'Peu actif' };
+            return { key: 'red', label: 'Inactif' };
         }
 
-        window.filterCoachStudents = function(query) {
-            const q = query.trim().toLowerCase();
-            const rows = document.querySelectorAll('#coachStudentsTable tr[data-student-idx]');
-            rows.forEach(row => {
-                const name = (row.dataset.name || '');
-                const email = (row.dataset.email || '');
-                row.style.display = (!q || name.includes(q) || email.includes(q)) ? '' : 'none';
+        let _coachSort = { col: 'monthPnl', dir: 'desc' };
+        let _coachControlsWired = false;
+
+        async function loadCoachStudents() {
+            const tbody = document.getElementById('coachStudentsTable');
+            const studentsData = await getAllStudentsData();
+            if (!studentsData || studentsData.length === 0) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Aucun élève actif</td></tr>';
+                return;
+            }
+            window.coachStudentsDataCache = studentsData;
+
+            // Dernière activité (proxy GREATEST via vue coach_students_overview) + Mode Pause :
+            // requêtes légères groupées (le coach lit via is_coach()).
+            const ids = studentsData.map(s => s.user && s.user.uuid).filter(Boolean);
+            let lastMap = new Map(), vacationMap = new Map();
+            try {
+                if (window.supabaseClient) {
+                    const { data: ov } = await window.supabaseClient
+                        .from('coach_students_overview').select('user_id, last_activity');
+                    if (ov) lastMap = new Map(ov.map(r => [r.user_id, r.last_activity]));
+                    const { data: prefs } = await window.supabaseClient
+                        .from('user_preferences').select('user_id, vacation_mode').in('user_id', ids);
+                    if (prefs) vacationMap = new Map(prefs.map(p => [p.user_id, p.vacation_mode === true]));
+                }
+            } catch (e) { console.warn('[COACH-STUDENTS] meta:', e); }
+
+            const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM courant
+            const scoreFn = window.coachStudentScore;
+
+            window.coachStudentsRows = studentsData.map((sd, index) => {
+                const u = sd.user || {};
+                const trades = sd.data.trades || [];
+                const accounts = sd.data.accounts || [];
+                const monthTrades = trades.filter(t => String(t.trade_date || t.date || '').slice(0, 7) === monthKey);
+                const monthPnl = monthTrades.reduce((s, t) => s + (parseFloat(t.pnl) || 0), 0);
+                let num = 0, denom = 0;
+                monthTrades.forEach(t => { const p = parseFloat(t.pnl) || 0; if (t.is_break_even === true || p === 0) return; denom++; if (p > 0) num++; });
+                const monthWR = denom > 0 ? Math.round((num / denom) * 100) : null;
+                const sc = (typeof scoreFn === 'function') ? scoreFn(trades, accounts) : null; // T360 all-time (score global)
+                const last = lastMap.get(u.uuid) || null;
+                const rel = coachRelTime(last);
+                const status = coachStatusOf(rel.days);
+                return {
+                    idx: index, uuid: u.uuid, name: u.name || '', email: u.email || '',
+                    monthPnl, monthWR, monthTrades: monthTrades.length, t360: sc ? sc.global : null,
+                    lastTs: last ? new Date(last).getTime() : 0, lastLabel: rel.label,
+                    status: status.key, statusLabel: status.label,
+                    vacation: vacationMap.get(u.uuid) === true
+                };
             });
+
+            wireCoachStudentsControls();
+            window.renderCoachStudentsTable();
+        }
+
+        function wireCoachStudentsControls() {
+            if (_coachControlsWired) return; _coachControlsWired = true;
+            document.querySelectorAll('#coachStudents .coach-th.sortable').forEach(th => {
+                th.addEventListener('click', () => {
+                    const col = th.getAttribute('data-sort');
+                    if (_coachSort.col === col) _coachSort.dir = _coachSort.dir === 'asc' ? 'desc' : 'asc';
+                    else { _coachSort.col = col; _coachSort.dir = (col === 'name' || col === 'status') ? 'asc' : 'desc'; }
+                    window.renderCoachStudentsTable();
+                });
+            });
+            document.querySelectorAll('#coachStatusFilters .coach-chip').forEach(chip => {
+                chip.addEventListener('click', () => { chip.classList.toggle('is-on'); window.renderCoachStudentsTable(); });
+            });
+        }
+
+        window.renderCoachStudentsTable = function () {
+            const rows = window.coachStudentsRows || [];
+            const tbody = document.getElementById('coachStudentsTable');
+            if (!tbody) return;
+            const searchEl = document.getElementById('coachStudentSearch');
+            const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+            const activeStatus = new Set(Array.from(document.querySelectorAll('#coachStatusFilters .coach-chip.is-on')).map(c => c.getAttribute('data-status')));
+
+            let view = rows.filter(r => activeStatus.has(r.status) &&
+                (!q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)));
+
+            const col = _coachSort.col, mul = _coachSort.dir === 'asc' ? 1 : -1;
+            view.sort((a, b) => {
+                if (col === 'name') return mul * a.name.localeCompare(b.name, 'fr');
+                if (col === 'status') { const o = { green: 0, amber: 1, red: 2 }; return mul * (o[a.status] - o[b.status]); }
+                let va = a[col], vb = b[col];
+                va = (va === null || va === undefined) ? -Infinity : va;
+                vb = (vb === null || vb === undefined) ? -Infinity : vb;
+                return mul * (va - vb);
+            });
+
+            document.querySelectorAll('#coachStudents .coach-th.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.getAttribute('data-sort') === col) th.classList.add(mul === 1 ? 'sort-asc' : 'sort-desc');
+            });
+            const cnt = document.getElementById('coachStudentsCount');
+            if (cnt) cnt.textContent = view.length + ' / ' + rows.length + ' élève' + (rows.length > 1 ? 's' : '');
+
+            if (!view.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Aucun élève ne correspond aux filtres</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = view.map(r => {
+                const hue = coachAvatarHue(r.uuid || r.name);
+                const t360 = r.t360 === null ? '—' : r.t360.toFixed(1);
+                const t360Cls = r.t360 === null ? '' : (r.t360 >= 80 ? 'pos' : r.t360 >= 50 ? 'mid' : 'neg');
+                const wr = r.monthWR === null ? '—' : r.monthWR + '%';
+                return '<tr class="coach-student-row" onclick="window.openCoachStudentDetail(' + r.idx + ')">' +
+                    '<td class="coach-td"><div class="coach-student-id">' +
+                        '<span class="coach-avatar" style="--h:' + hue + '">' + window.escapeHtml(coachInitials(r.name)) + '</span>' +
+                        '<div class="coach-student-meta"><div class="coach-student-name">' + window.escapeHtml(r.name) + (r.vacation ? ' <span class="student-vacation-badge" title="Mode Pause">🌴</span>' : '') + '</div>' +
+                        '<div class="coach-student-email">' + window.escapeHtml(r.email) + '</div></div></div></td>' +
+                    '<td class="coach-td"><span class="coach-status"><span class="coach-dot ' + r.status + '"></span>' + r.statusLabel + '</span></td>' +
+                    '<td class="coach-td text-right coach-num ' + (r.monthPnl >= 0 ? 'pos' : 'neg') + '">' + (r.monthTrades ? coachMoney(r.monthPnl) : '—') + '</td>' +
+                    '<td class="coach-td text-right coach-num">' + wr + '</td>' +
+                    '<td class="coach-td text-right coach-num ' + t360Cls + '">' + t360 + '</td>' +
+                    '<td class="coach-td"><span class="coach-last">' + window.escapeHtml(r.lastLabel) + '</span></td>' +
+                    '<td class="coach-td text-right" onclick="event.stopPropagation()">' +
+                        '<button onclick="window.openCoachStudentDetail(' + r.idx + ')" class="coach-row-btn" title="Voir détails"><i class="fas fa-eye"></i></button> ' +
+                        '<button onclick="confirmRevokeStudent(' + r.idx + ')" class="coach-row-btn danger" title="Révoquer l\'accès"><i class="fas fa-ban"></i></button>' +
+                    '</td></tr>';
+            }).join('');
         };
+
+        // Alias rétro-compat (anciens appels éventuels à filterCoachStudents).
+        window.filterCoachStudents = function () { if (window.renderCoachStudentsTable) window.renderCoachStudentsTable(); };
+
+        // Modale détails élève — placeholder premium : socle prêt pour #84 (lecture tableur Manu :
+        // niveau LB / progression) et #80 (mode impersonation coach → "Voir son journal").
+        window.openCoachStudentDetail = function (idx) {
+            const r = (window.coachStudentsRows || [])[idx];
+            const modal = document.getElementById('coachStudentDetailModal');
+            if (!r || !modal) return;
+            const av = document.getElementById('csdAvatar');
+            if (av) { av.textContent = coachInitials(r.name); av.style.setProperty('--h', coachAvatarHue(r.uuid || r.name)); }
+            const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+            set('csdName', r.name);
+            set('csdEmail', r.email);
+            const st = document.getElementById('csdStatus');
+            if (st) st.innerHTML = '<span class="coach-dot ' + r.status + '"></span> ' + r.statusLabel + ' · ' + window.escapeHtml(r.lastLabel);
+            const pnlEl = document.getElementById('csdPnl');
+            if (pnlEl) { pnlEl.textContent = r.monthTrades ? coachMoney(r.monthPnl) : '—'; pnlEl.className = 'csd-stat-val ' + (r.monthPnl >= 0 ? 'pos' : 'neg'); }
+            set('csdWR', r.monthWR === null ? '—' : r.monthWR + '%');
+            set('csdTrades', r.monthTrades);
+            set('csdT360', r.t360 === null ? '—' : r.t360.toFixed(1));
+            modal.dataset.idx = idx;
+            if (modal.parentElement !== document.body) document.body.appendChild(modal);
+            modal.style.display = 'block';
+            modal.style.visibility = 'visible';
+        };
+        window.closeCoachStudentDetail = function () { const m = document.getElementById('coachStudentDetailModal'); if (m) m.style.display = 'none'; };
+        window.coachStudentDetailRevoke = function () { const m = document.getElementById('coachStudentDetailModal'); if (m && m.dataset.idx != null) { const i = Number(m.dataset.idx); window.closeCoachStudentDetail(); confirmRevokeStudent(i); } };
 
         // Évite d'interpoler le name de l'élève dans un attribut onclick="" :
         // on lit le cache au moment du clic plutôt qu'au rendu HTML.
@@ -15342,6 +15451,35 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
             <div id="alertDetailDesc" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 14px;"></div>
             <div id="alertDetailList" style="max-height: 50vh; overflow-y: auto;"></div>
             <div style="text-align:right; margin-top:16px;"><button onclick="closeAlertDetailModal()" class="trader-btn-secondary">Fermer</button></div>
+        </div>
+    </div>
+
+    <!-- #33 commit 4 — Modale détails élève (placeholder premium : socle #84 tableur + #80 impersonation) -->
+    <div id="coachStudentDetailModal" class="view-modal" style="display:none;">
+        <div class="view-modal-content csd-card" style="max-width: 560px;">
+            <span class="view-modal-close" onclick="closeCoachStudentDetail()" style="cursor:pointer; float:right; font-size:24px;">&times;</span>
+            <div class="csd-head">
+                <span class="coach-avatar csd-avatar" id="csdAvatar">?</span>
+                <div>
+                    <div class="csd-name" id="csdName">—</div>
+                    <div class="csd-email" id="csdEmail">—</div>
+                    <div class="csd-status" id="csdStatus"></div>
+                </div>
+            </div>
+            <div class="csd-stats">
+                <div class="csd-stat"><div class="csd-stat-lbl">P&L (mois)</div><div class="csd-stat-val" id="csdPnl">—</div></div>
+                <div class="csd-stat"><div class="csd-stat-lbl">Win Rate (mois)</div><div class="csd-stat-val" id="csdWR">—</div></div>
+                <div class="csd-stat"><div class="csd-stat-lbl">Trades (mois)</div><div class="csd-stat-val" id="csdTrades">—</div></div>
+                <div class="csd-stat"><div class="csd-stat-lbl">T360 Score</div><div class="csd-stat-val" id="csdT360">—</div></div>
+            </div>
+            <div class="csd-soon">
+                <div class="csd-soon-row"><i class="fas fa-graduation-cap"></i><div><strong>Niveau &amp; progression LearnyBox</strong><span>Bientôt — intégration du tableur (#84)</span></div></div>
+                <div class="csd-soon-row"><i class="fas fa-user-secret"></i><div><strong>Voir son journal (vue élève)</strong><span>Bientôt — mode coach lecture (#80)</span></div></div>
+            </div>
+            <div class="csd-actions">
+                <button onclick="coachStudentDetailRevoke()" class="trader-btn-secondary csd-revoke"><i class="fas fa-ban mr-1"></i>Révoquer l'accès</button>
+                <button onclick="closeCoachStudentDetail()" class="trader-btn-secondary">Fermer</button>
+            </div>
         </div>
     </div>
 
