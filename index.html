@@ -3190,6 +3190,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
                 <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
                 <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
+                <!-- #33 commit 3 — entrée mode personnalisation du dashboard coach -->
+                <button type="button" onclick="window.enterCoachDashboardEdit && window.enterCoachDashboardEdit()"
+                        class="dash-btn dash-btn-ghost" style="margin-top:12px; font-size:12px; width:100%; justify-content:center;">
+                    <i class="fas fa-sliders-h"></i> Personnaliser mon dashboard
+                </button>
             </div>
             
             <nav class="mt-6">
@@ -3244,71 +3249,41 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <div role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
             <!-- Dashboard Global -->
             <div id="coachDashboard" class="section">
-                <!-- Banner Style Coach -->
-                <div class="traderzella-banner">
-                    <!-- Élèves Actifs -->
-                    <div class="metric-item">
-                        <div class="metric-header">
-                            Élèves Actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves avec le statut actif dans l'école</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-large" id="coachTotalStudents">0</div>
-                            <i class="fas fa-users" style="color: #3b82f6; font-size: 20px;"></i>
-                        </div>
+                <!-- #33 — 5 KPI agrégés -->
+                <div class="traderzella-banner coach-kpi-5">
+                    <div class="metric-item net-pnl">
+                        <div class="metric-header">P&L global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte cumulé de tous les élèves depuis toujours (all-time).</span></i></div>
+                        <div class="metric-main"><div class="metric-value-large" id="coachGlobalPnl" style="font-size:1.7rem;">$0.00</div></div>
                     </div>
-
-                    <!-- Win Rate Global -->
                     <div class="metric-item">
-                        <div class="metric-header">
-                            Win Rate Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Pourcentage de trades gagnants de tous les élèves actifs combinés</span></i>
-                        </div>
+                        <div class="metric-header">Élèves actifs <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre d'élèves ayant tradé au moins une fois ce mois.</span></i></div>
+                        <div class="metric-main"><div class="metric-value-medium" id="coachActiveStudents">0</div></div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-header">Win Rate moyen <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Moyenne du Win Rate de chaque élève actif ce mois (chaque élève compte pour 1).</span></i></div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="coachGlobalWinRate">0%</div>
-                            <div class="metric-bar-container">
-                                <div class="metric-bar-bg">
-                                    <div class="metric-bar-fill green" id="coachWinRateBar" style="width: 0%;"></div>
-                                </div>
-                            </div>
+                            <div class="metric-bar-container"><div class="metric-bar-bg"><div class="metric-bar-fill green" id="coachWinRateBar" style="width: 0%;"></div></div></div>
                         </div>
                     </div>
-
-                    <!-- Total Trades -->
                     <div class="metric-item">
-                        <div class="metric-header">
-                            Total Trades <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves</span></i>
-                        </div>
+                        <div class="metric-header">Profit Factor <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profits bruts ÷ pertes brutes, agrégés sur tous les élèves ce mois.</span></i></div>
+                        <div class="metric-main"><div class="metric-value-medium" id="coachProfitFactor">0.00</div></div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-header">Total Trades <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Nombre total de trades exécutés par tous les élèves ce mois.</span></i></div>
                         <div class="metric-main">
                             <div class="metric-value-medium" id="coachTotalTrades">0</div>
                             <div class="metric-counters">
-                                <div class="counter-item">
-                                    <div class="counter-label">Gagnants</div>
-                                    <div class="counter-value green" id="coachTotalWins">0</div>
-                                </div>
-                                <div class="counter-item">
-                                    <div class="counter-label">Perdants</div>
-                                    <div class="counter-value red" id="coachTotalLosses">0</div>
-                                </div>
+                                <div class="counter-item"><div class="counter-label">Gagnants</div><div class="counter-value green" id="coachTotalWins">0</div></div>
+                                <div class="counter-item"><div class="counter-label">Perdants</div><div class="counter-value red" id="coachTotalLosses">0</div></div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- P&L Global -->
-                    <div class="metric-item net-pnl">
-                        <div class="metric-header">
-                            P&L Global <i class="fas fa-info-circle info-icon" style="color: #ccc;"><span class="tooltip">Profit ou perte total de tous les élèves combinés</span></i>
-                        </div>
-                        <div class="metric-main">
-                            <div class="metric-value-large" id="coachGlobalPnL">$0.00</div>
-                            <i class="fas fa-dollar-sign" style="color: #10b981; font-size: 20px;"></i>
                         </div>
                     </div>
                 </div>
 
-                <!-- Grille 2 colonnes: Calendrier + Trader 360 Score -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    
-                    <!-- Calendrier Global -->
-                    <div class="trader-card" style="padding: 24px;">
+                <!-- Calendrier Global — pleine largeur -->
+                <div class="trader-card" style="padding: 24px; margin-top: 24px;">
                         <div class="flex justify-between items-center mb-4">
                             <button onclick="previousGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
                                 <i class="fas fa-chevron-left text-xl"></i>
@@ -3317,11 +3292,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 <i class="fas fa-calendar-alt mr-2 text-indigo-600"></i>
                                 <span id="globalCalendarMonthYear">Janvier 2026</span>
                             </h2>
-                            <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
-                                <i class="fas fa-chevron-right text-xl"></i>
-                            </button>
+                            <div style="position: relative;">
+                                <button type="button" onclick="toggleCoachCalendarSettings(event)" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition" title="Affichage du calendrier" style="margin-right:4px;">
+                                    <i class="fas fa-cog text-lg"></i>
+                                </button>
+                                <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
+                                    <i class="fas fa-chevron-right text-xl"></i>
+                                </button>
+                                <div id="coachCalendarSettings" class="coach-cal-settings" style="display:none;">
+                                    <label><input type="checkbox" id="coachShowDollar" checked onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> P&L ($)</label>
+                                    <label><input type="checkbox" id="coachShowR" onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> Performance en RR</label>
+                                    <label><input type="checkbox" id="coachShowPercent" onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> Performance en %</label>
+                                    <label><input type="checkbox" id="coachShowActionsErrors" checked onchange="updateCoachCalendarDisplay()" style="accent-color:#ac862b;"> Actions / Erreurs (✅/❌)</label>
+                                </div>
+                            </div>
                         </div>
-                        
+
                         <!-- Header jours -->
                         <div class="grid grid-cols-7 gap-2 mb-3">
                             <div class="text-center font-semibold text-gray-600 text-xs py-1">Dim</div>
@@ -3332,91 +3318,95 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <div class="text-center font-semibold text-gray-600 text-xs py-1">Ven</div>
                             <div class="text-center font-semibold text-gray-600 text-xs py-1">Sam</div>
                         </div>
-                        
+
                         <!-- Grille calendrier -->
                         <div id="globalCalendarGrid" class="grid grid-cols-7 gap-2">
                             <!-- Sera rempli par JS -->
                         </div>
+
+                        <!-- 5 KPI du mois sous le calendrier (parité #51, agrégé tous élèves) -->
+                        <div class="traderzella-banner coach-month-kpi" style="margin-top:18px; margin-bottom:0; grid-template-columns: repeat(5, 1fr);">
+                            <div class="metric-item"><div class="metric-header">Net P&L mois</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthNetPnl">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Win Rate mois</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthWinRate">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Profit Factor</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthPF">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Trades</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthTrades">—</div></div></div>
+                            <div class="metric-item"><div class="metric-header">Trade moyen</div><div class="metric-main"><div class="metric-value-medium" id="coachMonthAvg">—</div></div></div>
+                        </div>
                     </div>
-                    
-                    <!-- Régularité des Profits Globale (Coach) -->
+
+                <!-- Performance par Heure — pleine largeur (FIX C) -->
+                <div class="trader-card" style="padding: 24px; margin-top: 24px;">
+                    <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-clock mr-2 text-blue-600"></i>Performance par Heure (tous élèves)</h2>
+                    <div style="height: 360px;"><canvas id="globalHourlyChart"></canvas></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <!-- Trader 360 Score — card dédiée avec grand radar (FIX B) -->
+                    <div class="trader-card" style="padding: 24px; text-align: center;">
+                        <h2 class="text-xl font-bold mb-1" style="color: var(--color-gold, #d4af37);">Trader 360 Score — moyenne des élèves</h2>
+                        <div class="metric-value-large" id="coachT360Score" style="font-size: 2.2rem;">0.0</div>
+                        <div style="font-size: 0.78rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 6px;">moyenne simple des 6 composantes</div>
+                        <div id="coachT360Radar" style="display:flex; justify-content:center;"></div>
+                    </div>
+
+                    <!-- Régularité des Profits Globale -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-xl font-bold mb-4 flex items-center">
-                            📊 Régularité des Profits (Moyenne Élèves)
-                            <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Mesure la concentration des profits. Plus le pourcentage est faible, plus les gains sont réguliers. Moyenne calculée sur tous les élèves actifs."></i>
+                        <h2 class="text-xl font-bold mb-4 flex items-center">📊 Régularité des Profits (Moyenne Élèves)
+                            <i class="fas fa-info-circle ml-2 text-gray-400" style="font-size: 0.9rem; cursor: help;" title="Concentration moyenne des profits des élèves. Plus bas = plus régulier."></i>
                         </h2>
-                        
                         <div class="text-center mt-6">
-                            <!-- Pourcentage de concentration -->
                             <div class="text-5xl font-bold mb-2" id="globalConsistencyRatio" style="color: #f59e0b;">0%</div>
                             <div class="text-sm text-gray-600 mb-4">moyenne de régularité des élèves</div>
-                            
-                            <!-- Barre de progression -->
                             <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
                                 <div id="globalConsistencyBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%; background: linear-gradient(to right, #10b981, #f59e0b, #ef4444);"></div>
                             </div>
-                            
-                            <!-- Interprétation -->
                             <div class="mt-4 p-4 rounded-lg consistency-interpretation-card" id="globalConsistencyInterpretation">
                                 <div class="text-sm font-semibold" id="globalConsistencyLabel" style="color: var(--aube-text-primary, #1a1208);">Excellent</div>
                                 <div class="text-xs mt-1" id="globalConsistencyDesc" style="color: var(--aube-text-secondary, rgba(0, 11, 37, 0.6));">Les profits des élèves sont bien répartis</div>
                             </div>
                         </div>
                     </div>
-                    
                 </div>
 
-                <!-- Graphiques -->
+                <!-- Engagement quotidien — checklist & journal (FIX G), pleine largeur -->
+                <div class="trader-card" style="padding: 24px; margin-top: 24px;">
+                    <h2 class="text-lg font-bold mb-1 flex items-center"><i class="fas fa-clipboard-check mr-2 text-amber-600"></i>Engagement quotidien — Checklist &amp; Journal (ce mois)</h2>
+                    <div style="font-size:11px; color:var(--aube-text-secondary, rgba(255,255,255,0.55)); margin-bottom:10px;">Nb d'élèves ayant validé leur checklist et rempli leur journal chaque jour.</div>
+                    <div style="height: 300px;"><canvas id="coachEngagementChart"></canvas></div>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    
-                    <!-- Performance par Heure -->
-                    <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-clock mr-2 text-blue-600"></i>
-                            Performance par Heure
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalHourlyChart"></canvas>
-                        </div>
-                    </div>
-                    
                     <!-- Performance par Durée -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-hourglass-half mr-2 text-purple-600"></i>
-                            Performance par Durée
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalDurationChart"></canvas>
-                        </div>
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-hourglass-half mr-2 text-purple-600"></i>Performance par Durée</h2>
+                        <div style="height: 300px;"><canvas id="globalDurationChart"></canvas></div>
                     </div>
-                    
-                    <!-- Drawdown -->
+                    <!-- P&L cumulé / Drawdown -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-chart-line mr-2 text-red-600"></i>
-                            Drawdown Global
-                        </h2>
-                        <div style="height: 300px;">
-                            <canvas id="globalDrawdownChart"></canvas>
-                        </div>
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-chart-line mr-2 text-red-600"></i>P&L cumulé</h2>
+                        <div style="height: 300px;"><canvas id="globalDrawdownChart"></canvas></div>
                     </div>
-                    
-                    <!-- Win Rate par Protection -->
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <!-- Discipline de sortie (ex-Analyse Protections, FIX D : renommage SL/TP) -->
                     <div class="trader-card" style="padding: 24px;">
-                        <h2 class="text-lg font-bold mb-4 flex items-center">
-                            <i class="fas fa-shield-alt mr-2 text-green-600"></i>
-                            Analyse des Protections (Tous les Élèves)
-                        </h2>
-                        <div id="globalProtectionAnalysisContainer" class="space-y-3">
-                            <!-- Les analyses de protections seront insérées ici -->
-                            <div class="text-center text-gray-500 py-6">
-                                <i class="fas fa-chart-bar text-3xl mb-2"></i>
-                                <p class="text-sm">Aucune donnée disponible</p>
-                            </div>
-                        </div>
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-shield-alt mr-2 text-green-600"></i>Discipline de sortie (tous élèves)</h2>
+                        <div id="globalDisciplineContainer" class="space-y-3"><div class="text-center text-gray-500 py-6 text-sm">Chargement…</div></div>
                     </div>
-                    
+                    <!-- Analyse des Protections — types réels (FIX D : parse trades.protections) -->
+                    <div class="trader-card" style="padding: 24px;">
+                        <h2 class="text-lg font-bold mb-4 flex items-center"><i class="fas fa-layer-group mr-2 text-amber-600"></i>Analyse des Protections (types, ce mois)</h2>
+                        <div id="globalProtTypesContainer" class="space-y-3"><div class="text-center text-gray-500 py-6 text-sm">Chargement…</div></div>
+                    </div>
+                </div>
+
+                <!-- Points à surveiller — alertes comportementales agrégées (communauté) -->
+                <div id="coachWarningsBanner" class="trader-card" style="display:none; margin-top: 24px; border:2px solid rgba(239,68,68,0.55) !important;">
+                    <h2 class="text-xl font-bold mb-4 flex items-center" style="color:#ef4444;">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Points à surveiller — communauté (ce mois)
+                    </h2>
+                    <div id="coachWarningsContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
                 </div>
             </div>
 
@@ -3427,31 +3417,39 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <p class="text-gray-600">Liste de tous les élèves avec vue détaillée</p>
                 </div>
 
-                <div class="trader-card" style="padding: 24px;">
-                    <!-- Barre de recherche live -->
-                    <div class="mb-4">
-                        <input type="text" id="coachStudentSearch"
-                               placeholder="Rechercher un élève par nom ou email..."
-                               oninput="filterCoachStudents(this.value)"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-                               style="max-width: 400px;">
+                <div class="trader-card coach-students-card" style="padding: 24px;">
+                    <!-- Barre d'outils : recherche live + filtres statut + compteur -->
+                    <div class="coach-students-toolbar">
+                        <div class="coach-search-wrap">
+                            <i class="fas fa-search coach-search-ico"></i>
+                            <input type="text" id="coachStudentSearch"
+                                   placeholder="Rechercher un élève par nom ou email…"
+                                   oninput="window.renderCoachStudentsTable && window.renderCoachStudentsTable()"
+                                   class="coach-search-input">
+                        </div>
+                        <div class="coach-status-filters" id="coachStatusFilters">
+                            <button type="button" class="coach-chip is-on" data-status="green"><span class="coach-dot green"></span> Actifs</button>
+                            <button type="button" class="coach-chip is-on" data-status="amber"><span class="coach-dot amber"></span> Peu actifs</button>
+                            <button type="button" class="coach-chip is-on" data-status="red"><span class="coach-dot red"></span> Inactifs</button>
+                        </div>
+                        <div class="coach-students-count" id="coachStudentsCount"></div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="w-full coach-students-table">
                             <thead>
-                                <tr class="border-b border-gray-200">
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom/Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comptes</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <tr>
+                                    <th class="coach-th sortable" data-sort="name">Élève</th>
+                                    <th class="coach-th sortable" data-sort="status">Statut</th>
+                                    <th class="coach-th sortable text-right" data-sort="monthPnl">P&L (mois)</th>
+                                    <th class="coach-th sortable text-right" data-sort="monthWR">Win Rate (mois)</th>
+                                    <th class="coach-th sortable text-right" data-sort="t360">T360 Score</th>
+                                    <th class="coach-th sortable" data-sort="lastTs">Dernière activité</th>
+                                    <th class="coach-th text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="coachStudentsTable">
                                 <tr>
-                                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">Aucun élève</td>
+                                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">Chargement…</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -10164,7 +10162,31 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             };
             
             localStorage.setItem('checklist_validations', JSON.stringify(validations));
-            
+
+            // Persistance en base (best-effort, silent fail) — alimente le tracking checklist
+            // côté coach (#33). N'altère JAMAIS l'UX élève : si le réseau échoue, rien de visible,
+            // le localStorage ci-dessus reste la source d'état immédiat. Table dédiée
+            // checklist_validations (PK user_id+validation_date) → upsert sans risque.
+            (async () => {
+                try {
+                    if (window.supabaseClient && window.currentUser && window.currentUser.uuid) {
+                        const { error } = await window.supabaseClient
+                            .from('checklist_validations')
+                            .upsert({
+                                user_id: window.currentUser.uuid,
+                                validation_date: today,
+                                items_checked: checked,
+                                total_items: total,
+                                completion_rate: parseFloat(completionRate)
+                            }, { onConflict: 'user_id,validation_date' });
+                        if (error) console.warn('[CHECKLIST] Upsert base (silent):', error.message);
+                        else console.log('[CHECKLIST] ✅ Validation persistée en base:', today);
+                    }
+                } catch (err) {
+                    console.warn('[CHECKLIST] Upsert base a échoué (silent):', err);
+                }
+            })();
+
             // Feedback visuel
             alert(`✅ Checklist validée !\n\n${checked}/${total} items cochés (${completionRate}%)\nDate: ${today}`);
             
@@ -14170,99 +14192,200 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
         
         
-        async function loadCoachStudents() {
-            console.log(" Chargement liste élèves...");
-            const studentsData = await getAllStudentsData();
-            
-            if (studentsData.length === 0) {
-                document.getElementById('coachStudentsTable').innerHTML = `
-                    <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Aucun élève actif</td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            // Trier par P&L décroissant
-            const sorted = [...studentsData].sort((a, b) => {
-                const pnlA = (a.data.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
-                const pnlB = (b.data.trades || []).reduce((s, t) => s + (t.pnl || 0), 0);
-                return pnlB - pnlA;
-            });
-            window.coachStudentsDataCache = sorted;
-
-            // #59 — états Mode Pause des élèves (query légère séparée + Map ; coach lit via is_coach())
-            let vacationMap = new Map();
-            try {
-                const ids = sorted.map(s => s.user && s.user.uuid).filter(Boolean);
-                if (ids.length && window.supabaseClient) {
-                    const { data: prefs } = await window.supabaseClient
-                        .from('user_preferences')
-                        .select('user_id, vacation_mode')
-                        .in('user_id', ids);
-                    if (prefs) vacationMap = new Map(prefs.map(p => [p.user_id, p.vacation_mode === true]));
-                }
-            } catch (e) { console.warn('[VACATION] badges coach:', e); }
-
-            const tableHTML = sorted.map((studentData, index) => {
-                const student = studentData.user;
-                const trades = studentData.data.trades || [];
-                const accounts = studentData.data.accounts || [];
-                const wins = trades.filter(t => t.pnl > 0).length;
-                const winRate = trades.length > 0 ? ((wins / trades.length) * 100).toFixed(1) : 0;
-                const pnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-                const idx = Number(index);
-
-                return `
-                    <tr class="border-b border-gray-200 hover:bg-gray-50"
-                        data-student-idx="${idx}"
-                        data-name="${window.escapeHtml((student.name || '').toLowerCase())}"
-                        data-email="${window.escapeHtml((student.email || '').toLowerCase())}">
-                        <td class="px-6 py-4">
-                            <div class="font-semibold">${window.escapeHtml(student.name)}${vacationMap.get(student.uuid) === true ? ' <span class="student-vacation-badge" title="Cet élève est en mode Pause (vacances)" aria-label="En pause">🌴 Pause</span>' : ''}</div>
-                            <div class="text-sm text-gray-600">${window.escapeHtml(student.email)}</div>
-                        </td>
-                        <td class="px-6 py-4">${accounts.length} compte(s)</td>
-                        <td class="px-6 py-4">
-                            <span class="text-green-600 font-semibold">${winRate}%</span>
-                        </td>
-                        <td class="px-6 py-4">${trades.length}</td>
-                        <td class="px-6 py-4">
-                            <span class="${pnl >= 0 ? 'text-green-600' : 'text-red-600'} font-semibold">$${pnl.toFixed(2)}</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Actif</span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex space-x-2">
-                                <button onclick="viewStudentDetails(window.coachStudentsDataCache[${idx}])"
-                                        class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
-                                        title="Voir les détails">
-                                    <i class="fas fa-eye mr-1"></i>Détails
-                                </button>
-                                <button onclick="confirmRevokeStudent(${idx})"
-                                        class="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition"
-                                        title="Révoquer l'accès">
-                                    <i class="fas fa-ban mr-1"></i>Révoquer
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('coachStudentsTable').innerHTML = tableHTML;
+        // ============================================================
+        // #33 commit 4 — Table élèves premium (Bourse à l'Aube)
+        // Élève (avatar initiales) · Statut 🟢/🟠/🔴 (last_activity proxy) · P&L mois ·
+        // Win Rate mois · T360 Score (réutilise window.coachStudentScore) · Dernière activité.
+        // Tri par colonne (clic header) + filtres statut + recherche nom/email.
+        // ============================================================
+        function coachInitials(name) {
+            const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return '?';
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        function coachAvatarHue(seed) {
+            let h = 0; const s = String(seed || '');
+            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+            return h;
+        }
+        function coachMoney(v) {
+            return (v >= 0 ? '+$' : '−$') + Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+        }
+        function coachRelTime(ts) {
+            if (!ts) return { label: 'Jamais', days: Infinity };
+            const then = new Date(ts).getTime();
+            if (isNaN(then)) return { label: 'Jamais', days: Infinity };
+            const days = Math.floor((Date.now() - then) / 86400000);
+            let label;
+            if (days <= 0) label = "Aujourd'hui";
+            else if (days === 1) label = 'Hier';
+            else if (days < 7) label = 'Il y a ' + days + ' jours';
+            else if (days < 30) label = 'Il y a ' + Math.floor(days / 7) + ' sem.';
+            else if (days < 365) label = 'Il y a ' + Math.floor(days / 30) + ' mois';
+            else label = 'Il y a ' + Math.floor(days / 365) + ' an(s)';
+            return { label, days };
+        }
+        function coachStatusOf(days) {
+            if (days <= 7) return { key: 'green', label: 'Actif' };
+            if (days <= 30) return { key: 'amber', label: 'Peu actif' };
+            return { key: 'red', label: 'Inactif' };
         }
 
-        window.filterCoachStudents = function(query) {
-            const q = query.trim().toLowerCase();
-            const rows = document.querySelectorAll('#coachStudentsTable tr[data-student-idx]');
-            rows.forEach(row => {
-                const name = (row.dataset.name || '');
-                const email = (row.dataset.email || '');
-                row.style.display = (!q || name.includes(q) || email.includes(q)) ? '' : 'none';
+        let _coachSort = { col: 'monthPnl', dir: 'desc' };
+        let _coachControlsWired = false;
+
+        async function loadCoachStudents() {
+            const tbody = document.getElementById('coachStudentsTable');
+            const studentsData = await getAllStudentsData();
+            if (!studentsData || studentsData.length === 0) {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Aucun élève actif</td></tr>';
+                return;
+            }
+            window.coachStudentsDataCache = studentsData;
+
+            // Dernière activité (proxy GREATEST via vue coach_students_overview) + Mode Pause :
+            // requêtes légères groupées (le coach lit via is_coach()).
+            const ids = studentsData.map(s => s.user && s.user.uuid).filter(Boolean);
+            let lastMap = new Map(), vacationMap = new Map();
+            try {
+                if (window.supabaseClient) {
+                    const { data: ov } = await window.supabaseClient
+                        .from('coach_students_overview').select('user_id, last_activity');
+                    if (ov) lastMap = new Map(ov.map(r => [r.user_id, r.last_activity]));
+                    const { data: prefs } = await window.supabaseClient
+                        .from('user_preferences').select('user_id, vacation_mode').in('user_id', ids);
+                    if (prefs) vacationMap = new Map(prefs.map(p => [p.user_id, p.vacation_mode === true]));
+                }
+            } catch (e) { console.warn('[COACH-STUDENTS] meta:', e); }
+
+            const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM courant
+            const scoreFn = window.coachStudentScore;
+
+            window.coachStudentsRows = studentsData.map((sd, index) => {
+                const u = sd.user || {};
+                const trades = sd.data.trades || [];
+                const accounts = sd.data.accounts || [];
+                const monthTrades = trades.filter(t => String(t.trade_date || t.date || '').slice(0, 7) === monthKey);
+                const monthPnl = monthTrades.reduce((s, t) => s + (parseFloat(t.pnl) || 0), 0);
+                let num = 0, denom = 0;
+                monthTrades.forEach(t => { const p = parseFloat(t.pnl) || 0; if (t.is_break_even === true || p === 0) return; denom++; if (p > 0) num++; });
+                const monthWR = denom > 0 ? Math.round((num / denom) * 100) : null;
+                const sc = (typeof scoreFn === 'function') ? scoreFn(trades, accounts) : null; // T360 all-time (score global)
+                const last = lastMap.get(u.uuid) || null;
+                const rel = coachRelTime(last);
+                const status = coachStatusOf(rel.days);
+                return {
+                    idx: index, uuid: u.uuid, name: u.name || '', email: u.email || '',
+                    monthPnl, monthWR, monthTrades: monthTrades.length, t360: sc ? sc.global : null,
+                    lastTs: last ? new Date(last).getTime() : 0, lastLabel: rel.label,
+                    status: status.key, statusLabel: status.label,
+                    vacation: vacationMap.get(u.uuid) === true
+                };
             });
+
+            wireCoachStudentsControls();
+            window.renderCoachStudentsTable();
+        }
+
+        function wireCoachStudentsControls() {
+            if (_coachControlsWired) return; _coachControlsWired = true;
+            document.querySelectorAll('#coachStudents .coach-th.sortable').forEach(th => {
+                th.addEventListener('click', () => {
+                    const col = th.getAttribute('data-sort');
+                    if (_coachSort.col === col) _coachSort.dir = _coachSort.dir === 'asc' ? 'desc' : 'asc';
+                    else { _coachSort.col = col; _coachSort.dir = (col === 'name' || col === 'status') ? 'asc' : 'desc'; }
+                    window.renderCoachStudentsTable();
+                });
+            });
+            document.querySelectorAll('#coachStatusFilters .coach-chip').forEach(chip => {
+                chip.addEventListener('click', () => { chip.classList.toggle('is-on'); window.renderCoachStudentsTable(); });
+            });
+        }
+
+        window.renderCoachStudentsTable = function () {
+            const rows = window.coachStudentsRows || [];
+            const tbody = document.getElementById('coachStudentsTable');
+            if (!tbody) return;
+            const searchEl = document.getElementById('coachStudentSearch');
+            const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+            const activeStatus = new Set(Array.from(document.querySelectorAll('#coachStatusFilters .coach-chip.is-on')).map(c => c.getAttribute('data-status')));
+
+            let view = rows.filter(r => activeStatus.has(r.status) &&
+                (!q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)));
+
+            const col = _coachSort.col, mul = _coachSort.dir === 'asc' ? 1 : -1;
+            view.sort((a, b) => {
+                if (col === 'name') return mul * a.name.localeCompare(b.name, 'fr');
+                if (col === 'status') { const o = { green: 0, amber: 1, red: 2 }; return mul * (o[a.status] - o[b.status]); }
+                let va = a[col], vb = b[col];
+                va = (va === null || va === undefined) ? -Infinity : va;
+                vb = (vb === null || vb === undefined) ? -Infinity : vb;
+                return mul * (va - vb);
+            });
+
+            document.querySelectorAll('#coachStudents .coach-th.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.getAttribute('data-sort') === col) th.classList.add(mul === 1 ? 'sort-asc' : 'sort-desc');
+            });
+            const cnt = document.getElementById('coachStudentsCount');
+            if (cnt) cnt.textContent = view.length + ' / ' + rows.length + ' élève' + (rows.length > 1 ? 's' : '');
+
+            if (!view.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Aucun élève ne correspond aux filtres</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = view.map(r => {
+                const hue = coachAvatarHue(r.uuid || r.name);
+                const t360 = r.t360 === null ? '—' : r.t360.toFixed(1);
+                const t360Cls = r.t360 === null ? '' : (r.t360 >= 80 ? 'pos' : r.t360 >= 50 ? 'mid' : 'neg');
+                const wr = r.monthWR === null ? '—' : r.monthWR + '%';
+                return '<tr class="coach-student-row" onclick="window.openCoachStudentDetail(' + r.idx + ')">' +
+                    '<td class="coach-td"><div class="coach-student-id">' +
+                        '<span class="coach-avatar" style="--h:' + hue + '">' + window.escapeHtml(coachInitials(r.name)) + '</span>' +
+                        '<div class="coach-student-meta"><div class="coach-student-name">' + window.escapeHtml(r.name) + (r.vacation ? ' <span class="student-vacation-badge" title="Mode Pause">🌴</span>' : '') + '</div>' +
+                        '<div class="coach-student-email">' + window.escapeHtml(r.email) + '</div></div></div></td>' +
+                    '<td class="coach-td"><span class="coach-status"><span class="coach-dot ' + r.status + '"></span>' + r.statusLabel + '</span></td>' +
+                    '<td class="coach-td text-right coach-num ' + (r.monthPnl >= 0 ? 'pos' : 'neg') + '">' + (r.monthTrades ? coachMoney(r.monthPnl) : '—') + '</td>' +
+                    '<td class="coach-td text-right coach-num">' + wr + '</td>' +
+                    '<td class="coach-td text-right coach-num ' + t360Cls + '">' + t360 + '</td>' +
+                    '<td class="coach-td"><span class="coach-last">' + window.escapeHtml(r.lastLabel) + '</span></td>' +
+                    '<td class="coach-td text-right" onclick="event.stopPropagation()">' +
+                        '<button onclick="window.openCoachStudentDetail(' + r.idx + ')" class="coach-row-btn" title="Voir détails"><i class="fas fa-eye"></i></button> ' +
+                        '<button onclick="confirmRevokeStudent(' + r.idx + ')" class="coach-row-btn danger" title="Révoquer l\'accès"><i class="fas fa-ban"></i></button>' +
+                    '</td></tr>';
+            }).join('');
         };
+
+        // Alias rétro-compat (anciens appels éventuels à filterCoachStudents).
+        window.filterCoachStudents = function () { if (window.renderCoachStudentsTable) window.renderCoachStudentsTable(); };
+
+        // Modale détails élève — placeholder premium : socle prêt pour #84 (lecture tableur Manu :
+        // niveau LB / progression) et #80 (mode impersonation coach → "Voir son journal").
+        window.openCoachStudentDetail = function (idx) {
+            const r = (window.coachStudentsRows || [])[idx];
+            const modal = document.getElementById('coachStudentDetailModal');
+            if (!r || !modal) return;
+            const av = document.getElementById('csdAvatar');
+            if (av) { av.textContent = coachInitials(r.name); av.style.setProperty('--h', coachAvatarHue(r.uuid || r.name)); }
+            const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+            set('csdName', r.name);
+            set('csdEmail', r.email);
+            const st = document.getElementById('csdStatus');
+            if (st) st.innerHTML = '<span class="coach-dot ' + r.status + '"></span> ' + r.statusLabel + ' · ' + window.escapeHtml(r.lastLabel);
+            const pnlEl = document.getElementById('csdPnl');
+            if (pnlEl) { pnlEl.textContent = r.monthTrades ? coachMoney(r.monthPnl) : '—'; pnlEl.className = 'csd-stat-val ' + (r.monthPnl >= 0 ? 'pos' : 'neg'); }
+            set('csdWR', r.monthWR === null ? '—' : r.monthWR + '%');
+            set('csdTrades', r.monthTrades);
+            set('csdT360', r.t360 === null ? '—' : r.t360.toFixed(1));
+            modal.dataset.idx = idx;
+            if (modal.parentElement !== document.body) document.body.appendChild(modal);
+            modal.style.display = 'block';
+            modal.style.visibility = 'visible';
+        };
+        window.closeCoachStudentDetail = function () { const m = document.getElementById('coachStudentDetailModal'); if (m) m.style.display = 'none'; };
+        window.coachStudentDetailRevoke = function () { const m = document.getElementById('coachStudentDetailModal'); if (m && m.dataset.idx != null) { const i = Number(m.dataset.idx); window.closeCoachStudentDetail(); confirmRevokeStudent(i); } };
 
         // Évite d'interpoler le name de l'élève dans un attribut onclick="" :
         // on lit le cache au moment du clic plutôt qu'au rendu HTML.
@@ -15320,6 +15443,48 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     <script src="/assets/candles-bg.js" defer></script>
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
+    <!-- #33 FIX F — Modale drill-down d'une alerte "Points à surveiller" -->
+    <div id="alertDetailModal" class="view-modal" style="display:none;">
+        <div class="view-modal-content" style="max-width: 620px;">
+            <span class="view-modal-close" onclick="closeAlertDetailModal()" style="cursor:pointer; float:right; font-size:24px;">&times;</span>
+            <h2 id="alertDetailTitle" class="text-xl font-bold mb-1" style="color: var(--color-gold, #d4af37);">Détail de l'alerte</h2>
+            <div id="alertDetailDesc" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 14px;"></div>
+            <div id="alertDetailList" style="max-height: 50vh; overflow-y: auto;"></div>
+            <div style="text-align:right; margin-top:16px;"><button onclick="closeAlertDetailModal()" class="trader-btn-secondary">Fermer</button></div>
+        </div>
+    </div>
+
+    <!-- #33 commit 4 — Modale détails élève (placeholder premium : socle #84 tableur + #80 impersonation) -->
+    <div id="coachStudentDetailModal" class="view-modal" style="display:none;">
+        <div class="view-modal-content csd-card" style="max-width: 560px;">
+            <span class="view-modal-close" onclick="closeCoachStudentDetail()" style="cursor:pointer; float:right; font-size:24px;">&times;</span>
+            <div class="csd-head">
+                <span class="coach-avatar csd-avatar" id="csdAvatar">?</span>
+                <div>
+                    <div class="csd-name" id="csdName">—</div>
+                    <div class="csd-email" id="csdEmail">—</div>
+                    <div class="csd-status" id="csdStatus"></div>
+                </div>
+            </div>
+            <div class="csd-stats">
+                <div class="csd-stat"><div class="csd-stat-lbl">P&L (mois)</div><div class="csd-stat-val" id="csdPnl">—</div></div>
+                <div class="csd-stat"><div class="csd-stat-lbl">Win Rate (mois)</div><div class="csd-stat-val" id="csdWR">—</div></div>
+                <div class="csd-stat"><div class="csd-stat-lbl">Trades (mois)</div><div class="csd-stat-val" id="csdTrades">—</div></div>
+                <div class="csd-stat"><div class="csd-stat-lbl">T360 Score</div><div class="csd-stat-val" id="csdT360">—</div></div>
+            </div>
+            <div class="csd-soon">
+                <div class="csd-soon-row"><i class="fas fa-graduation-cap"></i><div><strong>Niveau &amp; progression LearnyBox</strong><span>Bientôt — intégration du tableur (#84)</span></div></div>
+                <div class="csd-soon-row"><i class="fas fa-user-secret"></i><div><strong>Voir son journal (vue élève)</strong><span>Bientôt — mode coach lecture (#80)</span></div></div>
+            </div>
+            <div class="csd-actions">
+                <button onclick="coachStudentDetailRevoke()" class="trader-btn-secondary csd-revoke"><i class="fas fa-ban mr-1"></i>Révoquer l'accès</button>
+                <button onclick="closeCoachStudentDetail()" class="trader-btn-secondary">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/assets/dashboard-customizer.js" defer></script>
+    <script src="/assets/coach-dashboard.js" defer></script>
+    <script src="/assets/coach-dashboard-customizer.js" defer></script>
 </body>
 </html>

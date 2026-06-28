@@ -987,6 +987,13 @@ body:not(.dark-mode) .dash-btn-ghost { background: rgba(255,255,255,0.6); color:
 }
 #dashboard.dash-edit [data-block-id]:hover { outline-color: rgba(212,175,55,0.95); }
 #dashboard.dash-edit .traderzella-banner { outline-color: transparent; } /* le conteneur KPI lui-même non souligné, ses cards le sont */
+/* #33 commit 3 — même traitement d'édition pour le dashboard coach */
+#coachDashboard.dash-edit [data-block-id] {
+  outline: 2px dashed rgba(212,175,55,0.6); outline-offset: 3px;
+  border-radius: 12px; transition: outline-color 150ms ease;
+}
+#coachDashboard.dash-edit [data-block-id]:hover { outline-color: rgba(212,175,55,0.95); }
+#coachDashboard.dash-edit .coach-kpi-5 { outline-color: transparent; }
 
 /* Handle de drag (✏️/grip) — haut gauche */
 .dash-handle {
@@ -1040,7 +1047,7 @@ body:not(.dark-mode) .dash-cat-card { background: rgba(252,250,245,0.97); color:
 
 /* Reduced-motion : pas de transition sur les blocs draggables */
 @media (prefers-reduced-motion: reduce) {
-  #dashboard.dash-edit [data-block-id], .dash-btn, .dash-remove, .dash-cat-row { transition: none !important; }
+  #dashboard.dash-edit [data-block-id], #coachDashboard.dash-edit [data-block-id], .dash-btn, .dash-remove, .dash-cat-row { transition: none !important; }
 }
 
 /* ============================================================
@@ -1102,4 +1109,207 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
   font-family: 'JetBrains Mono', ui-monospace, monospace !important;
   font-feature-settings: "tnum" 1 !important;
   font-variant-numeric: tabular-nums !important;
+}
+
+/* ============================================================================
+   #33 COMMIT 1 — Palette "Bourse à l'Aube" appliquée au MODE COACH (#coachApp).
+   Les sections coach utilisent DÉJÀ les mêmes classes que l'élève (.trader-card,
+   .metric-item, .traderzella-banner, .sidebar, .main-content, .section) ; seul le
+   scope #mainApp les privait du traitement. Ce bloc réplique les mêmes valeurs pour
+   #coachApp. 100% additif, #mainApp (élève) strictement intact.
+   ============================================================================ */
+
+/* #33 Commit 2b-viii — Modale drill-down alertes "Points à surveiller" : garantir qu'elle
+   peint AU-DESSUS de tout le contexte coach. La base .view-modal est à z-index:1000 ;
+   l'overlay du customizer (.dash-cat-overlay) est à 10000 et une particule décorative
+   (aube.js) à 9999. On remonte la modale à 10001 (défensif, scopé, sans effet sur les
+   autres modales). Le diagnostic runtime (topElAtCenter) confirmera si c'était bien ça. */
+/* 2b-x + commit 4 — modales ouvertes en contexte coach : z-index au-dessus du customizer (10000)
+   + retrait du backdrop-filter (bug de compositing Chrome avec background-attachment:fixed →
+   "visible seulement avec DevTools"). Voile navy plus opaque pour compenser le blur perdu. */
+#alertDetailModal, #coachStudentDetailModal { z-index: 10001 !important; }
+#alertDetailModal, #coachStudentDetailModal {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(0, 11, 37, 0.82) !important;
+}
+
+/* Fond executive NY à l'aube + overlay (dark / light) */
+#coachApp {
+  background: linear-gradient(rgba(0,11,37,0.45), rgba(0,11,37,0.45)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+body:not(.dark-mode) #coachApp {
+  background: linear-gradient(rgba(255,250,240,0.55), rgba(255,250,240,0.55)),
+              url('/assets/executive-bg.png') center center / cover fixed no-repeat !important;
+}
+#coachApp .main-content, body.dark-mode #coachApp .main-content { background: transparent !important; }
+
+/* Sidebar coach : glass translucide + blur + séparateur doré (idem élève) */
+#coachAppSidebar > * { background: transparent !important; }
+#coachAppSidebar, #coachApp .sidebar {
+  background: rgba(10, 15, 24, 0.55) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+  border-right: 1px solid rgba(201, 162, 75, 0.15) !important;
+}
+body:not(.dark-mode) #coachAppSidebar > * { background: transparent !important; }
+body:not(.dark-mode) #coachAppSidebar,
+body:not(.dark-mode) #coachApp .sidebar { background: rgba(255, 250, 240, 0.75) !important; }
+body.dark-mode #coachAppSidebar .sidebar-item,
+body.dark-mode #coachAppSidebar h3,
+body.dark-mode #coachAppSidebar #coachUserInfo,
+body.dark-mode #coachAppSidebar a,
+body.dark-mode #coachAppSidebar span { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+body.dark-mode #coachAppSidebar .text-gray-300,
+body.dark-mode #coachAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85) !important; }
+
+/* Typo chiffres : JetBrains Mono + tabular-nums */
+#coachApp .metric-value-large, #coachApp .metric-value-medium {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
+/* Cards "photo encadrée" : cadre or fin + fond navy translucide + hover lift */
+#coachApp .trader-card, body.dark-mode #coachApp .trader-card,
+#coachApp .metric-item, body.dark-mode #coachApp .metric-item {
+  background: rgba(10, 15, 24, calc(0.55 * var(--surface-opacity-factor, 1))) !important;
+  border: 1px solid var(--aube-frame) !important;
+  border-radius: var(--aube-frame-radius) !important;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  transition: transform 200ms var(--aube-ease), filter 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+#coachApp .trader-card:hover, body.dark-mode #coachApp .trader-card:hover,
+#coachApp .metric-item:hover, body.dark-mode #coachApp .metric-item:hover {
+  transform: translateY(-1px); filter: brightness(1.08);
+  border-color: var(--aube-frame-hover) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42), 0 0 22px -8px rgba(212, 175, 55, 0.4) !important;
+}
+body:not(.dark-mode) #coachApp .trader-card,
+body:not(.dark-mode) #coachApp .metric-item {
+  background: rgba(255, 250, 240, 0.75) !important; color: #1a1208 !important;
+}
+
+/* Banner head metrics quasi-transparent (laisse respirer le fond) */
+body.dark-mode #coachApp .traderzella-banner {
+  background: rgba(0, 11, 37, 0.15) !important; border-color: transparent !important; box-shadow: none !important;
+}
+body:not(.dark-mode) #coachApp .traderzella-banner {
+  background: rgba(255, 250, 240, 0.18) !important; box-shadow: none !important; border: none !important;
+}
+
+/* Animation d'entrée des sections + cards (idem élève) */
+#coachApp .section:not(.hidden) { animation: aubeSectionIn 240ms var(--aube-ease); }
+#coachApp .section:not(.hidden) .trader-card { animation: aubeCardIn 420ms var(--aube-ease) both; }
+
+/* Hover doré sur les lignes de la table élèves */
+#coachApp #coachStudentsTable tr:hover { background: rgba(212, 175, 55, 0.06) !important; }
+
+/* #33 2b — Banner coach à 5 KPI (responsive) + engrenage filtres calendrier */
+#coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1100px) { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px)  { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px)  { #coachApp .traderzella-banner.coach-kpi-5 { grid-template-columns: 1fr; } }
+/* Items cliquables Points à surveiller coach (drill-down) */
+#coachWarningsContainer > div.clickable { cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
+#coachWarningsContainer > div.clickable:hover { background: rgba(212,175,55,0.10) !important; }
+/* Calendrier coach pleine page : cellules plus grandes */
+#coachApp #globalCalendarGrid > div { min-height: 70px; }
+#coachApp #globalCalendarGrid .cell-pnl { font-size: 1.05rem; }
+.coach-cal-settings {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 230px;
+  background: rgba(10, 15, 24, 0.96); border: 1px solid var(--aube-frame, rgba(201,162,75,0.55));
+  border-radius: 12px; padding: 12px 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+body:not(.dark-mode) .coach-cal-settings { background: rgba(255,250,240,0.97); }
+.coach-cal-settings label { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13px; cursor: pointer; }
+
+/* #33 2b-iv — "X élèves" lisible dans les cellules calendrier coach (fond clair vert/rouge) */
+#coachApp #globalCalendarGrid .coach-cal-students { color: #1a1208; }
+
+/* ============================================================
+   #33 commit 4 — Table élèves premium (Bourse à l'Aube)
+   ============================================================ */
+.coach-students-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin-bottom:18px; }
+.coach-search-wrap { position:relative; flex:1 1 280px; max-width:420px; }
+.coach-search-ico { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:rgba(212,175,55,0.6); font-size:13px; pointer-events:none; }
+.coach-search-input { width:100%; padding:10px 14px 10px 38px; border-radius:10px; font-size:14px;
+  background:rgba(10,15,24,0.55); border:1px solid rgba(212,175,55,0.25); color:var(--aube-text-primary,#f4e4c1); outline:none; transition:border-color .15s; }
+.coach-search-input::placeholder { color:rgba(244,228,193,0.45); }
+.coach-search-input:focus { border-color:rgba(212,175,55,0.7); }
+.coach-status-filters { display:flex; gap:8px; flex-wrap:wrap; }
+.coach-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:600; cursor:pointer;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(212,175,55,0.2); color:rgba(244,228,193,0.55); transition:all .15s; }
+.coach-chip.is-on { background:rgba(212,175,55,0.14); border-color:rgba(212,175,55,0.55); color:var(--aube-text-primary,#f4e4c1); }
+.coach-chip:hover { border-color:rgba(212,175,55,0.7); }
+.coach-students-count { margin-left:auto; font-size:12.5px; color:rgba(244,228,193,0.55); font-variant-numeric:tabular-nums; }
+
+.coach-dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex:none; }
+.coach-dot.green { background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,0.18); }
+.coach-dot.amber { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.18); }
+.coach-dot.red   { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,0.18); }
+
+.coach-students-table { border-collapse:separate; border-spacing:0; }
+.coach-th { padding:11px 14px; text-align:left; font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+  color:rgba(212,175,55,0.8); border-bottom:1px solid rgba(212,175,55,0.2); white-space:nowrap; }
+.coach-th.text-right { text-align:right; }
+.coach-th.sortable { cursor:pointer; user-select:none; transition:color .15s; }
+.coach-th.sortable:hover { color:var(--color-gold,#d4af37); }
+.coach-th.sortable::after { content:'\2195'; opacity:0.3; margin-left:6px; font-size:10px; }
+.coach-th.sort-asc::after { content:'\2191'; opacity:1; }
+.coach-th.sort-desc::after { content:'\2193'; opacity:1; }
+.coach-student-row { cursor:pointer; transition:background .12s; }
+.coach-student-row:hover { background:rgba(212,175,55,0.07); }
+.coach-td { padding:13px 14px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:13.5px; color:var(--aube-text-primary,#f4e4c1); vertical-align:middle; }
+.coach-td.text-right { text-align:right; }
+.coach-num { font-family:'JetBrains Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+.coach-num.pos { color:#10b981; } .coach-num.neg { color:#ef4444; } .coach-num.mid { color:#f59e0b; }
+
+.coach-student-id { display:flex; align-items:center; gap:12px; }
+.coach-avatar { width:38px; height:38px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:800; color:#0d1116; letter-spacing:0.02em;
+  background:linear-gradient(135deg, hsl(var(--h,42) 55% 62%), hsl(var(--h,42) 60% 48%)); box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.coach-student-meta { min-width:0; }
+.coach-student-name { font-weight:600; color:var(--aube-text-primary,#f4e4c1); }
+.coach-student-email { font-size:12px; color:rgba(244,228,193,0.5); }
+.coach-status { display:inline-flex; align-items:center; gap:8px; font-size:13px; }
+.coach-last { font-size:12.5px; color:rgba(244,228,193,0.7); }
+.coach-row-btn { width:30px; height:30px; border-radius:8px; border:1px solid rgba(212,175,55,0.3); background:rgba(255,255,255,0.04);
+  color:rgba(244,228,193,0.8); cursor:pointer; font-size:12px; transition:all .15s; }
+.coach-row-btn:hover { border-color:rgba(212,175,55,0.7); color:var(--color-gold,#d4af37); }
+.coach-row-btn.danger:hover { border-color:rgba(239,68,68,0.7); color:#ef4444; background:rgba(239,68,68,0.1); }
+
+body:not(.dark-mode) .coach-search-input { background:rgba(255,250,240,0.8); color:#1a1208; border-color:rgba(123,96,24,0.3); }
+body:not(.dark-mode) .coach-search-input::placeholder { color:rgba(123,96,24,0.5); }
+body:not(.dark-mode) .coach-chip { color:rgba(123,96,24,0.6); }
+body:not(.dark-mode) .coach-chip.is-on { color:#1a1208; }
+body:not(.dark-mode) .coach-td, body:not(.dark-mode) .coach-student-name { color:#1a1208; }
+body:not(.dark-mode) .coach-student-email, body:not(.dark-mode) .coach-last, body:not(.dark-mode) .coach-students-count { color:rgba(123,96,24,0.7); }
+
+/* Modale détails élève */
+.csd-head { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+.csd-avatar { width:54px; height:54px; font-size:18px; }
+.csd-name { font-size:18px; font-weight:700; color:var(--aube-text-primary,#f4e4c1); }
+.csd-email { font-size:13px; color:rgba(244,228,193,0.55); margin:2px 0 4px; }
+.csd-status { font-size:12.5px; display:inline-flex; align-items:center; gap:7px; color:rgba(244,228,193,0.75); }
+.csd-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
+.csd-stat { background:rgba(255,255,255,0.04); border:1px solid rgba(212,175,55,0.18); border-radius:10px; padding:12px 10px; text-align:center; }
+.csd-stat-lbl { font-size:10.5px; text-transform:uppercase; letter-spacing:0.03em; color:rgba(212,175,55,0.7); margin-bottom:5px; }
+.csd-stat-val { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:16px; font-weight:700; color:var(--aube-text-primary,#f4e4c1); }
+.csd-stat-val.pos { color:#10b981; } .csd-stat-val.neg { color:#ef4444; }
+.csd-soon { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.csd-soon-row { display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:10px;
+  background:rgba(212,175,55,0.06); border:1px dashed rgba(212,175,55,0.3); }
+.csd-soon-row i { font-size:17px; color:rgba(212,175,55,0.7); width:22px; text-align:center; flex:none; }
+.csd-soon-row strong { display:block; font-size:13px; color:var(--aube-text-primary,#f4e4c1); }
+.csd-soon-row span { font-size:11.5px; color:rgba(244,228,193,0.5); }
+.csd-actions { display:flex; justify-content:space-between; gap:10px; }
+.csd-revoke:hover { color:#ef4444 !important; border-color:rgba(239,68,68,0.6) !important; }
+body:not(.dark-mode) .csd-name, body:not(.dark-mode) .csd-stat-val, body:not(.dark-mode) .csd-soon-row strong { color:#1a1208; }
+
+@media (max-width: 720px) {
+  .csd-stats { grid-template-columns:repeat(2,1fr); }
+  .coach-students-count { margin-left:0; }
 }
