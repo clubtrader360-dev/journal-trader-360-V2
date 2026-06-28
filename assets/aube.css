@@ -1118,6 +1118,18 @@ body.dark-mode .pourquoi-glass-card .border-t-2 { border-color: rgba(201, 162, 7
    (aube.js) à 9999. On remonte la modale à 10001 (défensif, scopé, sans effet sur les
    autres modales). Le diagnostic runtime (topElAtCenter) confirmera si c'était bien ça. */
 #alertDetailModal { z-index: 10001 !important; }
+/* 2b-x — CAUSE RACINE de "visible seulement avec DevTools ouverte" : .view-modal porte
+   backdrop-filter: blur(4px), et la page a un fond background-attachment:fixed (#coachApp
+   executive-bg). Cette combinaison déclenche un bug de compositing Chrome : l'élément filtré
+   n'est pas repeint tant qu'un reflow n'a pas lieu (ouvrir DevTools = reflow). On retire le
+   backdrop-filter sur cette seule modale et on compense par un voile navy plus opaque.
+   Aucun stacking-context fautif trouvé sur les ancêtres (audit grep) → ce n'était PAS un
+   souci de z-index. Scopé #alertDetailModal, les autres modales gardent leur blur. */
+#alertDetailModal {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(0, 11, 37, 0.82) !important;
+}
 
 /* Fond executive NY à l'aube + overlay (dark / light) */
 #coachApp {

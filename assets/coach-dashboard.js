@@ -475,7 +475,6 @@
             + '<span style="font-size:20px;pointer-events:none;">' + m.icon + '</span><span style="font-weight:500;flex:1;pointer-events:none;">' + alertCache[k].length + ' élève(s) — ' + m.title + ' ce mois</span>'
             + '<span style="color:var(--color-gold,#d4af37);font-size:12px;pointer-events:none;">détail ›</span></div>';
         }).join('');
-        console.log('[COACH-ALERT] ' + shown.length + ' alerte(s) rendues:', shown.join(','));
       } else { banner.style.display = 'none'; }
     }
   }
@@ -486,7 +485,6 @@
     var data = window.__coachAlerts || { cache: alertCache, meta: alertMeta };
     var m = data.meta[key], list = data.cache[key] || [];
     var modal = document.getElementById('alertDetailModal');
-    console.log('[COACH-ALERT] click', key, '· meta?', !!m, '· modal?', !!modal, '· n=', list.length);
     if (!modal || !m) return;
     document.getElementById('alertDetailTitle').textContent = m.title + ' — ' + (list.length) + ' élève(s)';
     document.getElementById('alertDetailDesc').textContent = m.crit;
@@ -500,22 +498,12 @@
         + '<button class="trader-btn-secondary" disabled title="Bientôt (#80 impersonation coach)" style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 8px;">Voir journal</button></div>';
     }).join('');
     document.getElementById('alertDetailList').innerHTML = rows || '<div style="padding:20px;text-align:center;color:var(--aube-text-secondary,rgba(255,255,255,0.6));">Aucun élève</div>';
+    // Portal défensif : on garantit que la modale est enfant direct de <body> (future-proof
+    // si un refactor la déplaçait sous un conteneur à stacking context). Idempotent.
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
     modal.style.display = 'block';
-    modal.style.visibility = 'visible'; // 2b-ix : visibility est héritée → un ancêtre la passe à
-    // 'hidden' (sonde 2b-viii : display=block mais visibility=hidden). display='block' ne la reset
-    // pas. On force visible à l'ouverture (display:none au close suffit à masquer).
+    modal.style.visibility = 'visible'; // visibility est héritée → on la force (cf 2b-ix)
     modal.setAttribute('aria-hidden', 'false');
-    // Diagnostic 2b-viii — si la modale reste invisible malgré display:block, ces mesures
-    // runtime disent EXACTEMENT pourquoi : computedDisplay (un !important caché ?), rect
-    // (géométrie 0x0 / hors-écran ?), et SURTOUT topElAtCenter = l'élément réellement peint
-    // au centre du viewport (= ce qui couvre la modale, si guerre de z-index).
-    try {
-      var cs = getComputedStyle(modal), r = modal.getBoundingClientRect();
-      var top = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2));
-      console.log('[COACH-ALERT] modal opened · display=', cs.display, '· visibility=', cs.visibility, '· opacity=', cs.opacity, '· z=', cs.zIndex,
-        '· rect=', Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.left) + ',' + Math.round(r.top),
-        '· topElAtCenter=', top ? (top.id || top.className || top.tagName) : null);
-    } catch (e) { /* diagnostic only */ }
   };
   window.closeAlertDetailModal = function () { var m = document.getElementById('alertDetailModal'); if (m) { m.style.display = 'none'; m.setAttribute('aria-hidden', 'true'); } };
 
