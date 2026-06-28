@@ -987,6 +987,13 @@ body:not(.dark-mode) .dash-btn-ghost { background: rgba(255,255,255,0.6); color:
 }
 #dashboard.dash-edit [data-block-id]:hover { outline-color: rgba(212,175,55,0.95); }
 #dashboard.dash-edit .traderzella-banner { outline-color: transparent; } /* le conteneur KPI lui-même non souligné, ses cards le sont */
+/* #33 commit 3 — même traitement d'édition pour le dashboard coach */
+#coachDashboard.dash-edit [data-block-id] {
+  outline: 2px dashed rgba(212,175,55,0.6); outline-offset: 3px;
+  border-radius: 12px; transition: outline-color 150ms ease;
+}
+#coachDashboard.dash-edit [data-block-id]:hover { outline-color: rgba(212,175,55,0.95); }
+#coachDashboard.dash-edit .coach-kpi-5 { outline-color: transparent; }
 
 /* Handle de drag (✏️/grip) — haut gauche */
 .dash-handle {
@@ -1040,7 +1047,7 @@ body:not(.dark-mode) .dash-cat-card { background: rgba(252,250,245,0.97); color:
 
 /* Reduced-motion : pas de transition sur les blocs draggables */
 @media (prefers-reduced-motion: reduce) {
-  #dashboard.dash-edit [data-block-id], .dash-btn, .dash-remove, .dash-cat-row { transition: none !important; }
+  #dashboard.dash-edit [data-block-id], #coachDashboard.dash-edit [data-block-id], .dash-btn, .dash-remove, .dash-cat-row { transition: none !important; }
 }
 
 /* ============================================================

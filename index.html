@@ -3190,6 +3190,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
                 <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
                 <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
+                <!-- #33 commit 3 — entrée mode personnalisation du dashboard coach -->
+                <button type="button" onclick="window.enterCoachDashboardEdit && window.enterCoachDashboardEdit()"
+                        class="dash-btn dash-btn-ghost" style="margin-top:12px; font-size:12px; width:100%; justify-content:center;">
+                    <i class="fas fa-sliders-h"></i> Personnaliser mon dashboard
+                </button>
             </div>
             
             <nav class="mt-6">
@@ -15342,5 +15347,6 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
 
     <script src="/assets/dashboard-customizer.js" defer></script>
     <script src="/assets/coach-dashboard.js" defer></script>
+    <script src="/assets/coach-dashboard-customizer.js" defer></script>
 </body>
 </html>
