@@ -24,7 +24,12 @@ for (const f of FONT_FILES) {
 const num = (v) => (parseFloat(v) || 0);
 const pnlOf = (t) => num(t.pnl);
 const dateOf = (t) => String(t.trade_date || t.date || '').slice(0, 10);
-const hourOf = (t) => parseInt(String(t.entry_time || '').split(':')[0], 10);
+// #91 — entry_time/exit_time sont des TIMESTAMP ("2026-06-25T09:22:00" ou "2026-06-25 09:22:00"),
+// pas des "HH:MM". On extrait toujours la 1re occurrence HH:MM (gère aussi un "HH:MM" nu).
+// Sans ça, split(':')[0] renvoyait "2026-06-25 09" → parseInt = 2026 → toutes les sessions
+// flaggées ≥17h, tout classé PM, et le gap revenge faussé. Pattern aligné sur le fix coach 2b-iii.
+const timeStr = (v) => { const m = String(v || '').match(/(\d{1,2}):(\d{2})/); return m ? (m[1].padStart(2, '0') + ':' + m[2]) : ''; };
+const hourOf = (t) => parseInt(timeStr(t.entry_time).split(':')[0], 10);
 const directionOf = (t) => String(t.direction || t.trade_type || '').toUpperCase();
 
 function protectionsCount(t) {
@@ -84,7 +89,7 @@ function groupByDate(trades) {
 function computeLongestLossStreak(trades) {
   // chronologique par date + heure
   const sorted = [...trades].filter(dateOf).sort((a, b) =>
-    (`${dateOf(a)} ${a.entry_time || '00:00'}`).localeCompare(`${dateOf(b)} ${b.entry_time || '00:00'}`));
+    (`${dateOf(a)} ${timeStr(a.entry_time) || '00:00'}`).localeCompare(`${dateOf(b)} ${timeStr(b.entry_time) || '00:00'}`));
   let cur = 0, max = 0;
   for (const t of sorted) { if (pnlOf(t) < 0) { cur++; max = Math.max(max, cur); } else cur = 0; }
   return max;
@@ -92,7 +97,7 @@ function computeLongestLossStreak(trades) {
 
 function detectRevengeTrades(trades, accounts) {
   const sorted = [...trades].filter(dateOf).sort((a, b) =>
-    (`${dateOf(a)} ${a.entry_time || '00:00'}`).localeCompare(`${dateOf(b)} ${b.entry_time || '00:00'}`));
+    (`${dateOf(a)} ${timeStr(a.entry_time) || '00:00'}`).localeCompare(`${dateOf(b)} ${timeStr(b.entry_time) || '00:00'}`));
   const losses = sorted.filter(t => pnlOf(t) < 0);
   const avgLoss = losses.length ? losses.reduce((s, t) => s + Math.abs(pnlOf(t)), 0) / losses.length : 0;
   const isBigLoss = (t) => {
@@ -105,8 +110,9 @@ function detectRevengeTrades(trades, accounts) {
   const revenge = [];
   for (let i = 0; i < sorted.length - 1; i++) {
     const t = sorted[i], next = sorted[i + 1];
-    if (isBigLoss(t) && dateOf(t) === dateOf(next) && t.exit_time && next.entry_time) {
-      const ex = t.exit_time.split(':'), en = next.entry_time.split(':');
+    const exT = timeStr(t.exit_time), enT = timeStr(next.entry_time);
+    if (isBigLoss(t) && dateOf(t) === dateOf(next) && exT && enT) {
+      const ex = exT.split(':'), en = enT.split(':');
       const exitMin = (parseInt(ex[0]) || 0) * 60 + (parseInt(ex[1]) || 0);
       const entryMin = (parseInt(en[0]) || 0) * 60 + (parseInt(en[1]) || 0);
       const gap = entryMin - exitMin;
