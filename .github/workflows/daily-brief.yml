@@ -57,20 +57,38 @@ jobs:
           PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n\n%s' \
             "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
 
+          echo "🤖 Claude Code CLI version : $(claude --version 2>&1 || echo 'inconnue')"
+          echo "📝 Prompt système : $(wc -l < .github/workflows/prompts/daily-brief-system.md) lignes, $(wc -c < .github/workflows/prompts/daily-brief-system.md) octets"
+
           # Génération headless. --dangerously-skip-permissions : autorise WebSearch/WebFetch + Bash en CI.
+          # On capture stdout (brief_raw.html) ET stderr (claude_err.log) séparément, sans exit immédiat,
+          # pour TOUJOURS pouvoir afficher la vraie cause d'un échec (le 1er run a fail en silence).
+          set +e
           echo "$PROMPT" | claude -p --output-format text --dangerously-skip-permissions \
-            > /tmp/brief_raw.html 2>/tmp/claude_err.log || {
-              echo "::error::Claude CLI a échoué lors de la génération du brief."
-              tail -50 /tmp/claude_err.log
-              exit 1
-            }
+            > /tmp/brief_raw.html 2>/tmp/claude_err.log
+          EXIT_CODE=$?
+          set -e
+
+          # stderr affiché systématiquement (warnings utiles même en cas de succès).
+          echo "---START STDERR---"
+          cat /tmp/claude_err.log 2>/dev/null || true
+          echo "---END STDERR---"
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::error::Claude CLI a échoué (exit code $EXIT_CODE)."
+            echo "---START STDOUT (100 premières lignes) ---"
+            head -100 /tmp/brief_raw.html 2>/dev/null || true
+            echo "---END STDOUT---"
+            echo "::error::Causes fréquentes : token invalide/incomplet · quota Claude Max épuisé (rate limit) · WebFetch/WebSearch refusés en CI · prompt trop long. Voir STDERR/STDOUT ci-dessus."
+            exit 1
+          fi
 
           # Défensif : retire d'éventuelles fences markdown (```html / ```), au cas où.
           sed -e 's/^```html[[:space:]]*$//' -e 's/^```[[:space:]]*$//' /tmp/brief_raw.html > /tmp/brief.html
 
-          if [ ! -s /tmp/brief.html ]; then
-            echo "::error::Claude a renvoyé un HTML vide."
-            tail -50 /tmp/claude_err.log
+          if [ ! -s /tmp/brief.html ] || [ "$(wc -c < /tmp/brief.html)" -lt 100 ]; then
+            echo "::error::Claude a renvoyé un HTML vide ou trop court ($(wc -c < /tmp/brief.html) octets)."
+            echo "---START STDOUT---"; head -100 /tmp/brief_raw.html 2>/dev/null || true; echo "---END STDOUT---"
             exit 1
           fi
           if ! grep -q 'brief-marche' /tmp/brief.html; then
