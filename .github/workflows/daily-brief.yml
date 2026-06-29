@@ -1,0 +1,152 @@
+name: Daily Brief Trader 360
+
+on:
+  schedule:
+    # Lun→Ven 4h UTC = 6h Paris (CEST/été).
+    # ⚠️ À ajuster à '0 5 * * 1-5' en octobre 2026 (passage CET/hiver) — sinon le brief partira à 5h Paris.
+    - cron: '0 4 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Raison du test manuel (log)'
+        required: false
+        default: 'Test manuel'
+      only_user_id:
+        description: 'UUID élève cible (test ciblé — vide = TOUS les éligibles)'
+        required: false
+        default: ''
+      test_email:
+        description: 'Email de test : envoi UNIQUEMENT à cette adresse (prioritaire sur only_user_id, zéro élève touché)'
+        required: false
+        default: ''
+
+jobs:
+  generate-and-send-brief:
+    name: Génère le brief (Claude Code CLI) et l'envoie
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate brief HTML via Claude
+        id: brief
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN manquant dans les Secrets GitHub (à générer via 'claude setup-token', lié à l'abo Claude Max)."
+            exit 1
+          fi
+
+          DATE_ISO=$(TZ=Europe/Paris date +%Y-%m-%d)
+          DATE_LONG_FR=$(TZ=Europe/Paris LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=Europe/Paris date +"%A %-d %B %Y")
+          DOW=$(TZ=Europe/Paris date +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
+          echo "📅 Brief du $DATE_LONG_FR ($DATE_ISO) · jour $DOW"
+
+          # Contexte daté injecté en tête (évite que Claude devine la date).
+          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n\n%s' \
+            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
+
+          # Génération headless. --dangerously-skip-permissions : autorise WebSearch/WebFetch + Bash en CI.
+          echo "$PROMPT" | claude -p --output-format text --dangerously-skip-permissions \
+            > /tmp/brief_raw.html 2>/tmp/claude_err.log || {
+              echo "::error::Claude CLI a échoué lors de la génération du brief."
+              tail -50 /tmp/claude_err.log
+              exit 1
+            }
+
+          # Défensif : retire d'éventuelles fences markdown (```html / ```), au cas où.
+          sed -e 's/^```html[[:space:]]*$//' -e 's/^```[[:space:]]*$//' /tmp/brief_raw.html > /tmp/brief.html
+
+          if [ ! -s /tmp/brief.html ]; then
+            echo "::error::Claude a renvoyé un HTML vide."
+            tail -50 /tmp/claude_err.log
+            exit 1
+          fi
+          if ! grep -q 'brief-marche' /tmp/brief.html; then
+            echo "::warning::Le HTML ne contient pas '.brief-marche' — format de sortie à vérifier (run quand même)."
+          fi
+
+          echo "✅ HTML généré ($(wc -c < /tmp/brief.html) octets)"
+          echo "date_iso=$DATE_ISO" >> "$GITHUB_OUTPUT"
+          echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
+
+      - name: POST to daily-brief endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ONLY_USER_ID: ${{ github.event.inputs.only_user_id }}
+          TEST_EMAIL: ${{ github.event.inputs.test_email }}
+          REASON: ${{ github.event.inputs.reason || 'cron auto' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret manquant côté GitHub."
+            exit 1
+          fi
+          DATE_ISO="${{ steps.brief.outputs.date_iso }}"
+          DATE_LONG_FR="${{ steps.brief.outputs.date_long_fr }}"
+
+          # Validation UUID si only_user_id fourni (anti-injection).
+          if [ -n "$ONLY_USER_ID" ] && ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
+            echo "::error::only_user_id invalide (UUID attendu) : '$ONLY_USER_ID'"
+            exit 1
+          fi
+
+          # Construction du body JSON (jq gère l'échappement du HTML).
+          if [ -n "$TEST_EMAIL" ]; then
+            echo "🧪 Test email ciblé : $TEST_EMAIL (aucun élève réel touché)"
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" \
+              '{date:$date, date_long_fr:$dl, brief_html:$bh, test_emails:[$te]}')
+          elif [ -n "$ONLY_USER_ID" ]; then
+            echo "🎯 Test ciblé élève : $ONLY_USER_ID"
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html --arg uid "$ONLY_USER_ID" \
+              '{date:$date, date_long_fr:$dl, brief_html:$bh, only_user_id:$uid}')
+          else
+            echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html \
+              '{date:$date, date_long_fr:$dl, brief_html:$bh}')
+          fi
+
+          response=$(curl -sSL -w "\n---HTTP_STATUS:%{http_code}---" -X POST \
+            "https://www.journaltrader360.fr/api/cron/daily-brief" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            --max-time 180 \
+            --retry 2 --retry-delay 10)
+
+          body=$(echo "$response" | sed -e 's/---HTTP_STATUS:.*//')
+          status=$(echo "$response" | grep -oE 'HTTP_STATUS:[0-9]+' | cut -d: -f2)
+          echo "HTTP Status: $status"
+          echo "Response body:"; echo "$body"
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Endpoint daily-brief a répondu $status (attendu 200). Body ci-dessus."
+            exit 1
+          fi
+
+          sent=$(echo "$body" | grep -oE '"sent":[0-9]+' | head -1 | cut -d: -f2 || echo "?")
+          failed=$(echo "$body" | grep -oE '"failed":[0-9]+' | head -1 | cut -d: -f2 || echo "?")
+          dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | head -1 | cut -d: -f2 || echo "?")
+          echo "✅ $sent envoyé(s) · $failed échec(s) · $dest destinataire(s)"
+          if [ "${failed:-0}" != "0" ] && [ -n "${failed}" ]; then
+            echo "::warning::$failed mail(s) ont échoué côté Resend. Voir le JSON ci-dessus."
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Daily Brief Run" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Trigger** : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Date** : ${{ steps.brief.outputs.date_long_fr }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status** : ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Run** : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
