@@ -24,7 +24,7 @@ jobs:
   generate-and-send-brief:
     name: Génère le brief (Claude Code CLI) et l'envoie
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -40,6 +40,7 @@ jobs:
 
       - name: Generate brief HTML via Claude
         id: brief
+        timeout-minutes: 25   # sous le job (30) → le step rate proprement avant la coupe brutale GH
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
