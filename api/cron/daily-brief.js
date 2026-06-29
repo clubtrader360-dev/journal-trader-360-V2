@@ -116,6 +116,10 @@ export async function sendBriefEmail({ to, subject, html, pdfBase64, filename })
 //  - test_emails absent   → envoi à tous les membres actifs (production)
 // ========================================
 export default async function handler(req, res) {
+  // GET → pont GitHub Actions : récupère le PDF du jour dans Supabase Storage et l'envoie
+  // (cf handleGetFromStorage). POST → chemin historique (tâche Cowork qui fournit le PDF).
+  if (req.method === 'GET') return handleGetFromStorage(req, res);
+
   console.log('[DAILY-BRIEF] ========== START ==========', DRY_RUN ? '(DRY_RUN)' : '');
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -177,5 +181,88 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error('[DAILY-BRIEF] ❌', e);
     return res.status(500).json({ error: e.message });
+  }
+}
+
+// ---- Date du jour à Paris (YYYY-MM-DD) — robuste au fuseau du runner GitHub Actions (UTC) ----
+export function parisDateStr(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+// ---- "2026-06-29" → "lundi 29 juin 2026" ----
+export function dateLongFr(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+}
+
+// ========================================
+// GET : PONT GITHUB ACTIONS (#91 — activation cron Lun-Ven 6h Paris)
+// Récupère le PDF du jour dans le bucket privé Supabase Storage `daily-briefs`
+// puis l'envoie aux membres actifs. Permet un déclenchement par `curl GET` + Bearer
+// (même UX que weekly-report). ⚠️ CONTRAT : un process AMONT (tâche Cowork / coach) doit
+// déposer le PDF AVANT le run, au chemin `daily-briefs/Brief_Marche_<YYYY-MM-DD>.pdf`.
+// Si le PDF est absent → 404 (on n'envoie JAMAIS un brief périmé).
+// Query : ?date=YYYY-MM-DD (défaut = aujourd'hui Paris) · ?onlyUserId=<uuid> (test ciblé).
+// ========================================
+async function handleGetFromStorage(req, res) {
+  console.log('[DAILY-BRIEF][GET] ========== START ==========', DRY_RUN ? '(DRY_RUN)' : '');
+
+  // En preview, l'URL est protégée par Vercel Authentication → on relâche le Bearer en preview
+  // uniquement ; en production il reste obligatoire (cohérent avec weekly-report).
+  const isPreview = process.env.VERCEL_ENV !== 'production';
+  const cronSecret = process.env.CRON_SECRET;
+  if (!isPreview) {
+    if (!cronSecret) return res.status(500).json({ error: 'Missing CRON_SECRET' });
+    if (req.headers.authorization !== `Bearer ${cronSecret}`) return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' });
+  if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
+
+  const date = (req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)) ? req.query.date : parisDateStr();
+  const onlyUserId = req.query.onlyUserId || null;
+  const dryRun = DRY_RUN || req.query.dryRun === '1'; // ?dryRun=1 → valider le pipeline sans envoyer (zéro spam)
+  const path = `Brief_Marche_${date}.pdf`;
+  const t0 = Date.now();
+
+  try {
+    const supabase = createServiceClient();
+
+    // 1) PDF du jour depuis le bucket privé (service role → accès direct).
+    const { data: blob, error: dlErr } = await supabase.storage.from('daily-briefs').download(path);
+    if (dlErr || !blob) {
+      console.warn(`[DAILY-BRIEF][GET] PDF introuvable : daily-briefs/${path}`, dlErr && dlErr.message);
+      return res.status(404).json({ error: `PDF du jour absent (daily-briefs/${path}). Le process amont doit déposer le PDF avant le run.`, date });
+    }
+    const pdf_base64 = Buffer.from(await blob.arrayBuffer()).toString('base64');
+
+    // 2) Destinataires : mêmes filtres que la prod (actif = journal <3j, non en pause).
+    let recipients = await fetchActiveRecipients(supabase);
+    if (onlyUserId) {
+      recipients = recipients.filter(u => u.uuid === onlyUserId);
+      if (!recipients.length) return res.status(404).json({ error: `User ${onlyUserId} non éligible (actif = journal <3j, non en pause).`, date });
+    }
+    console.log(`[DAILY-BRIEF][GET] 👥 ${recipients.length} destinataire(s) · ${date}`);
+
+    const longFr = dateLongFr(date);
+    const filename = `Brief_Marche_${date}.pdf`;
+    const results = [];
+    let sent = 0;
+    for (const u of recipients) {
+      const fn = firstNameOf(u.name);
+      if (dryRun) { results.push({ email: u.email, status: 'dry_run' }); continue; }
+      const r = await sendBriefEmail({ to: u.email, subject: emailSubject(fn, longFr), html: emailHtml(fn), pdfBase64: pdf_base64, filename });
+      if (r.success) { sent++; results.push({ email: u.email, status: 'sent', id: r.id }); }
+      else { results.push({ email: u.email, status: 'error', error: r.error }); }
+      await new Promise(r => setTimeout(r, 120)); // throttle anti rate-limit
+    }
+
+    console.log('[DAILY-BRIEF][GET] ========== DONE ==========', `${dryRun ? '(DRY) ' : ''}${sent} envoyé(s)`);
+    return res.status(200).json({
+      date, source: `daily-briefs/${path}`,
+      mode: onlyUserId ? 'test' : 'production', dry_run: dryRun,
+      destinataires: recipients.length, sent, results, duration_ms: Date.now() - t0,
+    });
+  } catch (e) {
+    console.error('[DAILY-BRIEF][GET] ❌', e);
+    return res.status(500).json({ error: e.message, date });
   }
 }

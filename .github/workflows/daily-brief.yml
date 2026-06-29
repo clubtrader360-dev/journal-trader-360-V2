@@ -1,0 +1,103 @@
+name: Daily Trader 360 Brief
+
+on:
+  schedule:
+    # Lundi→Vendredi 4h UTC = 6h Paris (CEST/été).
+    # ⚠️ À ajuster à '0 5 * * 1-5' en octobre 2026 (passage CET/hiver) — sinon le brief partira à 5h Paris.
+    - cron: '0 4 * * 1-5'
+  workflow_dispatch:
+    # Déclenchement manuel depuis l'UI GitHub Actions (test ciblé sans spam).
+    inputs:
+      reason:
+        description: 'Raison du déclenchement manuel (log)'
+        required: false
+        default: 'Test manuel'
+      only_user_id:
+        description: 'UUID élève cible (test ciblé — vide = envoi à TOUS les éligibles)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Test à blanc : sélectionne PDF + destinataires SANS envoyer (1 = oui)'
+        required: false
+        default: ''
+
+jobs:
+  send-daily-brief:
+    name: Trigger daily brief endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping /api/cron/daily-brief
+        id: ping
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          REASON: ${{ github.event.inputs.reason || 'cron auto' }}
+          ONLY_USER_ID: ${{ github.event.inputs.only_user_id }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret manquant côté GitHub. Settings → Secrets and variables → Actions → crée 'CRON_SECRET' (même valeur que l'env var Vercel)."
+            exit 1
+          fi
+
+          # GET self-suffisant : l'endpoint récupère le PDF du jour dans le bucket Supabase
+          # `daily-briefs` (Brief_Marche_<date>.pdf) puis l'envoie. ?onlyUserId / ?dryRun optionnels.
+          URL="https://www.journaltrader360.fr/api/cron/daily-brief"
+          SEP="?"
+          if [ -n "$ONLY_USER_ID" ]; then
+            if ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
+              echo "::error::only_user_id invalide (UUID attendu) : '$ONLY_USER_ID'"
+              exit 1
+            fi
+            URL="${URL}${SEP}onlyUserId=${ONLY_USER_ID}"; SEP="&"
+            echo "🎯 Mode test ciblé : onlyUserId=$ONLY_USER_ID"
+          else
+            echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
+          fi
+          if [ "$DRY_RUN" = "1" ]; then
+            URL="${URL}${SEP}dryRun=1"; SEP="&"
+            echo "🧪 DRY-RUN : aucun email ne sera envoyé"
+          fi
+
+          response=$(curl -sSL -w "\n---HTTP_STATUS:%{http_code}---" -X GET \
+            "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 240 \
+            --retry 2 --retry-delay 10)
+
+          body=$(echo "$response" | sed -e 's/---HTTP_STATUS:.*//')
+          status=$(echo "$response" | grep -oE 'HTTP_STATUS:[0-9]+' | cut -d: -f2)
+
+          echo "HTTP Status: $status"
+          echo "Response body:"
+          echo "$body"
+
+          # 404 = PDF du jour absent du bucket (le process amont ne l'a pas encore déposé).
+          if [ "$status" = "404" ]; then
+            echo "::error::PDF du jour absent du bucket daily-briefs. Le process amont doit déposer Brief_Marche_<date>.pdf AVANT 6h Paris. Body ci-dessus."
+            exit 1
+          fi
+          if [ "$status" != "200" ]; then
+            echo "::error::Endpoint daily-brief a répondu $status (attendu 200). Body ci-dessus."
+            exit 1
+          fi
+
+          # Le handler renvoie { destinataires: N, sent: M, results: [ { status: 'sent'|'error'|... } ] }.
+          dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | cut -d: -f2 || echo "?")
+          sent=$(echo "$body" | grep -oc '"status":"sent"' || true)
+          errors=$(echo "$body" | grep -oc '"status":"error"' || true)
+
+          echo "✅ Succès : $sent envoyé(s) · $errors erreur(s) · $dest destinataire(s)"
+
+          if [ "${errors:-0}" -gt 0 ]; then
+            echo "::warning::$errors mail(s) ont échoué côté Resend. Voir le JSON ci-dessus."
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Daily Brief Run" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Trigger** : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status** : ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Run** : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
