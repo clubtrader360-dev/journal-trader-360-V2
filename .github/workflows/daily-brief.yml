@@ -101,6 +101,7 @@ jobs:
           echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
 
       - name: POST to daily-brief endpoint
+        id: post
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           ONLY_USER_ID: ${{ github.event.inputs.only_user_id }}
@@ -160,6 +161,44 @@ jobs:
           if [ "${failed:-0}" != "0" ] && [ -n "${failed}" ]; then
             echo "::warning::$failed mail(s) ont échoué côté Resend. Voir le JSON ci-dessus."
           fi
+          # Expose les compteurs au step de notif Discord.
+          { echo "sent=${sent:-0}"; echo "failed=${failed:-0}"; echo "dest=${dest:-0}"; } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Discord
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
+          POST_OUTCOME: ${{ steps.post.outcome }}
+          DATE_LONG_FR: ${{ steps.brief.outputs.date_long_fr }}
+          SENT: ${{ steps.post.outputs.sent }}
+          FAILED: ${{ steps.post.outputs.failed }}
+          DEST: ${{ steps.post.outputs.dest }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "::warning::DISCORD_CRON_WEBHOOK_URL absent — notif Discord ignorée."
+            exit 0
+          fi
+          DATE_DISP="${DATE_LONG_FR:-$(TZ=Europe/Paris date +%Y-%m-%d)}"
+          GOLD=13938487   # 0xd4af37
+          RED=15680580    # 0xef4444
+          FAILED_N=$(echo "${FAILED:-0}" | grep -oE '^[0-9]+$' || echo 0)
+          if [ "$POST_OUTCOME" = "success" ]; then
+            if [ "$FAILED_N" -gt 0 ]; then COLOR=$RED; else COLOR=$GOLD; fi
+            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_DISP" \
+              --arg served "${SENT:-?} / ${DEST:-?}" --arg failed "${FAILED:-0}" --arg url "$RUN_URL" \
+              '{embeds:[{title:"📊 Daily Brief envoyé",color:$c,fields:[
+                {name:"Date",value:$date,inline:true},
+                {name:"Élèves servis",value:$served,inline:true},
+                {name:"Échecs",value:$failed,inline:true},
+                {name:"Run",value:("[Voir le run](\($url))"),inline:false}
+              ],timestamp:(now|todate)}]}')
+          else
+            PAYLOAD=$(jq -n --argjson c "$RED" --arg date "$DATE_DISP" --arg url "$RUN_URL" \
+              '{embeds:[{title:"❌ ÉCHEC envoi daily-brief",color:$c,description:("Brief du \($date) — échec du pipeline.\n[Voir le run](\($url))"),timestamp:(now|todate)}]}')
+          fi
+          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" \
+            && echo "✅ Notif Discord envoyée" || echo "::warning::Échec de la notif Discord (non bloquant)."
 
       - name: Summary
         if: always()
