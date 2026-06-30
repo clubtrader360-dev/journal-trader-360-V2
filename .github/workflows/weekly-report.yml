@@ -79,6 +79,43 @@ jobs:
           if [ "${failed:-0}" -gt 0 ]; then
             echo "::warning::$failed mail(s) ont échoué côté Resend. Voir le JSON ci-dessus."
           fi
+          # Expose les compteurs au step de notif Discord.
+          { echo "sent=${sent:-0}"; echo "failed=${failed:-0}"; echo "skipped=${skipped:-0}"; echo "eligible=${eligible:-0}"; } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Discord
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
+          PING_OUTCOME: ${{ steps.ping.outcome }}
+          SENT: ${{ steps.ping.outputs.sent }}
+          FAILED: ${{ steps.ping.outputs.failed }}
+          ELIGIBLE: ${{ steps.ping.outputs.eligible }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "::warning::DISCORD_CRON_WEBHOOK_URL absent — notif Discord ignorée."
+            exit 0
+          fi
+          DATE_DISP=$(TZ=Europe/Paris date +%Y-%m-%d)
+          GOLD=13938487   # 0xd4af37
+          RED=15680580    # 0xef4444
+          FAILED_N=$(echo "${FAILED:-0}" | grep -oE '^[0-9]+$' || echo 0)
+          if [ "$PING_OUTCOME" = "success" ]; then
+            if [ "$FAILED_N" -gt 0 ]; then COLOR=$RED; else COLOR=$GOLD; fi
+            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_DISP" \
+              --arg served "${SENT:-?} / ${ELIGIBLE:-?}" --arg failed "${FAILED:-0}" --arg url "$RUN_URL" \
+              '{embeds:[{title:"📨 Rapport hebdo envoyé",color:$c,fields:[
+                {name:"Date",value:$date,inline:true},
+                {name:"Élèves servis",value:$served,inline:true},
+                {name:"Échecs",value:$failed,inline:true},
+                {name:"Run",value:("[Voir le run](\($url))"),inline:false}
+              ],timestamp:(now|todate)}]}')
+          else
+            PAYLOAD=$(jq -n --argjson c "$RED" --arg date "$DATE_DISP" --arg url "$RUN_URL" \
+              '{embeds:[{title:"❌ ÉCHEC envoi rapport hebdo",color:$c,description:("Rapport du \($date) — échec du pipeline.\n[Voir le run](\($url))"),timestamp:(now|todate)}]}')
+          fi
+          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" \
+            && echo "✅ Notif Discord envoyée" || echo "::warning::Échec de la notif Discord (non bloquant)."
 
       - name: Summary
         if: always()
