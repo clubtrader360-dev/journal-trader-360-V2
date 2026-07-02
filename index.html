@@ -3204,6 +3204,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" id="coachNavStudents" onclick="showCoachSection('coachStudents')">
                     <i class="fas fa-users mr-3"></i>Mes Élèves
                 </div>
+                <div class="sidebar-item" id="coachNavMembersTable" onclick="showCoachSection('coachMembersTable')">
+                    <i class="fas fa-clipboard-list mr-3"></i>Suivi Membres
+                </div>
                 <div class="sidebar-item" id="coachNavAccounting" onclick="showCoachSection('coachAccounting')">
                     <i class="fas fa-euro-sign mr-3"></i>Comptabilité
                 </div>
@@ -3453,6 +3456,32 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Suivi Membres T360 — lecture seule du tableur Manu (#84 commit 2/4 : squelette + fetch minimal) -->
+            <div id="coachMembersTable" class="section hidden">
+                <div class="section-header">
+                    <h1>Suivi Membres T360</h1>
+                    <p class="text-gray-600">Vue synchronisée du tableur — mise à jour toutes les 2h via LearnyBox / Discord / Google Forms.</p>
+                </div>
+
+                <div class="trader-card" style="padding: 24px;">
+                    <div id="coachMembersStatus" style="font-size:13px; color:var(--aube-text-secondary, #5a5040); margin-bottom:16px;">Chargement du tableur…</div>
+                    <!-- Skeleton loader (le vrai tableau 38 colonnes arrive au commit 3) -->
+                    <div id="coachMembersSkeleton" aria-hidden="true">
+                        <style>
+                            @keyframes coachMembersShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+                            #coachMembersSkeleton .cm-skel-row { height: 32px; border-radius: 6px; margin-bottom: 8px;
+                                background: linear-gradient(90deg, rgba(184,134,42,0.06) 25%, rgba(184,134,42,0.16) 37%, rgba(184,134,42,0.06) 63%);
+                                background-size: 800px 100%; animation: coachMembersShimmer 1.4s ease-in-out infinite; }
+                            #coachMembersSkeleton .cm-skel-row.head { height: 40px; opacity: 0.9; }
+                        </style>
+                        <div class="cm-skel-row head"></div>
+                        <div class="cm-skel-row"></div><div class="cm-skel-row"></div><div class="cm-skel-row"></div>
+                        <div class="cm-skel-row"></div><div class="cm-skel-row"></div><div class="cm-skel-row"></div>
+                        <div class="cm-skel-row"></div><div class="cm-skel-row"></div>
                     </div>
                 </div>
             </div>
@@ -14188,10 +14217,69 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 loadCoachRegistrations();
             } else if (sectionName === 'coachReplays') {
                 window.loadCoachReplays && window.loadCoachReplays();
+            } else if (sectionName === 'coachMembersTable') {
+                window.loadCoachMembersTable && window.loadCoachMembersTable();
             }
         }
         
         
+        // ============================================================
+        // #84 commit 2 — Suivi Membres T360 (lecture seule tableur Manu)
+        // Commit 2 = pipeline data uniquement : fetch Bearer + cache local 60s + console.log.
+        // Le vrai tableau 38 colonnes (commit 3) et le drawer détail (commit 4) arrivent après.
+        // ============================================================
+        const COACH_MEMBERS_CACHE_TTL = 60_000; // 60s : évite un re-fetch à chaque clic sidebar
+
+        window.loadCoachMembersTable = async function () {
+            const statusEl = document.getElementById('coachMembersStatus');
+            const now = Date.now();
+
+            // Cache local 60s.
+            if (window.__coachMembersData && window.__coachMembersCacheAt &&
+                (now - window.__coachMembersCacheAt) < COACH_MEMBERS_CACHE_TTL) {
+                console.log('[MEMBERS] cache hit (<60s) — window.__coachMembersData =', window.__coachMembersData);
+                renderCoachMembersPlaceholder();
+                return;
+            }
+
+            if (statusEl) statusEl.textContent = 'Chargement du tableur…';
+            try {
+                const sb = window.supabaseClient;
+                if (!sb) throw new Error('Supabase non chargé');
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session?.access_token) throw new Error('Non authentifié');
+
+                const res = await fetch('/api/coach/tableur-members', {
+                    headers: {
+                        'Authorization': 'Bearer ' + session.access_token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json?.error || ('HTTP ' + res.status));
+
+                window.__coachMembersData = json;
+                window.__coachMembersCacheAt = Date.now();
+                // Validation pipeline data (demandé au commit 2) :
+                console.log('[MEMBERS] window.__coachMembersData =', window.__coachMembersData);
+                renderCoachMembersPlaceholder();
+            } catch (e) {
+                console.error('[MEMBERS] échec fetch /api/coach/tableur-members :', e);
+                if (statusEl) statusEl.textContent = '❌ Erreur de chargement : ' + (e.message || 'inconnue');
+            }
+        };
+
+        // Placeholder minimal (commit 2) : remplace le skeleton par une confirmation de pipeline.
+        // Le rendu du vrai tableau viendra au commit 3.
+        function renderCoachMembersPlaceholder() {
+            const d = window.__coachMembersData;
+            const statusEl = document.getElementById('coachMembersStatus');
+            const skel = document.getElementById('coachMembersSkeleton');
+            if (!d || !statusEl) return;
+            statusEl.textContent = `✅ ${d.total_members} membres · ${d.total_columns} colonnes · dernière sync : ${d.updated_at || 'n/d'}`;
+            if (skel) skel.style.display = 'none';
+        }
+
         // ============================================================
         // #33 commit 4 — Table élèves premium (Bourse à l'Aube)
         // Élève (avatar initiales) · Statut 🟢/🟠/🔴 (last_activity proxy) · P&L mois ·
