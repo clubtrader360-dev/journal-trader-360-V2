@@ -2,9 +2,18 @@ name: Daily Brief Trader 360
 
 on:
   schedule:
-    # Lun→Ven 4h UTC = 6h Paris (CEST/été).
-    # ⚠️ À ajuster à '0 5 * * 1-5' en octobre 2026 (passage CET/hiver) — sinon le brief partira à 5h Paris.
-    - cron: '0 4 * * 1-5'
+    # Lun→Ven 2h17 UTC = 4h17 Paris (CEST/été).
+    # Pourquoi cette heure "bizarre" ? Deux raisons cumulatives :
+    #   1. GitHub Actions ne lance PAS les crons à l'heure exacte. Sa doc l'admet :
+    #      les crons planifiés à des minutes rondes (0, 15, 30, 45) tombent dans une
+    #      queue mondiale saturée et peuvent être retardés de 30 min à 3-4 heures.
+    #      Observation prod : cron `0 4` → arrivée mail 9h45 Paris (3h45 de lag).
+    #   2. On cible une arrivée mail vers 5h-6h Paris pour que les élèves l'aient
+    #      au réveil. On part donc 1h45 tôt (buffer) + minute non-ronde (17) pour
+    #      éviter la queue.
+    #   → Arrivée typique : 4h30-5h30 Paris. Worst case : 6h30 Paris.
+    # ⚠️ À ajuster à '17 3 * * 1-5' en octobre 2026 (passage CET/hiver).
+    - cron: '17 2 * * 1-5'
   workflow_dispatch:
     inputs:
       reason:
