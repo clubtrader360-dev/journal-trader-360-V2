@@ -1389,27 +1389,31 @@ body:not(.dark-mode) .csd-name, body:not(.dark-mode) .csd-stat-val, body:not(.da
 #coachMembersTable .cm-scroll::-webkit-scrollbar-thumb:hover { background: rgba(184,134,42,0.65); }
 #coachMembersTable .cm-scroll { scrollbar-color: rgba(184,134,42,0.45) transparent; scrollbar-width: thin; }
 
-#coachMembersTable table.cm-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+/* !important : le mode coach est en body.dark-mode, qui applique des règles GLOBALES
+   !important sur table/thead/th/tbody td (index.html #56). On les surcharge, scopé ici. */
+#coachMembersTable table.cm-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; background: var(--aube-cream) !important; }
 #coachMembersTable .cm-table thead th {
-  position: sticky; top: 0; z-index: 2; height: 40px; padding: 8px 10px; text-align: left;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
-  color: rgba(15,28,61,0.7); background: linear-gradient(180deg, var(--aube-cream) 0%, var(--aube-cream-2) 100%);
-  border-bottom: 1.5px solid rgba(184,134,42,0.32); cursor: pointer; user-select: none;
+  position: sticky; top: 0; z-index: 2; height: 40px; padding: 12px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;
+  color: var(--aube-navy) !important;
+  background: linear-gradient(180deg, var(--aube-cream) 0%, var(--aube-cream-2) 100%) !important;
+  border-bottom: 2px solid var(--aube-gold) !important; cursor: pointer; user-select: none;
 }
 #coachMembersTable .cm-table thead th .cm-sort { opacity: 0.35; margin-left: 4px; font-size: 9px; }
 #coachMembersTable .cm-table thead th.sorted .cm-sort { opacity: 1; color: var(--aube-gold); }
 #coachMembersTable .cm-table tbody td {
-  height: 32px; padding: 8px 10px; white-space: nowrap; color: var(--aube-navy);
-  border-bottom: 1px solid rgba(184,134,42,0.1); max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+  height: 32px; padding: 8px 12px; white-space: nowrap; color: var(--aube-navy) !important;
+  border-right: 1px solid rgba(184,134,42,0.15); border-bottom: 1px solid rgba(184,134,42,0.1);
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; font-size: 13px;
 }
-#coachMembersTable .cm-table tbody tr:nth-child(even) td { background: var(--aube-cream-2); }
-#coachMembersTable .cm-table tbody tr:nth-child(odd) td { background: var(--aube-cream); }
-#coachMembersTable .cm-table tbody tr:hover td { background: rgba(184,134,42,0.09); cursor: pointer; }
+#coachMembersTable .cm-table tbody tr:nth-child(even) td { background: var(--aube-cream-2) !important; }
+#coachMembersTable .cm-table tbody tr:nth-child(odd) td { background: var(--aube-cream) !important; }
+#coachMembersTable .cm-table tbody tr:hover td { background: rgba(184,134,42,0.12) !important; cursor: pointer; }
 
 /* Colonnes gelées à gauche : #, Statut(D), Prénom(B), Nom(C) */
 #coachMembersTable .cm-sticky { position: sticky; z-index: 3; }
 #coachMembersTable thead th.cm-sticky { z-index: 4; }
-#coachMembersTable .cm-c-num    { left: 0;     width: 44px;  min-width: 44px;  text-align: right; color: rgba(15,28,61,0.4); font-variant-numeric: tabular-nums; }
+#coachMembersTable .cm-c-num    { left: 0;     width: 44px;  min-width: 44px;  text-align: center; color: var(--aube-gold) !important; font-weight: 600; font-variant-numeric: tabular-nums; }
 #coachMembersTable .cm-c-status { left: 44px;  width: 148px; min-width: 148px; }
 #coachMembersTable .cm-c-prenom { left: 192px; width: 112px; min-width: 112px; font-weight: 600; }
 #coachMembersTable .cm-c-nom    { left: 304px; width: 134px; min-width: 134px; font-weight: 600;

@@ -14255,9 +14255,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         // Cellules typées par LETTRE de colonne (mapping memory/projects/integration_tableur_manu.md).
         // ============================================================
         const COACH_MEMBERS_CACHE_TTL = 60_000; // 60s : évite un re-fetch à chaque clic sidebar
-        const CM_STICKY_LETTERS = ['D', 'B', 'C'];   // gelées à gauche (après #) : Statut, Prénom, Nom
         const CM_STATUSES = ['🟢 T360', '🟠 Nouveau', '🟠 À surveiller', '🟠 Peu impliqué', '🟠 Moyen', '🔴 Inactif'];
-        const CM_STICKY_CLASS = { 'D': 'cm-c-status', 'B': 'cm-c-prenom', 'C': 'cm-c-nom' };
 
         let _cmSort = { letter: null, dir: 1 };
         let _cmSearch = '';
@@ -14272,17 +14270,32 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const m = String(v ?? '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
             return m ? (m[1].padStart(2, '0') + '/' + m[2].padStart(2, '0') + '/' + m[3].slice(-2)) : null;
         }
-        // Type d'une colonne par lettre (tableur Manu).
-        function cmColType(letter) {
-            switch (letter) {
-                case 'D': return 'status';    case 'E': return 'score20';  case 'J': return 'progress';
-                case 'M': return 'days';      case 'N': return 'rapport';
-                case 'X': case 'Y': case 'Z': return 'yesno';
-                case 'T': case 'U': return 'email';   case 'Q': return 'phone';
-                default: return 'auto';
-            }
+        // #84 c3-fix : mapping par NOM d'header (les lettres du Sheet ne correspondent pas au sémantique supposé).
+        function cmNorm(s) { return String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
+        function cmIsStatut(name) { return cmNorm(name).includes('statut'); }
+        function cmIsPrenom(name) { const n = cmNorm(name); return n === 'prenom' || n.startsWith('prenom'); }
+        function cmIsNom(name) { const n = cmNorm(name); return n === 'nom'; }
+        function cmIsSticky(name) { return cmIsStatut(name) || cmIsPrenom(name) || cmIsNom(name); }
+
+        // Type d'une colonne par NOM d'header.
+        function cmColKind(name) {
+            const n = cmNorm(name);
+            if (n.includes('statut')) return 'status';
+            if (n.includes('score')) return 'score20';
+            if (n.includes('progress')) return 'progress';
+            if (n.includes('jours') && n.includes('contact')) return 'days';
+            if (n.includes('rapport') || n.includes('google forms') || n.includes('suivi rapport')) return 'rapport';
+            if (n.includes('journal') || n.includes('ambassad') || n.includes('temoin') || n.includes('temoign')) return 'yesno';
+            if (n.includes('whatsapp') || n.includes('telephone') || n.startsWith('tel') || n.includes('phone')) return 'phone';
+            return 'auto'; // email / date / nombre → détectés par la valeur
         }
-        function cmVisibleColLetters(cols) { return (cols || []).filter(c => !CM_STICKY_LETTERS.includes(c.letter)).map(c => c.letter); }
+        function cmColByLetter(letter) {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            return cols.find(c => c.letter === letter) || null;
+        }
+        function cmVal(m, col) { return col ? (m[col.name] ?? '') : ''; }
+
+        function cmVisibleColLetters(cols) { return (cols || []).filter(c => !cmIsSticky(c.name)).map(c => c.letter); }
         function cmLoadVisibleCols(allLetters) {
             try { const raw = localStorage.getItem('coach_members_visible_cols');
                 if (raw) { const a = JSON.parse(raw); if (Array.isArray(a) && a.length) return new Set(a); } } catch (_) {}
@@ -14290,19 +14303,26 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
         function cmSaveVisibleCols() { try { localStorage.setItem('coach_members_visible_cols', JSON.stringify([..._cmVisibleCols])); } catch (_) {} }
 
+        // Colonnes détectées par nom : sticky [Statut, Prénom, Nom] + refs utiles (mail pour la recherche).
         function cmOrderedColumns() {
             const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
-            const byL = {}; cols.forEach(c => byL[c.letter] = c);
-            return {
-                sticky: CM_STICKY_LETTERS.map(l => byL[l]).filter(Boolean),
-                rest: cols.filter(c => !CM_STICKY_LETTERS.includes(c.letter)),
-            };
+            const statut = cols.find(c => cmIsStatut(c.name)) || null;
+            const prenom = cols.find(c => cmIsPrenom(c.name)) || null;
+            const nom = cols.find(c => cmIsNom(c.name)) || null;
+            const mail = cols.find(c => cmNorm(c.name).includes('mail')) || null;
+            const stickyDefs = [
+                { col: statut, cls: 'cm-c-status' },
+                { col: prenom, cls: 'cm-c-prenom' },
+                { col: nom, cls: 'cm-c-nom' },
+            ].filter(d => d.col);
+            const rest = cols.filter(c => !cmIsSticky(c.name));
+            return { stickyDefs, rest, statut, prenom, nom, mail };
         }
 
-        // Cellule typée → HTML.
-        function cmCellHtml(letter, value) {
+        // Cellule typée → HTML (typée par NOM d'header).
+        function cmCellHtml(name, value) {
             const raw = value == null ? '' : String(value).trim();
-            const type = cmColType(letter);
+            const type = cmColKind(name);
             if (raw === '' && type !== 'status') return '<span class="cm-empty">—</span>';
             switch (type) {
                 case 'status': {
@@ -14351,37 +14371,36 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             return `<th class="${cls}${sorted ? ' sorted' : ''}" data-th="${letter}">${cmEsc(name)}<span class="cm-sort">${arrow}</span></th>`;
         }
 
-        function cmValueOf(m, letter) {
-            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
-            const col = cols.find(c => c.letter === letter);
-            return col ? (m[col.name] ?? '') : '';
-        }
-
         function cmRenderTable() {
             const data = window.__coachMembersData; if (!data) return;
-            const { sticky, rest } = cmOrderedColumns();
-            const visibleRest = rest.filter(c => _cmVisibleCols.has(c.letter));
+            // Log demandé : permet de valider les noms exacts des colonnes si un typage bug encore.
+            console.log('[MEMBERS-COLS]', (data.columns || []).map(c => c.name));
 
-            // THEAD
+            const oc = cmOrderedColumns();
+            const visibleRest = oc.rest.filter(c => _cmVisibleCols.has(c.letter));
+
+            // THEAD : # + [Statut, Prénom, Nom] gelés + reste visible
             let thead = '<tr>' + cmTh('#', '#', 'cm-sticky cm-c-num');
-            sticky.forEach(c => { thead += cmTh(c.letter, c.name, 'cm-sticky ' + (CM_STICKY_CLASS[c.letter] || '')); });
+            oc.stickyDefs.forEach(d => { thead += cmTh(d.col.letter, d.col.name, 'cm-sticky ' + d.cls); });
             visibleRest.forEach(c => { thead += cmTh(c.letter, c.name, ''); });
             thead += '</tr>';
             document.getElementById('cmThead').innerHTML = thead;
 
-            // Filtrage
+            // Filtrage (recherche prénom+nom+mail, filtre statut) — colonnes résolues par nom
             let rows = (data.members || []).slice();
             const q = _cmSearch.trim().toLowerCase();
-            if (q) rows = rows.filter(m => (cmValueOf(m, 'B') + ' ' + cmValueOf(m, 'C') + ' ' + cmValueOf(m, 'T')).toLowerCase().includes(q));
-            if (_cmActiveStatuses.size) rows = rows.filter(m => _cmActiveStatuses.has(String(cmValueOf(m, 'D')).trim()));
+            if (q) rows = rows.filter(m => (cmVal(m, oc.prenom) + ' ' + cmVal(m, oc.nom) + ' ' + cmVal(m, oc.mail)).toLowerCase().includes(q));
+            if (_cmActiveStatuses.size) rows = rows.filter(m => _cmActiveStatuses.has(String(cmVal(m, oc.statut)).trim()));
 
-            // Tri
+            // Tri (résolu par nom de colonne)
             if (_cmSort.letter) {
-                const L = _cmSort.letter, dir = _cmSort.dir, t = L === '#' ? 'num' : cmColType(L);
-                const numeric = ['score20', 'progress', 'days', 'num'].includes(t);
+                const L = _cmSort.letter, dir = _cmSort.dir;
+                const col = L === '#' ? null : cmColByLetter(L);
+                const kind = L === '#' ? 'num' : cmColKind(col ? col.name : '');
+                const numeric = ['score20', 'progress', 'days', 'num'].includes(kind);
                 rows.sort((a, b) => {
                     if (L === '#') return dir * (a.row - b.row);
-                    const va = cmValueOf(a, L), vb = cmValueOf(b, L);
+                    const va = cmVal(a, col), vb = cmVal(b, col);
                     if (numeric) { const na = cmNum(va), nb = cmNum(vb); return dir * ((na == null ? -Infinity : na) - (nb == null ? -Infinity : nb)); }
                     return dir * String(va).localeCompare(String(vb), 'fr');
                 });
@@ -14392,8 +14411,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             rows.forEach(m => {
                 tb += `<tr data-member-row="${m.row}">`;
                 tb += `<td class="cm-sticky cm-c-num">${m.row}</td>`;
-                sticky.forEach(c => { tb += `<td class="cm-sticky ${CM_STICKY_CLASS[c.letter] || ''}">${cmCellHtml(c.letter, m[c.name])}</td>`; });
-                visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.letter, m[c.name])}</td>`; });
+                oc.stickyDefs.forEach(d => { tb += `<td class="cm-sticky ${d.cls}">${cmCellHtml(d.col.name, m[d.col.name])}</td>`; });
+                visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.name, m[c.name])}</td>`; });
                 tb += '</tr>';
             });
             document.getElementById('cmTbody').innerHTML = tb ||
