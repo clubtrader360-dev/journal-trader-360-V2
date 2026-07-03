@@ -3468,8 +3468,26 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
 
                 <div class="trader-card" style="padding: 24px;">
-                    <div id="coachMembersStatus" style="font-size:13px; color:var(--aube-text-secondary, #5a5040); margin-bottom:16px;">Chargement du tableur…</div>
-                    <!-- Skeleton loader (le vrai tableau 38 colonnes arrive au commit 3) -->
+                    <!-- Barre d'outils -->
+                    <div class="cm-toolbar">
+                        <div class="cm-search">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="cmSearch" placeholder="Rechercher un membre (prénom, nom, mail)…" autocomplete="off">
+                        </div>
+                        <div class="cm-chips" id="cmStatusChips"><!-- chips injectées par JS --></div>
+                        <div class="cm-toolbar-right">
+                            <span class="cm-count" id="cmCount"></span>
+                            <div class="cm-cols-wrap">
+                                <button type="button" class="cm-btn" id="cmColsBtn"><i class="fas fa-table-columns"></i> Colonnes</button>
+                                <div class="cm-cols-menu hidden" id="cmColsMenu"></div>
+                            </div>
+                            <button type="button" class="cm-btn" id="cmRefreshBtn"><i class="fas fa-rotate-right" id="cmRefreshIco"></i> Rafraîchir</button>
+                        </div>
+                    </div>
+
+                    <div id="coachMembersStatus" style="font-size:13px; color:var(--aube-text-secondary, #5a5040); margin-bottom:12px;">Chargement du tableur…</div>
+
+                    <!-- Skeleton loader (masqué une fois les données rendues) -->
                     <div id="coachMembersSkeleton" aria-hidden="true">
                         <style>
                             @keyframes coachMembersShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
@@ -3482,6 +3500,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div class="cm-skel-row"></div><div class="cm-skel-row"></div><div class="cm-skel-row"></div>
                         <div class="cm-skel-row"></div><div class="cm-skel-row"></div><div class="cm-skel-row"></div>
                         <div class="cm-skel-row"></div><div class="cm-skel-row"></div>
+                    </div>
+
+                    <!-- Table (rendue par JS) -->
+                    <div class="cm-scroll" id="cmScroll" style="display:none;">
+                        <table class="cm-table">
+                            <thead id="cmThead"></thead>
+                            <tbody id="cmTbody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -14224,25 +14250,243 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         
         
         // ============================================================
-        // #84 commit 2 — Suivi Membres T360 (lecture seule tableur Manu)
-        // Commit 2 = pipeline data uniquement : fetch Bearer + cache local 60s + console.log.
-        // Le vrai tableau 38 colonnes (commit 3) et le drawer détail (commit 4) arrivent après.
+        // #84 commit 3 — Suivi Membres T360 : table premium (lecture seule)
+        // Rendu dynamique depuis le tableau `columns` de l'endpoint (résilient si Manu renomme).
+        // Cellules typées par LETTRE de colonne (mapping memory/projects/integration_tableur_manu.md).
         // ============================================================
         const COACH_MEMBERS_CACHE_TTL = 60_000; // 60s : évite un re-fetch à chaque clic sidebar
+        const CM_STICKY_LETTERS = ['D', 'B', 'C'];   // gelées à gauche (après #) : Statut, Prénom, Nom
+        const CM_STATUSES = ['🟢 T360', '🟠 Nouveau', '🟠 À surveiller', '🟠 Peu impliqué', '🟠 Moyen', '🔴 Inactif'];
+        const CM_STICKY_CLASS = { 'D': 'cm-c-status', 'B': 'cm-c-prenom', 'C': 'cm-c-nom' };
 
-        window.loadCoachMembersTable = async function () {
-            const statusEl = document.getElementById('coachMembersStatus');
-            const now = Date.now();
+        let _cmSort = { letter: null, dir: 1 };
+        let _cmSearch = '';
+        let _cmActiveStatuses = new Set();  // vide = tous
+        let _cmVisibleCols = null;          // Set de lettres (non-sticky) ; localStorage
+        let _cmSearchTimer = null;
+        let _cmWired = false;
 
-            // Cache local 60s.
-            if (window.__coachMembersData && window.__coachMembersCacheAt &&
-                (now - window.__coachMembersCacheAt) < COACH_MEMBERS_CACHE_TTL) {
-                console.log('[MEMBERS] cache hit (<60s) — window.__coachMembersData =', window.__coachMembersData);
-                renderCoachMembersPlaceholder();
-                return;
+        function cmEsc(s) { return window.escapeHtml ? window.escapeHtml(String(s ?? '')) : String(s ?? ''); }
+        function cmNum(v) { const n = parseFloat(String(v ?? '').replace(',', '.').replace('%', '').trim()); return isNaN(n) ? null : n; }
+        function cmShortDate(v) {
+            const m = String(v ?? '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+            return m ? (m[1].padStart(2, '0') + '/' + m[2].padStart(2, '0') + '/' + m[3].slice(-2)) : null;
+        }
+        // Type d'une colonne par lettre (tableur Manu).
+        function cmColType(letter) {
+            switch (letter) {
+                case 'D': return 'status';    case 'E': return 'score20';  case 'J': return 'progress';
+                case 'M': return 'days';      case 'N': return 'rapport';
+                case 'X': case 'Y': case 'Z': return 'yesno';
+                case 'T': case 'U': return 'email';   case 'Q': return 'phone';
+                default: return 'auto';
+            }
+        }
+        function cmVisibleColLetters(cols) { return (cols || []).filter(c => !CM_STICKY_LETTERS.includes(c.letter)).map(c => c.letter); }
+        function cmLoadVisibleCols(allLetters) {
+            try { const raw = localStorage.getItem('coach_members_visible_cols');
+                if (raw) { const a = JSON.parse(raw); if (Array.isArray(a) && a.length) return new Set(a); } } catch (_) {}
+            return new Set(allLetters);
+        }
+        function cmSaveVisibleCols() { try { localStorage.setItem('coach_members_visible_cols', JSON.stringify([..._cmVisibleCols])); } catch (_) {} }
+
+        function cmOrderedColumns() {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            const byL = {}; cols.forEach(c => byL[c.letter] = c);
+            return {
+                sticky: CM_STICKY_LETTERS.map(l => byL[l]).filter(Boolean),
+                rest: cols.filter(c => !CM_STICKY_LETTERS.includes(c.letter)),
+            };
+        }
+
+        // Cellule typée → HTML.
+        function cmCellHtml(letter, value) {
+            const raw = value == null ? '' : String(value).trim();
+            const type = cmColType(letter);
+            if (raw === '' && type !== 'status') return '<span class="cm-empty">—</span>';
+            switch (type) {
+                case 'status': {
+                    if (raw === '') return '<span class="cm-empty">—</span>';
+                    let cls = 'gray';
+                    if (raw.startsWith('🟢')) cls = 'green'; else if (raw.startsWith('🔴')) cls = 'red'; else if (raw.startsWith('🟠')) cls = 'amber';
+                    return `<span class="cm-badge ${cls}">${cmEsc(raw)}</span>`;
+                }
+                case 'score20': {
+                    const n = cmNum(raw); if (n == null) return cmEsc(raw);
+                    const pct = Math.max(0, Math.min(100, (n / 20) * 100));
+                    return `<div class="cm-bar-wrap"><div class="cm-bar"><span style="width:${pct}%"></span></div><span class="cm-bar-val">${cmEsc(raw)}</span></div>`;
+                }
+                case 'progress': {
+                    const n = cmNum(raw); if (n == null) return cmEsc(raw);
+                    const pct = Math.max(0, Math.min(100, n));
+                    return `<div class="cm-bar-wrap"><div class="cm-bar"><span style="width:${pct}%"></span></div><span class="cm-bar-val">${Math.round(pct)}%</span></div>`;
+                }
+                case 'days': {
+                    const n = cmNum(raw); if (n == null) return `<span title="${cmEsc(raw)}">${cmEsc(raw)}</span>`;
+                    return `<span class="cm-days ${n > 30 ? 'hot' : 'cool'}">${Math.round(n)} j</span>`;
+                }
+                case 'rapport': {
+                    const low = raw.toLowerCase(); let cls = 'gray';
+                    if (low.includes('rt ok')) cls = 'green';
+                    else if (low.includes('brouillon')) cls = 'amber';
+                    else if (low.includes('non rempli')) cls = 'red';
+                    return `<span class="cm-badge ${cls}">${cmEsc(raw)}</span>`;
+                }
+                case 'yesno': {
+                    const low = raw.toLowerCase();
+                    if (low === 'non' || low === 'no' || low === '0' || low === 'faux') return '<span class="cm-badge gray">Non</span>';
+                    return `<span class="cm-badge gold">${cmEsc(raw.length > 14 ? 'Oui' : raw)}</span>`;
+                }
+                case 'email': case 'phone': return `<span title="${cmEsc(raw)}">${cmEsc(raw)}</span>`;
+                default: {
+                    const d = cmShortDate(raw);
+                    return `<span title="${cmEsc(raw)}">${cmEsc(d || raw)}</span>`;
+                }
+            }
+        }
+
+        function cmTh(letter, name, cls) {
+            const sorted = _cmSort.letter === letter;
+            const arrow = sorted ? (_cmSort.dir === 1 ? '▲' : '▼') : '▲▼';
+            return `<th class="${cls}${sorted ? ' sorted' : ''}" data-th="${letter}">${cmEsc(name)}<span class="cm-sort">${arrow}</span></th>`;
+        }
+
+        function cmValueOf(m, letter) {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            const col = cols.find(c => c.letter === letter);
+            return col ? (m[col.name] ?? '') : '';
+        }
+
+        function cmRenderTable() {
+            const data = window.__coachMembersData; if (!data) return;
+            const { sticky, rest } = cmOrderedColumns();
+            const visibleRest = rest.filter(c => _cmVisibleCols.has(c.letter));
+
+            // THEAD
+            let thead = '<tr>' + cmTh('#', '#', 'cm-sticky cm-c-num');
+            sticky.forEach(c => { thead += cmTh(c.letter, c.name, 'cm-sticky ' + (CM_STICKY_CLASS[c.letter] || '')); });
+            visibleRest.forEach(c => { thead += cmTh(c.letter, c.name, ''); });
+            thead += '</tr>';
+            document.getElementById('cmThead').innerHTML = thead;
+
+            // Filtrage
+            let rows = (data.members || []).slice();
+            const q = _cmSearch.trim().toLowerCase();
+            if (q) rows = rows.filter(m => (cmValueOf(m, 'B') + ' ' + cmValueOf(m, 'C') + ' ' + cmValueOf(m, 'T')).toLowerCase().includes(q));
+            if (_cmActiveStatuses.size) rows = rows.filter(m => _cmActiveStatuses.has(String(cmValueOf(m, 'D')).trim()));
+
+            // Tri
+            if (_cmSort.letter) {
+                const L = _cmSort.letter, dir = _cmSort.dir, t = L === '#' ? 'num' : cmColType(L);
+                const numeric = ['score20', 'progress', 'days', 'num'].includes(t);
+                rows.sort((a, b) => {
+                    if (L === '#') return dir * (a.row - b.row);
+                    const va = cmValueOf(a, L), vb = cmValueOf(b, L);
+                    if (numeric) { const na = cmNum(va), nb = cmNum(vb); return dir * ((na == null ? -Infinity : na) - (nb == null ? -Infinity : nb)); }
+                    return dir * String(va).localeCompare(String(vb), 'fr');
+                });
             }
 
+            // TBODY (data-member-row prêt pour le drawer du commit 4)
+            let tb = '';
+            rows.forEach(m => {
+                tb += `<tr data-member-row="${m.row}">`;
+                tb += `<td class="cm-sticky cm-c-num">${m.row}</td>`;
+                sticky.forEach(c => { tb += `<td class="cm-sticky ${CM_STICKY_CLASS[c.letter] || ''}">${cmCellHtml(c.letter, m[c.name])}</td>`; });
+                visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.letter, m[c.name])}</td>`; });
+                tb += '</tr>';
+            });
+            document.getElementById('cmTbody').innerHTML = tb ||
+                '<tr><td colspan="99" style="padding:24px;text-align:center;color:rgba(15,28,61,0.5)">Aucun membre ne correspond aux filtres</td></tr>';
+
+            const cnt = document.getElementById('cmCount');
+            if (cnt) cnt.textContent = `${rows.length} / ${(data.members || []).length} membres affichés`;
+        }
+
+        function cmRenderChips() {
+            const wrap = document.getElementById('cmStatusChips'); if (!wrap) return;
+            const chip = (label, key, active) => `<button type="button" class="cm-chip${active ? ' active' : ''}" data-status="${cmEsc(key)}">${cmEsc(label)}</button>`;
+            let html = chip('Tous', '__all__', _cmActiveStatuses.size === 0);
+            CM_STATUSES.forEach(s => { html += chip(s, s, _cmActiveStatuses.has(s)); });
+            wrap.innerHTML = html;
+        }
+
+        function cmRenderColsMenu() {
+            const menu = document.getElementById('cmColsMenu'); if (!menu) return;
+            const { rest } = cmOrderedColumns();
+            menu.innerHTML = rest.map(c =>
+                `<label><input type="checkbox" data-col="${c.letter}" ${_cmVisibleCols.has(c.letter) ? 'checked' : ''}> ${cmEsc(c.name)}</label>`
+            ).join('');
+        }
+
+        // Listeners (délégués sur parents stables → survivent aux re-render). Une seule fois.
+        function cmWire() {
+            if (_cmWired) return; _cmWired = true;
+            const search = document.getElementById('cmSearch');
+            if (search) search.addEventListener('input', function () {
+                clearTimeout(_cmSearchTimer);
+                _cmSearchTimer = setTimeout(() => { _cmSearch = search.value; cmRenderTable(); }, 200);
+            });
+            const chips = document.getElementById('cmStatusChips');
+            if (chips) chips.addEventListener('click', function (e) {
+                const b = e.target.closest('.cm-chip'); if (!b) return;
+                const key = b.getAttribute('data-status');
+                if (key === '__all__') _cmActiveStatuses.clear();
+                else { _cmActiveStatuses.has(key) ? _cmActiveStatuses.delete(key) : _cmActiveStatuses.add(key); }
+                cmRenderChips(); cmRenderTable();
+            });
+            const thead = document.getElementById('cmThead');
+            if (thead) thead.addEventListener('click', function (e) {
+                const th = e.target.closest('[data-th]'); if (!th) return;
+                const L = th.getAttribute('data-th');
+                if (_cmSort.letter === L) _cmSort.dir *= -1; else { _cmSort.letter = L; _cmSort.dir = 1; }
+                cmRenderTable();
+            });
+            const colsBtn = document.getElementById('cmColsBtn');
+            const colsMenu = document.getElementById('cmColsMenu');
+            if (colsBtn && colsMenu) {
+                colsBtn.addEventListener('click', function (e) { e.stopPropagation(); colsMenu.classList.toggle('hidden'); });
+                colsMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+                colsMenu.addEventListener('change', function (e) {
+                    const cb = e.target.closest('input[data-col]'); if (!cb) return;
+                    const L = cb.getAttribute('data-col');
+                    cb.checked ? _cmVisibleCols.add(L) : _cmVisibleCols.delete(L);
+                    cmSaveVisibleCols(); cmRenderTable();
+                });
+                document.addEventListener('click', function () { colsMenu.classList.add('hidden'); });
+            }
+            const refresh = document.getElementById('cmRefreshBtn');
+            if (refresh) refresh.addEventListener('click', function () { window.loadCoachMembersTable(true); });
+        }
+
+        function cmAfterData() {
+            const d = window.__coachMembersData; if (!d) return;
+            if (_cmVisibleCols === null) _cmVisibleCols = cmLoadVisibleCols(cmVisibleColLetters(d.columns));
+            cmWire();
+            cmRenderChips();
+            cmRenderColsMenu();
+            const statusEl = document.getElementById('coachMembersStatus');
+            if (statusEl) statusEl.textContent = `Synchronisé depuis le tableur · ${d.total_members} membres · dernière sync : ${d.updated_at || 'n/d'}`;
+            const skel = document.getElementById('coachMembersSkeleton'); if (skel) skel.style.display = 'none';
+            const scroll = document.getElementById('cmScroll'); if (scroll) scroll.style.display = '';
+            cmRenderTable();
+        }
+
+        window.loadCoachMembersTable = async function (force) {
+            const now = Date.now();
+            if (!force && window.__coachMembersData && window.__coachMembersCacheAt &&
+                (now - window.__coachMembersCacheAt) < COACH_MEMBERS_CACHE_TTL) {
+                console.log('[MEMBERS] cache hit (<60s)');
+                cmAfterData();
+                return;
+            }
+            const statusEl = document.getElementById('coachMembersStatus');
+            const skel = document.getElementById('coachMembersSkeleton');
+            const scroll = document.getElementById('cmScroll');
+            const ico = document.getElementById('cmRefreshIco');
+            if (ico) ico.classList.add('spin');
             if (statusEl) statusEl.textContent = 'Chargement du tableur…';
+            if (force) { if (skel) skel.style.display = ''; if (scroll) scroll.style.display = 'none'; }
             try {
                 const sb = window.supabaseClient;
                 if (!sb) throw new Error('Supabase non chargé');
@@ -14250,35 +14494,23 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 if (!session?.access_token) throw new Error('Non authentifié');
 
                 const res = await fetch('/api/coach/tableur-members', {
-                    headers: {
-                        'Authorization': 'Bearer ' + session.access_token,
-                        'Content-Type': 'application/json'
-                    }
+                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }
                 });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json?.error || ('HTTP ' + res.status));
 
                 window.__coachMembersData = json;
                 window.__coachMembersCacheAt = Date.now();
-                // Validation pipeline data (demandé au commit 2) :
-                console.log('[MEMBERS] window.__coachMembersData =', window.__coachMembersData);
-                renderCoachMembersPlaceholder();
+                console.log('[MEMBERS] window.__coachMembersData =', json);
+                cmAfterData();
             } catch (e) {
                 console.error('[MEMBERS] échec fetch /api/coach/tableur-members :', e);
                 if (statusEl) statusEl.textContent = '❌ Erreur de chargement : ' + (e.message || 'inconnue');
+                if (skel) skel.style.display = 'none';
+            } finally {
+                if (ico) ico.classList.remove('spin');
             }
         };
-
-        // Placeholder minimal (commit 2) : remplace le skeleton par une confirmation de pipeline.
-        // Le rendu du vrai tableau viendra au commit 3.
-        function renderCoachMembersPlaceholder() {
-            const d = window.__coachMembersData;
-            const statusEl = document.getElementById('coachMembersStatus');
-            const skel = document.getElementById('coachMembersSkeleton');
-            if (!d || !statusEl) return;
-            statusEl.textContent = `✅ ${d.total_members} membres · ${d.total_columns} colonnes · dernière sync : ${d.updated_at || 'n/d'}`;
-            if (skel) skel.style.display = 'none';
-        }
 
         // ============================================================
         // #33 commit 4 — Table élèves premium (Bourse à l'Aube)
