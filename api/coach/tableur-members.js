@@ -78,12 +78,6 @@ export default async function handler(req, res) {
     const headers = values[HEADER_ROW_IDX] || [];
     const memberRows = values.slice(FIRST_MEMBER_ROW_IDX);
 
-    // --- DIAG (#84 c3-align) : à retirer au commit suivant une fois validé ---
-    console.log('[DIAG-TABLEUR] header row length:', headers.length);
-    console.log('[DIAG-TABLEUR] first data row length:', values[FIRST_MEMBER_ROW_IDX]?.length);
-    console.log('[DIAG-TABLEUR] header row:', JSON.stringify(headers));
-    console.log('[DIAG-TABLEUR] first data row:', JSON.stringify(values[FIRST_MEMBER_ROW_IDX]));
-
     // 4a. Réalignement des en-têtes : la ligne 3 (headers) est plus courte que les data rows
     //     quand la cellule A y est vide/fusionnée (l'API Sheets ne renvoie pas la 1re cellule) →
     //     décalage systématique de +1. On pad À GAUCHE pour réaligner sur l'index réel des données.
@@ -92,14 +86,12 @@ export default async function handler(req, res) {
     if (dataRowLen > headers.length) {
       const shift = dataRowLen - headers.length;
       alignedHeaders = new Array(shift).fill('').concat(headers);
-      console.log('[DIAG-TABLEUR] header padded LEFT by', shift, 'position(s)');
     }
     // 1re colonne sans nom + 1re data cell numérique → on la nomme "ID".
     const firstDataCell = values[FIRST_MEMBER_ROW_IDX]?.[0];
     if ((alignedHeaders[0] == null || String(alignedHeaders[0]).trim() === '') &&
         firstDataCell != null && String(firstDataCell).trim() !== '' && !isNaN(Number(firstDataCell))) {
       alignedHeaders[0] = 'ID';
-      console.log('[DIAG-TABLEUR] first column auto-named "ID"');
     }
 
     // 4b. Colonnes : lettre + nom + INDEX D'ORIGINE (idx) pour lire la bonne cellule des data

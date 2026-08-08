@@ -14476,6 +14476,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
             const refresh = document.getElementById('cmRefreshBtn');
             if (refresh) refresh.addEventListener('click', function () { window.loadCoachMembersTable(true); });
+            // Clic ligne → drawer détail (commit 4)
+            const tbody = document.getElementById('cmTbody');
+            if (tbody) tbody.addEventListener('click', function (e) {
+                const tr = e.target.closest('tr[data-member-row]'); if (!tr) return;
+                cmOpenDrawer(Number(tr.getAttribute('data-member-row')));
+            });
         }
 
         function cmAfterData() {
@@ -14490,6 +14496,143 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const scroll = document.getElementById('cmScroll'); if (scroll) scroll.style.display = '';
             cmRenderTable();
         }
+
+        // ---------- Drawer détail membre (#84 commit 4, lecture seule) ----------
+        // Blocs thématiques mappés par mots-clés dans le NOM de colonne (robuste si Manu renomme).
+        // Chaque colonne va dans le 1er bloc dont un mot-clé matche ; le reste tombe dans "Autres".
+        const CM_BLOCKS = [
+            { title: 'Identité', kw: ['id', 'prenom', 'nom', 'date entree', 'date adhesion', 'adhesion', 'anciennete', 'coach', 'tel', 'whatsapp'] },
+            { title: 'Activité & Statut', kw: ['statut', 'score', 'dernier contact', 'jours sans contact', 'google forms', 'suivi rapport', 'dernier envoi', 'prochain contact', 'notes'] },
+            { title: 'Formation', kw: ['niveau', 'progress', 'derniere activite', 'activite lb', 'methode', 'journal'] },
+            { title: 'Communauté', kw: ['discord', 'insta', 'ambassad', 'temoin', 'temoign', 'sujet'] },
+            { title: 'Business', kw: ['contrat', 'montant', 'parrain', 'form g', 'form h', 'form l'] },
+        ];
+        let _cmDrawerRow = null;
+        let _cmDrawerKeydown = null;
+        let _cmDrawerPrevFocus = null;
+
+        function cmDrawerCol(kw) {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            return cols.find(c => cmNorm(c.name).includes(kw)) || null;
+        }
+        function cmFmtVal(name, value) {
+            const raw = value == null ? '' : String(value).trim();
+            if (raw === '') return '<span class="cm-empty">—</span>';
+            const d = cmShortDate(raw);
+            if (d && cmNorm(name).match(/date|contact|envoi|adhesion|anciennete/)) return cmEsc(d);
+            if (/^https?:\/\//i.test(raw)) return `<a href="${cmEsc(raw)}" target="_blank" rel="noopener">${cmEsc(raw)}</a>`;
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return `<a href="mailto:${cmEsc(raw)}">${cmEsc(raw)}</a>`;
+            return cmEsc(raw);
+        }
+
+        function cmOpenDrawer(rowNum) {
+            const data = window.__coachMembersData; if (!data) return;
+            const m = (data.members || []).find(x => x.row === rowNum); if (!m) return;
+            _cmDrawerRow = m;
+            const oc = cmOrderedColumns();
+            const nameFull = ((cmVal(m, oc.prenom) || '') + ' ' + (cmVal(m, oc.nom) || '')).trim() || ('Membre #' + rowNum);
+
+            // Avatar (initiales) + header
+            const initials = ((String(cmVal(m, oc.prenom))[0] || '') + (String(cmVal(m, oc.nom))[0] || '')).toUpperCase() || '?';
+            document.getElementById('cmDrawerAvatar').textContent = initials;
+            document.getElementById('cmDrawerName').textContent = nameFull;
+
+            // Chips header : Statut + Score + Ancienneté
+            const scoreCol = data.columns.find(c => cmNorm(c.name).includes('score'));
+            const ancCol = data.columns.find(c => cmNorm(c.name).includes('anciennete'));
+            let chips = '';
+            if (oc.statut && String(cmVal(m, oc.statut)).trim()) chips += cmCellHtml(oc.statut.name, cmVal(m, oc.statut));
+            if (scoreCol && String(cmVal(m, scoreCol)).trim()) chips += `<span class="cm-badge gold">${cmEsc(cmVal(m, scoreCol))} /20</span>`;
+            if (ancCol && String(cmVal(m, ancCol)).trim()) chips += `<span class="cm-badge gray">${cmEsc(cmVal(m, ancCol))}</span>`;
+            document.getElementById('cmDrawerChips').innerHTML = chips;
+
+            // Répartition des colonnes dans les blocs (1er match gagne ; reste → Autres)
+            const cols = data.columns.slice();
+            const used = new Set();
+            const buckets = CM_BLOCKS.map(b => {
+                const items = cols.filter(c => !used.has(c.letter) && b.kw.some(k => cmNorm(c.name).includes(k)));
+                items.forEach(c => used.add(c.letter));
+                return { title: b.title, items };
+            });
+            const rest = cols.filter(c => !used.has(c.letter));
+            if (rest.length) buckets.push({ title: 'Autres', items: rest });
+
+            let bodyHtml = '';
+            buckets.forEach((b, bi) => {
+                if (!b.items.length) return;
+                const fields = b.items.map(c =>
+                    `<div class="cm-field"><div class="cm-field-label">${cmEsc(c.name)}</div><div class="cm-field-val">${cmFmtVal(c.name, m[c.name])}</div></div>`
+                ).join('');
+                bodyHtml += `<section class="cm-acc" data-acc="${bi}">
+                    <button type="button" class="cm-acc-head" aria-expanded="true">${cmEsc(b.title)}<span class="cm-acc-caret">▼</span></button>
+                    <div class="cm-acc-body">${fields}</div>
+                </section>`;
+            });
+            document.getElementById('cmDrawerBody').innerHTML = bodyHtml;
+
+            // Footer : actions contextuelles
+            const mailV = oc.mail ? String(cmVal(m, oc.mail)).trim() : '';
+            const telCol = data.columns.find(c => cmNorm(c.name).match(/whatsapp|telephone|^tel|phone/));
+            const telV = telCol ? String(cmVal(m, telCol)).trim() : '';
+            const telHref = telV.replace(/[^\d+]/g, '');
+            const dscCol = data.columns.find(c => cmNorm(c.name).includes('discord'));
+            const dscV = dscCol ? String(cmVal(m, dscCol)).trim() : '';
+            const dscId = (dscV.match(/\d{5,}/) || [''])[0];
+            const sheetUrl = `https://docs.google.com/spreadsheets/d/${data.sheet_id}/edit#gid=0&range=A${rowNum}`;
+            const btn = (cls, icon, label, href) => href
+                ? `<a class="cm-foot-btn" href="${href}" target="_blank" rel="noopener"><i class="${icon}"></i>${label}</a>`
+                : `<span class="cm-foot-btn disabled"><i class="${icon}"></i>${label}</span>`;
+            document.getElementById('cmDrawerFoot').innerHTML =
+                btn('mail', 'fas fa-envelope', 'Mail', mailV ? ('mailto:' + mailV) : null) +
+                btn('wa', 'fab fa-whatsapp', 'WhatsApp', telHref ? ('https://wa.me/' + telHref.replace(/^\+/, '')) : null) +
+                btn('dsc', 'fab fa-discord', 'Discord', dscId ? ('https://discord.com/users/' + dscId) : null) +
+                btn('sheet', 'fas fa-table', 'Sheet', sheetUrl);
+
+            // Ouverture + a11y (focus trap + Escape)
+            const overlay = document.getElementById('cmDrawerOverlay');
+            overlay.style.display = 'block';
+            _cmDrawerPrevFocus = document.activeElement;
+            requestAnimationFrame(() => overlay.classList.add('open'));
+            const closeBtn = document.getElementById('cmDrawerClose');
+            if (closeBtn) closeBtn.focus();
+            _cmDrawerKeydown = function (e) {
+                if (e.key === 'Escape') { cmCloseDrawer(); return; }
+                if (e.key === 'Tab') {
+                    const f = overlay.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])');
+                    if (!f.length) return;
+                    const first = f[0], last = f[f.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
+            };
+            document.addEventListener('keydown', _cmDrawerKeydown);
+        }
+
+        function cmCloseDrawer() {
+            const overlay = document.getElementById('cmDrawerOverlay');
+            overlay.classList.remove('open');
+            if (_cmDrawerKeydown) { document.removeEventListener('keydown', _cmDrawerKeydown); _cmDrawerKeydown = null; }
+            const done = () => { overlay.style.display = 'none'; overlay.removeEventListener('transitionend', done); };
+            overlay.addEventListener('transitionend', done);
+            setTimeout(done, 320); // fallback si transition coupée
+            if (_cmDrawerPrevFocus && _cmDrawerPrevFocus.focus) { try { _cmDrawerPrevFocus.focus(); } catch (_) {} }
+        }
+
+        // Wiring drawer (une fois) : close (X + overlay) + accordéon.
+        function cmWireDrawer() {
+            const overlay = document.getElementById('cmDrawerOverlay');
+            const closeBtn = document.getElementById('cmDrawerClose');
+            if (closeBtn) closeBtn.addEventListener('click', cmCloseDrawer);
+            if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) cmCloseDrawer(); });
+            const body = document.getElementById('cmDrawerBody');
+            if (body) body.addEventListener('click', function (e) {
+                const h = e.target.closest('.cm-acc-head'); if (!h) return;
+                const sec = h.closest('.cm-acc'); sec.classList.toggle('collapsed');
+                h.setAttribute('aria-expanded', sec.classList.contains('collapsed') ? 'false' : 'true');
+            });
+        }
+        if (document.readyState !== 'loading') cmWireDrawer();
+        else document.addEventListener('DOMContentLoaded', cmWireDrawer);
 
         window.loadCoachMembersTable = async function (force) {
             const now = Date.now();
@@ -15820,6 +15963,24 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
                 <button onclick="closeCoachStudentDetail()" class="trader-btn-secondary">Fermer</button>
             </div>
         </div>
+    </div>
+
+    <!-- #84 commit 4 — Drawer détail membre (lecture seule tableur Manu). Enfant direct de body. -->
+    <div id="cmDrawerOverlay" class="cm-drawer-overlay" style="display:none;" tabindex="-1">
+        <aside id="cmDrawer" class="cm-drawer" role="dialog" aria-modal="true" aria-labelledby="cmDrawerName">
+            <header class="cm-drawer-head">
+                <div class="cm-drawer-id">
+                    <span class="cm-drawer-avatar" id="cmDrawerAvatar">?</span>
+                    <div class="cm-drawer-id-txt">
+                        <div class="cm-drawer-name" id="cmDrawerName">—</div>
+                        <div class="cm-drawer-chips" id="cmDrawerChips"></div>
+                    </div>
+                </div>
+                <button type="button" class="cm-drawer-close" id="cmDrawerClose" aria-label="Fermer">&times;</button>
+            </header>
+            <div class="cm-drawer-body" id="cmDrawerBody"></div>
+            <footer class="cm-drawer-foot" id="cmDrawerFoot"></footer>
+        </aside>
     </div>
 
     <script src="/assets/dashboard-customizer.js" defer></script>
