@@ -1313,3 +1313,226 @@ body:not(.dark-mode) .csd-name, body:not(.dark-mode) .csd-stat-val, body:not(.da
   .csd-stats { grid-template-columns:repeat(2,1fr); }
   .coach-students-count { margin-left:0; }
 }
+
+/* ============================================================
+   === COACH · SUIVI MEMBRES (chantier #84) ===
+   Table premium 37 colonnes (lecture seule tableur Manu). Bloc additif.
+   ============================================================ */
+#coachMembersTable {
+  --aube-cream: #FBF8F1;
+  --aube-cream-2: #F5EFDF;
+  --aube-navy: #0F1C3D;
+  --aube-gold: #B8862A;
+  --aube-gold-bright: #d4af37;
+}
+
+/* ---- Barre d'outils ---- */
+#coachMembersTable .cm-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+#coachMembersTable .cm-search { position: relative; flex: 1 1 260px; max-width: 380px; }
+#coachMembersTable .cm-search i {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  color: rgba(184,134,42,0.6); font-size: 13px; pointer-events: none;
+}
+#coachMembersTable .cm-search input {
+  width: 100%; padding: 9px 13px 9px 36px; border-radius: 9px; font-size: 13px;
+  background: var(--aube-cream); border: 1px solid rgba(184,134,42,0.28);
+  color: var(--aube-navy); outline: none; transition: border-color .15s;
+}
+#coachMembersTable .cm-search input:focus { border-color: rgba(184,134,42,0.7); }
+#coachMembersTable .cm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#coachMembersTable .cm-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  background: rgba(184,134,42,0.06); border: 1px solid rgba(184,134,42,0.22);
+  color: rgba(15,28,61,0.65); transition: all .13s;
+}
+#coachMembersTable .cm-chip:hover { border-color: rgba(184,134,42,0.6); }
+#coachMembersTable .cm-chip.active {
+  background: rgba(184,134,42,0.16); border-color: rgba(184,134,42,0.7); color: var(--aube-navy);
+}
+#coachMembersTable .cm-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+#coachMembersTable .cm-count { font-size: 12.5px; color: rgba(15,28,61,0.55); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#coachMembersTable .cm-btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 9px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--aube-cream);
+  border: 1px solid rgba(184,134,42,0.35); color: var(--aube-navy); transition: all .13s;
+}
+#coachMembersTable .cm-btn:hover { border-color: rgba(184,134,42,0.75); background: rgba(184,134,42,0.08); }
+#coachMembersTable .cm-btn i.spin { animation: cmSpin .8s linear infinite; }
+@keyframes cmSpin { to { transform: rotate(360deg); } }
+
+/* Dropdown "Colonnes visibles" */
+#coachMembersTable .cm-cols-wrap { position: relative; }
+#coachMembersTable .cm-cols-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 230px; max-height: 360px; overflow-y: auto;
+  background: #fff; border: 1px solid rgba(184,134,42,0.4); border-radius: 10px; padding: 8px;
+  box-shadow: 0 14px 40px rgba(15,28,61,0.18);
+}
+#coachMembersTable .cm-cols-menu.hidden { display: none; }
+#coachMembersTable .cm-cols-menu label {
+  display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 12.5px;
+  color: var(--aube-navy); cursor: pointer;
+}
+#coachMembersTable .cm-cols-menu label:hover { background: rgba(184,134,42,0.1); }
+#coachMembersTable .cm-cols-menu input { accent-color: var(--aube-gold); width: 15px; height: 15px; cursor: pointer; }
+
+/* ---- Table ---- */
+#coachMembersTable .cm-scroll {
+  overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid rgba(184,134,42,0.22);
+  border-radius: 12px; background: var(--aube-cream);
+}
+#coachMembersTable .cm-scroll::-webkit-scrollbar { height: 10px; }
+#coachMembersTable .cm-scroll::-webkit-scrollbar-track { background: transparent; }
+#coachMembersTable .cm-scroll::-webkit-scrollbar-thumb { background: rgba(184,134,42,0.4); border-radius: 999px; }
+#coachMembersTable .cm-scroll::-webkit-scrollbar-thumb:hover { background: rgba(184,134,42,0.65); }
+#coachMembersTable .cm-scroll { scrollbar-color: rgba(184,134,42,0.45) transparent; scrollbar-width: thin; }
+
+/* !important : le mode coach est en body.dark-mode, qui applique des règles GLOBALES
+   !important sur table/thead/th/tbody td (index.html #56). On les surcharge, scopé ici. */
+#coachMembersTable table.cm-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; background: var(--aube-cream) !important; }
+#coachMembersTable .cm-table thead th {
+  position: sticky; top: 0; z-index: 2; height: 40px; padding: 12px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;
+  color: var(--aube-navy) !important;
+  background: linear-gradient(180deg, var(--aube-cream) 0%, var(--aube-cream-2) 100%) !important;
+  border-bottom: 2px solid var(--aube-gold) !important; cursor: pointer; user-select: none;
+}
+#coachMembersTable .cm-table thead th .cm-sort { opacity: 0.35; margin-left: 4px; font-size: 9px; }
+#coachMembersTable .cm-table thead th.sorted .cm-sort { opacity: 1; color: var(--aube-gold); }
+#coachMembersTable .cm-table tbody td {
+  height: 32px; padding: 8px 12px; white-space: nowrap; color: var(--aube-navy) !important;
+  border-right: 1px solid rgba(184,134,42,0.15); border-bottom: 1px solid rgba(184,134,42,0.1);
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; font-size: 13px;
+}
+#coachMembersTable .cm-table tbody tr:nth-child(even) td { background: var(--aube-cream-2) !important; }
+#coachMembersTable .cm-table tbody tr:nth-child(odd) td { background: var(--aube-cream) !important; }
+#coachMembersTable .cm-table tbody tr:hover td { background: rgba(184,134,42,0.12) !important; cursor: pointer; }
+
+/* Colonnes gelées à gauche : #, Statut(D), Prénom(B), Nom(C) */
+#coachMembersTable .cm-sticky { position: sticky; z-index: 3; }
+#coachMembersTable thead th.cm-sticky { z-index: 4; }
+#coachMembersTable .cm-c-num    { left: 0;     width: 44px;  min-width: 44px;  text-align: center; color: var(--aube-gold) !important; font-weight: 600; font-variant-numeric: tabular-nums; }
+#coachMembersTable .cm-c-status { left: 44px;  width: 148px; min-width: 148px; }
+#coachMembersTable .cm-c-prenom { left: 192px; width: 112px; min-width: 112px; font-weight: 600; }
+#coachMembersTable .cm-c-nom    { left: 304px; width: 134px; min-width: 134px; font-weight: 600;
+  box-shadow: 6px 0 8px -6px rgba(15,28,61,0.18); }
+/* fond opaque des cellules gelées (panneau figé, style Airtable) */
+#coachMembersTable tbody td.cm-sticky { background: var(--aube-cream) !important; }
+#coachMembersTable tbody tr:nth-child(even) td.cm-sticky { background: var(--aube-cream-2) !important; }
+#coachMembersTable tbody tr:hover td.cm-sticky { background: #f0e6cf !important; }
+
+/* ---- Cellules typées ---- */
+#coachMembersTable .cm-badge {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; white-space: nowrap;
+}
+#coachMembersTable .cm-badge.green { background: rgba(6,122,79,0.12); color: #067a4f; }
+#coachMembersTable .cm-badge.amber { background: rgba(217,119,6,0.12); color: #b45309; }
+#coachMembersTable .cm-badge.red   { background: rgba(198,40,40,0.12); color: #c62828; }
+#coachMembersTable .cm-badge.gray  { background: rgba(15,28,61,0.08); color: rgba(15,28,61,0.6); }
+#coachMembersTable .cm-badge.gold  { background: rgba(184,134,42,0.15); color: #8a6516; }
+
+#coachMembersTable .cm-bar-wrap { display: flex; align-items: center; gap: 7px; }
+#coachMembersTable .cm-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(184,134,42,0.15); overflow: hidden; min-width: 34px; }
+#coachMembersTable .cm-bar > span { display: block; height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--aube-gold), var(--aube-gold-bright)); }
+#coachMembersTable .cm-bar-val { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--aube-navy); min-width: 26px; text-align: right; }
+
+#coachMembersTable .cm-days { font-variant-numeric: tabular-nums; font-weight: 600; }
+#coachMembersTable .cm-days.hot { color: #c62828; }
+#coachMembersTable .cm-days.cool { color: rgba(15,28,61,0.5); }
+
+#coachMembersTable .cm-empty { color: rgba(15,28,61,0.28); }
+
+/* Responsive : la table reste en scroll horizontal (pas de switch cards) */
+@media (max-width: 720px) {
+  #coachMembersTable .cm-toolbar { gap: 10px; }
+  #coachMembersTable .cm-toolbar-right { margin-left: 0; width: 100%; justify-content: space-between; }
+  #coachMembersTable .cm-search { max-width: 100%; flex-basis: 100%; }
+}
+
+/* ============================================================
+   === COACH · DRAWER MEMBRE (chantier #84 c4) ===
+   Fiche détail lecture seule, slide-in droite. Bloc additif.
+   ============================================================ */
+#cmDrawerOverlay {
+  position: fixed; inset: 0; z-index: 10050;
+  background: rgba(15, 28, 61, 0.4);
+  opacity: 0; transition: opacity 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#cmDrawerOverlay.open { opacity: 1; }
+.cm-drawer {
+  position: absolute; top: 0; right: 0; height: 100%; width: 420px; max-width: 100vw;
+  display: flex; flex-direction: column;
+  background: var(--aube-cream, #FBF8F1); box-shadow: -18px 0 50px rgba(15,28,61,0.28);
+  transform: translateX(100%); transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#cmDrawerOverlay.open .cm-drawer { transform: translateX(0); }
+@media (max-width: 520px) { .cm-drawer { width: 100vw; } }
+
+/* Header sticky */
+.cm-drawer-head {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: flex-start; gap: 12px;
+  padding: 20px 20px 16px; border-bottom: 2px solid var(--aube-gold, #B8862A);
+  background: linear-gradient(180deg, var(--aube-cream, #FBF8F1) 0%, var(--aube-cream-2, #F5EFDF) 100%);
+}
+.cm-drawer-id { display: flex; align-items: center; gap: 13px; flex: 1; min-width: 0; }
+.cm-drawer-avatar {
+  width: 48px; height: 48px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; color: var(--aube-navy, #0F1C3D); letter-spacing: 0.02em;
+  background: linear-gradient(135deg, var(--aube-gold-bright, #d4af37), var(--aube-cream-2, #F5EFDF));
+  box-shadow: 0 2px 8px rgba(15,28,61,0.18);
+}
+.cm-drawer-id-txt { min-width: 0; }
+.cm-drawer-name { font-size: 18px; font-weight: 600; color: var(--aube-navy, #0F1C3D); line-height: 1.2; }
+.cm-drawer-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cm-drawer-chips .cm-badge { font-size: 11px; }
+.cm-drawer-close {
+  flex: none; width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(184,134,42,0.3);
+  background: rgba(255,255,255,0.5); color: var(--aube-navy, #0F1C3D); font-size: 22px; line-height: 1; cursor: pointer;
+  transition: all .13s;
+}
+.cm-drawer-close:hover { border-color: var(--aube-gold, #B8862A); background: rgba(184,134,42,0.12); }
+
+/* Corps scrollable + accordéon */
+.cm-drawer-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+.cm-drawer-body::-webkit-scrollbar { width: 8px; }
+.cm-drawer-body::-webkit-scrollbar-thumb { background: rgba(184,134,42,0.4); border-radius: 999px; }
+.cm-acc { border-bottom: 1px solid rgba(184,134,42,0.15); }
+.cm-acc-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 13px 20px; background: transparent; border: 0; cursor: pointer;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--aube-gold, #B8862A);
+}
+.cm-acc-head .cm-acc-caret { transition: transform .18s; font-size: 10px; opacity: 0.7; }
+.cm-acc.collapsed .cm-acc-caret { transform: rotate(-90deg); }
+.cm-acc-body { padding: 0 20px 12px; }
+.cm-acc.collapsed .cm-acc-body { display: none; }
+.cm-field { padding: 8px 0; border-top: 1px solid rgba(184,134,42,0.08); }
+.cm-field:first-child { border-top: 0; }
+.cm-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(15,28,61,0.5); }
+.cm-field-val { font-size: 14px; color: var(--aube-navy, #0F1C3D); margin-top: 2px; word-break: break-word; }
+.cm-field-val a { color: #8a6516; text-decoration: none; border-bottom: 1px solid rgba(184,134,42,0.4); }
+.cm-field-val a:hover { border-bottom-color: var(--aube-gold, #B8862A); }
+.cm-field-val .cm-empty { color: rgba(15,28,61,0.28); }
+
+/* Footer sticky : actions contextuelles */
+.cm-drawer-foot {
+  position: sticky; bottom: 0; z-index: 2; display: flex; gap: 8px; padding: 14px 16px;
+  background: var(--aube-cream-2, #F5EFDF); border-top: 1px solid rgba(184,134,42,0.25);
+}
+.cm-foot-btn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 6px; border-radius: 9px; font-size: 12px; font-weight: 600; text-decoration: none;
+  border: 1px solid rgba(184,134,42,0.4); background: var(--aube-cream, #FBF8F1); color: var(--aube-navy, #0F1C3D);
+  cursor: pointer; transition: all .13s; white-space: nowrap;
+}
+.cm-foot-btn:hover { border-color: var(--aube-gold, #B8862A); background: rgba(184,134,42,0.1); }
+.cm-foot-btn.disabled { opacity: 0.4; pointer-events: none; }
+.cm-foot-btn i { font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  #cmDrawerOverlay, .cm-drawer { transition: none !important; }
+}

@@ -3204,6 +3204,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" id="coachNavStudents" onclick="showCoachSection('coachStudents')">
                     <i class="fas fa-users mr-3"></i>Mes Élèves
                 </div>
+                <div class="sidebar-item" id="coachNavMembersTable" onclick="showCoachSection('coachMembersTable')">
+                    <i class="fas fa-clipboard-list mr-3"></i>Suivi Membres
+                </div>
                 <div class="sidebar-item" id="coachNavAccounting" onclick="showCoachSection('coachAccounting')">
                     <i class="fas fa-euro-sign mr-3"></i>Comptabilité
                 </div>
@@ -3452,6 +3455,58 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                     <td colspan="7" class="px-6 py-8 text-center text-gray-500">Chargement…</td>
                                 </tr>
                             </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Suivi Membres T360 — lecture seule du tableur Manu (#84 commit 2/4 : squelette + fetch minimal) -->
+            <div id="coachMembersTable" class="section hidden">
+                <div class="section-header">
+                    <h1>Suivi Membres T360</h1>
+                    <p class="text-gray-600">Vue synchronisée du tableur — mise à jour toutes les 2h via LearnyBox / Discord / Google Forms.</p>
+                </div>
+
+                <div class="trader-card" style="padding: 24px;">
+                    <!-- Barre d'outils -->
+                    <div class="cm-toolbar">
+                        <div class="cm-search">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="cmSearch" placeholder="Rechercher un membre (prénom, nom, mail)…" autocomplete="off">
+                        </div>
+                        <div class="cm-chips" id="cmStatusChips"><!-- chips injectées par JS --></div>
+                        <div class="cm-toolbar-right">
+                            <span class="cm-count" id="cmCount"></span>
+                            <div class="cm-cols-wrap">
+                                <button type="button" class="cm-btn" id="cmColsBtn"><i class="fas fa-table-columns"></i> Colonnes</button>
+                                <div class="cm-cols-menu hidden" id="cmColsMenu"></div>
+                            </div>
+                            <button type="button" class="cm-btn" id="cmRefreshBtn"><i class="fas fa-rotate-right" id="cmRefreshIco"></i> Rafraîchir</button>
+                        </div>
+                    </div>
+
+                    <div id="coachMembersStatus" style="font-size:13px; color:var(--aube-text-secondary, #5a5040); margin-bottom:12px;">Chargement du tableur…</div>
+
+                    <!-- Skeleton loader (masqué une fois les données rendues) -->
+                    <div id="coachMembersSkeleton" aria-hidden="true">
+                        <style>
+                            @keyframes coachMembersShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+                            #coachMembersSkeleton .cm-skel-row { height: 32px; border-radius: 6px; margin-bottom: 8px;
+                                background: linear-gradient(90deg, rgba(184,134,42,0.06) 25%, rgba(184,134,42,0.16) 37%, rgba(184,134,42,0.06) 63%);
+                                background-size: 800px 100%; animation: coachMembersShimmer 1.4s ease-in-out infinite; }
+                            #coachMembersSkeleton .cm-skel-row.head { height: 40px; opacity: 0.9; }
+                        </style>
+                        <div class="cm-skel-row head"></div>
+                        <div class="cm-skel-row"></div><div class="cm-skel-row"></div><div class="cm-skel-row"></div>
+                        <div class="cm-skel-row"></div><div class="cm-skel-row"></div><div class="cm-skel-row"></div>
+                        <div class="cm-skel-row"></div><div class="cm-skel-row"></div>
+                    </div>
+
+                    <!-- Table (rendue par JS) -->
+                    <div class="cm-scroll" id="cmScroll" style="display:none;">
+                        <table class="cm-table">
+                            <thead id="cmThead"></thead>
+                            <tbody id="cmTbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -14188,10 +14243,437 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 loadCoachRegistrations();
             } else if (sectionName === 'coachReplays') {
                 window.loadCoachReplays && window.loadCoachReplays();
+            } else if (sectionName === 'coachMembersTable') {
+                window.loadCoachMembersTable && window.loadCoachMembersTable();
             }
         }
         
         
+        // ============================================================
+        // #84 commit 3 — Suivi Membres T360 : table premium (lecture seule)
+        // Rendu dynamique depuis le tableau `columns` de l'endpoint (résilient si Manu renomme).
+        // Cellules typées par LETTRE de colonne (mapping memory/projects/integration_tableur_manu.md).
+        // ============================================================
+        const COACH_MEMBERS_CACHE_TTL = 60_000; // 60s : évite un re-fetch à chaque clic sidebar
+        const CM_STATUSES = ['🟢 T360', '🟠 Nouveau', '🟠 À surveiller', '🟠 Peu impliqué', '🟠 Moyen', '🔴 Inactif'];
+
+        let _cmSort = { letter: null, dir: 1 };
+        let _cmSearch = '';
+        let _cmActiveStatuses = new Set();  // vide = tous
+        let _cmVisibleCols = null;          // Set de lettres (non-sticky) ; localStorage
+        let _cmSearchTimer = null;
+        let _cmWired = false;
+
+        function cmEsc(s) { return window.escapeHtml ? window.escapeHtml(String(s ?? '')) : String(s ?? ''); }
+        function cmNum(v) { const n = parseFloat(String(v ?? '').replace(',', '.').replace('%', '').trim()); return isNaN(n) ? null : n; }
+        function cmShortDate(v) {
+            const m = String(v ?? '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+            return m ? (m[1].padStart(2, '0') + '/' + m[2].padStart(2, '0') + '/' + m[3].slice(-2)) : null;
+        }
+        // #84 c3-fix : mapping par NOM d'header (les lettres du Sheet ne correspondent pas au sémantique supposé).
+        function cmNorm(s) { return String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
+        function cmIsStatut(name) { return cmNorm(name).includes('statut'); }
+        function cmIsPrenom(name) { const n = cmNorm(name); return n === 'prenom' || n.startsWith('prenom'); }
+        function cmIsNom(name) { const n = cmNorm(name); return n === 'nom'; }
+        function cmIsSticky(name) { return cmIsStatut(name) || cmIsPrenom(name) || cmIsNom(name); }
+
+        // Type d'une colonne par NOM d'header.
+        function cmColKind(name) {
+            const n = cmNorm(name);
+            if (n.includes('statut')) return 'status';
+            if (n.includes('score')) return 'score20';
+            if (n.includes('progress')) return 'progress';
+            if (n.includes('jours') && n.includes('contact')) return 'days';
+            if (n.includes('rapport') || n.includes('google forms') || n.includes('suivi rapport')) return 'rapport';
+            if (n.includes('journal') || n.includes('ambassad') || n.includes('temoin') || n.includes('temoign')) return 'yesno';
+            if (n.includes('whatsapp') || n.includes('telephone') || n.startsWith('tel') || n.includes('phone')) return 'phone';
+            return 'auto'; // email / date / nombre → détectés par la valeur
+        }
+        function cmColByLetter(letter) {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            return cols.find(c => c.letter === letter) || null;
+        }
+        function cmVal(m, col) { return col ? (m[col.name] ?? '') : ''; }
+
+        function cmVisibleColLetters(cols) { return (cols || []).filter(c => !cmIsSticky(c.name)).map(c => c.letter); }
+        function cmLoadVisibleCols(allLetters) {
+            try { const raw = localStorage.getItem('coach_members_visible_cols');
+                if (raw) { const a = JSON.parse(raw); if (Array.isArray(a) && a.length) return new Set(a); } } catch (_) {}
+            return new Set(allLetters);
+        }
+        function cmSaveVisibleCols() { try { localStorage.setItem('coach_members_visible_cols', JSON.stringify([..._cmVisibleCols])); } catch (_) {} }
+
+        // Colonnes détectées par nom : sticky [Statut, Prénom, Nom] + refs utiles (mail pour la recherche).
+        function cmOrderedColumns() {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            const statut = cols.find(c => cmIsStatut(c.name)) || null;
+            const prenom = cols.find(c => cmIsPrenom(c.name)) || null;
+            const nom = cols.find(c => cmIsNom(c.name)) || null;
+            const mail = cols.find(c => cmNorm(c.name).includes('mail')) || null;
+            const stickyDefs = [
+                { col: statut, cls: 'cm-c-status' },
+                { col: prenom, cls: 'cm-c-prenom' },
+                { col: nom, cls: 'cm-c-nom' },
+            ].filter(d => d.col);
+            const rest = cols.filter(c => !cmIsSticky(c.name));
+            return { stickyDefs, rest, statut, prenom, nom, mail };
+        }
+
+        // Cellule typée → HTML (typée par NOM d'header).
+        function cmCellHtml(name, value) {
+            const raw = value == null ? '' : String(value).trim();
+            const type = cmColKind(name);
+            if (raw === '' && type !== 'status') return '<span class="cm-empty">—</span>';
+            switch (type) {
+                case 'status': {
+                    if (raw === '') return '<span class="cm-empty">—</span>';
+                    let cls = 'gray';
+                    if (raw.startsWith('🟢')) cls = 'green'; else if (raw.startsWith('🔴')) cls = 'red'; else if (raw.startsWith('🟠')) cls = 'amber';
+                    return `<span class="cm-badge ${cls}">${cmEsc(raw)}</span>`;
+                }
+                case 'score20': {
+                    const n = cmNum(raw); if (n == null) return cmEsc(raw);
+                    const pct = Math.max(0, Math.min(100, (n / 20) * 100));
+                    return `<div class="cm-bar-wrap"><div class="cm-bar"><span style="width:${pct}%"></span></div><span class="cm-bar-val">${cmEsc(raw)}</span></div>`;
+                }
+                case 'progress': {
+                    const n = cmNum(raw); if (n == null) return cmEsc(raw);
+                    const pct = Math.max(0, Math.min(100, n));
+                    return `<div class="cm-bar-wrap"><div class="cm-bar"><span style="width:${pct}%"></span></div><span class="cm-bar-val">${Math.round(pct)}%</span></div>`;
+                }
+                case 'days': {
+                    const n = cmNum(raw); if (n == null) return `<span title="${cmEsc(raw)}">${cmEsc(raw)}</span>`;
+                    return `<span class="cm-days ${n > 30 ? 'hot' : 'cool'}">${Math.round(n)} j</span>`;
+                }
+                case 'rapport': {
+                    const low = raw.toLowerCase(); let cls = 'gray';
+                    if (low.includes('rt ok')) cls = 'green';
+                    else if (low.includes('brouillon')) cls = 'amber';
+                    else if (low.includes('non rempli')) cls = 'red';
+                    return `<span class="cm-badge ${cls}">${cmEsc(raw)}</span>`;
+                }
+                case 'yesno': {
+                    const low = raw.toLowerCase();
+                    if (low === 'non' || low === 'no' || low === '0' || low === 'faux') return '<span class="cm-badge gray">Non</span>';
+                    return `<span class="cm-badge gold">${cmEsc(raw.length > 14 ? 'Oui' : raw)}</span>`;
+                }
+                case 'email': case 'phone': return `<span title="${cmEsc(raw)}">${cmEsc(raw)}</span>`;
+                default: {
+                    const d = cmShortDate(raw);
+                    return `<span title="${cmEsc(raw)}">${cmEsc(d || raw)}</span>`;
+                }
+            }
+        }
+
+        function cmTh(letter, name, cls) {
+            const sorted = _cmSort.letter === letter;
+            const arrow = sorted ? (_cmSort.dir === 1 ? '▲' : '▼') : '▲▼';
+            return `<th class="${cls}${sorted ? ' sorted' : ''}" data-th="${letter}">${cmEsc(name)}<span class="cm-sort">${arrow}</span></th>`;
+        }
+
+        function cmRenderTable() {
+            const data = window.__coachMembersData; if (!data) return;
+            // Log demandé : permet de valider les noms exacts des colonnes si un typage bug encore.
+            console.log('[MEMBERS-COLS]', (data.columns || []).map(c => c.name));
+
+            const oc = cmOrderedColumns();
+            const visibleRest = oc.rest.filter(c => _cmVisibleCols.has(c.letter));
+
+            // THEAD : # + [Statut, Prénom, Nom] gelés + reste visible
+            let thead = '<tr>' + cmTh('#', '#', 'cm-sticky cm-c-num');
+            oc.stickyDefs.forEach(d => { thead += cmTh(d.col.letter, d.col.name, 'cm-sticky ' + d.cls); });
+            visibleRest.forEach(c => { thead += cmTh(c.letter, c.name, ''); });
+            thead += '</tr>';
+            document.getElementById('cmThead').innerHTML = thead;
+
+            // Filtrage (recherche prénom+nom+mail, filtre statut) — colonnes résolues par nom
+            let rows = (data.members || []).slice();
+            const q = _cmSearch.trim().toLowerCase();
+            if (q) rows = rows.filter(m => (cmVal(m, oc.prenom) + ' ' + cmVal(m, oc.nom) + ' ' + cmVal(m, oc.mail)).toLowerCase().includes(q));
+            if (_cmActiveStatuses.size) rows = rows.filter(m => _cmActiveStatuses.has(String(cmVal(m, oc.statut)).trim()));
+
+            // Tri (résolu par nom de colonne)
+            if (_cmSort.letter) {
+                const L = _cmSort.letter, dir = _cmSort.dir;
+                const col = L === '#' ? null : cmColByLetter(L);
+                const kind = L === '#' ? 'num' : cmColKind(col ? col.name : '');
+                const numeric = ['score20', 'progress', 'days', 'num'].includes(kind);
+                rows.sort((a, b) => {
+                    if (L === '#') return dir * (a.row - b.row);
+                    const va = cmVal(a, col), vb = cmVal(b, col);
+                    if (numeric) { const na = cmNum(va), nb = cmNum(vb); return dir * ((na == null ? -Infinity : na) - (nb == null ? -Infinity : nb)); }
+                    return dir * String(va).localeCompare(String(vb), 'fr');
+                });
+            }
+
+            // TBODY (data-member-row prêt pour le drawer du commit 4)
+            let tb = '';
+            rows.forEach(m => {
+                tb += `<tr data-member-row="${m.row}">`;
+                tb += `<td class="cm-sticky cm-c-num">${m.row}</td>`;
+                oc.stickyDefs.forEach(d => { tb += `<td class="cm-sticky ${d.cls}">${cmCellHtml(d.col.name, m[d.col.name])}</td>`; });
+                visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.name, m[c.name])}</td>`; });
+                tb += '</tr>';
+            });
+            document.getElementById('cmTbody').innerHTML = tb ||
+                '<tr><td colspan="99" style="padding:24px;text-align:center;color:rgba(15,28,61,0.5)">Aucun membre ne correspond aux filtres</td></tr>';
+
+            const cnt = document.getElementById('cmCount');
+            if (cnt) cnt.textContent = `${rows.length} / ${(data.members || []).length} membres affichés`;
+        }
+
+        function cmRenderChips() {
+            const wrap = document.getElementById('cmStatusChips'); if (!wrap) return;
+            const chip = (label, key, active) => `<button type="button" class="cm-chip${active ? ' active' : ''}" data-status="${cmEsc(key)}">${cmEsc(label)}</button>`;
+            let html = chip('Tous', '__all__', _cmActiveStatuses.size === 0);
+            CM_STATUSES.forEach(s => { html += chip(s, s, _cmActiveStatuses.has(s)); });
+            wrap.innerHTML = html;
+        }
+
+        function cmRenderColsMenu() {
+            const menu = document.getElementById('cmColsMenu'); if (!menu) return;
+            const { rest } = cmOrderedColumns();
+            menu.innerHTML = rest.map(c =>
+                `<label><input type="checkbox" data-col="${c.letter}" ${_cmVisibleCols.has(c.letter) ? 'checked' : ''}> ${cmEsc(c.name)}</label>`
+            ).join('');
+        }
+
+        // Listeners (délégués sur parents stables → survivent aux re-render). Une seule fois.
+        function cmWire() {
+            if (_cmWired) return; _cmWired = true;
+            const search = document.getElementById('cmSearch');
+            if (search) search.addEventListener('input', function () {
+                clearTimeout(_cmSearchTimer);
+                _cmSearchTimer = setTimeout(() => { _cmSearch = search.value; cmRenderTable(); }, 200);
+            });
+            const chips = document.getElementById('cmStatusChips');
+            if (chips) chips.addEventListener('click', function (e) {
+                const b = e.target.closest('.cm-chip'); if (!b) return;
+                const key = b.getAttribute('data-status');
+                if (key === '__all__') _cmActiveStatuses.clear();
+                else { _cmActiveStatuses.has(key) ? _cmActiveStatuses.delete(key) : _cmActiveStatuses.add(key); }
+                cmRenderChips(); cmRenderTable();
+            });
+            const thead = document.getElementById('cmThead');
+            if (thead) thead.addEventListener('click', function (e) {
+                const th = e.target.closest('[data-th]'); if (!th) return;
+                const L = th.getAttribute('data-th');
+                if (_cmSort.letter === L) _cmSort.dir *= -1; else { _cmSort.letter = L; _cmSort.dir = 1; }
+                cmRenderTable();
+            });
+            const colsBtn = document.getElementById('cmColsBtn');
+            const colsMenu = document.getElementById('cmColsMenu');
+            if (colsBtn && colsMenu) {
+                colsBtn.addEventListener('click', function (e) { e.stopPropagation(); colsMenu.classList.toggle('hidden'); });
+                colsMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+                colsMenu.addEventListener('change', function (e) {
+                    const cb = e.target.closest('input[data-col]'); if (!cb) return;
+                    const L = cb.getAttribute('data-col');
+                    cb.checked ? _cmVisibleCols.add(L) : _cmVisibleCols.delete(L);
+                    cmSaveVisibleCols(); cmRenderTable();
+                });
+                document.addEventListener('click', function () { colsMenu.classList.add('hidden'); });
+            }
+            const refresh = document.getElementById('cmRefreshBtn');
+            if (refresh) refresh.addEventListener('click', function () { window.loadCoachMembersTable(true); });
+            // Clic ligne → drawer détail (commit 4)
+            const tbody = document.getElementById('cmTbody');
+            if (tbody) tbody.addEventListener('click', function (e) {
+                const tr = e.target.closest('tr[data-member-row]'); if (!tr) return;
+                cmOpenDrawer(Number(tr.getAttribute('data-member-row')));
+            });
+        }
+
+        function cmAfterData() {
+            const d = window.__coachMembersData; if (!d) return;
+            if (_cmVisibleCols === null) _cmVisibleCols = cmLoadVisibleCols(cmVisibleColLetters(d.columns));
+            cmWire();
+            cmRenderChips();
+            cmRenderColsMenu();
+            const statusEl = document.getElementById('coachMembersStatus');
+            if (statusEl) statusEl.textContent = `Synchronisé depuis le tableur · ${d.total_members} membres · dernière sync : ${d.updated_at || 'n/d'}`;
+            const skel = document.getElementById('coachMembersSkeleton'); if (skel) skel.style.display = 'none';
+            const scroll = document.getElementById('cmScroll'); if (scroll) scroll.style.display = '';
+            cmRenderTable();
+        }
+
+        // ---------- Drawer détail membre (#84 commit 4, lecture seule) ----------
+        // Blocs thématiques mappés par mots-clés dans le NOM de colonne (robuste si Manu renomme).
+        // Chaque colonne va dans le 1er bloc dont un mot-clé matche ; le reste tombe dans "Autres".
+        const CM_BLOCKS = [
+            { title: 'Identité', kw: ['id', 'prenom', 'nom', 'date entree', 'date adhesion', 'adhesion', 'anciennete', 'coach', 'tel', 'whatsapp'] },
+            { title: 'Activité & Statut', kw: ['statut', 'score', 'dernier contact', 'jours sans contact', 'google forms', 'suivi rapport', 'dernier envoi', 'prochain contact', 'notes'] },
+            { title: 'Formation', kw: ['niveau', 'progress', 'derniere activite', 'activite lb', 'methode', 'journal'] },
+            { title: 'Communauté', kw: ['discord', 'insta', 'ambassad', 'temoin', 'temoign', 'sujet'] },
+            { title: 'Business', kw: ['contrat', 'montant', 'parrain', 'form g', 'form h', 'form l'] },
+        ];
+        let _cmDrawerRow = null;
+        let _cmDrawerKeydown = null;
+        let _cmDrawerPrevFocus = null;
+
+        function cmDrawerCol(kw) {
+            const cols = (window.__coachMembersData && window.__coachMembersData.columns) || [];
+            return cols.find(c => cmNorm(c.name).includes(kw)) || null;
+        }
+        function cmFmtVal(name, value) {
+            const raw = value == null ? '' : String(value).trim();
+            if (raw === '') return '<span class="cm-empty">—</span>';
+            const d = cmShortDate(raw);
+            if (d && cmNorm(name).match(/date|contact|envoi|adhesion|anciennete/)) return cmEsc(d);
+            if (/^https?:\/\//i.test(raw)) return `<a href="${cmEsc(raw)}" target="_blank" rel="noopener">${cmEsc(raw)}</a>`;
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return `<a href="mailto:${cmEsc(raw)}">${cmEsc(raw)}</a>`;
+            return cmEsc(raw);
+        }
+
+        function cmOpenDrawer(rowNum) {
+            const data = window.__coachMembersData; if (!data) return;
+            const m = (data.members || []).find(x => x.row === rowNum); if (!m) return;
+            _cmDrawerRow = m;
+            const oc = cmOrderedColumns();
+            const nameFull = ((cmVal(m, oc.prenom) || '') + ' ' + (cmVal(m, oc.nom) || '')).trim() || ('Membre #' + rowNum);
+
+            // Avatar (initiales) + header
+            const initials = ((String(cmVal(m, oc.prenom))[0] || '') + (String(cmVal(m, oc.nom))[0] || '')).toUpperCase() || '?';
+            document.getElementById('cmDrawerAvatar').textContent = initials;
+            document.getElementById('cmDrawerName').textContent = nameFull;
+
+            // Chips header : Statut + Score + Ancienneté
+            const scoreCol = data.columns.find(c => cmNorm(c.name).includes('score'));
+            const ancCol = data.columns.find(c => cmNorm(c.name).includes('anciennete'));
+            let chips = '';
+            if (oc.statut && String(cmVal(m, oc.statut)).trim()) chips += cmCellHtml(oc.statut.name, cmVal(m, oc.statut));
+            if (scoreCol && String(cmVal(m, scoreCol)).trim()) chips += `<span class="cm-badge gold">${cmEsc(cmVal(m, scoreCol))} /20</span>`;
+            if (ancCol && String(cmVal(m, ancCol)).trim()) chips += `<span class="cm-badge gray">${cmEsc(cmVal(m, ancCol))}</span>`;
+            document.getElementById('cmDrawerChips').innerHTML = chips;
+
+            // Répartition des colonnes dans les blocs (1er match gagne ; reste → Autres)
+            const cols = data.columns.slice();
+            const used = new Set();
+            const buckets = CM_BLOCKS.map(b => {
+                const items = cols.filter(c => !used.has(c.letter) && b.kw.some(k => cmNorm(c.name).includes(k)));
+                items.forEach(c => used.add(c.letter));
+                return { title: b.title, items };
+            });
+            const rest = cols.filter(c => !used.has(c.letter));
+            if (rest.length) buckets.push({ title: 'Autres', items: rest });
+
+            let bodyHtml = '';
+            buckets.forEach((b, bi) => {
+                if (!b.items.length) return;
+                const fields = b.items.map(c =>
+                    `<div class="cm-field"><div class="cm-field-label">${cmEsc(c.name)}</div><div class="cm-field-val">${cmFmtVal(c.name, m[c.name])}</div></div>`
+                ).join('');
+                bodyHtml += `<section class="cm-acc" data-acc="${bi}">
+                    <button type="button" class="cm-acc-head" aria-expanded="true">${cmEsc(b.title)}<span class="cm-acc-caret">▼</span></button>
+                    <div class="cm-acc-body">${fields}</div>
+                </section>`;
+            });
+            document.getElementById('cmDrawerBody').innerHTML = bodyHtml;
+
+            // Footer : actions contextuelles
+            const mailV = oc.mail ? String(cmVal(m, oc.mail)).trim() : '';
+            const telCol = data.columns.find(c => cmNorm(c.name).match(/whatsapp|telephone|^tel|phone/));
+            const telV = telCol ? String(cmVal(m, telCol)).trim() : '';
+            const telHref = telV.replace(/[^\d+]/g, '');
+            const dscCol = data.columns.find(c => cmNorm(c.name).includes('discord'));
+            const dscV = dscCol ? String(cmVal(m, dscCol)).trim() : '';
+            const dscId = (dscV.match(/\d{5,}/) || [''])[0];
+            const sheetUrl = `https://docs.google.com/spreadsheets/d/${data.sheet_id}/edit#gid=0&range=A${rowNum}`;
+            const btn = (cls, icon, label, href) => href
+                ? `<a class="cm-foot-btn" href="${href}" target="_blank" rel="noopener"><i class="${icon}"></i>${label}</a>`
+                : `<span class="cm-foot-btn disabled"><i class="${icon}"></i>${label}</span>`;
+            document.getElementById('cmDrawerFoot').innerHTML =
+                btn('mail', 'fas fa-envelope', 'Mail', mailV ? ('mailto:' + mailV) : null) +
+                btn('wa', 'fab fa-whatsapp', 'WhatsApp', telHref ? ('https://wa.me/' + telHref.replace(/^\+/, '')) : null) +
+                btn('dsc', 'fab fa-discord', 'Discord', dscId ? ('https://discord.com/users/' + dscId) : null) +
+                btn('sheet', 'fas fa-table', 'Sheet', sheetUrl);
+
+            // Ouverture + a11y (focus trap + Escape)
+            const overlay = document.getElementById('cmDrawerOverlay');
+            overlay.style.display = 'block';
+            _cmDrawerPrevFocus = document.activeElement;
+            requestAnimationFrame(() => overlay.classList.add('open'));
+            const closeBtn = document.getElementById('cmDrawerClose');
+            if (closeBtn) closeBtn.focus();
+            _cmDrawerKeydown = function (e) {
+                if (e.key === 'Escape') { cmCloseDrawer(); return; }
+                if (e.key === 'Tab') {
+                    const f = overlay.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])');
+                    if (!f.length) return;
+                    const first = f[0], last = f[f.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
+            };
+            document.addEventListener('keydown', _cmDrawerKeydown);
+        }
+
+        function cmCloseDrawer() {
+            const overlay = document.getElementById('cmDrawerOverlay');
+            overlay.classList.remove('open');
+            if (_cmDrawerKeydown) { document.removeEventListener('keydown', _cmDrawerKeydown); _cmDrawerKeydown = null; }
+            const done = () => { overlay.style.display = 'none'; overlay.removeEventListener('transitionend', done); };
+            overlay.addEventListener('transitionend', done);
+            setTimeout(done, 320); // fallback si transition coupée
+            if (_cmDrawerPrevFocus && _cmDrawerPrevFocus.focus) { try { _cmDrawerPrevFocus.focus(); } catch (_) {} }
+        }
+
+        // Wiring drawer (une fois) : close (X + overlay) + accordéon.
+        function cmWireDrawer() {
+            const overlay = document.getElementById('cmDrawerOverlay');
+            const closeBtn = document.getElementById('cmDrawerClose');
+            if (closeBtn) closeBtn.addEventListener('click', cmCloseDrawer);
+            if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) cmCloseDrawer(); });
+            const body = document.getElementById('cmDrawerBody');
+            if (body) body.addEventListener('click', function (e) {
+                const h = e.target.closest('.cm-acc-head'); if (!h) return;
+                const sec = h.closest('.cm-acc'); sec.classList.toggle('collapsed');
+                h.setAttribute('aria-expanded', sec.classList.contains('collapsed') ? 'false' : 'true');
+            });
+        }
+        if (document.readyState !== 'loading') cmWireDrawer();
+        else document.addEventListener('DOMContentLoaded', cmWireDrawer);
+
+        window.loadCoachMembersTable = async function (force) {
+            const now = Date.now();
+            if (!force && window.__coachMembersData && window.__coachMembersCacheAt &&
+                (now - window.__coachMembersCacheAt) < COACH_MEMBERS_CACHE_TTL) {
+                console.log('[MEMBERS] cache hit (<60s)');
+                cmAfterData();
+                return;
+            }
+            const statusEl = document.getElementById('coachMembersStatus');
+            const skel = document.getElementById('coachMembersSkeleton');
+            const scroll = document.getElementById('cmScroll');
+            const ico = document.getElementById('cmRefreshIco');
+            if (ico) ico.classList.add('spin');
+            if (statusEl) statusEl.textContent = 'Chargement du tableur…';
+            if (force) { if (skel) skel.style.display = ''; if (scroll) scroll.style.display = 'none'; }
+            try {
+                const sb = window.supabaseClient;
+                if (!sb) throw new Error('Supabase non chargé');
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session?.access_token) throw new Error('Non authentifié');
+
+                const res = await fetch('/api/coach/tableur-members', {
+                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json?.error || ('HTTP ' + res.status));
+
+                window.__coachMembersData = json;
+                window.__coachMembersCacheAt = Date.now();
+                console.log('[MEMBERS] window.__coachMembersData =', json);
+                cmAfterData();
+            } catch (e) {
+                console.error('[MEMBERS] échec fetch /api/coach/tableur-members :', e);
+                if (statusEl) statusEl.textContent = '❌ Erreur de chargement : ' + (e.message || 'inconnue');
+                if (skel) skel.style.display = 'none';
+            } finally {
+                if (ico) ico.classList.remove('spin');
+            }
+        };
+
         // ============================================================
         // #33 commit 4 — Table élèves premium (Bourse à l'Aube)
         // Élève (avatar initiales) · Statut 🟢/🟠/🔴 (last_activity proxy) · P&L mois ·
@@ -15481,6 +15963,24 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
                 <button onclick="closeCoachStudentDetail()" class="trader-btn-secondary">Fermer</button>
             </div>
         </div>
+    </div>
+
+    <!-- #84 commit 4 — Drawer détail membre (lecture seule tableur Manu). Enfant direct de body. -->
+    <div id="cmDrawerOverlay" class="cm-drawer-overlay" style="display:none;" tabindex="-1">
+        <aside id="cmDrawer" class="cm-drawer" role="dialog" aria-modal="true" aria-labelledby="cmDrawerName">
+            <header class="cm-drawer-head">
+                <div class="cm-drawer-id">
+                    <span class="cm-drawer-avatar" id="cmDrawerAvatar">?</span>
+                    <div class="cm-drawer-id-txt">
+                        <div class="cm-drawer-name" id="cmDrawerName">—</div>
+                        <div class="cm-drawer-chips" id="cmDrawerChips"></div>
+                    </div>
+                </div>
+                <button type="button" class="cm-drawer-close" id="cmDrawerClose" aria-label="Fermer">&times;</button>
+            </header>
+            <div class="cm-drawer-body" id="cmDrawerBody"></div>
+            <footer class="cm-drawer-foot" id="cmDrawerFoot"></footer>
+        </aside>
     </div>
 
     <script src="/assets/dashboard-customizer.js" defer></script>
