@@ -1536,3 +1536,66 @@ body:not(.dark-mode) .csd-name, body:not(.dark-mode) .csd-stat-val, body:not(.da
 @media (prefers-reduced-motion: reduce) {
   #cmDrawerOverlay, .cm-drawer { transition: none !important; }
 }
+
+/* ============================================================
+   === USER · MON PROFIL (changement d'email élève) ===
+   Bloc additif. Palette Bourse à l'Aube.
+   ============================================================ */
+#myProfile .profile-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;
+}
+#myProfile .profile-card-title {
+  font-size: 15px; font-weight: 700; letter-spacing: 0.02em; color: var(--color-gold, #d4af37);
+  margin-bottom: 16px; display: flex; align-items: center;
+}
+#myProfile .profile-hint {
+  font-size: 12.5px; color: var(--aube-text-secondary, rgba(244,228,193,0.6)); margin: -6px 0 16px;
+}
+#myProfile .profile-field { padding: 10px 0; border-top: 1px solid rgba(212,175,55,0.12); }
+#myProfile .profile-field:first-of-type { border-top: 0; }
+#myProfile .profile-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--aube-text-secondary, rgba(212,175,55,0.7)); margin-bottom: 4px;
+}
+#myProfile .profile-value { font-size: 15px; color: var(--aube-text-primary, #f4e4c1); word-break: break-word; }
+#myProfile .profile-email-current { color: var(--aube-text-secondary, rgba(244,228,193,0.7)); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+#myProfile .profile-badge {
+  display: inline-flex; align-items: center; padding: 3px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+#myProfile .profile-badge.green { background: rgba(16,185,129,0.14); color: #10b981; }
+#myProfile .profile-badge.gray { background: rgba(255,255,255,0.08); color: var(--aube-text-secondary, rgba(244,228,193,0.7)); }
+
+#myProfile .profile-email-view { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+#myProfile .profile-input {
+  width: 100%; margin: 6px 0 12px; padding: 11px 14px; border-radius: 10px; font-size: 14px;
+  background: rgba(10,15,24,0.55); border: 1px solid rgba(212,175,55,0.3);
+  color: var(--aube-text-primary, #f4e4c1); outline: none; transition: border-color .15s;
+}
+#myProfile .profile-input:focus { border-color: rgba(212,175,55,0.75); }
+body:not(.dark-mode) #myProfile .profile-input { background: rgba(255,250,240,0.85); color: #1a1208; border-color: rgba(123,96,24,0.3); }
+
+#myProfile .profile-actions { display: flex; gap: 10px; }
+#myProfile .profile-btn {
+  display: inline-flex; align-items: center; justify-content: center; padding: 9px 18px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .13s;
+}
+#myProfile .profile-btn-gold { background: var(--color-gold, #d4af37); color: #000B25; }
+#myProfile .profile-btn-gold:hover { filter: brightness(1.06); }
+#myProfile .profile-btn-gold:disabled { opacity: 0.6; cursor: default; }
+#myProfile .profile-btn-ghost {
+  background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4);
+  color: var(--aube-text-primary, #f4e4c1);
+}
+#myProfile .profile-btn-ghost:hover { border-color: rgba(212,175,55,0.8); }
+body:not(.dark-mode) #myProfile .profile-btn-ghost { background: rgba(255,255,255,0.6); color: #7b6018; border-color: rgba(123,96,24,0.4); }
+
+/* Encart persistant confirmation en attente (orangé) */
+#myProfile .profile-pending {
+  margin-top: 16px; padding: 13px 16px; border-radius: 10px; font-size: 13px; line-height: 1.5;
+  background: rgba(217,119,6,0.12); border: 1px solid rgba(217,119,6,0.45); color: #f59e0b;
+}
+#myProfile .profile-pending strong { color: #fbbf24; }
+body:not(.dark-mode) #myProfile .profile-pending { color: #b45309; }
+body:not(.dark-mode) #myProfile .profile-pending strong { color: #92400e; }

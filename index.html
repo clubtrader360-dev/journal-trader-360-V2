@@ -3929,6 +3929,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" data-section="replays" onclick="showSection('replays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
+                <div class="sidebar-item" data-section="myProfile" onclick="showSection('myProfile')">
+                    <i class="fas fa-user-cog mr-3"></i>Mon Profil
+                </div>
                 <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid var(--sidebar-divider); padding-top: 20px;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
                 </div>
@@ -5217,6 +5220,64 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div style="font-size: 12px; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-top: 4px;" id="replayWeek5Days">0 jour</div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mon Profil (élève) — infos + changement d'email -->
+    <div id="myProfile" class="section hidden">
+        <div class="section-header">
+            <h1>Mon Profil</h1>
+            <p class="text-gray-600">Tes informations et l'adresse qui reçoit tes rapports.</p>
+        </div>
+
+        <div class="profile-grid">
+            <!-- Card 1 : Mes infos (lecture seule) -->
+            <div class="trader-card p-6 profile-card">
+                <h2 class="profile-card-title"><i class="fas fa-id-card mr-2"></i>Mes infos</h2>
+                <div class="profile-field">
+                    <div class="profile-label">Nom</div>
+                    <div class="profile-value" id="profileName">—</div>
+                </div>
+                <div class="profile-field">
+                    <div class="profile-label">Statut</div>
+                    <div class="profile-value"><span id="profileStatus" class="profile-badge">—</span></div>
+                </div>
+                <div class="profile-field">
+                    <div class="profile-label">Date d'inscription</div>
+                    <div class="profile-value" id="profileJoined">—</div>
+                </div>
+            </div>
+
+            <!-- Card 2 : Email de réception des rapports (éditable) -->
+            <div class="trader-card p-6 profile-card">
+                <h2 class="profile-card-title"><i class="fas fa-envelope mr-2"></i>Email de réception des rapports</h2>
+                <p class="profile-hint">C'est l'adresse à laquelle tu reçois ton rapport hebdo et le brief marché.</p>
+
+                <!-- Mode lecture -->
+                <div id="profileEmailView" class="profile-email-view">
+                    <div class="profile-field">
+                        <div class="profile-label">Email actuel</div>
+                        <div class="profile-value profile-email-current" id="profileEmailCurrent">—</div>
+                    </div>
+                    <button type="button" class="profile-btn profile-btn-ghost" id="profileEmailEditBtn">
+                        <i class="fas fa-pen mr-2"></i>Modifier
+                    </button>
+                </div>
+
+                <!-- Mode édition -->
+                <div id="profileEmailEdit" class="profile-email-edit" style="display:none;">
+                    <label class="profile-label" for="profileEmailInput">Nouvelle adresse email</label>
+                    <input type="email" id="profileEmailInput" class="profile-input" autocomplete="email"
+                           placeholder="ton.nouvel.email@exemple.com">
+                    <div class="profile-actions">
+                        <button type="button" class="profile-btn profile-btn-gold" id="profileEmailSaveBtn">Enregistrer</button>
+                        <button type="button" class="profile-btn profile-btn-ghost" id="profileEmailCancelBtn">Annuler</button>
+                    </div>
+                </div>
+
+                <!-- Encart persistant : confirmation en attente -->
+                <div id="profileEmailPending" class="profile-pending" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -9785,9 +9846,125 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 }
             } else if (sectionName === 'replays') {
                 window.loadStudentReplays && window.loadStudentReplays();
+            } else if (sectionName === 'myProfile') {
+                window.loadMyProfile && window.loadMyProfile();
             }
         }
         window.showSection = showSection;
+
+        // ============================================================
+        // Mon Profil élève — infos readonly + changement d'email (avec confirmation Supabase)
+        // ============================================================
+        function profileEscape(s) { return window.escapeHtml ? window.escapeHtml(String(s ?? '')) : String(s ?? ''); }
+
+        window.loadMyProfile = function () {
+            const u = window.currentUser || {};
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            set('profileName', u.name || '—');
+            set('profileEmailCurrent', u.email || '—');
+
+            // Statut → badge
+            const st = document.getElementById('profileStatus');
+            if (st) {
+                const s = String(u.status || '').toLowerCase();
+                st.textContent = s === 'active' ? 'Actif' : (u.status || '—');
+                st.className = 'profile-badge ' + (s === 'active' ? 'green' : 'gray');
+            }
+            // Date d'inscription
+            const joined = u.created_at ? new Date(u.created_at) : null;
+            set('profileJoined', joined && !isNaN(joined) ? joined.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—');
+
+            // Repart en mode lecture à chaque affichage (l'encart pending, lui, persiste tel quel).
+            profileEmailSetMode('view');
+        };
+
+        function profileEmailSetMode(mode) {
+            const view = document.getElementById('profileEmailView');
+            const edit = document.getElementById('profileEmailEdit');
+            if (!view || !edit) return;
+            if (mode === 'edit') {
+                view.style.display = 'none';
+                edit.style.display = '';
+                const input = document.getElementById('profileEmailInput');
+                if (input) { input.value = (window.currentUser && window.currentUser.email) || ''; input.focus(); input.select(); }
+            } else {
+                edit.style.display = 'none';
+                view.style.display = '';
+            }
+        }
+
+        async function profileSaveEmail() {
+            const input = document.getElementById('profileEmailInput');
+            const saveBtn = document.getElementById('profileEmailSaveBtn');
+            if (!input) return;
+            const newEmail = input.value.trim().toLowerCase();
+            const current = ((window.currentUser && window.currentUser.email) || '').trim().toLowerCase();
+
+            // Validation client
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+                window.showNotification && window.showNotification('Adresse email invalide.', 'error');
+                return;
+            }
+            if (newEmail === current) {
+                window.showNotification && window.showNotification('C\'est déjà ton email actuel.', 'error');
+                return;
+            }
+
+            try {
+                if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Envoi…'; }
+                const sb = window.supabaseClient;
+                if (!sb) throw new Error('Supabase non chargé');
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session?.access_token) throw new Error('Non authentifié');
+
+                const res = await fetch('/api/user/update-email', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_email: newEmail }),
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = res.status === 409
+                        ? 'Cette adresse est déjà utilisée par un autre compte.'
+                        : (json.error || 'Erreur lors de la mise à jour.');
+                    window.showNotification && window.showNotification(msg, 'error');
+                    return;
+                }
+
+                // Succès : toast + encart persistant orangé. L'ancien email reste actif jusqu'à confirmation.
+                window.showNotification && window.showNotification('Email de confirmation envoyé.', 'success');
+                const pending = document.getElementById('profileEmailPending');
+                if (pending) {
+                    pending.innerHTML = '⏳ Un email de confirmation a été envoyé à <strong>' + profileEscape(json.email_pending || newEmail) +
+                        '</strong>. Clique dessus pour finaliser. En attendant, ton ancienne adresse continue de recevoir les rapports.';
+                    pending.style.display = '';
+                }
+                profileEmailSetMode('view');
+            } catch (e) {
+                console.error('[PROFILE] update-email:', e);
+                window.showNotification && window.showNotification(e.message || 'Erreur réseau.', 'error');
+            } finally {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Enregistrer'; }
+            }
+        }
+
+        (function wireMyProfile() {
+            function bind() {
+                const editBtn = document.getElementById('profileEmailEditBtn');
+                const saveBtn = document.getElementById('profileEmailSaveBtn');
+                const cancelBtn = document.getElementById('profileEmailCancelBtn');
+                const input = document.getElementById('profileEmailInput');
+                if (editBtn) editBtn.addEventListener('click', () => profileEmailSetMode('edit'));
+                if (cancelBtn) cancelBtn.addEventListener('click', () => profileEmailSetMode('view'));
+                if (saveBtn) saveBtn.addEventListener('click', profileSaveEmail);
+                if (input) input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); profileSaveEmail(); }
+                    else if (e.key === 'Escape') { profileEmailSetMode('view'); }
+                });
+            }
+            if (document.readyState !== 'loading') bind();
+            else document.addEventListener('DOMContentLoaded', bind);
+        })();
 
         // ========================================
         // ROUTING (clean URLs via History API)
