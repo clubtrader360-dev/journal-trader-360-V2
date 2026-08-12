@@ -5249,10 +5249,46 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
             </div>
 
-            <!-- Card 2 : Email de réception des rapports (éditable) -->
+            <!-- Card 2 : Ma formation (lecture seule, tableur T360) -->
+            <div class="trader-card p-6 profile-card" id="myProfileFormationCard">
+                <h2 class="profile-card-title"><i class="fas fa-graduation-cap mr-2"></i>Ma formation</h2>
+                <p class="profile-card-hint">Synchronisé depuis le tableur T360 · mise à jour toutes les 2h</p>
+                <div class="profile-formation-grid" id="profileFormationGrid">
+                    <div class="stat-item">
+                        <div class="stat-label">Niveau</div>
+                        <div class="stat-value" id="profileNiveau">—</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Progression</div>
+                        <div class="stat-value">
+                            <span id="profileProgression">—</span>
+                            <div class="progression-bar"><div class="progression-fill" id="profileProgressionFill"></div></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Score /20</div>
+                        <div class="stat-value" id="profileScore20">—</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Ancienneté</div>
+                        <div class="stat-value" id="profileAnciennete">—</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Coach</div>
+                        <div class="stat-value" id="profileCoach">—</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Méthode T360</div>
+                        <div class="stat-value" id="profileMethode">—</div>
+                    </div>
+                </div>
+                <div class="profile-formation-msg" id="profileFormationMsg" style="display:none;"></div>
+            </div>
+
+            <!-- Card 3 : Email de réception des rapports (éditable) -->
             <div class="trader-card p-6 profile-card">
                 <h2 class="profile-card-title"><i class="fas fa-envelope mr-2"></i>Email de réception des rapports</h2>
-                <p class="profile-hint">C'est l'adresse à laquelle tu reçois ton rapport hebdo et le brief marché.</p>
+                <p class="profile-hint">C'est ton adresse de <strong>réception des rapports</strong> (brief matinal + rapport hebdo) ET <strong>l'adresse que tu utilises pour te connecter au journal</strong>. Changer cet email modifie les deux : les mails partent tout de suite au nouvel email, le login change après validation d'un lien de confirmation.</p>
 
                 <!-- Mode lecture -->
                 <div id="profileEmailView" class="profile-email-view">
@@ -5277,7 +5313,25 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
 
                 <!-- Encart persistant : confirmation en attente -->
-                <div id="profileEmailPending" class="profile-pending" style="display:none;"></div>
+                <div class="profile-pending-card" id="profileEmailPending" style="display: none;">
+                    <div class="pending-header">
+                        <i class="fas fa-hourglass-half"></i>
+                        <strong>Changement d'email en cours</strong>
+                    </div>
+                    <div class="pending-body">
+                        <p style="margin: 4px 0 12px;">Nouvelle adresse : <strong id="profileEmailPendingNew">—</strong></p>
+                        <p style="margin: 0 0 8px;">✅ <strong>Tes rapports partent déjà à ta nouvelle adresse.</strong></p>
+                        <p style="margin: 0;">⚠️ Pour finaliser le <strong>changement de login</strong>, clique sur le lien envoyé à ton nouvel email.</p>
+                    </div>
+                    <div class="pending-actions">
+                        <button type="button" class="btn-pending-secondary" id="btnResendEmail" onclick="resendEmailConfirmation()">
+                            <i class="fas fa-paper-plane"></i> Renvoyer le mail
+                        </button>
+                        <button type="button" class="btn-pending-primary" onclick="checkEmailConfirmation()">
+                            <i class="fas fa-check-circle"></i> J'ai cliqué → vérifier
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -9874,9 +9928,63 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const joined = u.created_at ? new Date(u.created_at) : null;
             set('profileJoined', joined && !isNaN(joined) ? joined.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—');
 
-            // Repart en mode lecture à chaque affichage (l'encart pending, lui, persiste tel quel).
+            // Repart en mode lecture à chaque affichage.
             profileEmailSetMode('view');
+
+            // Restaure l'encart "changement en cours" depuis localStorage (persiste entre visites).
+            const pendingStored = (function () { try { return localStorage.getItem('profile_email_pending'); } catch (_) { return null; } })();
+            if (pendingStored) profileShowPending(pendingStored); else profileHidePending();
+
+            // Card formation (tableur T360, best-effort).
+            loadMyFormation();
         };
+
+        function profileShowPending(email) {
+            const card = document.getElementById('profileEmailPending');
+            const set = document.getElementById('profileEmailPendingNew');
+            if (set) set.textContent = email;
+            if (card) card.style.display = '';
+        }
+        function profileHidePending() {
+            const card = document.getElementById('profileEmailPending');
+            if (card) card.style.display = 'none';
+        }
+
+        // Card "Ma formation" — fetch tableur T360 (Bearer). 200 → populate. 404 → message discret.
+        async function loadMyFormation() {
+            const grid = document.getElementById('profileFormationGrid');
+            const msg = document.getElementById('profileFormationMsg');
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            try {
+                const sb = window.supabaseClient;
+                if (!sb) return;
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session?.access_token) return;
+                const res = await fetch('/api/user/tableur-my-info', {
+                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }
+                });
+                if (res.status === 404) {
+                    if (grid) grid.style.display = 'none';
+                    if (msg) { msg.textContent = 'Contacte ton coach pour compléter tes infos formation.'; msg.style.display = ''; }
+                    return;
+                }
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json.my_info) return;
+                if (grid) grid.style.display = '';
+                if (msg) msg.style.display = 'none';
+                const i = json.my_info;
+                const dash = v => (v == null || String(v).trim() === '') ? '—' : String(v);
+                set('profileNiveau', dash(i.niveau));
+                set('profileProgression', dash(i.progression_pct));
+                set('profileScore20', dash(i.score_20));
+                set('profileAnciennete', dash(i.anciennete));
+                set('profileCoach', dash(i.coach));
+                set('profileMethode', dash(i.methode_t360_pct));
+                // Barre progression
+                const fill = document.getElementById('profileProgressionFill');
+                if (fill) { const p = parseFloat(String(i.progression_pct || '').replace(',', '.').replace('%', '')); fill.style.width = (isNaN(p) ? 0 : Math.max(0, Math.min(100, p))) + '%'; }
+            } catch (e) { console.warn('[PROFILE] formation:', e); }
+        }
 
         function profileEmailSetMode(mode) {
             const view = document.getElementById('profileEmailView');
@@ -9931,14 +10039,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     return;
                 }
 
-                // Succès : toast + encart persistant orangé. L'ancien email reste actif jusqu'à confirmation.
+                // Succès : toast + encart persistant. L'ancien email reste le login jusqu'à confirmation.
                 window.showNotification && window.showNotification('Email de confirmation envoyé.', 'success');
-                const pending = document.getElementById('profileEmailPending');
-                if (pending) {
-                    pending.innerHTML = '⏳ Un email de confirmation a été envoyé à <strong>' + profileEscape(json.email_pending || newEmail) +
-                        '</strong>. Clique dessus pour finaliser. En attendant, ton ancienne adresse continue de recevoir les rapports.';
-                    pending.style.display = '';
-                }
+                const emailPending = json.email_pending || newEmail;
+                try { localStorage.setItem('profile_email_pending', emailPending); } catch (_) {}
+                profileShowPending(emailPending);
                 profileEmailSetMode('view');
             } catch (e) {
                 console.error('[PROFILE] update-email:', e);
@@ -9947,6 +10052,65 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Enregistrer'; }
             }
         }
+
+        // Renvoyer le mail de confirmation (rate-limit UI 60s avec countdown).
+        async function resendEmailConfirmation() {
+            const btn = document.getElementById('btnResendEmail');
+            try {
+                if (btn) btn.disabled = true;
+                const sb = window.supabaseClient;
+                if (!sb) throw new Error('Supabase non chargé');
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session?.access_token) throw new Error('Non authentifié');
+                const res = await fetch('/api/user/resend-email-confirmation', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok) { window.showNotification && window.showNotification(json.error || 'Erreur lors du renvoi.', 'error'); if (btn) btn.disabled = false; return; }
+                window.showNotification && window.showNotification(json.message || 'Nouveau lien envoyé.', 'success');
+                // Countdown 60s
+                let left = 60;
+                const label = '<i class="fas fa-paper-plane"></i> ';
+                const tick = () => {
+                    if (!btn) return;
+                    if (left <= 0) { btn.disabled = false; btn.innerHTML = label + 'Renvoyer le mail'; return; }
+                    btn.innerHTML = label + 'Réessayer dans ' + left + 's';
+                    left--; setTimeout(tick, 1000);
+                };
+                tick();
+            } catch (e) {
+                console.error('[PROFILE] resend:', e);
+                window.showNotification && window.showNotification(e.message || 'Erreur réseau.', 'error');
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        // "J'ai cliqué → vérifier" : relit l'auth user, compare à l'email pending stocké.
+        async function checkEmailConfirmation() {
+            try {
+                const sb = window.supabaseClient;
+                if (!sb) throw new Error('Supabase non chargé');
+                const pending = (function () { try { return (localStorage.getItem('profile_email_pending') || '').toLowerCase(); } catch (_) { return ''; } })();
+                const { data, error } = await sb.auth.getUser();
+                if (error) throw error;
+                const authEmail = String(data?.user?.email || '').toLowerCase();
+                if (pending && authEmail === pending) {
+                    window.showNotification && window.showNotification('Login mis à jour !', 'success');
+                    try { localStorage.removeItem('profile_email_pending'); } catch (_) {}
+                    profileHidePending();
+                    if (window.currentUser) window.currentUser.email = authEmail;
+                    const cur = document.getElementById('profileEmailCurrent'); if (cur) cur.textContent = authEmail;
+                } else {
+                    window.showNotification && window.showNotification('Confirmation pas encore validée.', 'info');
+                }
+            } catch (e) {
+                console.error('[PROFILE] check-confirm:', e);
+                window.showNotification && window.showNotification(e.message || 'Erreur réseau.', 'error');
+            }
+        }
+        window.resendEmailConfirmation = resendEmailConfirmation;
+        window.checkEmailConfirmation = checkEmailConfirmation;
 
         (function wireMyProfile() {
             function bind() {
