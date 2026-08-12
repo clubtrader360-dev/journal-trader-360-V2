@@ -5249,43 +5249,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
             </div>
 
-            <!-- Card 2 : Ma formation (lecture seule, tableur T360) -->
-            <div class="trader-card p-6 profile-card" id="myProfileFormationCard">
-                <h2 class="profile-card-title"><i class="fas fa-graduation-cap mr-2"></i>Ma formation</h2>
-                <p class="profile-card-hint">Synchronisé depuis le tableur T360 · mise à jour toutes les 2h</p>
-                <div class="profile-formation-grid" id="profileFormationGrid">
-                    <div class="stat-item">
-                        <div class="stat-label">Niveau</div>
-                        <div class="stat-value" id="profileNiveau">—</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Progression</div>
-                        <div class="stat-value">
-                            <span id="profileProgression">—</span>
-                            <div class="progression-bar"><div class="progression-fill" id="profileProgressionFill"></div></div>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Score /20</div>
-                        <div class="stat-value" id="profileScore20">—</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Ancienneté</div>
-                        <div class="stat-value" id="profileAnciennete">—</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Coach</div>
-                        <div class="stat-value" id="profileCoach">—</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Méthode T360</div>
-                        <div class="stat-value" id="profileMethode">—</div>
-                    </div>
-                </div>
-                <div class="profile-formation-msg" id="profileFormationMsg" style="display:none;"></div>
-            </div>
-
-            <!-- Card 3 : Email de réception des rapports (éditable) -->
+            <!-- Card 2 : Email de réception des rapports (éditable) -->
             <div class="trader-card p-6 profile-card">
                 <h2 class="profile-card-title"><i class="fas fa-envelope mr-2"></i>Email de réception des rapports</h2>
                 <p class="profile-hint">C'est ton adresse de <strong>réception des rapports</strong> (brief matinal + rapport hebdo) ET <strong>l'adresse que tu utilises pour te connecter au journal</strong>. Changer cet email modifie les deux : les mails partent tout de suite au nouvel email, le login change après validation d'un lien de confirmation.</p>
@@ -9934,9 +9898,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             // Restaure l'encart "changement en cours" depuis localStorage (persiste entre visites).
             const pendingStored = (function () { try { return localStorage.getItem('profile_email_pending'); } catch (_) { return null; } })();
             if (pendingStored) profileShowPending(pendingStored); else profileHidePending();
-
-            // Card formation (tableur T360, best-effort).
-            loadMyFormation();
         };
 
         function profileShowPending(email) {
@@ -9948,42 +9909,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function profileHidePending() {
             const card = document.getElementById('profileEmailPending');
             if (card) card.style.display = 'none';
-        }
-
-        // Card "Ma formation" — fetch tableur T360 (Bearer). 200 → populate. 404 → message discret.
-        async function loadMyFormation() {
-            const grid = document.getElementById('profileFormationGrid');
-            const msg = document.getElementById('profileFormationMsg');
-            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-            try {
-                const sb = window.supabaseClient;
-                if (!sb) return;
-                const { data: { session } } = await sb.auth.getSession();
-                if (!session?.access_token) return;
-                const res = await fetch('/api/user/tableur-my-info', {
-                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }
-                });
-                if (res.status === 404) {
-                    if (grid) grid.style.display = 'none';
-                    if (msg) { msg.textContent = 'Contacte ton coach pour compléter tes infos formation.'; msg.style.display = ''; }
-                    return;
-                }
-                const json = await res.json().catch(() => ({}));
-                if (!res.ok || !json.my_info) return;
-                if (grid) grid.style.display = '';
-                if (msg) msg.style.display = 'none';
-                const i = json.my_info;
-                const dash = v => (v == null || String(v).trim() === '') ? '—' : String(v);
-                set('profileNiveau', dash(i.niveau));
-                set('profileProgression', dash(i.progression_pct));
-                set('profileScore20', dash(i.score_20));
-                set('profileAnciennete', dash(i.anciennete));
-                set('profileCoach', dash(i.coach));
-                set('profileMethode', dash(i.methode_t360_pct));
-                // Barre progression
-                const fill = document.getElementById('profileProgressionFill');
-                if (fill) { const p = parseFloat(String(i.progression_pct || '').replace(',', '.').replace('%', '')); fill.style.width = (isNaN(p) ? 0 : Math.max(0, Math.min(100, p))) + '%'; }
-            } catch (e) { console.warn('[PROFILE] formation:', e); }
         }
 
         function profileEmailSetMode(mode) {
@@ -10025,7 +9950,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const { data: { session } } = await sb.auth.getSession();
                 if (!session?.access_token) throw new Error('Non authentifié');
 
-                const res = await fetch('/api/user/update-email', {
+                const res = await fetch('/api/user/profile?action=update-email', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ new_email: newEmail }),
@@ -10062,7 +9987,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 if (!sb) throw new Error('Supabase non chargé');
                 const { data: { session } } = await sb.auth.getSession();
                 if (!session?.access_token) throw new Error('Non authentifié');
-                const res = await fetch('/api/user/resend-email-confirmation', {
+                const res = await fetch('/api/user/profile?action=resend-confirmation', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
                 });
