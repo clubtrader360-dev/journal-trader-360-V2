@@ -147,6 +147,16 @@ export default async function handler(req, res) {
   if (!date || !date_long_fr || !brief_html) {
     return res.status(400).json({ error: 'Champs requis : date, date_long_fr, brief_html' });
   }
+
+  // Défense finale anti-méta-commentaire (bug prod P1) : rejette AVANT tout appel Resend,
+  // pour qu'un workflow buggé ne puisse jamais expédier un mail cassé aux élèves.
+  if (!/<div class="brief-marche">/.test(brief_html)) {
+    return res.status(400).json({ error: 'brief_html invalide : marqueur brief-marche absent' });
+  }
+  if (/^\s*(le brief|voici|j['´’]?ai|points cl|sauvegard|\/tmp\/)/i.test(brief_html)) {
+    return res.status(400).json({ error: 'brief_html contient un méta-commentaire suspect' });
+  }
+
   const onlyUserId = (only_user_id && String(only_user_id).trim()) || null;
   const t0 = Date.now();
 

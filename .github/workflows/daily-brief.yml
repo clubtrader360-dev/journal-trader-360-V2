@@ -2,18 +2,12 @@ name: Daily Brief Trader 360
 
 on:
   schedule:
-    # Lun→Ven 2h17 UTC = 4h17 Paris (CEST/été).
-    # Pourquoi cette heure "bizarre" ? Deux raisons cumulatives :
-    #   1. GitHub Actions ne lance PAS les crons à l'heure exacte. Sa doc l'admet :
-    #      les crons planifiés à des minutes rondes (0, 15, 30, 45) tombent dans une
-    #      queue mondiale saturée et peuvent être retardés de 30 min à 3-4 heures.
-    #      Observation prod : cron `0 4` → arrivée mail 9h45 Paris (3h45 de lag).
-    #   2. On cible une arrivée mail vers 5h-6h Paris pour que les élèves l'aient
-    #      au réveil. On part donc 1h45 tôt (buffer) + minute non-ronde (17) pour
-    #      éviter la queue.
-    #   → Arrivée typique : 4h30-5h30 Paris. Worst case : 6h30 Paris.
-    # ⚠️ À ajuster à '17 3 * * 1-5' en octobre 2026 (passage CET/hiver).
-    - cron: '17 2 * * 1-5'
+    # Cron 43 22 * * 0-4 :
+    # - Été CEST (UTC+2) : 22h43 UTC = 00h43 Paris (nuit dim→jeu), arrivée typique 1h-2h, worst case 5h
+    # - Hiver CET (UTC+1) : 22h43 UTC = 23h43 Paris (veille), arrivée typique 00h-1h, worst case 4h
+    # → Aucun ajustement nécessaire au passage d'heure. Toujours avant 6h Paris.
+    # Minute non-ronde (43) : évite la queue GitHub Actions des crons à minute ronde (lag jusqu'à 3-4h).
+    - cron: '43 22 * * 0-4'
   workflow_dispatch:
     inputs:
       reason:
@@ -93,19 +87,42 @@ jobs:
             exit 1
           fi
 
-          # Défensif : retire d'éventuelles fences markdown (```html / ```), au cas où.
-          sed -e 's/^```html[[:space:]]*$//' -e 's/^```[[:space:]]*$//' /tmp/brief_raw.html > /tmp/brief.html
+          # === VALIDATION STRICTE ANTI-MÉTA-COMMENTAIRE (bug prod P1) ===
+          # 1. Extraction robuste : tout depuis <div class="brief-marche"> jusqu'à la FIN.
+          #    Pardonne un préambule méta AVANT le vrai HTML (Claude a parfois bavardé) en le
+          #    coupant. On va jusqu'à EOF (pas au 1er </div>) car le brief contient des <div>
+          #    imbriqués (encarts) → s'arrêter au 1er </div> tronquait le brief.
+          #    Si le marqueur est absent → /tmp/brief.html vide → échec (pas de mail cassé).
+          sed -n '/<div class="brief-marche">/,$p' /tmp/brief_raw.html > /tmp/brief.html
 
-          if [ ! -s /tmp/brief.html ] || [ "$(wc -c < /tmp/brief.html)" -lt 100 ]; then
-            echo "::error::Claude a renvoyé un HTML vide ou trop court ($(wc -c < /tmp/brief.html) octets)."
-            echo "---START STDOUT---"; head -100 /tmp/brief_raw.html 2>/dev/null || true; echo "---END STDOUT---"
+          if [ ! -s /tmp/brief.html ]; then
+            echo "::error::Bloc <div class=\"brief-marche\">…</div> introuvable dans la sortie Claude — méta-commentaire probable. Rien n'est envoyé."
+            echo "---START STDOUT (100 lignes) ---"; head -100 /tmp/brief_raw.html 2>/dev/null || true; echo "---END STDOUT---"
             exit 1
           fi
+
+          SIZE=$(wc -c < /tmp/brief.html)
+          # 2a. Taille minimale plausible d'un vrai brief.
+          if [ "$SIZE" -lt 3000 ]; then
+            echo "::error::HTML extrait trop court ($SIZE octets < 3000) — probablement incomplet ou méta. Rien n'est envoyé."
+            echo "---START HTML---"; cat /tmp/brief.html; echo "---END HTML---"
+            exit 1
+          fi
+          # 2b. Double-check du marqueur (l'extraction le garantit, ceinture + bretelles).
           if ! grep -q 'brief-marche' /tmp/brief.html; then
-            echo "::warning::Le HTML ne contient pas '.brief-marche' — format de sortie à vérifier (run quand même)."
+            echo "::error::Marqueur 'brief-marche' absent après extraction. Rien n'est envoyé."; exit 1
+          fi
+          # 2c. Ne doit pas COMMENCER par du texte méta (1re ligne non vide, casse ignorée).
+          FIRST=$(grep -m1 -v '^[[:space:]]*$' /tmp/brief.html || true)
+          if echo "$FIRST" | grep -qiE '^[[:space:]]*(le brief|voici|j.ai|points cl|sauvegard|le fichier)'; then
+            echo "::error::Le HTML commence par un méta-commentaire : $FIRST — Rien n'est envoyé."; exit 1
+          fi
+          # 2d. Doit commencer par une balise HTML valide.
+          if ! echo "$FIRST" | grep -qiE '^[[:space:]]*<(!doctype|html|div|article|section)'; then
+            echo "::error::Le HTML ne commence pas par une balise valide (<!DOCTYPE/<html/<div/<article/<section) : $FIRST — Rien n'est envoyé."; exit 1
           fi
 
-          echo "✅ HTML généré ($(wc -c < /tmp/brief.html) octets)"
+          echo "✅ HTML validé ($SIZE octets)"
           echo "date_iso=$DATE_ISO" >> "$GITHUB_OUTPUT"
           echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
 
