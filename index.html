@@ -9950,7 +9950,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const { data: { session } } = await sb.auth.getSession();
                 if (!session?.access_token) throw new Error('Non authentifié');
 
-                const res = await fetch('/api/user/profile?action=update-email', {
+                // 1. Backend : validation + unicité + libération d'un éventuel détenteur mort.
+                //    NE change PAS l'email du compte courant (sécurité : ça passe par la confirmation client).
+                const res = await fetch('/api/user/profile?action=check-and-release', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ new_email: newEmail }),
@@ -9958,17 +9960,25 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const json = await res.json().catch(() => ({}));
                 if (!res.ok) {
                     const msg = res.status === 409
-                        ? 'Cette adresse est déjà utilisée par un autre compte.'
-                        : (json.error || 'Erreur lors de la mise à jour.');
+                        ? 'Cette adresse est déjà utilisée par un autre compte actif.'
+                        : (json.error || 'Erreur lors de la vérification.');
                     window.showNotification && window.showNotification(msg, 'error');
                     return;
                 }
 
-                // Succès : toast + encart persistant. L'ancien email reste le login jusqu'à confirmation.
+                // 2. Client : déclenche le VRAI changement + le mail de confirmation (SMTP Resend,
+                //    template Bourse à l'Aube). auth.users.email ne change qu'après clic sur le lien.
+                const { data: upd, error: updErr } = await sb.auth.updateUser({ email: newEmail });
+                if (updErr) {
+                    // Rien touché sur le compte courant côté backend → pas de rollback nécessaire.
+                    window.showNotification && window.showNotification(updErr.message || 'Impossible d\'envoyer le mail de confirmation.', 'error');
+                    return;
+                }
+
+                // 3. Encart persistant. L'ancien email reste le login jusqu'à confirmation.
                 window.showNotification && window.showNotification('Email de confirmation envoyé.', 'success');
-                const emailPending = json.email_pending || newEmail;
-                try { localStorage.setItem('profile_email_pending', emailPending); } catch (_) {}
-                profileShowPending(emailPending);
+                try { localStorage.setItem('profile_email_pending', newEmail); } catch (_) {}
+                profileShowPending(newEmail);
                 profileEmailSetMode('view');
             } catch (e) {
                 console.error('[PROFILE] update-email:', e);
@@ -9978,22 +9988,18 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             }
         }
 
-        // Renvoyer le mail de confirmation (rate-limit UI 60s avec countdown).
+        // Renvoyer le mail de confirmation (natif Supabase, rate-limit UI 60s avec countdown).
         async function resendEmailConfirmation() {
             const btn = document.getElementById('btnResendEmail');
             try {
                 if (btn) btn.disabled = true;
                 const sb = window.supabaseClient;
                 if (!sb) throw new Error('Supabase non chargé');
-                const { data: { session } } = await sb.auth.getSession();
-                if (!session?.access_token) throw new Error('Non authentifié');
-                const res = await fetch('/api/user/profile?action=resend-confirmation', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-                });
-                const json = await res.json().catch(() => ({}));
-                if (!res.ok) { window.showNotification && window.showNotification(json.error || 'Erreur lors du renvoi.', 'error'); if (btn) btn.disabled = false; return; }
-                window.showNotification && window.showNotification(json.message || 'Nouveau lien envoyé.', 'success');
+                const pending = (function () { try { return localStorage.getItem('profile_email_pending') || ''; } catch (_) { return ''; } })();
+                if (!pending) { window.showNotification && window.showNotification('Aucun changement d\'email en attente.', 'error'); if (btn) btn.disabled = false; return; }
+                const { error } = await sb.auth.resend({ type: 'email_change', email: pending });
+                if (error) { window.showNotification && window.showNotification(error.message || 'Erreur lors du renvoi.', 'error'); if (btn) btn.disabled = false; return; }
+                window.showNotification && window.showNotification('Nouveau lien envoyé.', 'success');
                 // Countdown 60s
                 let left = 60;
                 const label = '<i class="fas fa-paper-plane"></i> ';
