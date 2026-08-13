@@ -59,24 +59,33 @@ async function handleUpdateEmail(req, res, user_id, currentEmail) {
     if (activeStatuses.includes(clash.status)) {
       throw httpError(409, 'Cette adresse est déjà utilisée par un autre compte actif.');
     }
+
     // Compte non-actif (revoked/deleted/inactive/…) → on LIBÈRE l'email pour réattribution.
-    // public.users.email = NULL + auth.users.email = placeholder unique.
-    // email_confirm:true → applique IMMÉDIATEMENT le placeholder (sans ce flag, Supabase le met en
-    // pending et garde l'ancien email actif → l'adresse ne serait jamais libérée).
     const placeholder = `revoked-${clash.uuid}@deleted.trader360.local`;
-    const { error: freePublicErr } = await sb.from('users').update({ email: null }).eq('uuid', clash.uuid);
+
+    // 1. public.users.email est NOT NULL → on assigne un placeholder unique (pas NULL).
+    const { error: freePublicErr } = await sb.from('users').update({ email: placeholder }).eq('uuid', clash.uuid);
     if (freePublicErr) {
       console.error('[USER-PROFILE] libération public.users échouée:', freePublicErr);
-      throw httpError(500, 'Impossible de libérer l\'ancien email. Contacte le support.');
+      throw httpError(500, 'Impossible de libérer l\'ancien email (public.users). Contacte le support.');
     }
-    const { error: freeAuthErr } = await sb.auth.admin.updateUserById(clash.uuid, { email: placeholder, email_confirm: true });
-    if (freeAuthErr) {
-      // Rollback public.users du compte revoked (on lui rend son email d'origine).
-      await sb.from('users').update({ email: normalizedEmail }).eq('uuid', clash.uuid);
-      console.error('[USER-PROFILE] libération auth.users échouée:', freeAuthErr);
-      throw httpError(500, 'Impossible de libérer l\'ancien email. Contacte le support.');
+
+    // 2. auth.users.email — SEULEMENT si une row auth existe (certains comptes historiques n'en ont pas).
+    //    email_confirm:true → applique immédiatement (sinon Supabase met le placeholder en pending et
+    //    garde l'ancien email actif → jamais libéré).
+    const { data: authCheck } = await sb.auth.admin.getUserById(clash.uuid);
+    if (authCheck?.user) {
+      const { error: freeAuthErr } = await sb.auth.admin.updateUserById(clash.uuid, { email: placeholder, email_confirm: true });
+      if (freeAuthErr) {
+        // Rollback public.users (on rend son email d'origine au compte revoked).
+        await sb.from('users').update({ email: normalizedEmail }).eq('uuid', clash.uuid);
+        console.error('[USER-PROFILE] libération auth.users échouée:', freeAuthErr);
+        throw httpError(500, 'Impossible de libérer l\'ancien email (auth.users). Contacte le support.');
+      }
+      console.log(`[USER-PROFILE] libéré email ${normalizedEmail} de compte revoked ${clash.uuid} (public + auth) pour réattribution à ${user_id}`);
+    } else {
+      console.log(`[USER-PROFILE] libéré email ${normalizedEmail} de compte revoked ${clash.uuid} (public seul, pas de row auth.users) pour réattribution à ${user_id}`);
     }
-    console.log(`[USER-PROFILE] libéré email ${normalizedEmail} de compte revoked ${clash.uuid} pour réattribution à ${user_id}`);
   }
 
   // UPDATE public.users.email (scopé à l'utilisateur authentifié).
