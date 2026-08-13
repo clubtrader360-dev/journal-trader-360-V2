@@ -1599,3 +1599,20 @@ body:not(.dark-mode) #myProfile .profile-btn-ghost { background: rgba(255,255,25
 #myProfile .profile-pending strong { color: #fbbf24; }
 body:not(.dark-mode) #myProfile .profile-pending { color: #b45309; }
 body:not(.dark-mode) #myProfile .profile-pending strong { color: #92400e; }
+
+/* --- Améliorations UX (#profil ux) : encart pending enrichi (2 boutons) --- */
+#myProfile .profile-pending-card { margin-top: 16px; background: #fef3c7; border-left: 4px solid #d4af37; padding: 20px; border-radius: 12px; }
+#myProfile .pending-header { display: flex; align-items: center; gap: 8px; color: #0F1C3D; font-weight: 600; font-size: 14px; }
+#myProfile .pending-header i { color: #B8862A; }
+#myProfile .pending-body { color: #0F1C3D; font-size: 13.5px; line-height: 1.5; margin-top: 10px; }
+#myProfile .pending-body strong { color: #0F1C3D; }
+#myProfile .pending-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+#myProfile .btn-pending-secondary, #myProfile .btn-pending-primary {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .13s;
+}
+#myProfile .btn-pending-secondary { background: transparent; border: 1px solid #0F1C3D; color: #0F1C3D; }
+#myProfile .btn-pending-secondary:hover { background: rgba(15,28,61,0.06); }
+#myProfile .btn-pending-secondary:disabled { opacity: 0.55; cursor: default; }
+#myProfile .btn-pending-primary { background: #d4af37; border: 1px solid #d4af37; color: #0F1C3D; }
+#myProfile .btn-pending-primary:hover { filter: brightness(1.05); }
