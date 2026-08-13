@@ -16258,8 +16258,12 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
         </aside>
     </div>
 
-    <!-- Modal "Mot de passe oublié ?" (login) — CSS critique INLINE (livré avec index.html,
-         évite tout cache de aube.css) + !important pour écraser toute règle concurrente. -->
+    <!-- Fermeture des 3 conteneurs chroniquement non fermés (#mainApp, #main-content, wrapper) :
+         sans ça, tout le tail (modals, scripts) était imbriqué dans #mainApp (display:none au login),
+         d'où le modal reset-pw invisible. Ces 3 fermetures rétablissent la balance et sortent le modal. -->
+    </div></div></div>
+
+    <!-- Modal "Mot de passe oublié ?" (login) — enfant DIRECT de <body>. CSS critique INLINE. -->
     <style>
         #forgotPwModal.forgot-pw-overlay {
             display: none !important;
