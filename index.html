@@ -16259,7 +16259,7 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     </div>
 
     <!-- Modal "Mot de passe oublié ?" (login) -->
-    <div id="forgotPasswordModal" class="forgot-pw-overlay" style="display:none;">
+    <div id="forgotPwModal" class="forgot-pw-overlay">
         <div class="forgot-pw-card" role="dialog" aria-modal="true" aria-labelledby="forgotPwTitle">
             <button type="button" id="forgotPwCloseBtn" class="forgot-pw-close" aria-label="Fermer">&times;</button>
             <h3 id="forgotPwTitle">Mot de passe oublié</h3>
@@ -16283,22 +16283,31 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
             const t = e.target;
             if (t.closest('#forgotPasswordLink')) { e.preventDefault(); window.openForgotPassword(); return; }
             if (t.closest('#forgotPwCloseBtn')) { window.closeForgotPassword(); return; }
-            if (t.id === 'forgotPasswordModal') { window.closeForgotPassword(); return; } // clic sur le fond
+            if (t.id === 'forgotPwModal') { window.closeForgotPassword(); return; } // clic sur le fond
             if (t.closest('#forgotPwSendBtn')) { window.sendResetLink(); return; }
         });
+        // Escape ferme le modal s'il est ouvert.
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                const m = document.getElementById('forgotPwModal');
+                if (m && m.classList.contains('is-open')) window.closeForgotPassword();
+            }
+        });
+        // Confirmation au chargement que le markup du modal est bien présent.
+        console.log('[RESET-PW] modal HTML présent :', !!document.getElementById('forgotPwModal'));
 
         window.openForgotPassword = function () {
-            const modal = document.getElementById('forgotPasswordModal');
+            const modal = document.getElementById('forgotPwModal');
             const input = document.getElementById('forgotPwEmail');
             const login = document.getElementById('loginEmail');
             if (!modal) { console.warn('[RESET-PW] modal introuvable'); return; }
             if (input && login && login.value) input.value = login.value; // pré-remplit si déjà saisi
-            modal.style.display = 'flex';
+            modal.classList.add('is-open');
             if (input) setTimeout(() => input.focus(), 50);
         };
         window.closeForgotPassword = function () {
-            const modal = document.getElementById('forgotPasswordModal');
-            if (modal) modal.style.display = 'none';
+            const modal = document.getElementById('forgotPwModal');
+            if (modal) modal.classList.remove('is-open');
         };
         window.sendResetLink = async function () {
             const btn = document.getElementById('forgotPwSendBtn');

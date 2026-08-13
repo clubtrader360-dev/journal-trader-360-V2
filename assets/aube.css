@@ -1628,9 +1628,10 @@ body:not(.dark-mode) #myProfile .profile-pending strong { color: #92400e; }
 .forgot-pw-link:hover { text-decoration: underline; }
 
 .forgot-pw-overlay {
-  position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center;
+  position: fixed; inset: 0; z-index: 10060; display: none; align-items: center; justify-content: center;
   padding: 24px; background: rgba(0, 11, 37, 0.55);
 }
+.forgot-pw-overlay.is-open { display: flex; }
 .forgot-pw-card {
   position: relative; width: 100%; max-width: 400px; background: #ffffff; color: #0f172a;
   border-radius: 16px; padding: 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.4);
