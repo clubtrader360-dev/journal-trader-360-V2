@@ -21,8 +21,10 @@ export default async function handler(req, res) {
   try {
     const { user_id, email: currentEmail } = await requireUser(req);
     const action = String(req.query?.action || '').trim();
-    if (action === 'update-email') return handleUpdateEmail(req, res, user_id, currentEmail);
-    if (action === 'resend-confirmation') return handleResendConfirmation(req, res, user_id);
+    // await OBLIGATOIRE : sans lui, le rejet des sous-handlers échappe à ce try/catch
+    // et un httpError(409/400) ressort en 500 générique.
+    if (action === 'update-email') return await handleUpdateEmail(req, res, user_id, currentEmail);
+    if (action === 'resend-confirmation') return await handleResendConfirmation(req, res, user_id);
     return res.status(400).json({ error: 'action inconnue' });
   } catch (err) {
     const status = err.status || 500;
