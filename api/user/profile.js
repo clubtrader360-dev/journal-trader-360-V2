@@ -50,41 +50,58 @@ async function handleUpdateEmail(req, res, user_id, currentEmail) {
 
   const sb = getServiceClient();
 
-  // Unicité : un AUTRE compte utilise-t-il déjà cette adresse ?
-  const { data: clash, error: clashErr } = await sb
-    .from('users').select('uuid, status').eq('email', normalizedEmail).neq('uuid', user_id).limit(1).maybeSingle();
+  // --- Détection du détenteur de l'email dans les DEUX stores (case-insensitive) ---
+  // La contrainte d'unicité bloquante vit dans auth.users, mais un détenteur peut aussi
+  // n'exister que dans public.users, ou dans auth SEUL (compte "auth-only", ex. Emmanuel).
+  // public.users : ilike (insensible casse, ex. ANTRADE@… vs antrade@…)
+  const { data: pubClash, error: clashErr } = await sb
+    .from('users').select('uuid, status').ilike('email', normalizedEmail).neq('uuid', user_id).limit(1).maybeSingle();
   if (clashErr) throw httpError(500, 'Erreur de vérification (unicité).');
-  if (clash) {
+
+  // auth.users : via fonction SECURITY DEFINER (auth non exposé à PostgREST).
+  let authClashId = null;
+  const { data: rpcId, error: rpcErr } = await sb.rpc('find_auth_user_id_by_email', { p_email: normalizedEmail });
+  if (rpcErr) { console.error('[USER-PROFILE] rpc find_auth_user_id_by_email:', rpcErr); throw httpError(500, 'Erreur de vérification (auth).'); }
+  if (rpcId && rpcId !== user_id) authClashId = rpcId;
+
+  // Fusion en un seul détenteur (le même uuid peut venir des 2 sources).
+  const holderUuid = (pubClash && pubClash.uuid) || authClashId || null;
+  if (holderUuid) {
+    const hasPublicRow = !!pubClash;              // ligne public.users présente ?
+    const hasAuthRow = authClashId === holderUuid; // ligne auth.users présente ?
     const activeStatuses = ['active', 'approved'];
-    if (activeStatuses.includes(clash.status)) {
+
+    // Compte ACTIF (statut public actif) → refus. Un compte auth-only (pas de row public)
+    // n'est jamais "actif" au sens de la formation → éligible à la libération.
+    if (hasPublicRow && activeStatuses.includes(pubClash.status)) {
       throw httpError(409, 'Cette adresse est déjà utilisée par un autre compte actif.');
     }
 
-    // Compte non-actif (revoked/deleted/inactive/…) → on LIBÈRE l'email pour réattribution.
-    const placeholder = `revoked-${clash.uuid}@deleted.trader360.local`;
+    // LIBÉRATION (compte non-actif OU auth-only) → placeholder unique dans chaque store présent.
+    const placeholder = `revoked-${holderUuid}@deleted.trader360.local`;
 
-    // 1. public.users.email est NOT NULL → on assigne un placeholder unique (pas NULL).
-    const { error: freePublicErr } = await sb.from('users').update({ email: placeholder }).eq('uuid', clash.uuid);
-    if (freePublicErr) {
-      console.error('[USER-PROFILE] libération public.users échouée:', freePublicErr);
-      throw httpError(500, 'Impossible de libérer l\'ancien email (public.users). Contacte le support.');
+    if (hasPublicRow) {
+      const { error: freePublicErr } = await sb.from('users').update({ email: placeholder }).eq('uuid', holderUuid);
+      if (freePublicErr) {
+        console.error('[USER-PROFILE] libération public.users échouée:', freePublicErr);
+        throw httpError(500, 'Impossible de libérer l\'ancien email (public.users). Contacte le support.');
+      }
     }
 
-    // 2. auth.users.email — SEULEMENT si une row auth existe (certains comptes historiques n'en ont pas).
-    //    email_confirm:true → applique immédiatement (sinon Supabase met le placeholder en pending et
-    //    garde l'ancien email actif → jamais libéré).
-    const { data: authCheck } = await sb.auth.admin.getUserById(clash.uuid);
-    if (authCheck?.user) {
-      const { error: freeAuthErr } = await sb.auth.admin.updateUserById(clash.uuid, { email: placeholder, email_confirm: true });
+    if (hasAuthRow) {
+      // email_confirm:true → applique immédiatement (sinon le placeholder reste pending et l'email n'est jamais libéré).
+      const { error: freeAuthErr } = await sb.auth.admin.updateUserById(holderUuid, { email: placeholder, email_confirm: true });
       if (freeAuthErr) {
-        // Rollback public.users (on rend son email d'origine au compte revoked).
-        await sb.from('users').update({ email: normalizedEmail }).eq('uuid', clash.uuid);
+        if (hasPublicRow) await sb.from('users').update({ email: normalizedEmail }).eq('uuid', holderUuid); // rollback public
         console.error('[USER-PROFILE] libération auth.users échouée:', freeAuthErr);
         throw httpError(500, 'Impossible de libérer l\'ancien email (auth.users). Contacte le support.');
       }
-      console.log(`[USER-PROFILE] libéré email ${normalizedEmail} de compte revoked ${clash.uuid} (public + auth) pour réattribution à ${user_id}`);
+    }
+
+    if (!hasPublicRow) {
+      console.log(`[USER-PROFILE] libéré email auth-only ${normalizedEmail} de ${holderUuid} (aucun profil public) pour réattribution à ${user_id}`);
     } else {
-      console.log(`[USER-PROFILE] libéré email ${normalizedEmail} de compte revoked ${clash.uuid} (public seul, pas de row auth.users) pour réattribution à ${user_id}`);
+      console.log(`[USER-PROFILE] libéré email ${normalizedEmail} de compte non-actif ${holderUuid} (public${hasAuthRow ? ' + auth' : ' seul'}) pour réattribution à ${user_id}`);
     }
   }
 
