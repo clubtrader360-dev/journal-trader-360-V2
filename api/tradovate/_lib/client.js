@@ -1,110 +1,138 @@
 // ========================================
-// CLIENT API TRADOVATE
+// CLIENT API TRADOVATE — OAuth 2.0
 // ========================================
-// Doc : https://api.tradovate.com/
-// Deux environnements distincts :
-//   - demo : challenges (https://demo.tradovateapi.com/v1)
-//   - live : comptes funded (https://live.tradovateapi.com/v1)
+// Doc officielle :
+//   - https://github.com/tradovate/example-api-oauth
+//   - https://partner.tradovate.com/api/rest-api-endpoints/authentication/o-auth-token
+//   - https://tradovate.zendesk.com/hc/en-us/articles/4408935298707
 //
-// Auth : POST /auth/accesstokenrequest renvoie :
-//   { accessToken, mdAccessToken, expirationTime, ... }
-// expirationTime est une ISO date — typiquement +90 minutes.
+// Flow OAuth :
+//   1. Authorize URL hébergée : https://trader.tradovate.com/oauth
+//      → user se logue avec ses creds Tradovate dans une popup
+//      → redirect vers redirect_uri avec ?code=...&state=...
+//   2. Token exchange : POST https://{env}.tradovateapi.com/v1/auth/oauthtoken
+//      avec grant_type=authorization_code → { access_token, refresh_token,
+//      expires_in, refresh_token_expires_in }
+//   3. Refresh : même endpoint avec grant_type=refresh_token
 //
-// Ce module ne sait pas chiffrer / déchiffrer ; il prend les creds
-// déjà en clair et un objet "tokenStore" (lecture/écriture du cache token).
+// Deux environnements (token endpoint), même authorize URL :
+//   - demo : prop firms (Topstep, Apex, Tradeify, …) + comptes simulation
+//   - live : brokerage Tradovate direct (rare)
 // ========================================
 
-const ENV_URLS = {
+const AUTHORIZE_URL = 'https://trader.tradovate.com/oauth';
+
+const ENV_TOKEN_URLS = {
+  demo: 'https://demo.tradovateapi.com/v1/auth/oauthtoken',
+  live: 'https://live.tradovateapi.com/v1/auth/oauthtoken'
+};
+
+const ENV_API_URLS = {
   demo: 'https://demo.tradovateapi.com/v1',
   live: 'https://live.tradovateapi.com/v1'
 };
 
-// app identifier — visible dans le panneau Tradovate de l'élève
-const APP_ID = 'ClubTrader360-Journal';
-const APP_VERSION = '1.0';
+function tokenUrl(env) {
+  const url = ENV_TOKEN_URLS[env];
+  if (!url) throw new Error(`env Tradovate inconnu : ${env}`);
+  return url;
+}
 
-function baseUrl(env) {
-  const url = ENV_URLS[env];
+function apiUrl(env) {
+  const url = ENV_API_URLS[env];
   if (!url) throw new Error(`env Tradovate inconnu : ${env}`);
   return url;
 }
 
 // ----------------------------------------
-// AUTH
+// OAUTH FLOW
 // ----------------------------------------
-// Demande un access_token avec les creds. À n'appeler que si le token
-// caché est expiré, ou pour valider des creds nouvellement saisis.
-export async function requestAccessToken({ env, username, password }) {
-  const res = await fetch(`${baseUrl(env)}/auth/accesstokenrequest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: username,
-      password,
-      appId: APP_ID,
-      appVersion: APP_VERSION,
-      cid: 0,
-      sec: ''
-    })
+
+// Construit l'URL d'autorisation à ouvrir dans la popup.
+export function buildAuthorizeUrl({ clientId, redirectUri, state }) {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id:     clientId,
+    redirect_uri:  redirectUri,
+    state
+  });
+  return `${AUTHORIZE_URL}?${params.toString()}`;
+}
+
+// Échange le `code` reçu sur le callback contre des tokens.
+export async function exchangeCodeForTokens({ env, code, clientId, clientSecret, redirectUri }) {
+  return postOAuthToken(env, {
+    grant_type:    'authorization_code',
+    code,
+    client_id:     clientId,
+    client_secret: clientSecret,
+    redirect_uri:  redirectUri
+  });
+}
+
+// Rafraîchit un access_token via refresh_token.
+export async function refreshAccessToken({ env, refreshToken, clientId, clientSecret }) {
+  return postOAuthToken(env, {
+    grant_type:    'refresh_token',
+    refresh_token: refreshToken,
+    client_id:     clientId,
+    client_secret: clientSecret
+  });
+}
+
+async function postOAuthToken(env, body) {
+  const url = tokenUrl(env);
+  console.log('[TVDEBUG] POST', url, {
+    grant_type: body.grant_type,
+    client_id: body.client_id,
+    has_code: !!body.code,
+    has_refresh_token: !!body.refresh_token
   });
 
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new TradovateError(
-      `auth ${res.status}: ${body['p-ticket'] ? 'captcha required' : (body.errorText || res.statusText)}`,
-      res.status,
-      body
-    );
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const responseText = await res.text();
+  let json = {};
+  try { json = responseText ? JSON.parse(responseText) : {}; } catch (_) {}
+
+  if (!res.ok || !json.access_token) {
+    console.error('[TVDEBUG] OAUTH FAILED', {
+      status: res.status,
+      response_body: json,
+      response_text: responseText && !Object.keys(json).length ? responseText.slice(0, 500) : undefined
+    });
+    const desc = json.error_description || json.error || res.statusText;
+    throw new TradovateError(`OAuth ${res.status}: ${desc}`, res.status, json);
   }
 
-  // Tradovate peut renvoyer 200 avec un challenge type "p-ticket" (captcha).
-  // Dans ce cas il n'y a pas de accessToken — on remonte une erreur claire.
-  if (!body.accessToken) {
-    throw new TradovateError(
-      `auth refusée : ${body.errorText || 'pas d\'accessToken renvoyé (captcha probable)'}`,
-      401,
-      body
-    );
-  }
+  console.log('[TVDEBUG] OAUTH OK', {
+    status: res.status,
+    expires_in: json.expires_in,
+    has_refresh: !!json.refresh_token,
+    refresh_expires_in: json.refresh_token_expires_in
+  });
 
+  // Normalise : expires_in (secondes) → Date absolue
+  const now = Date.now();
   return {
-    accessToken: body.accessToken,
-    mdAccessToken: body.mdAccessToken || null,
-    expirationTime: body.expirationTime  // ISO string
+    access_token:             json.access_token,
+    access_token_expires_at:  new Date(now + (json.expires_in || 0) * 1000).toISOString(),
+    refresh_token:            json.refresh_token || null,
+    refresh_token_expires_at: json.refresh_token_expires_in
+      ? new Date(now + json.refresh_token_expires_in * 1000).toISOString()
+      : null
   };
 }
 
-// Renvoie un token utilisable, en utilisant le cache si encore valide.
-// `tokenStore` est { getCached, saveCached } fournis par l'appelant
-// (typiquement, lit/écrit la ligne tradovate_credentials Supabase).
-//
-// Marge de sécurité : on considère le token expiré 60s avant son
-// expirationTime réelle pour éviter les 401 en bord de fenêtre.
-const TOKEN_SAFETY_MARGIN_MS = 60_000;
-
-export async function getAccessToken({ env, username, password, tokenStore }) {
-  const cached = await tokenStore.getCached();
-  if (cached && cached.token && cached.expiresAt) {
-    const expMs = new Date(cached.expiresAt).getTime();
-    if (expMs - Date.now() > TOKEN_SAFETY_MARGIN_MS) {
-      return { accessToken: cached.token, mdAccessToken: cached.mdToken };
-    }
-  }
-
-  const fresh = await requestAccessToken({ env, username, password });
-  await tokenStore.saveCached({
-    token: fresh.accessToken,
-    mdToken: fresh.mdAccessToken,
-    expiresAt: fresh.expirationTime
-  });
-  return { accessToken: fresh.accessToken, mdAccessToken: fresh.mdAccessToken };
-}
-
 // ----------------------------------------
-// REQUÊTE AUTHENTIFIÉE
+// REQUÊTE AUTHENTIFIÉE (API Tradovate avec access_token)
 // ----------------------------------------
 async function authedFetch({ env, accessToken, path, query }) {
-  const url = new URL(`${baseUrl(env)}${path}`);
+  const url = new URL(`${apiUrl(env)}${path}`);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
@@ -130,29 +158,18 @@ async function authedFetch({ env, accessToken, path, query }) {
   return body;
 }
 
-// ----------------------------------------
-// ENDPOINTS UTILISÉS PAR LE SYNC
-// ----------------------------------------
 export async function listAccounts({ env, accessToken }) {
   return authedFetch({ env, accessToken, path: '/account/list' });
 }
 
-// Tradovate ne supporte pas un filtre "since fillId" sur /fill/list,
-// mais l'endpoint renvoie tous les fills du jour. Pour l'historique,
-// on utilise /fill/deps avec masterids ou /fill/ldeps. Approche
-// simple pour V1 : récupérer tous les fills accessibles, on filtre
-// côté Node par fillId > last_fill_id. Tradovate plafonne autour
-// de 30 jours d'historique sur les comptes demo, plus sur live.
 export async function listFills({ env, accessToken }) {
   return authedFetch({ env, accessToken, path: '/fill/list' });
 }
 
-// Frais (commissions + exchange fees) par fill
 export async function listFillFees({ env, accessToken }) {
   return authedFetch({ env, accessToken, path: '/fillFee/list' });
 }
 
-// Métadonnées des contrats (utile pour mapper contractId → symbol)
 export async function listContracts({ env, accessToken }) {
   return authedFetch({ env, accessToken, path: '/contract/list' });
 }
@@ -166,5 +183,13 @@ export class TradovateError extends Error {
     this.name = 'TradovateError';
     this.status = status;
     this.body = body;
+  }
+}
+
+export class OAuthExpiredError extends Error {
+  constructor(message = 'OAuth refresh_token expiré — reconnexion requise') {
+    super(message);
+    this.name = 'OAuthExpiredError';
+    this.status = 401;
   }
 }

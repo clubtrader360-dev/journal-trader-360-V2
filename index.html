@@ -5109,37 +5109,37 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             <form id="tradovateConnectForm" autocomplete="off">
                 <div class="form-group">
+                    <label for="tradovateLabel">Nom de la connexion (prop firm)</label>
+                    <input type="text" id="tradovateLabel" maxlength="50" required
+                           placeholder="Ex: Topstep, Apex, Tradeify…" autocomplete="off">
+                    <small style="color: #6b7280; font-size: 0.85em; display: block; margin-top: 6px;">
+                        Un nom libre pour distinguer cette connexion (tu peux brancher plusieurs prop firms en parallèle).
+                    </small>
+                </div>
+
+                <div class="form-group">
                     <label>Environnement</label>
                     <div style="display: flex; gap: 16px; margin-top: 6px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                             <input type="radio" name="tradovateEnv" value="demo" checked>
-                            <span><strong>Demo</strong> — challenges</span>
+                            <span><strong>Demo</strong> — prop firms (Topstep, Apex, Tradeify…)</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                             <input type="radio" name="tradovateEnv" value="live">
-                            <span><strong>Live</strong> — comptes funded</span>
+                            <span><strong>Live</strong> — brokerage Tradovate direct</span>
                         </label>
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="tradovateUsername">Identifiant Tradovate</label>
-                    <input type="text" id="tradovateUsername" autocomplete="off" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="tradovatePassword">Mot de passe Tradovate</label>
-                    <input type="password" id="tradovatePassword" autocomplete="new-password" required>
-                    <small style="color: #6b7280; font-size: 0.85em; display: block; margin-top: 6px;">
-                        🔒 Chiffré AES-256-GCM côté serveur. Jamais stocké en clair, jamais affiché.
-                    </small>
                 </div>
 
                 <div id="tradovateConnectError" class="text-red-600 text-sm mb-3 hidden"></div>
 
                 <button type="submit" id="tradovateConnectBtn" class="trader-btn w-full">
-                    <i class="fas fa-plug mr-2"></i>Connecter
+                    <i class="fas fa-external-link-alt mr-2"></i>Connecter via Tradovate
                 </button>
+
+                <small style="color: #6b7280; font-size: 0.85em; display: block; margin-top: 12px; text-align: center;">
+                    🔐 Tu seras redirigé vers Tradovate pour te logguer. Trader 360 ne voit JAMAIS ton mot de passe — seul un jeton d'accès chiffré est conservé.
+                </small>
             </form>
         </div>
     </div>

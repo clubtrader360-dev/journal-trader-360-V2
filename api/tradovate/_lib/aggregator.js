@@ -21,7 +21,7 @@
 //        exit_price   = VWAP des fills de fermeture (côté qui ferme)
 //        quantity     = max(|position|) atteinte pendant la séquence
 //        direction    = 'LONG' si la position devenue ≠0 était positive
-//        external_id  = "<env>:<account_id>:<sorted_fill_ids_joined>"
+//        external_id  = "<credentials_id>:<account_id>:<sorted_fill_ids_joined>"
 //        fees         = somme des fillFees pour les fills concernés
 //        pnl          = (exit_vwap − entry_vwap) * qty * pointValue
 //                       (signe inversé si SHORT)
@@ -85,7 +85,7 @@ function vwap(fills) {
  * @param {object[]} fills          fills Tradovate (filtrés ≥ last_fill_id)
  * @param {object[]} fillFees       fillFee Tradovate
  * @param {object[]} contracts      contract Tradovate (pour mapping id→name)
- * @param {object} ctx              { env, account_id_tradovate, account_id_supabase }
+ * @param {object} ctx              { credentials_id, user_id, account_id_supabase }
  * @returns {object[]}              tableau de "trade rows" prêts à upsert
  */
 export function aggregateFillsToTrades({ fills, fillFees, contracts, ctx }) {
@@ -214,8 +214,10 @@ function buildTradeRow({ openFills, closeFills, contractById, feeByFillId, ctx }
   });
 
   // external_id idempotent : même set de fills → même id
+  // Format <credentials_id>:<account_id>:<sorted_fill_ids> — pas de
+  // collision entre prop firms même avec account_id identiques.
   const external_id =
-    `${ctx.env}:${openFills[0].accountId}:${allFillIds.join(',')}`;
+    `${ctx.credentials_id}:${openFills[0].accountId}:${allFillIds.join(',')}`;
 
   return {
     user_id: ctx.user_id,
