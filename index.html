@@ -16258,7 +16258,21 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
         </aside>
     </div>
 
-    <!-- Modal "Mot de passe oublié ?" (login) -->
+    <!-- Modal "Mot de passe oublié ?" (login) — CSS critique INLINE (livré avec index.html,
+         évite tout cache de aube.css) + !important pour écraser toute règle concurrente. -->
+    <style>
+        #forgotPwModal.forgot-pw-overlay {
+            display: none !important;
+            position: fixed !important;
+            inset: 0 !important;
+            top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 10060 !important;
+            align-items: center !important; justify-content: center !important;
+            padding: 20px !important; background: rgba(0, 0, 0, 0.6) !important;
+        }
+        #forgotPwModal.forgot-pw-overlay.is-open { display: flex !important; }
+    </style>
     <div id="forgotPwModal" class="forgot-pw-overlay">
         <div class="forgot-pw-card" role="dialog" aria-modal="true" aria-labelledby="forgotPwTitle">
             <button type="button" id="forgotPwCloseBtn" class="forgot-pw-close" aria-label="Fermer">&times;</button>
@@ -16296,8 +16310,9 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
         // Au chargement : garantit que le modal démarre FERMÉ (aucun is-open résiduel) + logs de contrôle.
         (function () {
             const m = document.getElementById('forgotPwModal');
+            console.log('[RESET-PW] init — modal:', !!m, '| is-open avant remove:', m ? m.classList.contains('is-open') : 'n/a');
             if (m) m.classList.remove('is-open'); // sécurité : jamais ouvert au load
-            console.log('[RESET-PW] modal HTML présent :', !!m, '· is-open au load :', m ? m.classList.contains('is-open') : 'n/a');
+            console.log('[RESET-PW] init — is-open après remove:', m ? m.classList.contains('is-open') : 'n/a');
         })();
 
         window.openForgotPassword = function () {
