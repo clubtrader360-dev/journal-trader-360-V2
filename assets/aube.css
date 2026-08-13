@@ -1628,13 +1628,21 @@ body:not(.dark-mode) #myProfile .profile-pending strong { color: #92400e; }
 .forgot-pw-link:hover { text-decoration: underline; }
 
 .forgot-pw-overlay {
-  position: fixed; inset: 0; z-index: 10060; display: none; align-items: center; justify-content: center;
-  padding: 24px; background: rgba(0, 11, 37, 0.55);
+  display: none;
+  position: fixed;
+  inset: 0;                    /* top/right/bottom/left = 0 */
+  width: 100vw;                /* explicite : couvre le viewport même si inset non appliqué (vieux Safari) */
+  height: 100vh;
+  z-index: 10060;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
 }
 .forgot-pw-overlay.is-open { display: flex; }
 .forgot-pw-card {
-  position: relative; width: 100%; max-width: 400px; background: #ffffff; color: #0f172a;
-  border-radius: 16px; padding: 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+  position: relative; width: 100%; max-width: 480px; background: #FBF8F1; color: #0f172a;
+  border-radius: 12px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
 .forgot-pw-close {
   position: absolute; top: 12px; right: 14px; width: 32px; height: 32px; border: 0; border-radius: 8px;

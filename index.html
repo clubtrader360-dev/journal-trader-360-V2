@@ -16293,8 +16293,12 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
                 if (m && m.classList.contains('is-open')) window.closeForgotPassword();
             }
         });
-        // Confirmation au chargement que le markup du modal est bien présent.
-        console.log('[RESET-PW] modal HTML présent :', !!document.getElementById('forgotPwModal'));
+        // Au chargement : garantit que le modal démarre FERMÉ (aucun is-open résiduel) + logs de contrôle.
+        (function () {
+            const m = document.getElementById('forgotPwModal');
+            if (m) m.classList.remove('is-open'); // sécurité : jamais ouvert au load
+            console.log('[RESET-PW] modal HTML présent :', !!m, '· is-open au load :', m ? m.classList.contains('is-open') : 'n/a');
+        })();
 
         window.openForgotPassword = function () {
             const modal = document.getElementById('forgotPwModal');
