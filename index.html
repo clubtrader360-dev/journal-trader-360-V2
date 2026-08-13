@@ -3128,7 +3128,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <input type="password" id="loginPassword" name="password" autocomplete="current-password" placeholder="Votre mot de passe" required aria-required="true">
                     </div>
                     <div class="forgot-pw-row">
-                        <button type="button" class="forgot-pw-link" onclick="openForgotPassword()">Mot de passe oublié ?</button>
+                        <button type="button" id="forgotPasswordLink" class="forgot-pw-link">Mot de passe oublié ?</button>
                     </div>
                     <button type="submit" id="loginBtn" class="trader-btn w-full mb-4">Se connecter</button>
                 </form>
@@ -16259,16 +16259,16 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     </div>
 
     <!-- Modal "Mot de passe oublié ?" (login) -->
-    <div id="forgotPasswordModal" class="forgot-pw-overlay" style="display:none;" onclick="if(event.target===this)closeForgotPassword()">
+    <div id="forgotPasswordModal" class="forgot-pw-overlay" style="display:none;">
         <div class="forgot-pw-card" role="dialog" aria-modal="true" aria-labelledby="forgotPwTitle">
-            <button type="button" class="forgot-pw-close" aria-label="Fermer" onclick="closeForgotPassword()">&times;</button>
+            <button type="button" id="forgotPwCloseBtn" class="forgot-pw-close" aria-label="Fermer">&times;</button>
             <h3 id="forgotPwTitle">Mot de passe oublié</h3>
             <p class="forgot-pw-hint">Saisis ton adresse email : on t'envoie un lien pour réinitialiser ton mot de passe.</p>
             <div class="form-group">
                 <label for="forgotPwEmail">Email</label>
                 <input type="email" id="forgotPwEmail" autocomplete="email" inputmode="email" placeholder="votre@email.com">
             </div>
-            <button type="button" id="forgotPwSendBtn" class="trader-btn w-full" onclick="sendResetLink()">Envoyer le lien</button>
+            <button type="button" id="forgotPwSendBtn" class="trader-btn w-full">Envoyer le lien</button>
         </div>
     </div>
 
@@ -16277,12 +16277,24 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     <script src="/assets/coach-dashboard-customizer.js" defer></script>
     <script>
         // ===== Mot de passe oublié (login) — 100% client, aucun endpoint =====
+        // Délégation d'événement au niveau document : robuste quel que soit l'ordre de montage
+        // du DOM / de chargement des scripts (remplace les onclick inline qui ne se déclenchaient pas).
+        document.addEventListener('click', function (e) {
+            const t = e.target;
+            if (t.closest('#forgotPasswordLink')) { e.preventDefault(); window.openForgotPassword(); return; }
+            if (t.closest('#forgotPwCloseBtn')) { window.closeForgotPassword(); return; }
+            if (t.id === 'forgotPasswordModal') { window.closeForgotPassword(); return; } // clic sur le fond
+            if (t.closest('#forgotPwSendBtn')) { window.sendResetLink(); return; }
+        });
+
         window.openForgotPassword = function () {
             const modal = document.getElementById('forgotPasswordModal');
             const input = document.getElementById('forgotPwEmail');
             const login = document.getElementById('loginEmail');
+            if (!modal) { console.warn('[RESET-PW] modal introuvable'); return; }
             if (input && login && login.value) input.value = login.value; // pré-remplit si déjà saisi
-            if (modal) { modal.style.display = 'flex'; if (input) setTimeout(() => input.focus(), 50); }
+            modal.style.display = 'flex';
+            if (input) setTimeout(() => input.focus(), 50);
         };
         window.closeForgotPassword = function () {
             const modal = document.getElementById('forgotPasswordModal');
