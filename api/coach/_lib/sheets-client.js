@@ -35,8 +35,11 @@ export function getSheetsClient() {
 
   const auth = new google.auth.GoogleAuth({
     credentials,
-    // Scope strictement read-only — sécurité en profondeur.
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    // Scope LECTURE + ÉCRITURE (le webhook col X écrit dans le tableur). 'spreadsheets' inclut
+    // la lecture → pas de régression pour coach/tableur-members (read only).
+    // ⚠️ Sécurité assumée : le SA peut désormais écrire partout dans le Sheet ; la restriction à
+    //    la col X est faite CÔTÉ CODE (endpoint webhook). Manu à informer post-push.
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
 
   _sheetsClient = google.sheets({ version: 'v4', auth });
