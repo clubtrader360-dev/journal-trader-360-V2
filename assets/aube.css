@@ -1616,3 +1616,45 @@ body:not(.dark-mode) #myProfile .profile-pending strong { color: #92400e; }
 #myProfile .btn-pending-secondary:disabled { opacity: 0.55; cursor: default; }
 #myProfile .btn-pending-primary { background: #d4af37; border: 1px solid #d4af37; color: #0F1C3D; }
 #myProfile .btn-pending-primary:hover { filter: brightness(1.05); }
+
+/* ============================================================
+   === LOGIN · MOT DE PASSE OUBLIÉ (modal) ===
+   ============================================================ */
+.forgot-pw-row { display: flex; justify-content: flex-end; margin: -6px 0 14px; }
+.forgot-pw-link {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: #d4af37; font-size: 13px; font-weight: 600;
+}
+.forgot-pw-link:hover { text-decoration: underline; }
+
+.forgot-pw-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;                    /* top/right/bottom/left = 0 */
+  width: 100vw;                /* explicite : couvre le viewport même si inset non appliqué (vieux Safari) */
+  height: 100vh;
+  z-index: 10060;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+}
+.forgot-pw-overlay.is-open { display: flex; }
+.forgot-pw-card {
+  position: relative; width: 100%; max-width: 480px; background: #FBF8F1; color: #0f172a;
+  border-radius: 12px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.forgot-pw-close {
+  position: absolute; top: 12px; right: 14px; width: 32px; height: 32px; border: 0; border-radius: 8px;
+  background: transparent; color: #64748b; font-size: 24px; line-height: 1; cursor: pointer;
+}
+.forgot-pw-close:hover { color: #0f172a; background: rgba(0,0,0,0.05); }
+.forgot-pw-card h3 { font-size: 19px; font-weight: 700; color: #0F1C3D; margin: 0 0 8px; }
+.forgot-pw-hint { font-size: 13.5px; color: #5a5040; line-height: 1.5; margin: 0 0 18px; }
+.forgot-pw-card .form-group { margin-bottom: 16px; }
+.forgot-pw-card .form-group label { display: block; font-size: 13px; font-weight: 600; color: #0F1C3D; margin-bottom: 6px; }
+.forgot-pw-card .form-group input {
+  width: 100%; padding: 11px 14px; border-radius: 10px; font-size: 14px;
+  background: #E8F4FD; color: #000B25; border: 1px solid rgba(0,11,37,0.2); outline: none;
+}
+.forgot-pw-card .form-group input:focus { border-color: #d4af37; box-shadow: 0 0 0 3px rgba(212,175,55,0.25); }
