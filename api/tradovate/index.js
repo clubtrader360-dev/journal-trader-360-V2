@@ -1,25 +1,23 @@
 // ========================================
-// POST /api/tradovate/sync
+// ROUTEUR TRADOVATE — /api/tradovate?action=<action>
 // Header : Authorization: Bearer <supabase JWT>
-// Body : (vide)
 //
-// Pour chaque env connecté de l'élève :
-//   1. récupère un access_token (cache si valide, sinon re-auth)
-//   2. liste les comptes Tradovate
-//   3. mappe les comptes Tradovate ↔ accounts Supabase (auto-crée si inconnu)
-//   4. récupère fills + fillFees + contracts
-//   5. filtre les fills > last_fill_id par compte
-//   6. agrège en round-trips → upsert dans trades (sur user+source+external_id)
-//   7. avance le curseur dans tradovate_sync_state
-//   8. met à jour last_synced_at sur tradovate_credentials
+// Consolidation des 4 anciens endpoints (connect/disconnect/status/sync) en 1 seule
+// Serverless Function (quota Vercel Hobby : 12 → 9). Pattern identique à api/user/profile.js.
 //
-// Réponse :
-//   { synced: { demo: {...}, live: {...} }, total_trades: N, duration_ms }
+//   ?action=connect     (POST) body { env, username, password }
+//   ?action=disconnect  (POST) body { env } ou { all: true }
+//   ?action=status      (GET)
+//   ?action=sync        (POST)
+//
+// requireUser commun au top. `return await handleXxx(...)` OBLIGATOIRE : sans await, le rejet
+// d'un sous-handler échappe au try/catch → httpError(4xx) ressort en 500 (cf profile.js 113f7d5).
 // ========================================
 
-import { requireUser, getServiceClient, httpError } from './_lib/auth.js';
-import { decrypt } from './_lib/crypto.js';
+import { requireUser, readJson, getServiceClient, httpError } from './_lib/auth.js';
+import { encrypt, decrypt } from './_lib/crypto.js';
 import {
+  requestAccessToken,
   getAccessToken,
   listAccounts,
   listFills,
@@ -29,15 +27,179 @@ import {
 } from './_lib/client.js';
 import { aggregateFillsToTrades } from './_lib/aggregator.js';
 
+const VALID_ENVS = new Set(['demo', 'live']);
+const ACTION_METHOD = { connect: 'POST', disconnect: 'POST', status: 'GET', sync: 'POST' };
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+  const action = String(req.query?.action || '').trim();
+  const expected = ACTION_METHOD[action];
+  if (!expected) return res.status(400).json({ error: 'action inconnue' });
+  if (req.method !== expected) {
+    res.setHeader('Allow', expected);
     return res.status(405).json({ error: 'method not allowed' });
   }
 
-  const t0 = Date.now();
   try {
     const { user_id } = await requireUser(req);
+    if (action === 'connect')    return await handleConnect(req, res, user_id);
+    if (action === 'disconnect') return await handleDisconnect(req, res, user_id);
+    if (action === 'status')     return await handleStatus(req, res, user_id);
+    if (action === 'sync')       return await handleSync(req, res, user_id);
+    return res.status(400).json({ error: 'action inconnue' });
+  } catch (err) {
+    const status = err.status || 500;
+    if (status >= 500) console.error('[TRADOVATE] error:', err);
+    return res.status(status).json({ error: err.message || 'erreur' });
+  }
+}
+
+// ============================================================
+// CONNECT — valide les creds via Tradovate, chiffre et stocke.
+// ============================================================
+async function handleConnect(req, res, user_id) {
+  const body = await readJson(req);
+
+  const { env, username, password } = body || {};
+  if (!VALID_ENVS.has(env)) {
+    throw httpError(400, 'env doit être "demo" ou "live"');
+  }
+  if (typeof username !== 'string' || username.length < 1) {
+    throw httpError(400, 'username manquant');
+  }
+  if (typeof password !== 'string' || password.length < 1) {
+    throw httpError(400, 'password manquant');
+  }
+
+  // Test des creds — auth Tradovate AVANT de stocker.
+  let token;
+  try {
+    token = await requestAccessToken({ env, username, password });
+  } catch (err) {
+    if (err instanceof TradovateError) {
+      return res.status(401).json({
+        error: 'Tradovate a refusé les identifiants',
+        detail: err.message
+      });
+    }
+    throw err;
+  }
+
+  const encU = encrypt(username);
+  const encP = encrypt(password);
+
+  const sb = getServiceClient();
+  const { error: upsertErr } = await sb
+    .from('tradovate_credentials')
+    .upsert(
+      {
+        user_id,
+        env,
+        encrypted_username: encU.ciphertext,
+        username_iv:        encU.iv,
+        username_auth_tag:  encU.authTag,
+        encrypted_password: encP.ciphertext,
+        password_iv:        encP.iv,
+        password_auth_tag:  encP.authTag,
+        last_token:           token.accessToken,
+        last_md_token:        token.mdAccessToken,
+        last_token_expires_at: token.expirationTime,
+        last_sync_status: null,
+        last_sync_error: null
+      },
+      { onConflict: 'user_id,env' }
+    );
+
+  if (upsertErr) {
+    console.error('[CONNECT] upsert error:', upsertErr);
+    return res.status(500).json({ error: 'Erreur DB lors du stockage' });
+  }
+
+  return res.status(200).json({ ok: true, env, expiresAt: token.expirationTime });
+}
+
+// ============================================================
+// DISCONNECT — supprime creds + sync_state (garde trades/accounts).
+// ============================================================
+async function handleDisconnect(req, res, user_id) {
+  const body = await readJson(req);
+  const sb = getServiceClient();
+
+  const { env, all } = body || {};
+  let envsToRemove;
+  if (all === true) {
+    envsToRemove = ['demo', 'live'];
+  } else if (VALID_ENVS.has(env)) {
+    envsToRemove = [env];
+  } else {
+    throw httpError(400, 'spécifie env ("demo"|"live") ou all=true');
+  }
+
+  const { error: e1 } = await sb
+    .from('tradovate_credentials')
+    .delete()
+    .eq('user_id', user_id)
+    .in('env', envsToRemove);
+  if (e1) throw e1;
+
+  const { error: e2 } = await sb
+    .from('tradovate_sync_state')
+    .delete()
+    .eq('user_id', user_id)
+    .in('env', envsToRemove);
+  if (e2) throw e2;
+
+  return res.status(200).json({ ok: true, disconnected: envsToRemove });
+}
+
+// ============================================================
+// STATUS — état des connexions (sans les creds).
+// ============================================================
+async function handleStatus(req, res, user_id) {
+  const sb = getServiceClient();
+
+  const [{ data: creds }, { data: states }] = await Promise.all([
+    sb.from('tradovate_credentials')
+      .select('env, last_synced_at, last_sync_status, last_sync_error, last_token_expires_at, created_at')
+      .eq('user_id', user_id),
+    sb.from('tradovate_sync_state')
+      .select('env, tradovate_account_id, tradovate_account_name, last_fill_id, last_synced_at, fills_imported_total, trades_created_total')
+      .eq('user_id', user_id)
+  ]);
+
+  const byEnv = {};
+  for (const c of (creds || [])) {
+    byEnv[c.env] = {
+      connected: true,
+      last_synced_at: c.last_synced_at,
+      last_sync_status: c.last_sync_status,
+      last_sync_error: c.last_sync_error,
+      token_expires_at: c.last_token_expires_at,
+      connected_at: c.created_at,
+      accounts: []
+    };
+  }
+  for (const s of (states || [])) {
+    if (!byEnv[s.env]) continue;
+    byEnv[s.env].accounts.push({
+      tradovate_account_id: s.tradovate_account_id,
+      name: s.tradovate_account_name,
+      last_fill_id: s.last_fill_id,
+      last_synced_at: s.last_synced_at,
+      fills_imported_total: s.fills_imported_total,
+      trades_created_total: s.trades_created_total
+    });
+  }
+
+  return res.status(200).json({ envs: byEnv });
+}
+
+// ============================================================
+// SYNC — pour chaque env connecté : pull fills → trades.
+// Garde son propre try/catch pour renvoyer duration_ms (succès ET erreur).
+// ============================================================
+async function handleSync(req, res, user_id) {
+  const t0 = Date.now();
+  try {
     const sb = getServiceClient();
 
     // 1. Lire toutes les connexions (demo + live) de l'élève
@@ -144,7 +306,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
         })
         .eq('id', cred.id);
       if (error) throw error;
-      // Mémoire locale aussi pour le reste du sync
       cred.last_token = token;
       cred.last_md_token = mdToken;
       cred.last_token_expires_at = expiresAt;
@@ -159,7 +320,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
   const tvAccounts = await callWithTokenRetry(() =>
     listAccounts({ env, accessToken })
   , async () => {
-    // Si 401, on force un refresh (vide le cache)
     cred.last_token = null;
     const fresh = await getAccessToken({ env, username, password, tokenStore });
     accessToken = fresh.accessToken;
@@ -200,7 +360,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
     const state = stateByTradovateAccount.get(tvAcc.id);
     const lastFillId = state?.last_fill_id ?? 0;
 
-    // Ne traiter que les NOUVEAUX fills
     const newFills = accountFills.filter(f => Number(f.id) > Number(lastFillId));
     if (newFills.length === 0) {
       accountsReport.push({
@@ -212,10 +371,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
       continue;
     }
 
-    // Agréger en trades round-trip. Note: pour reconstituer correctement
-    // les positions, l'agrégateur a besoin du contexte des fills déjà
-    // traités. V1 pragmatique : on lui passe TOUS les fills du compte
-    // (pas juste les nouveaux), et on filtre côté upsert via external_id.
     const rows = aggregateFillsToTrades({
       fills: accountFills,
       fillFees,
@@ -235,7 +390,6 @@ async function syncOneEnv({ sb, user_id, cred }) {
       if (upErr) throw upErr;
     }
 
-    // Avancer le curseur au plus grand fillId vu sur ce compte
     const maxFillId = accountFills.reduce(
       (m, f) => Number(f.id) > m ? Number(f.id) : m,
       0
@@ -285,8 +439,7 @@ async function callWithTokenRetry(fn, refresh) {
   }
 }
 
-// Renvoie Map<tradovate_account_id, supabase_account_id>.
-// Crée les comptes Supabase manquants à la volée.
+// Renvoie Map<tradovate_account_id, supabase_account_id>. Crée les manquants.
 async function ensureSupabaseAccounts({ sb, user_id, env, tvAccounts }) {
   if (!tvAccounts || tvAccounts.length === 0) return new Map();
 
@@ -305,7 +458,6 @@ async function ensureSupabaseAccounts({ sb, user_id, env, tvAccounts }) {
     map.set(Number(row.tradovate_id), row.id);
   }
 
-  // Créer les manquants
   const toInsert = tvAccounts
     .filter(a => !map.has(a.id))
     .map(a => ({

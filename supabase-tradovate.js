@@ -35,7 +35,9 @@
     };
     if (body) opts.body = JSON.stringify(body);
 
-    const res = await fetch(`${API_BASE}${path}`, opts);
+    // Routeur consolidé : /connect|/status|/sync|/disconnect → /api/tradovate?action=connect|…
+    const action = String(path).replace(/^\//, '');
+    const res = await fetch(`${API_BASE}?action=${action}`, opts);
     const text = await res.text();
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch (_) { /* noop */ }
