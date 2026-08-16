@@ -2192,6 +2192,7 @@
      SCRIPTS SUPABASE (CHARGÉS EN PREMIER)
      ======================================== -->
 <script src="/supabase-config.js"></script>
+<script src="/assets/coach-view.js"></script>
 <script src="/supabase-auth.js"></script>
 <script src="/supabase-trades.js"></script>
 <script src="/supabase-journal.js"></script>
@@ -3108,6 +3109,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 </head>
 <body>
     <a href="#main-content" class="skip-link">Aller au contenu principal</a>
+    <!-- Bandeau COACH VIEW (#80) — visible uniquement quand le coach consulte un journal élève en lecture seule. -->
+    <div id="coachViewBanner" class="coach-view-banner" style="display:none;" role="status">
+        <span class="cvb-txt"><i class="fas fa-user-secret"></i> MODE COACH — Lecture seule du journal de <strong id="coachViewName">élève</strong></span>
+        <button type="button" class="cvb-exit" onclick="window.CoachView.exit()"><i class="fas fa-arrow-left"></i> Retour dashboard coach</button>
+    </div>
     <!-- Auth Screen -->
     <div id="authScreen" class="auth-container" role="main" aria-label="Authentification" style="display: none;">
         <div class="auth-card">
@@ -9930,6 +9936,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
 
         async function profileSaveEmail() {
+            // #80 : en coach-view le JWT est celui du coach → bloquer (sinon on changerait l'email du coach).
+            if (window.CoachView && window.CoachView.blockIfActive('modification de l\'email')) return;
             const input = document.getElementById('profileEmailInput');
             const saveBtn = document.getElementById('profileEmailSaveBtn');
             if (!input) return;
@@ -9993,6 +10001,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
         // Renvoyer le mail de confirmation (natif Supabase, rate-limit UI 60s avec countdown).
         async function resendEmailConfirmation() {
+            if (window.CoachView && window.CoachView.blockIfActive('renvoi de confirmation email')) return;
             const btn = document.getElementById('btnResendEmail');
             try {
                 if (btn) btn.disabled = true;
@@ -15142,6 +15151,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             modal.style.visibility = 'visible';
         };
         window.closeCoachStudentDetail = function () { const m = document.getElementById('coachStudentDetailModal'); if (m) m.style.display = 'none'; };
+        // #80 : entre en mode coach lecture seule sur le journal de l'élève courant (modal ouvert).
+        window.coachViewEnterStudent = function () {
+            const m = document.getElementById('coachStudentDetailModal');
+            const idx = m && m.dataset.idx != null ? Number(m.dataset.idx) : -1;
+            const r = (window.coachStudentsRows || [])[idx];
+            if (!r || !r.uuid) { window.showNotification && window.showNotification('Élève introuvable.', 'error'); return; }
+            window.CoachView.enter(r.uuid, r.name || r.email || 'élève');
+        };
         window.coachStudentDetailRevoke = function () { const m = document.getElementById('coachStudentDetailModal'); if (m && m.dataset.idx != null) { const i = Number(m.dataset.idx); window.closeCoachStudentDetail(); confirmRevokeStudent(i); } };
 
         // Évite d'interpoler le name de l'élève dans un attribut onclick="" :
@@ -16231,9 +16248,9 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
             </div>
             <div class="csd-soon">
                 <div class="csd-soon-row"><i class="fas fa-graduation-cap"></i><div><strong>Niveau &amp; progression LearnyBox</strong><span>Bientôt — intégration du tableur (#84)</span></div></div>
-                <div class="csd-soon-row"><i class="fas fa-user-secret"></i><div><strong>Voir son journal (vue élève)</strong><span>Bientôt — mode coach lecture (#80)</span></div></div>
             </div>
             <div class="csd-actions">
+                <button onclick="coachViewEnterStudent()" class="trader-btn csd-coach-view"><i class="fas fa-user-secret mr-1"></i>Voir son journal (lecture seule)</button>
                 <button onclick="coachStudentDetailRevoke()" class="trader-btn-secondary csd-revoke"><i class="fas fa-ban mr-1"></i>Révoquer l'accès</button>
                 <button onclick="closeCoachStudentDetail()" class="trader-btn-secondary">Fermer</button>
             </div>

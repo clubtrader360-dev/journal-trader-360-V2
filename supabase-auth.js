@@ -523,13 +523,45 @@
             }
 
             // À partir d'ici, la session est validée par la BDD. On hydrate l'état.
+            // authId reste TOUJOURS celui du compte loggé (le JWT ne change pas).
             window.currentUserAuthId = session.user.id;
-            window.currentUser = userData;
-            window.currentUserUuid = userData.uuid || session.user.id;
+
+            // ── COACH VIEW (#80) : override central. Si un state coach-view est actif ET
+            //    que le compte loggé est bien un coach/admin, on hydrate currentUser avec la
+            //    ligne de l'ÉLÈVE consulté → toutes les requêtes .eq('user_id', currentUser.uuid)
+            //    pointent l'élève. Lecture seule garantie par la garde du client Supabase + CSS.
+            let effectiveUser = userData;
+            let coachViewing = false;
+            if (window.CoachView && window.CoachView.isActive()) {
+                // Le statut est déjà validé plus haut (revoked/pending → signOut) : on se fie au rôle.
+                const isCoachAccount = ['coach', 'admin'].includes(userData.role);
+                if (!isCoachAccount) {
+                    console.warn('[COACH-VIEW] state présent mais compte non-coach → purge.');
+                    window.CoachView.exit();
+                    return false;
+                }
+                const viewedUuid = window.CoachView.getViewedUuid();
+                const { data: studentRow, error: sErr } = await supabase
+                    .from('users').select('*').eq('uuid', viewedUuid).single();
+                if (sErr || !studentRow) {
+                    console.warn('[COACH-VIEW] élève introuvable → purge.', viewedUuid);
+                    window.CoachView.exit();
+                    return false;
+                }
+                effectiveUser = studentRow;
+                coachViewing = true;
+                console.log('[COACH-VIEW] ✅ vue lecture seule du journal de', studentRow.email);
+            }
+
+            window.currentUser = effectiveUser;
+            window.currentUserUuid = effectiveUser.uuid || session.user.id;
+
+            // En coach-view on force le rendu de la vue ÉLÈVE, quel que soit le rôle réel.
+            const renderRole = coachViewing ? 'student' : userData.role;
 
             // Étape critique : on bascule l'UI. On encapsule pour pouvoir rollback.
             try {
-                if (userData.role === 'coach') {
+                if (renderRole === 'coach') {
                     if (mainApp) mainApp.style.display = 'none';
                     if (coachApp) {
                         coachApp.style.display = 'flex';
@@ -557,7 +589,11 @@
                         mainApp.style.opacity = '1';
                     }
                     if (authScreen) authScreen.style.display = 'none';
-                    if (userInfo) userInfo.textContent = userData.name || userData.email;
+                    if (userInfo) userInfo.textContent = effectiveUser.name || effectiveUser.email;
+                    // Coach-view : bandeau lecture seule + grisage des écritures.
+                    if (coachViewing && window.CoachView) {
+                        try { window.CoachView.activateUI(); } catch (_) {}
+                    }
                     try { if (typeof window.routeFromHash === 'function') window.routeFromHash(); }
                     catch (e) { console.warn('[AUTH] routeFromHash a échoué:', e); }
                     setTimeout(() => {

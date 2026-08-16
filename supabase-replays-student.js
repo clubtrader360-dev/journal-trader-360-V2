@@ -292,8 +292,11 @@
         document.getElementById('replayDayModal')?.classList.add('hidden');
         modal.classList.remove('hidden');
 
-        // Tracking
-        const uid = (await supabase.auth.getUser()).data?.user?.id;
+        // Tracking. En coach-view (#80) : lire l'état "vu" de l'ÉLÈVE, pas celui du coach
+        // (auth.getUser() renvoie l'authId du coach car le JWT ne change pas).
+        const uid = (window.CoachView && window.CoachView.isActive() && window.currentUserUuid)
+            ? window.currentUserUuid
+            : (await supabase.auth.getUser()).data?.user?.id;
 
         const { data: existingView } = await supabase
             .from('replay_views')
