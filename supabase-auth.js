@@ -78,6 +78,8 @@
             window.currentUser = userData;
             window.currentUserUuid = userData && userData.uuid ? userData.uuid : window.currentUserAuthId;
             console.log('[OK] Connexion élève réussie:', userData.email);
+            // #19 — vérifier l'acceptation légale (modal bloquant si périmée / jamais acceptée).
+            setTimeout(() => window.maybePromptLegalConsent && window.maybePromptLegalConsent(), 500);
 
             // Affichage de l'interface (version simple sans showMainApp)
             const authScreen = document.getElementById('authScreen');
@@ -221,6 +223,8 @@
 
             window.currentUser = coachData;
             console.log('[OK] Connexion coach réussie:', coachData.email);
+            // #19 — le coach est aussi soumis aux conditions (sur son propre compte).
+            setTimeout(() => window.maybePromptLegalConsent && window.maybePromptLegalConsent(), 500);
 
             const authScreen = document.getElementById('authScreen');
             const mainApp = document.getElementById('mainApp');
@@ -309,6 +313,13 @@
             return;
         }
 
+        // #19 — Acceptation légale obligatoire.
+        const legalAccept = document.getElementById('registerLegalAccept');
+        if (!legalAccept || !legalAccept.checked) {
+            alert('Vous devez accepter les CGV, CGU et la politique de confidentialité pour créer un compte.');
+            return;
+        }
+
         try {
             console.log('[REGISTER] Tentative d\'inscription:', registerEmail);
 
@@ -358,7 +369,8 @@
                     name: registerName,
                     email: registerEmail,
                     role: 'student',
-                    status: 'pending'
+                    status: 'pending',
+                    legal_accepted_at: new Date().toISOString()  // #19 consentement au signup
                 });
 
             if (insertError) {
@@ -555,6 +567,8 @@
 
             window.currentUser = effectiveUser;
             window.currentUserUuid = effectiveUser.uuid || session.user.id;
+            // #19 — check légal (la fonction s'auto-skippe en coach-view via CoachView.isActive()).
+            setTimeout(() => window.maybePromptLegalConsent && window.maybePromptLegalConsent(), 600);
 
             // En coach-view on force le rendu de la vue ÉLÈVE, quel que soit le rôle réel.
             const renderRole = coachViewing ? 'student' : userData.role;
