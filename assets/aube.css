@@ -1766,3 +1766,95 @@ body.coach-view-readonly [onclick*="changeEmail"] {
   width: 8px; height: 8px; border-radius: 50%;
   background: #e5484d; animation: micPulse 1.2s ease-in-out infinite;
 }
+
+/* ============================================================
+   TRADE GRAPH (#16) — modal graph marché + flèches entrée/sortie
+   ============================================================ */
+.trade-graph-overlay {
+  position: fixed; inset: 0; z-index: 10060;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 2vh 2vw;
+}
+.trade-graph-card {
+  position: relative;
+  width: 90vw; height: 85vh;
+  background: #0F1C3D;
+  border: 1px solid rgba(184, 134, 42, 0.55);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.trade-graph-close {
+  position: absolute; top: 10px; right: 14px; z-index: 2;
+  width: 36px; height: 36px; border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #FBF8F1; font-size: 22px; line-height: 1; cursor: pointer;
+  transition: background .15s ease;
+}
+.trade-graph-close:hover { background: rgba(239, 68, 68, 0.85); }
+.trade-graph-header {
+  padding: 16px 20px 12px; border-bottom: 1px solid rgba(184, 134, 42, 0.25);
+}
+.trade-graph-header h3 { margin: 0; color: #FBF8F1; font-size: 1.15rem; font-weight: 700; }
+.trade-graph-subtitle { margin-top: 3px; color: #B8862A; font-size: 0.85rem; font-weight: 600; }
+
+.trade-graph-body { flex: 1; min-height: 0; display: flex; flex-direction: row; }
+.trade-graph-chart-wrap {
+  flex: 1; min-height: 500px; position: relative; background: #0F1C3D;
+}
+.trade-graph-sidebar {
+  width: 280px; flex-shrink: 0; padding: 16px 18px;
+  border-left: 1px solid rgba(184, 134, 42, 0.25);
+  overflow-y: auto; background: rgba(0, 0, 0, 0.15);
+}
+.trade-graph-info-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.trade-graph-info-row .lbl { color: #9fb0d0; font-size: 0.8rem; }
+.trade-graph-info-row .val { color: #FBF8F1; font-size: 0.9rem; font-weight: 600; text-align: right; }
+.trade-graph-info-row.highlight { border-bottom: none; margin-top: 6px; }
+.trade-graph-info-row.highlight .lbl { color: #B8862A; }
+.trade-graph-info-row.highlight .val { font-size: 1.15rem; }
+.trade-graph-note {
+  margin-top: 12px; color: #B8862A; font-size: 0.75rem; font-style: italic; line-height: 1.4;
+}
+
+/* États loading / erreur dans le wrap */
+.tg-state {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  color: #9fb0d0; font-size: 0.9rem; text-align: center; padding: 20px;
+}
+.tg-state.tg-error { color: #f2b8bb; }
+.tg-state.tg-error i { font-size: 1.8rem; color: #ef4444; }
+.tg-spinner {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 3px solid rgba(184, 134, 42, 0.25); border-top-color: #B8862A;
+  animation: tgspin 0.9s linear infinite;
+}
+@keyframes tgspin { to { transform: rotate(360deg); } }
+
+/* Bouton "Voir le graph" dans le modal détail trade */
+.view-graph-cta { margin-bottom: 16px; }
+.trade-graph-open-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%; padding: 11px 16px; border-radius: 10px; cursor: pointer;
+  background: linear-gradient(90deg, #b8912e, #d4af37); color: #0F1C3D;
+  border: none; font-weight: 700; font-size: 0.95rem;
+  transition: transform .12s ease, box-shadow .15s ease;
+}
+.trade-graph-open-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(212, 175, 55, 0.35); }
+
+/* Responsive : chart au-dessus, sidebar en dessous */
+@media (max-width: 900px) {
+  .trade-graph-card { width: 96vw; height: 92vh; }
+  .trade-graph-body { flex-direction: column; }
+  .trade-graph-chart-wrap { min-height: 320px; flex: 1; }
+  .trade-graph-sidebar {
+    width: 100%; flex-shrink: 1; border-left: none;
+    border-top: 1px solid rgba(184, 134, 42, 0.25);
+    max-height: 40%;
+  }
+}

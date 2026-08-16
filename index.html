@@ -11973,6 +11973,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             date: trade.trade_date,
                             entryTime: trade.entry_time ? new Date(trade.entry_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '00:00',
                             exitTime: trade.exit_time ? new Date(trade.exit_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '00:00',
+                            entryTimestamp: trade.entry_time || null,  // #16 timestamp brut pour le graph (flèches précises)
+                            exitTimestamp: trade.exit_time || null,
                             symbol: trade.instrument,
                             direction: trade.direction,  // ✅ Ajouter direction séparément
                             type: trade.type || (trade.direction === 'LONG' ? 'Long' : 'Short'),  // ✅ Utiliser trade.type si disponible
@@ -15526,7 +15528,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 `;
             }
             
-            document.getElementById('tradeDetailsContent').innerHTML = html;
+            // #16 — bouton "Voir le graph" (le trade courant est exposé pour l'onclick).
+            window.__currentViewTrade = trade;
+            const graphBtn = `<div class="view-graph-cta"><button type="button" onclick="window.TradeGraph.open(window.__currentViewTrade)" class="trade-graph-open-btn"><i class="fas fa-chart-line" style="margin-right:8px;"></i>Voir le graph du marché</button></div>`;
+
+            document.getElementById('tradeDetailsContent').innerHTML = graphBtn + html;
             document.getElementById('viewTradeModal').style.display = 'block';
         }
         
@@ -16215,6 +16221,9 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
 
     <!-- "Bourse à l'Aube" — fond multi-couches (bougies + ticker + particules) + chorégraphie -->
     <script src="/assets/mic-dictation.js" defer></script>
+    <!-- #16 Trade Graph : Lightweight Charts (TradingView, MIT) + module -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="/assets/trade-graph.js" defer></script>
     <script src="/assets/candles-bg.js" defer></script>
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
@@ -16384,5 +16393,30 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
             }
         };
     </script>
+
+    <!-- #16 — Modal graph du marché au moment d'un trade (Lightweight Charts) -->
+    <div id="tradeGraphModal" class="trade-graph-overlay" style="display:none;">
+      <div class="trade-graph-card">
+        <button class="trade-graph-close" onclick="window.TradeGraph.close()" aria-label="Fermer">&times;</button>
+        <div class="trade-graph-header">
+          <h3 id="tradeGraphTitle">—</h3>
+          <div id="tradeGraphSubtitle" class="trade-graph-subtitle">—</div>
+        </div>
+        <div class="trade-graph-body">
+          <div class="trade-graph-chart-wrap" id="tradeGraphChartWrap"></div>
+          <aside class="trade-graph-sidebar">
+            <div class="trade-graph-info-row"><span class="lbl">Instrument</span><span class="val" id="tgInstrument">—</span></div>
+            <div class="trade-graph-info-row"><span class="lbl">Direction</span><span class="val" id="tgDirection">—</span></div>
+            <div class="trade-graph-info-row"><span class="lbl">Entrée</span><span class="val" id="tgEntry">—</span></div>
+            <div class="trade-graph-info-row"><span class="lbl">Sortie</span><span class="val" id="tgExit">—</span></div>
+            <div class="trade-graph-info-row"><span class="lbl">Durée</span><span class="val" id="tgDuration">—</span></div>
+            <div class="trade-graph-info-row"><span class="lbl">Quantité</span><span class="val" id="tgQty">—</span></div>
+            <div class="trade-graph-info-row highlight"><span class="lbl">P&amp;L</span><span class="val" id="tgPnl">—</span></div>
+            <div class="trade-graph-info-row"><span class="lbl">Ratio R</span><span class="val" id="tgR">—</span></div>
+            <div class="trade-graph-note" id="tgNote"></div>
+          </aside>
+        </div>
+      </div>
+    </div>
 </body>
 </html>
