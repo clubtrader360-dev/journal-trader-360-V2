@@ -608,8 +608,82 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   return { html, attachments };
 }
 
+// ========================================================================
+// RAPPORT PASSIF (#21) — élève sans journal dans les 3 derniers jours.
+// Version alternative unique (motivation + article éducatif). Même DA/shell.
+// ========================================================================
+function generatePassiveReportHTML({ user }) {
+  const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
+  const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:28px 0;"></div>`;
+
+  // Un point numéroté : badge or + titre gras + corps, séparateur or discret entre chaque.
+  const point = (n, lead, body, withSep) => `
+    <div style="margin:0 0 ${withSep ? '0' : '4px'};">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
+        <td style="width:34px; vertical-align:top;">
+          <div style="width:26px; height:26px; border-radius:50%; background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; color:${PALETTE.gold}; font-family:'JetBrains Mono',ui-monospace,monospace; font-weight:700; font-size:13px; text-align:center; line-height:26px;">${n}</div>
+        </td>
+        <td style="vertical-align:top; padding-left:12px;">
+          <div style="color:${PALETTE.textPrimary}; font-size:14.5px; line-height:1.7;"><strong style="color:${PALETTE.textPrimary};">${lead}</strong> ${body}</div>
+        </td>
+      </tr></table>
+    </div>
+    ${withSep ? `<div style="height:1px; background:rgba(212,175,55,0.25); margin:16px 0 16px 46px;"></div>` : ''}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Ton rapport de la semaine — Trader 360</title></head>
+<body style="margin:0; padding:0; background:${PALETTE.bgNavy};">
+<div style="background:${PALETTE.bgNavy}; padding:40px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:${PALETTE.textPrimary};">
+  <table role="presentation" width="600" align="center" cellspacing="0" cellpadding="0" style="max-width:600px; margin:0 auto; background:${PALETTE.glass}; border:1px solid ${PALETTE.goldFrame}; border-radius:14px;">
+    <tr><td style="padding:32px;">
+
+      <div style="text-align:center; margin-bottom:28px;">
+        <img src="https://journaltrader360.fr/assets/trader360-logo-clean.png" width="72" alt="Trader 360" style="display:inline-block;">
+        <h1 style="color:${PALETTE.gold}; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; margin:16px 0 4px;">Ton rapport de la semaine</h1>
+        <p style="color:${PALETTE.bronze}; font-style:italic; margin:0; font-size:14px;">${userName}</p>
+      </div>
+
+      <div style="background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; border-radius:12px; padding:26px 24px; text-align:center; margin-bottom:24px;">
+        <div style="font-family:Georgia,'Times New Roman',serif; font-size:22px; line-height:1.35; color:${PALETTE.textPrimary}; font-weight:700;">Cette semaine, tu n'as pas eu ton analyse.</div>
+      </div>
+
+      <p style="color:${PALETTE.textPrimary}; font-size:15px; line-height:1.75; margin:0 0 8px;">Pour te faire une vraie analyse de tes performances — T360 Score, radar des 6 dimensions, patterns identifiés, recommandations personnalisées — j'ai besoin de ta data. Cette semaine, tu n'as pas rempli ton journal dans les 3 derniers jours. Sans data récente, aucune analyse fiable n'est possible. C'est aussi simple que ça.</p>
+
+      ${hairline}
+
+      <h2 style="color:${PALETTE.gold}; font-size:16px; line-height:1.4; margin:0 0 18px;">Pourquoi le journal est LE seul chemin vers la profitabilité durable</h2>
+
+      <p style="color:${PALETTE.textPrimary}; font-size:14.5px; line-height:1.75; margin:0 0 20px;">Depuis Jesse Livermore jusqu'à Brett Steenbarger, tous les grands traders imposent la même discipline : tenir un journal quotidien. Ce n'est pas du zèle académique, c'est la seule méthode qui permet de :</p>
+
+      ${point(1, 'Distinguer la chance du skill.', 'Sans data, tu ne sauras jamais si tu gagnes parce que tu es bon ou parce que tu as eu du bol. La différence te sauvera quand le marché tournera contre toi.', true)}
+      ${point(2, 'Identifier tes patterns émotionnels.', 'Le revenge trading, l\'overtrading, la peur de manquer une opportunité, la sortie prématurée : ces biais te coûtent des dizaines de pourcent par an. Tu ne les vois pas en temps réel. Tu les vois en relisant ton journal.', true)}
+      ${point(3, 'Créer une boucle de feedback.', 'Chaque semaine, tu revois tes trades, tu identifies UNE erreur récurrente, tu la corriges. C\'est comme ça qu\'on passe de trader amateur à trader profitable. Il n\'y a pas d\'autre chemin.', true)}
+      ${point(4, 'Bâtir une méthode réplicable.', 'Un système gagnant se documente. Sans journal, chaque trade est une improvisation. Avec journal, tu construis un processus solide qui tient dans le temps.', false)}
+
+      <p style="color:${PALETTE.textPrimary}; font-size:14.5px; line-height:1.75; margin:22px 0 6px;">Trader 360 t'a donné le meilleur outil de journalisation trading francophone. Utilise-le. Chaque jour de trading. Sans exception.</p>
+      <p style="color:${PALETTE.gold}; font-size:15px; font-weight:700; margin:0 0 8px;">La discipline commence là.</p>
+
+      <div style="text-align:center; margin-top:32px;">
+        <a href="https://www.journaltrader360.fr" style="display:inline-block; background:${PALETTE.goldBright}; color:#000B25; padding:16px 36px; border-radius:10px; text-decoration:none; font-weight:700; font-size:15px; letter-spacing:0.03em;">Ouvre ton journal maintenant</a>
+      </div>
+
+      <p style="text-align:center; color:${PALETTE.textSecondary}; font-size:14px; font-style:italic; margin:24px 0 0;">Emmanuel — Trader 360</p>
+
+      <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
+        Trader 360 · rapport généré le ${formatDate(new Date().toISOString().split('T')[0])}<br>
+        <em>Le trading comporte des risques de perte en capital.</em>
+      </div>
+
+    </td></tr>
+  </table>
+</div>
+</body></html>`;
+  return html;
+}
+
 export {
   computeWinRate, computeProfitFactor, computeTotalRR, computeTraderScore,
   findWeakestComponent, runExpertSystem, buildActionPlan, generateWeeklyReportHTML,
+  generatePassiveReportHTML,
   formatDate, COMPONENT_RECOMMENDATIONS,
 };
