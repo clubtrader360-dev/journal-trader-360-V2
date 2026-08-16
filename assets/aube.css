@@ -1780,6 +1780,10 @@ body.coach-view-readonly [onclick*="changeEmail"] {
 .app-footer-links a:hover { text-decoration: underline; }
 .app-footer-copyright { color: #b9c2d6; font-size: 0.82rem; }
 
+/* #19 fix — pas de footer sur l'écran de login (auth-container = 100vh) pour éviter le
+   chevauchement avec le contenu login. authScreen est affiché via style.display:flex. */
+body:has(#authScreen[style*="display: flex"]) .app-footer { display: none; }
+
 /* Consentement (register + modal) */
 .form-legal-consent { margin-bottom: 16px; }
 .legal-consent-label {

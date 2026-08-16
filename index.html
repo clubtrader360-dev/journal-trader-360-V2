@@ -16475,16 +16475,44 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
           if (!cb.checked) return;
           btn.disabled = true; btn.textContent = 'Enregistrement…';
           try {
-            const uuid = window.currentUserUuid || (window.currentUser && window.currentUser.uuid);
+            // 1. Session FRESH (JWT valide + uuid côté auth) plutôt que le state global.
+            const { data: { user }, error: authErr } = await window.supabaseClient.auth.getUser();
+            if (authErr || !user) throw new Error('Session expirée. Reconnecte-toi.');
+            const authUuid = user.id;
+            console.log('[LEGAL] auth uuid:', authUuid);
+
+            // 2. Cross-check avec le state global (diagnostic).
+            const stateUuid = window.currentUserUuid || (window.currentUser && window.currentUser.uuid);
+            console.log('[LEGAL] state uuid:', stateUuid);
+            if (stateUuid && stateUuid !== authUuid) {
+              console.warn('[LEGAL] uuid mismatch entre auth et state → on utilise auth');
+            }
+
+            // 3. UPDATE ciblé avec RETURNING pour valider la ligne touchée.
             const nowIso = new Date().toISOString();
-            const { error } = await window.supabaseClient.from('users')
-              .update({ legal_accepted_at: nowIso }).eq('uuid', uuid);
-            if (error) throw error;
+            const { data, error } = await window.supabaseClient.from('users')
+              .update({ legal_accepted_at: nowIso })
+              .eq('uuid', authUuid)
+              .select('uuid, legal_accepted_at')
+              .single();
+
+            if (error) {
+              console.error('[LEGAL] UPDATE error détaillé:', {
+                code: error.code, message: error.message, details: error.details, hint: error.hint
+              });
+              throw error;
+            }
+
+            console.log('[LEGAL] ✅ acceptation enregistrée:', data);
             if (window.currentUser) window.currentUser.legal_accepted_at = nowIso;
             modal.style.display = 'none';
           } catch (err) {
             console.error('[LEGAL] échec enregistrement acceptation:', err);
-            window.showNotification && window.showNotification('Erreur lors de l\'enregistrement. Réessaie.', 'error');
+            let msg = 'Erreur lors de l\'enregistrement. Réessaie.';
+            if (err.message && err.message.includes('Session expirée')) msg = err.message;
+            else if (err.code === '42501' || (err.message && err.message.includes('policy'))) msg = 'Permission refusée. Reconnecte-toi et réessaie.';
+            else if (err.message) msg = 'Erreur : ' + err.message;
+            window.showNotification && window.showNotification(msg, 'error');
             btn.disabled = false; btn.textContent = 'Continuer';
           }
         });
