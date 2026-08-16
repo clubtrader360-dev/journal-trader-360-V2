@@ -1771,30 +1771,28 @@ body.coach-view-readonly [onclick*="changeEmail"] {
    LEGAL / CONSENT (#19) — footer, consentement, modal re-acceptation
    ============================================================ */
 .app-footer {
-  /* Card crème "premium" (comme les modals Bourse à l'Aube) */
-  background: #FBF8F1; color: #0F1C3D;
-  border-top: 1px solid rgba(184, 134, 42, 0.35);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
-  margin-top: 60px; padding: 8px 0;
+  background: #000B25;                       /* même navy foncé que le dashboard → aucune cassure */
+  color: rgba(251, 248, 241, 0.85);
+  margin-top: 0;                             /* collé au contenu : pas de fond parent qui perce */
+  padding: 0; border: none; box-shadow: none;
   position: relative;
 }
-/* Ligne or fine dégradée en top = signature premium */
+/* Seule signature : ligne or fine 1px en top */
 .app-footer::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent 0%, #d4af37 20%, #d4af37 80%, transparent 100%);
-  opacity: 0.6;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.4) 30%, rgba(212,175,55,0.4) 70%, transparent);
 }
 .app-footer-inner {
-  max-width: 1100px; margin: 0 auto; padding: 22px 24px;
+  max-width: 1100px; margin: 0 auto; padding: 20px 24px;
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
 }
 .app-footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
 .app-footer-links a {
-  color: #B8862A; text-decoration: none; font-size: 0.88rem; font-weight: 500;
+  color: #d4af37; text-decoration: none; font-size: 0.88rem; font-weight: 500;
   transition: color 0.2s ease;
 }
-.app-footer-links a:hover { color: #d4af37; text-decoration: underline; }
-.app-footer-copyright { color: rgba(15, 28, 61, 0.7); font-size: 0.82rem; font-weight: 500; }
+.app-footer-links a:hover { color: #FBF8F1; text-decoration: underline; }
+.app-footer-copyright { color: rgba(251, 248, 241, 0.55); font-size: 0.82rem; }
 
 /* #19 fix — pas de footer sur l'écran de login (auth-container = 100vh) pour éviter le
    chevauchement avec le contenu login. authScreen est affiché via style.display:flex. */
