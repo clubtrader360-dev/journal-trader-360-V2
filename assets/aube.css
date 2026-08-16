@@ -1770,7 +1770,7 @@ body.coach-view-readonly [onclick*="changeEmail"] {
 /* ============================================================
    LEGAL / CONSENT (#19) — footer, consentement, modal re-acceptation
    ============================================================ */
-.app-footer { background: #0F1C3D; color: #FBF8F1; margin-top: 40px; }
+.app-footer { background: var(--primary, #000B25); color: #FBF8F1; margin-top: 40px; }
 .app-footer-inner {
   max-width: 1100px; margin: 0 auto; padding: 20px 24px;
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
