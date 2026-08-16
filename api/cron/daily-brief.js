@@ -11,6 +11,7 @@
 // ========================================
 
 import { createClient } from '@supabase/supabase-js';
+import { getBriefRecipients } from '../_lib/tableur-recipients.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -141,6 +142,18 @@ export default async function handler(req, res) {
     if (req.headers.authorization !== `Bearer ${cronSecret}`) return res.status(401).json({ error: 'Unauthorized' });
   }
   if (!SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' });
+
+  // #20 — dry run des destinataires tableur (validation avant envoi, aucun brief_html requis).
+  if (req.body && req.body.dry_recipients === true) {
+    try {
+      const { recipients, stats } = await getBriefRecipients();
+      console.log(`[DAILY-BRIEF] 📋 DRY recipients tableur: ${JSON.stringify(stats)}`);
+      return res.status(200).json({ ok: true, mode: 'dry_recipients', stats, count: recipients.length, sample: recipients.slice(0, 8) });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
   const { date, date_long_fr, brief_html, only_user_id, test_emails } = req.body || {};
@@ -166,16 +179,20 @@ export default async function handler(req, res) {
     // Sélection des destinataires
     let recipients;
     if (Array.isArray(test_emails) && test_emails.length) {
+      // Rodage : envoi ciblé à des adresses de test (source DB par email).
       const { data: u } = await supabase.from('users').select('uuid, email, name').in('email', test_emails);
       recipients = u || test_emails.map(e => ({ email: e, name: null }));
-    } else {
-      recipients = await fetchEligibleStudents(supabase);
-      if (onlyUserId) {
-        recipients = recipients.filter(u => u.uuid === onlyUserId);
-        if (!recipients.length) {
-          return res.status(404).json({ error: `User ${onlyUserId} non trouvé dans les éligibles (student actif, non en pause)`, date });
-        }
+    } else if (onlyUserId) {
+      // Test ciblé sur un élève : source DB (dispose de l'uuid pour le filtre).
+      recipients = (await fetchEligibleStudents(supabase)).filter(u => u.uuid === onlyUserId);
+      if (!recipients.length) {
+        return res.status(404).json({ error: `User ${onlyUserId} non trouvé dans les éligibles (student actif, non en pause)`, date });
       }
+    } else {
+      // PRODUCTION (#20) : source de vérité = tableur Manu (col T prioritaire, fallback U).
+      const { recipients: fromTableur, stats } = await getBriefRecipients();
+      console.log(`[DAILY-BRIEF] 📋 tableur: rows=${stats.rows} inactifs=${stats.inactifs} no_email=${stats.no_valid_email} dup=${stats.duplicates} → kept=${stats.kept}`);
+      recipients = fromTableur;
     }
     console.log(`[DAILY-BRIEF] 👥 ${recipients.length} destinataire(s)`);
 

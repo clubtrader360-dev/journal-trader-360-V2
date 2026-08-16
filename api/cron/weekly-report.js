@@ -7,7 +7,7 @@
 // ========================================
 
 import { createClient } from '@supabase/supabase-js';
-import { generateWeeklyReportHTML, formatDate } from './_lib/weekly-expert-system.js';
+import { generateWeeklyReportHTML, generatePassiveReportHTML, formatDate } from './_lib/weekly-expert-system.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -51,6 +51,28 @@ export async function fetchEligibleStudents(supabase) {
 }
 
 // ---- Construit le rapport d'UN élève. Retourne { html } ou { skip: '<raison>' }. ----
+// ---- #21 — dispatch actif/passif : journal rempli dans les N derniers jours (Paris) ? ----
+function parisTodayStr() {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }); // YYYY-MM-DD
+}
+function minusDaysStr(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+async function countEntriesLastNDays(supabase, uuid, days) {
+  const today = parisTodayStr();
+  const cutoff = minusDaysStr(today, days);
+  const { count, error } = await supabase
+    .from('journal_entries')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('user_id', uuid)
+    .gte('entry_date', cutoff)
+    .lte('entry_date', today);
+  if (error) throw error;
+  return count || 0;
+}
+
 export async function buildUserReport(supabase, user, period, { preview = false } = {}) {
   const { startDateStr, endDateStr } = period;
   const uid = user.uuid; // toutes les tables référencent user_id = auth uuid
@@ -131,28 +153,38 @@ export default async function handler(req, res) {
     const results = [];
     for (const user of usersToProcess) {
       try {
-        const report = await buildUserReport(supabase, user, period);
-        if (report.skip) {
-          console.log(`[WEEKLY-REPORT] ⏭️ Skipped ${user.email} : ${report.skip}`);
-          results.push({ email: user.email, status: 'skipped', reason: report.skip });
-          continue;
+        // #21 — dispatch : journal rempli dans les 3 derniers jours → rapport actif, sinon rapport passif.
+        const entries3d = await countEntriesLastNDays(supabase, user.uuid, 3);
+        let html, subject, attachments, reportType;
+        if (entries3d >= 1) {
+          const report = await buildUserReport(supabase, user, period);
+          if (report.skip) {
+            console.log(`[WEEKLY-REPORT] ⏭️ Skipped ${user.email} : ${report.skip}`);
+            results.push({ email: user.email, status: 'skipped', reason: report.skip });
+            continue;
+          }
+          html = report.html;
+          attachments = report.attachments;
+          subject = `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`;
+          reportType = 'active';
+        } else {
+          html = generatePassiveReportHTML({ user });
+          attachments = undefined;
+          subject = `Ton rapport de la semaine — pas de data cette fois`;
+          reportType = 'passive';
         }
+
         if (DRY_RUN) {
-          console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport généré (non envoyé) pour ${user.email}`);
-          results.push({ email: user.email, status: 'dry_run' });
+          console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport ${reportType} généré (non envoyé) pour ${user.email} (journal 3j=${entries3d})`);
+          results.push({ email: user.email, status: 'dry_run', reportType });
           continue;
         }
         const recipientForSend = testTo || user.email;
         if (testTo) console.log(`[WEEKLY-REPORT][TEST-OVERRIDE] user=${user.uuid} originalEmail=${user.email} → sentTo=${testTo}`);
-        const sent = await sendEmail({
-          to: recipientForSend,
-          subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
-          html: report.html,
-          attachments: report.attachments,
-        });
+        const sent = await sendEmail({ to: recipientForSend, subject, html, attachments });
         results.push(sent.success
-          ? { email: user.email, status: 'sent', sentTo: recipientForSend, emailId: sent.id }
-          : { email: user.email, status: 'failed', error: sent.error });
+          ? { email: user.email, status: 'sent', reportType, sentTo: recipientForSend, emailId: sent.id }
+          : { email: user.email, status: 'failed', reportType, error: sent.error });
       } catch (e) {
         console.error(`[WEEKLY-REPORT] ❌ ${user.email}:`, e);
         results.push({ email: user.email, status: 'error', error: e.message });
