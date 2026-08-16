@@ -305,95 +305,93 @@
         }
     }
 
-    // ===== FONCTION RÉCUPÉRER TOUS LES ÉLÈVES AVEC LEURS DONNÉES =====
+    // ===== Lecture AGRÉGÉE (vue SQL) — 1 requête, agrégats par élève actif (#perf-coach) =====
+    async function loadCoachConsolidated() {
+        const { data, error } = await supabase.from('coach_consolidated').select('*');
+        if (error) { console.error('[COACH] loadCoachConsolidated:', error); return []; }
+        return data || [];
+    }
+
+    // Batch paginé d'une table par user_id (contourne la limite 1000 lignes de Supabase).
+    // .order('id') → pagination stable (sinon risque de doublons/manquants entre pages).
+    async function loadAllByUser(table, uuids) {
+        const PAGE = 1000;
+        let out = [], from = 0;
+        while (true) {
+            const { data, error } = await supabase
+                .from(table).select('*').in('user_id', uuids)
+                .order('id', { ascending: true }).range(from, from + PAGE - 1);
+            if (error) { console.error(`[COACH] batch ${table}:`, error); break; }
+            out = out.concat(data || []);
+            if (!data || data.length < PAGE) break;
+            from += PAGE;
+        }
+        return out;
+    }
+
+    // ===== FONCTION RÉCUPÉRER TOUS LES ÉLÈVES AVEC LEURS DONNÉES (batch, ex-N+1) =====
+    // AVANT : 1 + 4×N requêtes (≈297). APRÈS : 1 (users) + pages trades + 3 batchs = ~12.
+    // Forme de retour + recalcul pnl STRICTEMENT identiques → chiffres inchangés côté dashboard.
     async function getAllStudentsData() {
-        console.log('[COACH] 📊 Chargement données de tous les élèves...');
-
+        console.log('[COACH] 📊 Chargement données de tous les élèves (batch)...');
         try {
-            // Récupérer tous les élèves actifs
             const { data: students, error: studentsError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('role', 'student')
-                .eq('status', 'active');
-
+                .from('users').select('*').eq('role', 'student').eq('status', 'active');
             if (studentsError) {
                 console.error('[ERROR] Erreur récupération élèves:', studentsError);
                 return [];
             }
+            const uuids = students.map(s => s.uuid).filter(Boolean);
+            if (!uuids.length) return [];
 
-            console.log('[COACH] ✅ Élèves actifs trouvés:', students.length);
+            // 4 batchs en parallèle (chacun paginé).
+            const [allTrades, allAccounts, allCosts, allPayouts] = await Promise.all([
+                loadAllByUser('trades', uuids),
+                loadAllByUser('accounts', uuids),
+                loadAllByUser('account_costs', uuids),
+                loadAllByUser('payouts', uuids),
+            ]);
 
-            // Pour chaque élève, récupérer ses trades et comptes
-            const studentsWithData = await Promise.all(students.map(async (student) => {
-                const uuid = student.uuid;
+            // Recalcul du P&L — formule VERBATIM de l'ancien code (garantit des chiffres identiques).
+            allTrades.forEach(trade => {
+                const entryPrice = parseFloat(trade.entry_price) || 0;
+                const exitPrice = parseFloat(trade.exit_price) || 0;
+                const quantity = parseFloat(trade.quantity) || 1;
+                const direction = trade.direction || 'LONG';
+                const instrument = trade.instrument || 'ES';
+                const directionMultiplier = direction === 'LONG' ? 1 : -1;
+                const instrumentMultiplier = instrument === 'ES' ? 50 :
+                                             instrument === 'NQ' ? 20 :
+                                             instrument === 'MES' ? 5 :
+                                             instrument === 'GC' ? 100 : 1;
+                const calculatedPnl = (exitPrice - entryPrice) * quantity * directionMultiplier * instrumentMultiplier;
+                trade.pnl = parseFloat(trade.manual_pnl) || calculatedPnl;
+            });
 
-                // Récupérer trades
-                const { data: trades, error: tradesError } = await supabase
-                    .from('trades')
-                    .select('*')
-                    .eq('user_id', uuid);
+            // Grouper par user_id (O(n)).
+            const groupBy = (rows) => {
+                const m = new Map();
+                for (const r of rows) { const k = r.user_id; if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
+                return m;
+            };
+            const tradesBy = groupBy(allTrades);
+            const accountsBy = groupBy(allAccounts);
+            const costsBy = groupBy(allCosts);
+            const payoutsBy = groupBy(allPayouts);
 
-                // Calculer le P&L avec la MÊME formule que côté élève
-                if (trades && trades.length > 0) {
-                    trades.forEach(trade => {
-                        // Calculer le P&L
-                        const entryPrice = parseFloat(trade.entry_price) || 0;
-                        const exitPrice = parseFloat(trade.exit_price) || 0;
-                        const quantity = parseFloat(trade.quantity) || 1;
-                        const direction = trade.direction || 'LONG';
-                        const instrument = trade.instrument || 'ES';
-                        
-                        // Formule : (exit - entry) * quantity * direction * multiplier
-                        const directionMultiplier = direction === 'LONG' ? 1 : -1;
-                        const instrumentMultiplier = instrument === 'ES' ? 50 : 
-                                                     instrument === 'NQ' ? 20 : 
-                                                     instrument === 'MES' ? 5 : 
-                                                     instrument === 'GC' ? 100 : 1;
-                        
-                        const calculatedPnl = (exitPrice - entryPrice) * quantity * directionMultiplier * instrumentMultiplier;
-                        
-                        // Utiliser manual_pnl si disponible, sinon le calculé
-                        trade.pnl = parseFloat(trade.manual_pnl) || calculatedPnl;
-                        
-                        console.log(`[COACH] 🔧 Trade ${trade.id} (${instrument} ${direction}): ${trade.pnl.toFixed(2)}`);
-                    });
+            const studentsWithData = students.map(student => ({
+                user: student,
+                data: {
+                    trades: tradesBy.get(student.uuid) || [],
+                    accounts: accountsBy.get(student.uuid) || [],
+                    accountCosts: costsBy.get(student.uuid) || [],
+                    payouts: payoutsBy.get(student.uuid) || []
                 }
-
-                // Récupérer accounts
-                const { data: accounts, error: accountsError } = await supabase
-                    .from('accounts')
-                    .select('*')
-                    .eq('user_id', uuid);
-
-                // Récupérer account_costs
-                const { data: accountCosts, error: costsError } = await supabase
-                    .from('account_costs')
-                    .select('*')
-                    .eq('user_id', uuid);
-
-                // Récupérer payouts
-                const { data: payouts, error: payoutsError } = await supabase
-                    .from('payouts')
-                    .select('*')
-                    .eq('user_id', uuid);
-
-                console.log(`[COACH] 📈 ${student.email}: ${trades?.length || 0} trades, ${accounts?.length || 0} comptes`);
-
-                return {
-                    user: student,
-                    data: {
-                        trades: trades || [],
-                        accounts: accounts || [],
-                        accountCosts: accountCosts || [],
-                        payouts: payouts || []
-                    }
-                };
             }));
 
-            console.log('[COACH] ✅ Données complètes chargées pour', studentsWithData.length, 'élèves');
+            const nbReq = 1 + Math.max(1, Math.ceil(allTrades.length / 1000)) + 3;
+            console.log(`[COACH] ✅ Batch : ${studentsWithData.length} élèves · ${allTrades.length} trades · ~${nbReq} requêtes Supabase (vs ${1 + 4 * students.length} avant)`);
             return studentsWithData;
-
         } catch (err) {
             console.error('[ERROR] Exception getAllStudentsData:', err);
             return [];
