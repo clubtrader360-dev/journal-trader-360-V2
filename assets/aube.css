@@ -1720,3 +1720,49 @@ body.coach-view-readonly [onclick*="changeEmail"] {
   cursor: not-allowed !important;
   filter: grayscale(0.6);
 }
+
+/* ============================================================
+   MIC DICTATION (#13) — bouton micro dans les textareas du journal
+   ============================================================ */
+.mic-dictation-wrap { position: relative; display: block; }
+.mic-dictation-wrap > textarea { padding-right: 46px !important; }
+
+.mic-btn {
+  position: absolute; top: 8px; right: 8px;
+  width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; cursor: pointer;
+  background: rgba(0, 11, 37, 0.04);
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  color: var(--aube-or, #d4af37);
+  font-size: 15px; line-height: 1;
+  transition: background .15s ease, transform .12s ease, color .15s ease, border-color .15s ease;
+  z-index: 3;
+}
+.mic-btn:hover { background: rgba(212, 175, 55, 0.14); transform: translateY(-1px); }
+.mic-btn:focus-visible { outline: 2px solid var(--aube-or, #d4af37); outline-offset: 2px; }
+.mic-btn.unsupported { color: #9aa0aa; border-color: rgba(154, 160, 170, 0.4); }
+.mic-btn.error { color: #e5484d; border-color: rgba(229, 72, 77, 0.6); }
+.mic-btn.listening {
+  color: #fff; background: #e5484d; border-color: #e5484d;
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55); }
+  50%      { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); }
+}
+
+.mic-indicator {
+  position: absolute; bottom: 8px; right: 44px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 999px;
+  background: #000B25; color: #fff;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none; z-index: 3;
+}
+.mic-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #e5484d; animation: micPulse 1.2s ease-in-out infinite;
+}

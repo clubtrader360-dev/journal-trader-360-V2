@@ -4049,7 +4049,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <p class="text-sm text-gray-500 mt-2" id="mantraAuthor">- Robert Collier</p>
                     </div>
                     <div id="mantraEdit" style="display: none;">
-                        <textarea id="mantraInput" class="w-full p-3 border-2 border-gray-300 rounded-lg resize-none" rows="3" placeholder="Entrez votre citation ou mantra..."></textarea>
+                        <textarea data-mic-dictation="true" id="mantraInput" class="w-full p-3 border-2 border-gray-300 rounded-lg resize-none" rows="3" placeholder="Entrez votre citation ou mantra..."></textarea>
                         <input type="text" id="authorInput" class="w-full p-2 border-2 border-gray-300 rounded-lg mt-2" placeholder="Auteur (optionnel)">
                         <div class="flex gap-2 mt-3">
                             <button onclick="saveMantra()" class="trader-btn-secondary flex-1">
@@ -5538,7 +5538,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 
                 <div class="form-group">
                     <label>Notes du trade</label>
-                    <textarea id="tradeNotes" rows="4" placeholder="Décrivez votre analyse, votre plan de trade, vos observations..."></textarea>
+                    <textarea data-mic-dictation="true" id="tradeNotes" rows="4" placeholder="Décrivez votre analyse, votre plan de trade, vos observations..."></textarea>
                 </div>
                 
                 <div class="form-group">
@@ -5637,7 +5637,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 
                 <div class="form-group">
                     <label>Note/Observation</label>
-                    <textarea id="noteText" rows="6" placeholder="Décrivez votre journée de trading, vos observations, vos erreurs, vos succès..." required></textarea>
+                    <textarea data-mic-dictation="true" id="noteText" rows="6" placeholder="Décrivez votre journée de trading, vos observations, vos erreurs, vos succès..." required></textarea>
                 </div>
                 
                 <!-- ========================================
@@ -6021,7 +6021,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 
                 <div class="form-group">
                     <label>📝 Note (optionnelle)</label>
-                    <textarea id="feeNotes" rows="3" placeholder="Ex: Frais Tradovate, Commissions journée..."></textarea>
+                    <textarea data-mic-dictation="true" id="feeNotes" rows="3" placeholder="Ex: Frais Tradovate, Commissions journée..."></textarea>
                 </div>
                 
                 <div class="flex gap-4 mt-6">
@@ -6071,7 +6071,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 
                 <div class="form-group">
                     <label>Notes (optionnel)</label>
-                    <textarea id="accountCostNotes" rows="3" placeholder="Détails sur le compte, challenge, objectifs..."></textarea>
+                    <textarea data-mic-dictation="true" id="accountCostNotes" rows="3" placeholder="Détails sur le compte, challenge, objectifs..."></textarea>
                 </div>
                 
                 <div class="flex gap-4 mt-6">
@@ -6105,7 +6105,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 
                 <div class="form-group">
                     <label>Notes (optionnel)</label>
-                    <textarea id="payoutNotes" rows="3" placeholder="Détails sur le payout, délai de traitement..."></textarea>
+                    <textarea data-mic-dictation="true" id="payoutNotes" rows="3" placeholder="Détails sur le payout, délai de traitement..."></textarea>
                 </div>
                 
                 <div class="flex gap-4 mt-6">
@@ -16214,6 +16214,7 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     
 
     <!-- "Bourse à l'Aube" — fond multi-couches (bougies + ticker + particules) + chorégraphie -->
+    <script src="/assets/mic-dictation.js" defer></script>
     <script src="/assets/candles-bg.js" defer></script>
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
