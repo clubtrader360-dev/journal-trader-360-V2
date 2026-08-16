@@ -667,7 +667,7 @@ function generatePassiveReportHTML({ user }) {
         <a href="https://www.journaltrader360.fr" style="display:inline-block; background:${PALETTE.goldBright}; color:#000B25; padding:16px 36px; border-radius:10px; text-decoration:none; font-weight:700; font-size:15px; letter-spacing:0.03em;">Ouvre ton journal maintenant</a>
       </div>
 
-      <p style="text-align:center; color:${PALETTE.textSecondary}; font-size:14px; font-style:italic; margin:24px 0 0;">Emmanuel — Trader 360</p>
+      <p style="text-align:center; color:${PALETTE.textSecondary}; font-size:14px; font-style:italic; margin:24px 0 0;">Tes coachs — Trader 360</p>
 
       <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
         Trader 360 · rapport généré le ${formatDate(new Date().toISOString().split('T')[0])}<br>
