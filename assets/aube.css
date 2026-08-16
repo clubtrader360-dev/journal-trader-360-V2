@@ -1766,3 +1766,63 @@ body.coach-view-readonly [onclick*="changeEmail"] {
   width: 8px; height: 8px; border-radius: 50%;
   background: #e5484d; animation: micPulse 1.2s ease-in-out infinite;
 }
+
+/* ============================================================
+   LEGAL / CONSENT (#19) — footer, consentement, modal re-acceptation
+   ============================================================ */
+.app-footer { background: #0F1C3D; color: #FBF8F1; margin-top: 40px; }
+.app-footer-inner {
+  max-width: 1100px; margin: 0 auto; padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.app-footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.app-footer-links a { color: #d4af37; text-decoration: none; font-size: 0.9rem; }
+.app-footer-links a:hover { text-decoration: underline; }
+.app-footer-copyright { color: #b9c2d6; font-size: 0.82rem; }
+
+/* Consentement (register + modal) */
+.form-legal-consent { margin-bottom: 16px; }
+.legal-consent-label {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  font-size: 0.88rem; line-height: 1.5;
+}
+.legal-consent-label input[type="checkbox"] { margin-top: 3px; width: 17px; height: 17px; flex-shrink: 0; accent-color: #d4af37; cursor: pointer; }
+.legal-consent-label a { color: #b8912e; text-decoration: underline; font-weight: 600; }
+
+/* Modal de re-acceptation (bloquant, non dismissible) */
+.legal-modal-overlay {
+  position: fixed; inset: 0; z-index: 10070;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.75); padding: 20px;
+}
+.legal-modal-card {
+  width: 100%; max-width: 480px; background: #FBF8F1; color: #0F1C3D;
+  border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 14px;
+  padding: 26px 26px 24px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+.legal-modal-card h3 {
+  margin: 0 0 12px; font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.3rem; color: #0F1C3D;
+}
+.legal-modal-card p { margin: 0 0 16px; font-size: 0.94rem; line-height: 1.6; }
+.legal-modal-links { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.legal-modal-links a { color: #b8912e; text-decoration: underline; font-weight: 600; font-size: 0.9rem; }
+.legal-modal-card .legal-consent-label { margin-bottom: 18px; }
+.legal-modal-card button {
+  width: 100%; padding: 11px 16px; border-radius: 10px; border: none; cursor: pointer;
+  background: linear-gradient(90deg, #b8912e, #d4af37); color: #0F1C3D; font-weight: 700; font-size: 0.95rem;
+}
+.legal-modal-card button:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.4); }
+
+/* Card Documents légaux (Mon Profil) */
+.profile-legal-card {
+  margin-top: 20px; padding: 16px 18px; border-radius: 12px;
+  background: rgba(212, 175, 55, 0.06); border: 1px solid rgba(212, 175, 55, 0.28);
+}
+.profile-legal-title { font-weight: 700; margin-bottom: 10px; color: #b8912e; }
+.profile-legal-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.profile-legal-links a { color: #b8912e; text-decoration: underline; font-size: 0.9rem; }
+
+@media (max-width: 640px) {
+  .app-footer-inner { flex-direction: column; align-items: flex-start; }
+}

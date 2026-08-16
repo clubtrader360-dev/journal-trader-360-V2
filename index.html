@@ -2193,6 +2193,7 @@
      ======================================== -->
 <script src="/supabase-config.js"></script>
 <script src="/assets/coach-view.js"></script>
+<script src="/assets/legal-version.js"></script>
 <script src="/supabase-auth.js"></script>
 <script src="/supabase-trades.js"></script>
 <script src="/supabase-journal.js"></script>
@@ -3161,6 +3162,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <div class="form-group">
                         <label for="confirmPassword">Confirmer le mot de passe</label>
                         <input type="password" id="confirmPassword" name="confirm-password" autocomplete="new-password" placeholder="Confirmez votre mot de passe" minlength="6" required aria-required="true">
+                    </div>
+                    <div class="form-group form-legal-consent">
+                        <label class="legal-consent-label">
+                            <input type="checkbox" id="registerLegalAccept" required aria-required="true">
+                            <span>J'accepte les <a href="/cgv.html" target="_blank" rel="noopener">CGV</a>, les <a href="/cgu.html" target="_blank" rel="noopener">CGU</a> et la <a href="/confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>.</span>
+                        </label>
                     </div>
                     <button type="submit" id="registerBtn" class="trader-btn w-full mb-4">S'inscrire</button>
                 </form>
@@ -5303,6 +5310,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <button type="button" class="btn-pending-primary" onclick="checkEmailConfirmation()">
                             <i class="fas fa-check-circle"></i> J'ai cliqué → vérifier
                         </button>
+                    </div>
+                </div>
+
+                <!-- #19 — Documents légaux (consultation à tout moment) -->
+                <div class="profile-legal-card">
+                    <div class="profile-legal-title"><i class="fas fa-scale-balanced" style="margin-right:8px;"></i>Documents légaux</div>
+                    <div class="profile-legal-links">
+                        <a href="/mentions-legales.html" target="_blank" rel="noopener">Mentions légales</a>
+                        <a href="/cgv.html" target="_blank" rel="noopener">CGV</a>
+                        <a href="/confidentialite.html" target="_blank" rel="noopener">Politique de confidentialité</a>
+                        <a href="/cgu.html" target="_blank" rel="noopener">CGU</a>
                     </div>
                 </div>
             </div>
@@ -16383,6 +16401,95 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
                 if (btn) btn.disabled = false;
             }
         };
+    </script>
+
+    <!-- #19 — Footer commun (liens légaux) -->
+    <footer class="app-footer">
+      <div class="app-footer-inner">
+        <div class="app-footer-links">
+          <a href="/mentions-legales.html">Mentions légales</a>
+          <a href="/cgv.html">CGV</a>
+          <a href="/confidentialite.html">Confidentialité</a>
+          <a href="/cgu.html">CGU</a>
+        </div>
+        <div class="app-footer-copyright">© 2026 TRADER 360 · Tous droits réservés</div>
+      </div>
+    </footer>
+
+    <!-- #19 — Modal de re-acceptation légale (bloquant, non dismissible) -->
+    <div id="legalUpdateModal" class="legal-modal-overlay" style="display:none;">
+      <div class="legal-modal-card">
+        <h3>Mise à jour de nos conditions</h3>
+        <p>Nous avons mis à jour nos CGV, CGU et politique de confidentialité. Merci de les valider pour continuer à utiliser votre journal.</p>
+        <div class="legal-modal-links">
+          <a href="/cgv.html" target="_blank" rel="noopener">Lire les CGV</a>
+          <a href="/cgu.html" target="_blank" rel="noopener">Lire les CGU</a>
+          <a href="/confidentialite.html" target="_blank" rel="noopener">Lire la politique de confidentialité</a>
+        </div>
+        <label class="legal-consent-label">
+          <input type="checkbox" id="legalUpdateAccept">
+          <span>J'ai lu et j'accepte les conditions mises à jour.</span>
+        </label>
+        <button id="legalUpdateSubmit" class="trader-btn" disabled>Continuer</button>
+      </div>
+    </div>
+
+    <script>
+    // #19 — Logique de re-acceptation légale.
+    (function () {
+      function accepted(user) {
+        if (!user || !user.legal_accepted_at) return false;
+        const v = window.LEGAL_VERSION_DATE ? new Date(window.LEGAL_VERSION_DATE).getTime() : 0;
+        const a = new Date(user.legal_accepted_at).getTime();
+        return !isNaN(a) && a >= v;
+      }
+
+      window.maybePromptLegalConsent = function () {
+        // Coach-view (#80) : le coach ne re-accepte pas à la place de l'élève.
+        if (window.CoachView && window.CoachView.isActive()) return;
+        if (accepted(window.currentUser)) return;
+        const modal = document.getElementById('legalUpdateModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        const cb = document.getElementById('legalUpdateAccept');
+        const btn = document.getElementById('legalUpdateSubmit');
+        if (cb) cb.checked = false;
+        if (btn) btn.disabled = true;
+      };
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const cb = document.getElementById('legalUpdateAccept');
+        const btn = document.getElementById('legalUpdateSubmit');
+        const modal = document.getElementById('legalUpdateModal');
+        if (!cb || !btn || !modal) return;
+
+        cb.addEventListener('change', function () { btn.disabled = !cb.checked; });
+
+        // Non dismissible : Escape et clic extérieur désactivés.
+        modal.addEventListener('click', function (e) { if (e.target === modal) e.stopPropagation(); }, true);
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && modal.style.display !== 'none') { e.stopPropagation(); e.preventDefault(); }
+        }, true);
+
+        btn.addEventListener('click', async function () {
+          if (!cb.checked) return;
+          btn.disabled = true; btn.textContent = 'Enregistrement…';
+          try {
+            const uuid = window.currentUserUuid || (window.currentUser && window.currentUser.uuid);
+            const nowIso = new Date().toISOString();
+            const { error } = await window.supabaseClient.from('users')
+              .update({ legal_accepted_at: nowIso }).eq('uuid', uuid);
+            if (error) throw error;
+            if (window.currentUser) window.currentUser.legal_accepted_at = nowIso;
+            modal.style.display = 'none';
+          } catch (err) {
+            console.error('[LEGAL] échec enregistrement acceptation:', err);
+            window.showNotification && window.showNotification('Erreur lors de l\'enregistrement. Réessaie.', 'error');
+            btn.disabled = false; btn.textContent = 'Continuer';
+          }
+        });
+      });
+    })();
     </script>
 </body>
 </html>
