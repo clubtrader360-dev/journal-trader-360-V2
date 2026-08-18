@@ -51,24 +51,16 @@ export async function fetchEligibleStudents(supabase) {
 }
 
 // ---- Construit le rapport d'UN élève. Retourne { html } ou { skip: '<raison>' }. ----
-// ---- #21 — dispatch actif/passif : journal rempli dans les N derniers jours (Paris) ? ----
-function parisTodayStr() {
-  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }); // YYYY-MM-DD
-}
-function minusDaysStr(dateStr, days) {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-async function countEntriesLastNDays(supabase, uuid, days) {
-  const today = parisTodayStr();
-  const cutoff = minusDaysStr(today, days);
+// ---- #21 — dispatch actif/passif : journal rempli dans la SEMAINE ISO du rapport ? ----
+// Actif journal  = ≥1 entrée sur [startDateStr, endDateStr] (même fenêtre que le rapport)
+// Passif journal = 0 entrée sur cette semaine
+async function countEntriesInWeek(supabase, uuid, startDateStr, endDateStr) {
   const { count, error } = await supabase
     .from('journal_entries')
     .select('user_id', { count: 'exact', head: true })
     .eq('user_id', uuid)
-    .gte('entry_date', cutoff)
-    .lte('entry_date', today);
+    .gte('entry_date', startDateStr)
+    .lte('entry_date', endDateStr);
   if (error) throw error;
   return count || 0;
 }
@@ -101,6 +93,41 @@ export async function buildUserReport(supabase, user, period, { preview = false 
     radarMode: preview ? 'datauri' : 'cid', // preview navigateur = data URI ; email = CID attachment
   });
   return { html, attachments };
+}
+
+// ========================================
+// Dispatch actif / passif pour UN élève.
+// Garantie : retourne TOUJOURS un email à envoyer — plus aucun skip silencieux.
+//   • ≥1 entrée journal cette semaine + rapport constructible → rapport ACTIF
+//   • ≥1 entrée journal mais buildUserReport skip (typiquement 0 trades) → fallback PASSIF
+//   • 0 entrée journal cette semaine → rapport PASSIF
+// ========================================
+async function generateForUser(supabase, user, period) {
+  const entriesWeek = await countEntriesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr);
+
+  if (entriesWeek >= 1) {
+    const report = await buildUserReport(supabase, user, period);
+    if (!report.skip) {
+      return {
+        html: report.html,
+        attachments: report.attachments,
+        subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
+        reportType: 'active',
+        entriesWeek,
+      };
+    }
+    // Fallback : entries journal OK mais buildUserReport skip (typiquement 0 trades)
+    // → rapport passif (message cohérent : pas assez de data pour analyser)
+    console.log(`[WEEKLY-REPORT] ⏬ Fallback passif pour ${user.email} : ${report.skip} (entriesWeek=${entriesWeek})`);
+  }
+
+  return {
+    html: generatePassiveReportHTML({ user }),
+    attachments: undefined,
+    subject: `Ton rapport de la semaine — pas de data cette fois`,
+    reportType: 'passive',
+    entriesWeek,
+  };
 }
 
 // ========================================
@@ -145,7 +172,7 @@ export default async function handler(req, res) {
     if (onlyUserId) {
       usersToProcess = eligible.filter(u => u.uuid === onlyUserId);
       if (usersToProcess.length === 0) {
-        return res.status(404).json({ error: `User ${onlyUserId} non trouvé dans les éligibles (vérifier ≥1 trade ET ≥1 entrée journal cette semaine, et pas en mode Pause)` });
+        return res.status(404).json({ error: `User ${onlyUserId} non trouvé dans les éligibles (vérifier role=student, status=active, et pas en mode Pause)` });
       }
       console.log(`[WEEKLY-REPORT] 🎯 1 user ciblé, ${eligible.length - usersToProcess.length} autres skippés`);
     }
@@ -153,29 +180,11 @@ export default async function handler(req, res) {
     const results = [];
     for (const user of usersToProcess) {
       try {
-        // #21 — dispatch : journal rempli dans les 3 derniers jours → rapport actif, sinon rapport passif.
-        const entries3d = await countEntriesLastNDays(supabase, user.uuid, 3);
-        let html, subject, attachments, reportType;
-        if (entries3d >= 1) {
-          const report = await buildUserReport(supabase, user, period);
-          if (report.skip) {
-            console.log(`[WEEKLY-REPORT] ⏭️ Skipped ${user.email} : ${report.skip}`);
-            results.push({ email: user.email, status: 'skipped', reason: report.skip });
-            continue;
-          }
-          html = report.html;
-          attachments = report.attachments;
-          subject = `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`;
-          reportType = 'active';
-        } else {
-          html = generatePassiveReportHTML({ user });
-          attachments = undefined;
-          subject = `Ton rapport de la semaine — pas de data cette fois`;
-          reportType = 'passive';
-        }
+        // #21 — dispatch : ≥1 entrée journal dans la semaine ISO → rapport actif, sinon passif.
+        const { html, attachments, subject, reportType, entriesWeek } = await generateForUser(supabase, user, period);
 
         if (DRY_RUN) {
-          console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport ${reportType} généré (non envoyé) pour ${user.email} (journal 3j=${entries3d})`);
+          console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport ${reportType} généré (non envoyé) pour ${user.email} (journal semaine=${entriesWeek})`);
           results.push({ email: user.email, status: 'dry_run', reportType });
           continue;
         }
