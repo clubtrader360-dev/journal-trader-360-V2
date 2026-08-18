@@ -50,10 +50,9 @@ export async function fetchEligibleStudents(supabase) {
   return (users || []).filter(u => u.uuid && !vacationMap.get(u.uuid));
 }
 
-// ---- Construit le rapport d'UN élève. Retourne { html } ou { skip: '<raison>' }. ----
-// ---- #21 — dispatch actif/passif : journal rempli dans la SEMAINE ISO du rapport ? ----
-// Actif journal  = ≥1 entrée sur [startDateStr, endDateStr] (même fenêtre que le rapport)
-// Passif journal = 0 entrée sur cette semaine
+// ---- Signaux de dispatch, mesurés sur la SEMAINE ISO du rapport ----
+// Les deux comptages utilisent la fenêtre [startDateStr, endDateStr] de getWeekBounds(),
+// donc exactement la période analysée dans le rapport.
 async function countEntriesInWeek(supabase, uuid, startDateStr, endDateStr) {
   const { count, error } = await supabase
     .from('journal_entries')
@@ -61,6 +60,17 @@ async function countEntriesInWeek(supabase, uuid, startDateStr, endDateStr) {
     .eq('user_id', uuid)
     .gte('entry_date', startDateStr)
     .lte('entry_date', endDateStr);
+  if (error) throw error;
+  return count || 0;
+}
+
+async function countTradesInWeek(supabase, uuid, startDateStr, endDateStr) {
+  const { count, error } = await supabase
+    .from('trades')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('user_id', uuid)
+    .gte('trade_date', startDateStr)
+    .lte('trade_date', endDateStr);
   if (error) throw error;
   return count || 0;
 }
@@ -79,8 +89,10 @@ export async function buildUserReport(supabase, user, period, { preview = false 
   const weekTrades = trades || [];
   const weekJournal = journalEntries || [];
 
+  // Seul le manque de trades empêche de construire un rapport chiffré.
+  // Un journal vide est désormais TOLÉRÉ : le rapport part en version « actif chiffres »
+  // avec un encart d'alerte (cf. generateWeeklyReportHTML, journaledDays === 0).
   if (weekTrades.length === 0) return { skip: '0 trades' };
-  if (weekJournal.length === 0) return { skip: 'no journal entries' };
 
   const { html, attachments } = generateWeeklyReportHTML({
     user,
@@ -96,38 +108,49 @@ export async function buildUserReport(supabase, user, period, { preview = false 
 }
 
 // ========================================
-// Dispatch actif / passif pour UN élève.
-// Garantie : retourne TOUJOURS un email à envoyer — plus aucun skip silencieux.
-//   • ≥1 entrée journal cette semaine + rapport constructible → rapport ACTIF
-//   • ≥1 entrée journal mais buildUserReport skip (typiquement 0 trades) → fallback PASSIF
-//   • 0 entrée journal cette semaine → rapport PASSIF
+// Dispatch 3 versions pour UN élève, sur 2 signaux (trades + journal de la semaine).
+// Garantie : retourne TOUJOURS un email à envoyer — aucun skip silencieux.
+//
+//   tradesWeek | entriesWeek | version
+//   -----------|-------------|--------------------------------------------------
+//        0     |      *      | 'passive'           — motivation, rien à analyser
+//       ≥1     |     ≥1      | 'active'            — rapport complet
+//       ≥1     |      0      | 'active_no_journal' — chiffres + encart alerte
 // ========================================
+const PASSIVE_SUBJECT = `Ton rapport de la semaine — pas de data cette fois`;
+
 async function generateForUser(supabase, user, period) {
-  const entriesWeek = await countEntriesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr);
+  const [entriesWeek, tradesWeek] = await Promise.all([
+    countEntriesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr),
+    countTradesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr),
+  ]);
 
-  if (entriesWeek >= 1) {
-    const report = await buildUserReport(supabase, user, period);
-    if (!report.skip) {
-      return {
-        html: report.html,
-        attachments: report.attachments,
-        subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
-        reportType: 'active',
-        entriesWeek,
-      };
-    }
-    // Fallback : entries journal OK mais buildUserReport skip (typiquement 0 trades)
-    // → rapport passif (message cohérent : pas assez de data pour analyser)
-    console.log(`[WEEKLY-REPORT] ⏬ Fallback passif pour ${user.email} : ${report.skip} (entriesWeek=${entriesWeek})`);
-  }
-
-  return {
+  const passive = () => ({
     html: generatePassiveReportHTML({ user }),
     attachments: undefined,
-    subject: `Ton rapport de la semaine — pas de data cette fois`,
+    subject: PASSIVE_SUBJECT,
     reportType: 'passive',
-    entriesWeek,
-  };
+    entriesWeek, tradesWeek,
+  });
+
+  // Aucun trade → rapport passif (peu importe le journal : rien de chiffré à analyser)
+  if (tradesWeek === 0) return passive();
+
+  // Trades ≥ 1 → rapport actif, avec ou sans insights journal
+  const report = await buildUserReport(supabase, user, period);
+  if (!report.skip) {
+    return {
+      html: report.html,
+      attachments: report.attachments,
+      subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
+      reportType: entriesWeek >= 1 ? 'active' : 'active_no_journal',
+      entriesWeek, tradesWeek,
+    };
+  }
+
+  // Filet de sécurité : buildUserReport skip pour une raison inattendue → passif
+  console.log(`[WEEKLY-REPORT] ⏬ Fallback passif pour ${user.email} : ${report.skip} (tradesWeek=${tradesWeek}, entriesWeek=${entriesWeek})`);
+  return passive();
 }
 
 // ========================================
@@ -180,12 +203,13 @@ export default async function handler(req, res) {
     const results = [];
     for (const user of usersToProcess) {
       try {
-        // #21 — dispatch : ≥1 entrée journal dans la semaine ISO → rapport actif, sinon passif.
-        const { html, attachments, subject, reportType, entriesWeek } = await generateForUser(supabase, user, period);
+        // #21 — dispatch 3 versions sur (tradesWeek, entriesWeek) de la semaine ISO.
+        const { html, attachments, subject, reportType, entriesWeek, tradesWeek } = await generateForUser(supabase, user, period);
+        console.log(`[WEEKLY-REPORT] 📬 ${user.email} → ${reportType} (trades=${tradesWeek}, journal=${entriesWeek})`);
 
         if (DRY_RUN) {
-          console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport ${reportType} généré (non envoyé) pour ${user.email} (journal semaine=${entriesWeek})`);
-          results.push({ email: user.email, status: 'dry_run', reportType });
+          console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport ${reportType} généré (non envoyé) pour ${user.email}`);
+          results.push({ email: user.email, status: 'dry_run', reportType, entriesWeek, tradesWeek });
           continue;
         }
         const recipientForSend = testTo || user.email;

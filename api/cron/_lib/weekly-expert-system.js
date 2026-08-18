@@ -542,6 +542,17 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:28px 0;"></div>`;
   const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
 
+  // Version « actif chiffres » : l'élève a tradé mais n'a rien journalisé cette semaine.
+  // Encart placé juste après le hero P&L pour être impossible à rater.
+  const journaledDays = (journalEntries || []).length;
+  const noJournalNotice = journaledDays === 0 ? `
+      <div style="background:rgba(212, 175, 55, 0.12); border-left:4px solid ${PALETTE.goldFrame}; padding:16px 20px; margin:24px 0; border-radius:8px;">
+        <div style="color:${PALETTE.gold}; font-weight:700; font-size:15px; margin-bottom:6px;">⚠️ Journal non rempli cette semaine</div>
+        <div style="color:${PALETTE.champagne}; font-size:14px; line-height:1.5;">
+          Tu as tradé cette semaine mais tu n'as pas rempli ton journal quotidien. Les chiffres bruts sont là, mais l'analyse de ta discipline, de tes erreurs récurrentes et de tes patterns émotionnels est manquante — c'est pourtant la moitié la plus importante du travail. La semaine prochaine, prends 5 minutes chaque soir pour debriefer, et ton rapport sera complet.
+        </div>
+      </div>` : '';
+
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Rapport hebdomadaire — Trader 360</title></head>
 <body style="margin:0; padding:0; background:${PALETTE.bgNavy};">
@@ -560,7 +571,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
         <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:40px; font-weight:700; color:${pnlColor}; line-height:1.2; margin-top:8px;">${pnlSign}$${pnlAbs}</div>
         ${rrLine}
       </div>
-
+${noJournalNotice}
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
         ${kpiCard('Win Rate', winRate + '%', winRate >= 50 ? PALETTE.emerald : PALETTE.coral)}
         ${kpiCard('Profit Factor', pfDisplay, pf >= 1 ? PALETTE.emerald : PALETTE.coral)}
