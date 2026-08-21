@@ -88,15 +88,23 @@ jobs:
           fi
 
           # === VALIDATION STRICTE ANTI-MÉTA-COMMENTAIRE (bug prod P1) ===
-          # 1. Extraction robuste : tout depuis <div class="brief-marche"> jusqu'à la FIN.
+          # 1. Extraction robuste : tout depuis la div wrapper 'brief-marche' jusqu'à la FIN.
           #    Pardonne un préambule méta AVANT le vrai HTML (Claude a parfois bavardé) en le
           #    coupant. On va jusqu'à EOF (pas au 1er </div>) car le brief contient des <div>
           #    imbriqués (encarts) → s'arrêter au 1er </div> tronquait le brief.
           #    Si le marqueur est absent → /tmp/brief.html vide → échec (pas de mail cassé).
-          sed -n '/<div class="brief-marche">/,$p' /tmp/brief_raw.html > /tmp/brief.html
+          #
+          #    Le motif tolère les ATTRIBUTS sur la balise wrapper. L'ancien motif exigeait
+          #    '<div class="brief-marche">' avec le '>' collé : le run du 2026-08-21 a produit
+          #    '<div class="brief-marche" style="font-family:Arial;…">' — brief parfaitement
+          #    valide, rejeté à tort, aucun mail envoyé. Le prompt réclame des styles inline
+          #    partout (compat email), donc un attribut sur le wrapper est une variation
+          #    normale du modèle, pas une anomalie. Couvre aussi class en quotes simples et
+          #    l'ordre inverse des attributs.
+          sed -n '/<div[^>]*brief-marche/,$p' /tmp/brief_raw.html > /tmp/brief.html
 
           if [ ! -s /tmp/brief.html ]; then
-            echo "::error::Bloc <div class=\"brief-marche\">…</div> introuvable dans la sortie Claude — méta-commentaire probable. Rien n'est envoyé."
+            echo "::error::Wrapper <div ... class=\"brief-marche\"> introuvable dans la sortie Claude. Rien n'est envoyé. Vérifier le STDOUT ci-dessous : soit Claude n'a produit que du méta-commentaire, soit il a renommé/omis le wrapper."
             echo "---START STDOUT (100 lignes) ---"; head -100 /tmp/brief_raw.html 2>/dev/null || true; echo "---END STDOUT---"
             exit 1
           fi

@@ -11,6 +11,7 @@ INTERDIT (casse le mail envoyé à des traders payants) :
 OBLIGATOIRE :
 - **N'écris AUCUN fichier.** Émets le HTML **directement sur ta sortie (stdout)**.
 - Le **tout premier caractère** de ta réponse est `<` (début de `<div class="brief-marche">`). Le **dernier** est `>` (fin de `</div>`).
+- La classe `brief-marche` doit être présente sur cette div d'ouverture. Tu peux y ajouter un `style="…"` inline si utile — seule la classe est obligatoire.
 - Fais toutes tes vérifications/recherches en interne (outils) mais **ne les raconte pas** — seul le HTML final sort. L'audit qualité va dans un commentaire HTML `<!-- ... -->` à l'intérieur du bloc (voir plus bas).
 
 ⚠️ Cette sortie EST envoyée telle quelle par email à 74 traders payants (bientôt à des leads externes via lead magnet). **Un seul caractère hors du HTML casse le mail entier.** En cas de doute, produis le HTML et rien de plus.
