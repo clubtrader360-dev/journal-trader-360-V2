@@ -19,6 +19,18 @@ const COL_MAIL_LB = 19;  // T (prioritaire)
 const COL_MAIL_PERSO = 20; // U (fallback, multi-valeurs)
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// ---- Coachs : ajoutés EN DUR, volontairement hors tableur ----
+// Décision produit : l'onglet "👥 Parcours Membre" de Manu est la source de vérité des
+// ÉLÈVES et sert de base à ses décomptes (suivi, relances, statistiques d'engagement).
+// Y insérer les coachs ferait passer ses totaux à 77 dont 3 non-élèves et fausserait
+// toutes ses lignes. Les coachs sont donc concaténés ici, après lecture du tableur.
+// Conséquence assumée : cette liste se maintient dans le code, pas dans le tableur.
+const COACH_RECIPIENTS = [
+  { email: 'clubtrader360@gmail.com',   prenom: 'Emmanuel', nom: 'Trader 360', statut: 'Coach', name: 'Coach Trader 360' },
+  { email: 'nkasmi59@gmail.com',        prenom: 'Nadir',    nom: 'Kasmi',      statut: 'Coach', name: 'Nadir Kasmi' },
+  { email: 'emmanuel.galiano@gmail.com', prenom: 'Emmanuel', nom: 'Galiano',   statut: 'Coach', name: 'Emmanuel Galiano' },
+];
+
 // Email retenu pour une ligne : T valide en priorité, sinon 1re valeur valide de U.
 function pickEmail(row) {
   const t = String(row[COL_MAIL_LB] || '').trim().toLowerCase();
@@ -38,7 +50,7 @@ export async function getBriefRecipients() {
   });
   const values = resp.data.values || [];
 
-  const stats = { rows: values.length, inactifs: 0, no_valid_email: 0, duplicates: 0, kept: 0 };
+  const stats = { rows: values.length, inactifs: 0, no_valid_email: 0, duplicates: 0, kept: 0, coaches: 0, total: 0 };
   const seen = new Set();
   const recipients = [];
 
@@ -59,5 +71,20 @@ export async function getBriefRecipients() {
     stats.kept++;
   }
 
+  // Coachs concaténés APRÈS le tableur, donc jamais soumis au filtre de statut (col D) :
+  // ils ne viennent pas du tableur et n'ont pas de statut à filtrer.
+  // Dédup case-insensitive contre `seen`, qui contient déjà les emails élèves : un coach
+  // présent par ailleurs dans le tableur reste servi UNE seule fois (sa ligne tableur
+  // l'emporte, avec son statut réel). Compté à part pour ne pas polluer stats.duplicates,
+  // qui mesure les doublons internes au tableur.
+  for (const coach of COACH_RECIPIENTS) {
+    const key = coach.email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recipients.push({ ...coach, email: key });
+    stats.coaches++;
+  }
+
+  stats.total = recipients.length; // = kept + coaches
   return { recipients, stats };
 }
