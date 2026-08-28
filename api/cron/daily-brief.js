@@ -54,6 +54,11 @@ export async function fetchEligibleStudents(supabase) {
 }
 
 // ---- Sujet ----
+// Tag de personnalisation Brevo (Brevo Template Language). Interprété par Brevo à
+// l'envoi de la campagne, JAMAIS par nous. Le filtre `default` fournit le repli des
+// contacts sans PRENOM. Réservé au chemin campagne : sur Resend, il s'afficherait tel quel.
+export const BREVO_FIRSTNAME_TAG = '{{ contact.PRENOM|default:"Trader" }}';
+
 export function emailSubject(dateLongFr) {
   return `📊 Brief marché — ${dateLongFr}`;
 }
@@ -251,7 +256,18 @@ export default async function handler(req, res) {
         const campaign = await createCampaign({
           name: `Brief T360 — ${date}`,
           subject,
-          htmlContent: wrapBriefHtml({ firstName: null, dateLongFr: date_long_fr, briefHtml: brief_html }),
+          // Personnalisation déléguée à Brevo : une campagne envoie UN html unique, le
+          // prénom ne peut donc pas être injecté côté serveur comme sur Resend.
+          // Le filtre `default` couvre les lignes du tableur sans prénom → "Bonjour Trader,".
+          // Syntaxe SANS espaces autour de | et : — Brevo documente {{ contact.ATTR|filter }},
+          // son langage dérive de Django, dont le parseur rejette les espaces.
+          // Ce tag n'existe QUE sur ce chemin : sur le repli Resend il s'afficherait
+          // littéralement, faute d'interpréteur.
+          htmlContent: wrapBriefHtml({
+            firstName: BREVO_FIRSTNAME_TAG,
+            dateLongFr: date_long_fr,
+            briefHtml: brief_html,
+          }),
           listId: syncReport.listId,
         });
         campaignId = campaign.campaignId;
