@@ -24,7 +24,12 @@ import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
 import { computeT360Score } from '../_lib/t360-score.js';
 
 const SHEET_NAME = '👥 Parcours Membre';
-const READ_RANGE = `'${SHEET_NAME}'!A4:U77`; // lignes MEMBRES (4→77), jusqu'à col U (mails perso)
+// Lignes MEMBRES à partir de la 4, range OUVERT en fin, jusqu'à col U (mails perso).
+// La borne figée à 77 empêchait le matching des membres ajoutés au-delà : leur colonne X
+// n'était jamais écrite, ni par le webhook ni par le backfill, sans la moindre erreur.
+// Sans risque : rowNum = FIRST_MEMBER_ROW + index, donc indépendant de la taille du range,
+// et les lignes sans email sont déjà écartées (rowEmails vide → skipped).
+const READ_RANGE = `'${SHEET_NAME}'!A4:U`;
 const COL_PRENOM = 1;   // B
 const COL_NOM = 2;      // C
 const COL_MAIL_LB = 19; // T (clé de matching principale)
