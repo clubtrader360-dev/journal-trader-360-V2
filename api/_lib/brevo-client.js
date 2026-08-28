@@ -63,19 +63,35 @@ function fail(action, status, body) {
   throw new Error(`Brevo ${action} a échoué (HTTP ${status})${detail}`);
 }
 
+// L'attribut STATUT_T360 existe-t-il déjà ? Lecture de l'état réel, pas d'inférence.
+async function attributeExists() {
+  const { status, body } = await brevo('/contacts/attributes');
+  if (status < 200 || status >= 300) fail('lecture des attributs', status, body);
+  const attrs = (body && body.attributes) || [];
+  // Brevo normalise les noms en majuscules ; comparaison insensible à la casse par sûreté.
+  return attrs.some(a => a && String(a.name).toUpperCase() === STATUT_ATTR.toUpperCase());
+}
+
 // ---- Attribut STATUT_T360 : créé s'il n'existe pas. Idempotent. ----
+// Check-then-act, par symétrie avec ensureList(). La version précédente déduisait
+// l'existence du LIBELLÉ d'erreur du POST ("already exists") ; Brevo répond en réalité
+// "Attribute name must be unique", donc tout appel après le premier échouait en 500 et
+// bloquait la synchro entière — ensureAttribute() étant la 1re étape de syncList().
+// On ne se fie plus à une chaîne que Brevo peut reformuler à tout moment.
 export async function ensureAttribute() {
+  if (await attributeExists()) return { attribute: STATUT_ATTR, created: false };
+
   const { status, body } = await brevo(`/contacts/attributes/normal/${STATUT_ATTR}`, {
     method: 'POST',
     body: { type: 'text' },
   });
   if (status >= 200 && status < 300) return { attribute: STATUT_ATTR, created: true };
 
-  // 400 "already exists" = état souhaité déjà atteint, pas une erreur.
-  const msg = String((body && (body.message || body.code)) || '').toLowerCase();
-  if (status === 400 && (msg.includes('already exist') || msg.includes('duplicate'))) {
-    return { attribute: STATUT_ATTR, created: false };
-  }
+  // Filet de sécurité : entre le GET et le POST, une exécution concurrente a pu créer
+  // l'attribut. On relit l'état réel plutôt que d'interpréter le message d'erreur.
+  if (await attributeExists()) return { attribute: STATUT_ATTR, created: false };
+
+  // Absent malgré le GET de contrôle → échec authentique, on propage.
   fail(`création de l'attribut ${STATUT_ATTR}`, status, body);
 }
 
