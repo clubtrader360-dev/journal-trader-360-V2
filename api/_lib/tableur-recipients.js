@@ -1,6 +1,6 @@
 // ========================================
 // #20 — Destinataires du brief matinal depuis le TABLEUR Manu (source de vérité).
-// Onglet "👥 Parcours Membre", lignes membres A4:U77.
+// Onglet "👥 Parcours Membre", lignes membres à partir de la 4 (range ouvert, cf READ_RANGE).
 //   - col D (statut) : exclut 🔴 Inactif ; garde le reste (🟢 T360, 🟠 À surveiller,
 //                      🟠 Peu impliqués, Moyen…).
 //   - email : col T (Mail LB) prioritaire, fallback col U (Mails perso, multi-valeurs).
@@ -11,7 +11,11 @@
 import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
 
 const SHEET_NAME = '👥 Parcours Membre';
-const READ_RANGE = `'${SHEET_NAME}'!A4:U77`;
+// Range OUVERT en fin (pas de borne de ligne) : Google renvoie jusqu'à la dernière ligne
+// renseignée de l'onglet. La borne figée à 77 rendait invisibles les membres ajoutés
+// au-delà (4 personnes début septembre 2026, dont 2 élèves actifs). Sans risque : les
+// lignes sans email valide sont déjà écartées par pickEmail().
+const READ_RANGE = `'${SHEET_NAME}'!A4:U`;
 const COL_PRENOM = 1;    // B
 const COL_NOM = 2;       // C
 const COL_STATUT = 3;    // D

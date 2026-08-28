@@ -4,15 +4,15 @@
 // Auth   : role ∈ ('coach','admin'), status ∈ ('active','approved')
 //
 // Lit l'onglet "👥 Parcours Membre" du tableur Manu (Google Sheets API,
-// via service account read-only). Retourne les 74 membres avec toutes
-// leurs colonnes (~38, A→AL), plus les métadonnées utiles.
+// via service account read-only). Retourne TOUS les membres renseignés avec
+// toutes leurs colonnes (~38, A→AL), plus les métadonnées utiles.
 //
 // Format de sortie :
 //   {
 //     sheet_id: "1ozrk-...",
 //     updated_at: "02/07/2026 15:33 (...)",  // cellule A2 du Sheet
 //     total_columns: 38,
-//     total_members: 74,
+//     total_members: 78,   // = nombre de lignes non vides, variable
 //     columns: [ { letter: "A", name: "ID" }, { letter: "B", name: "Prénom" }, ... ],
 //     members: [ { row: 4, ID: "1", "Prénom": "Patrick", "Nom": "SAN CARLOS", ... }, ... ]
 //   }
@@ -23,11 +23,15 @@
 import { requireCoach } from '../vimeo/_lib/coach-auth.js';
 import { getSheetsClient, getSheetId } from './_lib/sheets-client.js';
 
-// Range : onglet "👥 Parcours Membre", cellules A1 → AL77 (38 colonnes × 77 lignes).
+// Range : onglet "👥 Parcours Membre", colonnes A → AL (38 colonnes), lignes NON bornées.
 // Ligne 1 = titre "PARCOURS MEMBRE 360". Ligne 2 = "Mise à jour : ..."
-// Ligne 3 = headers de colonnes. Lignes 4→77 = les 74 membres.
+// Ligne 3 = headers de colonnes. Ligne 4 → dernière ligne renseignée = les membres.
+// La borne figée à 77 rendait invisibles les membres ajoutés au-delà (4 personnes début
+// septembre 2026, dont 2 élèves actifs). Sans risque : les lignes vides sont écartées
+// plus bas par le filtre hasContent, et l'arithmétique de numéro de ligne est basée sur
+// l'index (FIRST_MEMBER_ROW + rowIdx), donc indépendante de la taille du range.
 const SHEET_NAME = '👥 Parcours Membre';
-const RANGE_MAIN = `'${SHEET_NAME}'!A1:AL77`;
+const RANGE_MAIN = `'${SHEET_NAME}'!A1:AL`;
 const RANGE_UPDATED = `'${SHEET_NAME}'!A2`;
 const HEADER_ROW_IDX = 2;        // ligne 3 (0-indexed = 2)
 const FIRST_MEMBER_ROW_IDX = 3;  // ligne 4 (0-indexed = 3)
