@@ -141,6 +141,47 @@ export async function getListContacts(listId) {
   return emails;
 }
 
+// ---- Campagne email ----
+// Expéditeur : id 2 = contact@trader360.fr (validé côté Brevo). L'adresse actuelle
+// noreply@mail.journaltrader360.fr n'y est PAS validée, et une adresse joignable
+// passe mieux les filtres.
+const SENDER_ID = 2;
+
+// Crée la campagne et retourne son id. AUCUNE logique basée sur un libellé d'erreur :
+// on ne juge que le statut HTTP et la présence effective du champ `id`.
+// Un nom déjà pris fait échouer la création → une seule nouvelle tentative avec un nom
+// horodaté, sans chercher à savoir POURQUOI le premier a échoué.
+export async function createCampaign({ name, subject, htmlContent, listId }) {
+  const payload = (campaignName) => ({
+    name: campaignName,
+    subject,
+    sender: { id: SENDER_ID },
+    type: 'classic',
+    htmlContent,
+    recipients: { listIds: [listId] },
+  });
+
+  let attempt = await brevo('/emailCampaigns', { method: 'POST', body: payload(name) });
+
+  // Retry sur nom horodaté. Déclenché par le STATUT, pas par le message.
+  if (attempt.status < 200 || attempt.status >= 300 || !attempt.body || !attempt.body.id) {
+    const stamped = `${name} (${new Date().toISOString().slice(11, 19).replace(/:/g, 'h')})`;
+    attempt = await brevo('/emailCampaigns', { method: 'POST', body: payload(stamped) });
+    if (attempt.status >= 200 && attempt.status < 300 && attempt.body && attempt.body.id) {
+      return { campaignId: attempt.body.id, name: stamped };
+    }
+    fail('création de la campagne', attempt.status, attempt.body);
+  }
+  return { campaignId: attempt.body.id, name };
+}
+
+// Déclenche l'envoi. 204 attendu ; tout non-2xx lève.
+export async function sendCampaignNow(campaignId) {
+  const { status, body } = await brevo(`/emailCampaigns/${campaignId}/sendNow`, { method: 'POST' });
+  if (status < 200 || status >= 300) fail(`envoi de la campagne ${campaignId}`, status, body);
+  return { campaignId, sent: true };
+}
+
 // ---- Synchronisation de la liste sur le tableur ----
 // recipients : sortie de getBriefRecipients() → [{ email, prenom, nom, statut, name }]
 export async function syncList({ recipients, dryRun = false }) {

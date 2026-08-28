@@ -12,7 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getBriefRecipients } from '../_lib/tableur-recipients.js';
-import { syncList } from '../_lib/brevo-client.js';
+import { syncList, createCampaign, sendCampaignNow } from '../_lib/brevo-client.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -54,6 +54,11 @@ export async function fetchEligibleStudents(supabase) {
 }
 
 // ---- Sujet ----
+// Tag de personnalisation Brevo (Brevo Template Language). Interprété par Brevo à
+// l'envoi de la campagne, JAMAIS par nous. Le filtre `default` fournit le repli des
+// contacts sans PRENOM. Réservé au chemin campagne : sur Resend, il s'afficherait tel quel.
+export const BREVO_FIRSTNAME_TAG = '{{ contact.PRENOM|default:"Trader" }}';
+
 export function emailSubject(dateLongFr) {
   return `📊 Brief marché — ${dateLongFr}`;
 }
@@ -229,6 +234,87 @@ export default async function handler(req, res) {
     console.log(`[DAILY-BRIEF] 👥 ${recipients.length} destinataire(s)`);
 
     const subject = emailSubject(date_long_fr);
+
+    // ================================================================
+    // ENVOI VIA CAMPAGNE BREVO — production uniquement
+    // ================================================================
+    // Restreint au mode production À DESSEIN : une campagne s'adresse à la LISTE
+    // entière (listId 17). L'utiliser avec test_emails ou only_user_id enverrait le
+    // brief aux 76 destinataires au lieu de la seule adresse ciblée — exactement
+    // l'inverse d'un test. Ces deux modes, et DRY_RUN, restent sur Resend.
+    const isProduction = !(Array.isArray(test_emails) && test_emails.length) && !onlyUserId;
+    let fallbackReason = null;
+    let campaignId = null;
+
+    if (isProduction && !DRY_RUN) {
+      try {
+        // 1. La liste doit refléter le tableur AU MOMENT de l'envoi, pas la veille.
+        const syncReport = await syncList({ recipients, dryRun: false });
+        console.log(`[DAILY-BRIEF] 🔄 Sync avant envoi: ${JSON.stringify(syncReport)}`);
+
+        // 2. Création. Tant que campaignId est null, le repli Resend reste autorisé.
+        const campaign = await createCampaign({
+          name: `Brief T360 — ${date}`,
+          subject,
+          // Personnalisation déléguée à Brevo : une campagne envoie UN html unique, le
+          // prénom ne peut donc pas être injecté côté serveur comme sur Resend.
+          // Le filtre `default` couvre les lignes du tableur sans prénom → "Bonjour Trader,".
+          // Syntaxe SANS espaces autour de | et : — Brevo documente {{ contact.ATTR|filter }},
+          // son langage dérive de Django, dont le parseur rejette les espaces.
+          // Ce tag n'existe QUE sur ce chemin : sur le repli Resend il s'afficherait
+          // littéralement, faute d'interpréteur.
+          htmlContent: wrapBriefHtml({
+            firstName: BREVO_FIRSTNAME_TAG,
+            dateLongFr: date_long_fr,
+            briefHtml: brief_html,
+          }),
+          listId: syncReport.listId,
+        });
+        campaignId = campaign.campaignId;
+        console.log(`[DAILY-BRIEF] 📣 Campagne ${campaignId} créée ("${campaign.name}")`);
+
+        // 3. Envoi. À partir d'ici, PLUS AUCUN REPLI possible (cf catch).
+        await sendCampaignNow(campaignId);
+        console.log(`[DAILY-BRIEF] ✅ Campagne ${campaignId} envoyée à la liste ${syncReport.listId}`);
+        console.log('[DAILY-BRIEF] ========== DONE ==========');
+        return res.status(200).json({
+          ok: true, date, mode: 'brevo', dry_run: false,
+          campaignId, listId: syncReport.listId,
+          recipients: syncReport.after,
+          fallbackReason: null,
+          sync: syncReport,
+          duration_ms: Date.now() - t0,
+        });
+      } catch (e) {
+        // RÈGLE STRICTE : le repli n'est permis QUE si la campagne n'existe pas.
+        // Une campagne créée puis doublée par Resend enverrait DEUX briefs aux 76
+        // destinataires. Un échec après création (sendNow KO, timeout) se solde donc
+        // par une erreur explicite : l'envoi se déclenche à la main depuis Brevo.
+        if (campaignId) {
+          console.error(`[DAILY-BRIEF] ❌ Campagne ${campaignId} créée mais NON envoyée:`, e);
+          return res.status(500).json({
+            ok: false, date, mode: 'brevo', campaignId,
+            error: `Campagne ${campaignId} CRÉÉE mais envoi échoué : ${e.message}. ` +
+                   `AUCUN repli Resend (risque de double envoi). Déclencher l'envoi à la main ` +
+                   `depuis l'interface Brevo, campagne ${campaignId}.`,
+            duration_ms: Date.now() - t0,
+          });
+        }
+        // Aucun destinataire exploitable → rien à envoyer, par Brevo comme par Resend.
+        if (!recipients.length) {
+          console.error('[DAILY-BRIEF] ❌ 0 destinataire, envoi refusé:', e);
+          return res.status(500).json({
+            ok: false, date, mode: 'brevo', campaignId: null,
+            error: `Envoi refusé : 0 destinataire (${e.message}). Aucune campagne créée, aucun repli.`,
+            duration_ms: Date.now() - t0,
+          });
+        }
+        // Campagne non créée + destinataires valides → repli Resend, sans risque de doublon.
+        fallbackReason = e.message;
+        console.warn(`[DAILY-BRIEF] ⚠️ Campagne non créée → repli Resend. Raison: ${e.message}`);
+      }
+    }
+
     const results = [];
     let sent = 0, failed = 0;
     for (const u of recipients) {
@@ -245,9 +331,14 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       date,
-      mode: (Array.isArray(test_emails) && test_emails.length) ? 'test_emails' : (onlyUserId ? 'test_user' : 'production'),
+      mode: fallbackReason
+        ? 'resend_fallback'
+        : ((Array.isArray(test_emails) && test_emails.length) ? 'test_emails' : (onlyUserId ? 'test_user' : 'production')),
       dry_run: DRY_RUN,
+      campaignId: null,
+      fallbackReason,
       destinataires: recipients.length,
+      recipients: recipients.length,
       sent,
       failed,
       results,
