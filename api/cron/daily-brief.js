@@ -12,6 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getBriefRecipients } from '../_lib/tableur-recipients.js';
+import { syncList } from '../_lib/brevo-client.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -151,6 +152,33 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, mode: 'dry_recipients', stats, count: recipients.length, sample: recipients.slice(0, 8) });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
+  // ---- Synchro de la liste Brevo dédiée depuis le tableur ----
+  // Modes greffés sur cet endpoint plutôt que sur une nouvelle route : on est à 10/12
+  // fonctions serverless sur le plan Vercel, autant garder la marge.
+  // Aucune incidence sur l'envoi : le brief part toujours via Resend. Ces deux modes
+  // court-circuitent la génération et l'envoi, comme dry_recipients.
+  const syncBrevoDry = req.body && req.body.dry_sync_brevo === true;
+  const syncBrevoApply = req.body && req.body.sync_brevo === true;
+  if (syncBrevoDry || syncBrevoApply) {
+    const dryRun = syncBrevoDry;
+    try {
+      const { recipients, stats } = await getBriefRecipients();
+      console.log(`[DAILY-BRIEF] 🔄 Sync Brevo (dryRun=${dryRun}) — tableur: ${JSON.stringify(stats)}`);
+      const report = await syncList({ recipients, dryRun });
+      console.log(`[DAILY-BRIEF] 🔄 Sync Brevo rapport: ${JSON.stringify(report)}`);
+      return res.status(200).json({
+        ok: true,
+        mode: dryRun ? 'dry_sync_brevo' : 'sync_brevo',
+        tableur_stats: stats,
+        report,
+      });
+    } catch (e) {
+      // Remontée explicite : une liste incomplète ou une synchro refusée doit se voir.
+      console.error('[DAILY-BRIEF] ❌ Sync Brevo:', e);
+      return res.status(500).json({ ok: false, mode: dryRun ? 'dry_sync_brevo' : 'sync_brevo', error: e.message });
     }
   }
 

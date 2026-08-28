@@ -1,0 +1,224 @@
+// ========================================
+// Client minimal API Brevo v3 — synchronisation de la liste du brief quotidien.
+//
+// Périmètre STRICT : gérer UNE liste dédiée, alimentée depuis le tableur.
+//   - Ne touche à AUCUNE liste existante (MEMBRES T360 id 7, PROSPECTS id 6, etc.) :
+//     elles sont alimentées par les scripts de Manu.
+//   - Ne SUPPRIME jamais un contact de Brevo (pas de DELETE /v3/contacts) : un contact
+//     retiré de notre liste peut appartenir aux listes de Manu. On le retire de la
+//     nôtre, rien de plus.
+//
+// Cette étape ne fait AUCUN envoi : le brief part toujours via Resend. La bascule
+// vers les campagnes Brevo est une étape ultérieure.
+// ========================================
+
+const BREVO_BASE = 'https://api.brevo.com/v3';
+
+// Liste dédiée. Le suffixe "(auto)" signale à Manu qu'elle est gérée par le code
+// et qu'elle ne doit pas être éditée à la main : toute modif manuelle serait
+// écrasée au prochain sync.
+export const LIST_NAME = 'BRIEF QUOTIDIEN T360 (auto)';
+const LIST_FOLDER_ID = 1;
+
+// Attribut portant le statut col D du tableur, pour permettre la segmentation plus tard.
+const STATUT_ATTR = 'STATUT_T360';
+
+// Bornes API Brevo.
+const LIST_PAGE_LIMIT = 50;     // GET /contacts/lists
+const CONTACTS_PAGE_LIMIT = 500; // GET /contacts/lists/{id}/contacts (max autorisé)
+const REMOVE_BATCH = 150;        // POST .../contacts/remove
+
+function apiKey() {
+  const key = process.env.BREVO_API_KEY;
+  if (!key || !key.trim()) {
+    // Message explicite plutôt qu'un 401 opaque plus loin dans la chaîne.
+    throw new Error('BREVO_API_KEY manquante (config Vercel : Production + Preview + Development).');
+  }
+  return key.trim();
+}
+
+// Appel HTTP Brevo. Retourne { status, body }. Ne jette PAS sur statut non-2xx :
+// certains appels ont des non-2xx légitimes (attribut déjà existant), l'appelant tranche.
+async function brevo(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`${BREVO_BASE}${path}`, {
+    method,
+    headers: {
+      'api-key': apiKey(),
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let parsed = null;
+  if (text) { try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; } }
+  return { status: res.status, body: parsed };
+}
+
+// Erreur enrichie du contexte HTTP — sans quoi un échec partiel d'import est illisible.
+function fail(action, status, body) {
+  const detail = body && (body.message || body.code || body.raw)
+    ? ` — ${body.message || body.code || body.raw}`
+    : '';
+  throw new Error(`Brevo ${action} a échoué (HTTP ${status})${detail}`);
+}
+
+// ---- Attribut STATUT_T360 : créé s'il n'existe pas. Idempotent. ----
+export async function ensureAttribute() {
+  const { status, body } = await brevo(`/contacts/attributes/normal/${STATUT_ATTR}`, {
+    method: 'POST',
+    body: { type: 'text' },
+  });
+  if (status >= 200 && status < 300) return { attribute: STATUT_ATTR, created: true };
+
+  // 400 "already exists" = état souhaité déjà atteint, pas une erreur.
+  const msg = String((body && (body.message || body.code)) || '').toLowerCase();
+  if (status === 400 && (msg.includes('already exist') || msg.includes('duplicate'))) {
+    return { attribute: STATUT_ATTR, created: false };
+  }
+  fail(`création de l'attribut ${STATUT_ATTR}`, status, body);
+}
+
+// ---- Liste dédiée : recherchée par nom EXACT, créée si absente. Idempotent. ----
+export async function ensureList() {
+  let offset = 0;
+  // La réponse est paginée : sans pagination on manquerait la liste au-delà de la
+  // 1re page et on en recréerait une en double à chaque sync.
+  for (;;) {
+    const { status, body } = await brevo(`/contacts/lists?limit=${LIST_PAGE_LIMIT}&offset=${offset}`);
+    if (status < 200 || status >= 300) fail('lecture des listes', status, body);
+
+    const lists = (body && body.lists) || [];
+    const match = lists.find(l => l && l.name === LIST_NAME);
+    if (match) return { listId: match.id, listName: match.name, created: false };
+
+    offset += LIST_PAGE_LIMIT;
+    const total = (body && typeof body.count === 'number') ? body.count : 0;
+    if (lists.length === 0 || offset >= total) break;
+  }
+
+  const { status, body } = await brevo('/contacts/lists', {
+    method: 'POST',
+    body: { name: LIST_NAME, folderId: LIST_FOLDER_ID },
+  });
+  if (status < 200 || status >= 300) fail('création de la liste', status, body);
+  return { listId: body.id, listName: LIST_NAME, created: true };
+}
+
+// ---- Tous les emails de la liste (paginé), en minuscules. ----
+export async function getListContacts(listId) {
+  const emails = new Set();
+  let offset = 0;
+  for (;;) {
+    const { status, body } = await brevo(
+      `/contacts/lists/${listId}/contacts?limit=${CONTACTS_PAGE_LIMIT}&offset=${offset}`
+    );
+    if (status < 200 || status >= 300) fail(`lecture des contacts de la liste ${listId}`, status, body);
+
+    const contacts = (body && body.contacts) || [];
+    for (const c of contacts) {
+      if (c && c.email) emails.add(String(c.email).trim().toLowerCase());
+    }
+    if (contacts.length < CONTACTS_PAGE_LIMIT) break;
+    offset += CONTACTS_PAGE_LIMIT;
+  }
+  return emails;
+}
+
+// ---- Synchronisation de la liste sur le tableur ----
+// recipients : sortie de getBriefRecipients() → [{ email, prenom, nom, statut, name }]
+export async function syncList({ recipients, dryRun = false }) {
+  const startedAt = Date.now();
+
+  // GARDE CRITIQUE — une panne transitoire de l'API Sheets renvoie une liste vide.
+  // Sans ce garde, le diff conclurait « tout retirer » et purgerait la liste Brevo.
+  // On refuse la synchro plutôt que de propager une lecture dégradée.
+  if (!Array.isArray(recipients) || recipients.length === 0) {
+    throw new Error(
+      'Synchro refusée : 0 destinataire en entrée. Un tableur vide ou une lecture Sheets ' +
+      'en échec ne doit jamais vider la liste Brevo. Vérifier getBriefRecipients().'
+    );
+  }
+
+  // Normalisation en minuscules des DEUX côtés : sans ça, une casse différente
+  // produirait un ajout + un retrait du même contact à chaque run, en boucle.
+  const desired = new Map();
+  for (const r of recipients) {
+    const email = String(r.email || '').trim().toLowerCase();
+    if (!email) continue;
+    desired.set(email, {
+      email,
+      attributes: {
+        PRENOM: r.prenom || '',
+        NOM: r.nom || '',
+        [STATUT_ATTR]: r.statut || '',
+      },
+    });
+  }
+  if (desired.size === 0) {
+    throw new Error('Synchro refusée : aucun email exploitable après normalisation.');
+  }
+
+  const attribute = await ensureAttribute();
+  const { listId, listName, created } = await ensureList();
+
+  // Liste fraîchement créée → vide, donc tout le tableur part en ajout. Cas nominal.
+  const current = await getListContacts(listId);
+
+  const toUpsert = [...desired.values()];
+  const toAdd = toUpsert.filter(c => !current.has(c.email)).map(c => c.email);
+  const toUpdate = toUpsert.filter(c => current.has(c.email)).map(c => c.email);
+  const toRemove = [...current].filter(e => !desired.has(e));
+
+  const report = {
+    listId, listName, listCreated: created, attribute,
+    before: current.size,
+    added: toAdd.length,
+    updated: toUpdate.length,
+    removed: toRemove.length,
+    after: desired.size,
+    dryRun,
+    duration_ms: 0,
+  };
+
+  if (dryRun) {
+    // Échantillons pour inspection avant application — pas la liste entière, un extrait suffit.
+    report.sample = { add: toAdd.slice(0, 10), remove: toRemove.slice(0, 10) };
+    report.duration_ms = Date.now() - startedAt;
+    return report;
+  }
+
+  // Ajouts + mises à jour en UN import : 76 appels unitaires satureraient le rate
+  // limit Brevo (~10 req/s).
+  if (toUpsert.length > 0) {
+    const { status, body } = await brevo('/contacts/import', {
+      method: 'POST',
+      body: {
+        listIds: [listId],
+        updateExistingContacts: true,
+        emailBlacklist: false,
+        smsBlacklist: false,
+        jsonBody: toUpsert,
+      },
+    });
+    // Un import partiel ne doit pas passer pour un succès : la liste serait
+    // silencieusement incomplète.
+    if (status < 200 || status >= 300) fail('import des contacts', status, body);
+    if (body && body.processId) report.importProcessId = body.processId;
+  }
+
+  // Retraits par lots — retrait de NOTRE liste uniquement, jamais de suppression de contact.
+  for (let i = 0; i < toRemove.length; i += REMOVE_BATCH) {
+    const batch = toRemove.slice(i, i + REMOVE_BATCH);
+    const { status, body } = await brevo(`/contacts/lists/${listId}/contacts/remove`, {
+      method: 'POST',
+      body: { emails: batch },
+    });
+    if (status < 200 || status >= 300) {
+      fail(`retrait de ${batch.length} contact(s) de la liste ${listId}`, status, body);
+    }
+  }
+
+  report.duration_ms = Date.now() - startedAt;
+  return report;
+}
