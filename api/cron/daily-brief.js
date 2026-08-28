@@ -163,8 +163,12 @@ export default async function handler(req, res) {
 
   // Défense finale anti-méta-commentaire (bug prod P1) : rejette AVANT tout appel Resend,
   // pour qu'un workflow buggé ne puisse jamais expédier un mail cassé aux élèves.
-  if (!/<div class="brief-marche">/.test(brief_html)) {
-    return res.status(400).json({ error: 'brief_html invalide : marqueur brief-marche absent' });
+  // Motif tolérant : le wrapper peut porter un style inline (compat email).
+  // Symétrique du garde du workflow (daily-brief.yml:104) — les deux DOIVENT rester alignés.
+  // Historique : le run du 2026-08-21 a produit '<div class="brief-marche" style="font-family:Arial;…">',
+  // brief valide rejeté par le motif littéral '<div class="brief-marche">' avec le '>' collé.
+  if (!/<div[^>]*brief-marche/.test(brief_html)) {
+    return res.status(400).json({ error: 'brief_html invalide : wrapper brief-marche absent' });
   }
   if (/^\s*(le brief|voici|j['´’]?ai|points cl|sauvegard|\/tmp\/)/i.test(brief_html)) {
     return res.status(400).json({ error: 'brief_html contient un méta-commentaire suspect' });
