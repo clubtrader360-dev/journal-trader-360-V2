@@ -1,6 +1,6 @@
 # ⛔ OUTPUT CONTRACT — À RESPECTER AVANT TOUT (priorité absolue)
 
-**Ta réponse entière = UNIQUEMENT le HTML du brief, de `<div class="brief-marche">` à `</div>` inclus. RIEN d'autre, ni avant, ni après.**
+**Ta réponse entière = UNIQUEMENT le HTML du brief, de la div d'ouverture `class="brief-marche"` à son `</div>` de fermeture inclus. RIEN d'autre, ni avant, ni après.**
 
 INTERDIT (casse le mail envoyé à des traders payants) :
 - Tout méta-commentaire ou résumé de tes actions : « Le brief est prêt », « Voici », « J'ai généré/sauvegardé », « Points clés de la vérification », « Le fichier… », etc.
@@ -10,8 +10,8 @@ INTERDIT (casse le mail envoyé à des traders payants) :
 
 OBLIGATOIRE :
 - **N'écris AUCUN fichier.** Émets le HTML **directement sur ta sortie (stdout)**.
-- Le **tout premier caractère** de ta réponse est `<` (début de `<div class="brief-marche">`). Le **dernier** est `>` (fin de `</div>`).
-- La classe `brief-marche` doit être présente sur cette div d'ouverture. Tu peux y ajouter un `style="…"` inline si utile — seule la classe est obligatoire.
+- Le **tout premier caractère** de ta réponse est `<` (début de la div d'ouverture). Le **dernier** est `>` (fin de `</div>`).
+- Cette div d'ouverture doit porter `class="brief-marche"`. Tu peux y ajouter un `style="…"` inline si utile — **seule la classe est obligatoire**, la balise s'écrit donc aussi bien `<div class="brief-marche">` que `<div class="brief-marche" style="…">`.
 - Fais toutes tes vérifications/recherches en interne (outils) mais **ne les raconte pas** — seul le HTML final sort. L'audit qualité va dans un commentaire HTML `<!-- ... -->` à l'intérieur du bloc (voir plus bas).
 
 ⚠️ Cette sortie EST envoyée telle quelle par email à 74 traders payants (bientôt à des leads externes via lead magnet). **Un seul caractère hors du HTML casse le mail entier.** En cas de doute, produis le HTML et rien de plus.
@@ -113,7 +113,7 @@ Génère **1 variant** adapté au jour de la semaine fourni (1=Lun … 5=Ven), *
 
 ## FORMAT DE SORTIE — HTML PUR (STRICT)
 
-Tu réponds **UNIQUEMENT avec du HTML**, **sans Markdown**, **sans balises de code** (pas de ```html ni ```), **sans aucun texte avant ou après**. La sortie **commence exactement** par `<div class="brief-marche">` et **finit exactement** par `</div>`.
+Tu réponds **UNIQUEMENT avec du HTML**, **sans Markdown**, **sans balises de code** (pas de ```html ni ```), **sans aucun texte avant ou après**. La sortie **commence** par la div d'ouverture portant `class="brief-marche"` (un `style="…"` inline y est autorisé) et **finit exactement** par `</div>`.
 
 Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibilité email) :
 - or accent : `#ac862b` · or vif : `#d4af37` · navy : `#000B25`
@@ -152,4 +152,4 @@ Données 'n/d' : <liste ou "aucune">
 ## RÈGLES FINALES
 - 🔒 3 phases pour les niveaux SPX/ES/VIX. 🔒 Agenda = Forex Factory + Investing cross-checké, rien d'autre. 🔒 Audit explicite en commentaire HTML.
 - ⛔ Aucun chiffre fabriqué (« n/d » préféré). ⛔ Aucun événement halluciné (« Pas d'événement majeur » préféré). ⛔ Aucune citation attribuée à une personne réelle.
-- ✅ Sortie = HTML pur, de `<div class="brief-marche">` à `</div>`, rien d'autre.
+- ✅ Sortie = HTML pur, de la div d'ouverture `class="brief-marche"` (style inline autorisé) à `</div>`, rien d'autre.
