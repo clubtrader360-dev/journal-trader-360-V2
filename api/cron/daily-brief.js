@@ -115,7 +115,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml }) {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
         <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
-            Si tu connais quelqu'un d'intéressé, partage-lui le lien du questionnaire — qu'il indique ton nom, on saura que ça vient de toi.
+            Si tu connais quelqu'un d'intéressé, partage-lui le lien du questionnaire — il devra indiquer ton nom dans l'une des questions, on saura que ça vient de toi.
           </p>
           <a href="https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/?utm_source=brief&amp;utm_medium=email&amp;utm_campaign=ambassadeur"
              style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Partager le questionnaire →</a>
