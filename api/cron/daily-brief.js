@@ -59,6 +59,36 @@ export async function fetchEligibleStudents(supabase) {
 // contacts sans PRENOM. Réservé au chemin campagne : sur Resend, il s'afficherait tel quel.
 export const BREVO_FIRSTNAME_TAG = '{{ contact.PRENOM|default:"Trader" }}';
 
+// ---- Pré-remplissage des formulaires prospects ----
+// Les valeurs viennent de tags Brevo, interprétés à l'envoi de la campagne. La variante
+// prospects n'a PAS de repli Resend (cf sendProspectsCampaign) : elle passe toujours par
+// une campagne, donc les tags sont toujours résolus. Pas de double gestion à prévoir
+// comme pour le prénom en #85.
+//
+// |urlencode est INDISPENSABLE ici : sans lui, un email contenant un '+'
+// (a+trading@gmail.com) verrait ce '+' interprété comme une espace par le formulaire,
+// et un prénom accentué (Émilie, François) ou un nom à espace/apostrophe produirait une
+// URL mal formée. Le filtre existe bien en BTL — le moteur est Pongo2, réimplémentation
+// de Django en Go, d'où aussi la syntaxe sans espaces autour de | et :.
+//
+// PAS de |default ici, à la différence de l'accroche : pré-remplir un formulaire avec
+// "Trader" en guise de prénom injecterait une fausse donnée. Un tag vide laisse
+// simplement le champ vide, ce qui est le comportement voulu.
+const PREFILL_PARAMS =
+  'email={{ contact.EMAIL|urlencode }}' +
+  '&amp;prenom={{ contact.PRENOM|urlencode }}' +
+  '&amp;nom={{ contact.NOM|urlencode }}';
+
+const UTM_PROSPECTS = 'utm_source=brief&amp;utm_medium=email&amp;utm_campaign=prospects';
+
+// URL prospect complète : base + pré-remplissage + UTM (utm_content distingue les deux liens).
+function prospectUrl(base, utmContent) {
+  return `${base}?${PREFILL_PARAMS}&amp;${UTM_PROSPECTS}&amp;utm_content=${utmContent}`;
+}
+
+const URL_PRESENTATION = 'https://www.trader360.fr/presentation/';
+const URL_QUESTIONNAIRE = 'https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/';
+
 // ---- Campagne PROSPECTS — toujours secondaire, toujours isolée ----
 // Ne lève JAMAIS : toute erreur est capturée et retournée dans le rapport. Les membres
 // sont déjà servis quand cette fonction s'exécute ; rien de ce qui se passe ici ne doit
@@ -164,9 +194,16 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
         <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
-            Si tu veux en savoir plus, réponds au questionnaire de positionnement et prends ton rendez-vous téléphonique.
+            Si tu veux en savoir plus, découvre la présentation de Trader 360, puis réponds au questionnaire de positionnement pour prendre ton rendez-vous.
           </p>
-          <a href="https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/?utm_source=brief&amp;utm_medium=email&amp;utm_campaign=prospects"
+          <!-- Ordre de lecture : texte → vidéo → questionnaire.
+               La présentation est SECONDAIRE (contour), le questionnaire reste le CTA
+               principal (goldBright plein) : c'est lui qui déclenche le rendez-vous. -->
+          <div style="margin:0 0 12px;">
+            <a href="${prospectUrl(URL_PRESENTATION, 'presentation')}"
+               style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Voir la présentation →</a>
+          </div>
+          <a href="${prospectUrl(URL_QUESTIONNAIRE, 'questionnaire')}"
              style="display:inline-block; background:${PALETTE.goldBright}; color:${PALETTE.navy}; padding:14px 30px; border-radius:10px; text-decoration:none; font-weight:600; font-size:14px; letter-spacing:0.04em;">Répondre au questionnaire →</a>
         </td></tr>
       </table>` : `
