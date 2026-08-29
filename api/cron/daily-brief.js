@@ -12,7 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getBriefRecipients } from '../_lib/tableur-recipients.js';
-import { syncList, createCampaign, sendCampaignNow } from '../_lib/brevo-client.js';
+import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_NAME } from '../_lib/brevo-client.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -59,6 +59,37 @@ export async function fetchEligibleStudents(supabase) {
 // contacts sans PRENOM. Réservé au chemin campagne : sur Resend, il s'afficherait tel quel.
 export const BREVO_FIRSTNAME_TAG = '{{ contact.PRENOM|default:"Trader" }}';
 
+// ---- Campagne PROSPECTS — toujours secondaire, toujours isolée ----
+// Ne lève JAMAIS : toute erreur est capturée et retournée dans le rapport. Les membres
+// sont déjà servis quand cette fonction s'exécute ; rien de ce qui se passe ici ne doit
+// remettre leur envoi en cause, ni déclencher le repli Resend qui leur est réservé.
+// La liste prospects n'est JAMAIS synchronisée : elle est alimentée à la main.
+async function sendProspectsCampaign({ date, subject, briefHtml, dateLongFr }) {
+  try {
+    const { listId, listName, created } = await ensureList(PROSPECTS_LIST_NAME);
+    if (created) console.log(`[DAILY-BRIEF] 📋 Liste prospects "${listName}" créée (id ${listId})`);
+
+    const campaign = await createCampaign({
+      name: `Brief T360 PROSPECTS — ${date}`,
+      subject, // même sujet que les membres : c'est le même brief
+      htmlContent: wrapBriefHtml({
+        firstName: BREVO_FIRSTNAME_TAG,
+        dateLongFr,
+        briefHtml,
+        variant: 'prospects',
+      }),
+      listId,
+    });
+    await sendCampaignNow(campaign.campaignId);
+    console.log(`[DAILY-BRIEF] 📣 Campagne PROSPECTS ${campaign.campaignId} envoyée à la liste ${listId}`);
+    return { campaignId: campaign.campaignId, listId, listName, sent: true };
+  } catch (e) {
+    // Journalisé et remonté, jamais propagé : les membres ont déjà reçu le brief.
+    console.error('[DAILY-BRIEF] ⚠️ Campagne PROSPECTS échouée (sans incidence sur les membres):', e);
+    return { campaignId: null, sent: false, error: e.message };
+  }
+}
+
 export function emailSubject(dateLongFr) {
   return `📊 Brief marché — ${dateLongFr}`;
 }
@@ -75,7 +106,11 @@ const PALETTE = {
 };
 
 // ---- Wrap le brief HTML dans le layout email "Bourse à l'Aube" ----
-export function wrapBriefHtml({ firstName, dateLongFr, briefHtml }) {
+// variant : 'members' (défaut) | 'prospects'. Le CORPS du brief est identique dans les
+// deux cas — c'est tout l'intérêt : le prospect voit exactement ce que reçoit un membre.
+// Seul le bloc final diffère (CTA journal + encart).
+export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'members' }) {
+  const isProspects = variant === 'prospects';
   const hi = firstName ? `Bonjour ${firstName},` : 'Bonjour,';
   const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:24px 0;"></div>`;
   return `<!DOCTYPE html>
@@ -101,9 +136,19 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml }) {
 
       ${hairline}
 
+      ${isProspects ? `
+      <!-- Version PROSPECTS — bouton journal VERROUILLÉ.
+           Volontairement un <div> et non un <a> : rien à cliquer, donc aucune page
+           d'erreur ni redirection vers un login. Traitement atténué (fond crème,
+           contour discret, gris chaud) pour se lire comme une porte fermée, pas
+           comme un bouton cassé. -->
+      <div style="text-align:center; margin-top:28px;">
+        <div style="display:inline-block; background:${PALETTE.bgInside}; color:${PALETTE.textMuted}; border:1px solid rgba(212,175,55,0.35); padding:14px 32px; border-radius:10px; font-weight:600; letter-spacing:0.04em;">🔒 Ouvrir mon journal</div>
+        <div style="margin-top:8px; color:${PALETTE.textMuted}; font-size:12px; font-style:italic;">Réservé aux membres Trader 360</div>
+      </div>` : `
       <div style="text-align:center; margin-top:28px;">
         <a href="https://journaltrader360.fr" style="display:inline-block; background:${PALETTE.goldBright}; color:${PALETTE.navy}; padding:14px 32px; border-radius:10px; text-decoration:none; font-weight:600; letter-spacing:0.04em;">Ouvrir mon journal →</a>
-      </div>
+      </div>`}
 
       <!-- Encart Ambassadeur — action SECONDAIRE, volontairement en retrait du CTA journal :
            fond or doux, texte réduit, bouton en contour et non plein. L'élève voit d'abord
@@ -112,6 +157,19 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml }) {
            chemin campagne Brevo et sur le repli Resend. Les UTM tracent la provenance,
            pas le destinataire.
            Table plutôt que div : compatibilité Outlook, aucun flexbox. -->
+      ${isProspects ? `
+      <!-- Version PROSPECTS — encart d'INVITATION. Ce bouton est la seule action
+           possible pour un prospect : il reçoit donc le poids visuel qu'avait
+           "Ouvrir mon journal" chez les membres (goldBright plein, texte navy). -->
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
+        <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
+          <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
+            Si tu veux en savoir plus, réponds au questionnaire de positionnement et prends ton rendez-vous téléphonique.
+          </p>
+          <a href="https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/?utm_source=brief&amp;utm_medium=email&amp;utm_campaign=prospects"
+             style="display:inline-block; background:${PALETTE.goldBright}; color:${PALETTE.navy}; padding:14px 30px; border-radius:10px; text-decoration:none; font-weight:600; font-size:14px; letter-spacing:0.04em;">Répondre au questionnaire →</a>
+        </td></tr>
+      </table>` : `
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
         <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
@@ -120,7 +178,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml }) {
           <a href="https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/?utm_source=brief&amp;utm_medium=email&amp;utm_campaign=ambassadeur"
              style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Partager le questionnaire →</a>
         </td></tr>
-      </table>
+      </table>`}
 
       <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
         Trader 360 · brief du ${dateLongFr}<br>
@@ -293,9 +351,17 @@ export default async function handler(req, res) {
         // 3. Envoi. À partir d'ici, PLUS AUCUN REPLI possible (cf catch).
         await sendCampaignNow(campaignId);
         console.log(`[DAILY-BRIEF] ✅ Campagne ${campaignId} envoyée à la liste ${syncReport.listId}`);
+
+        // 4. PROSPECTS — seulement une fois les membres servis. Isolé dans son propre
+        //    try/catch : un échec ici est journalisé et remonté, mais n'interrompt rien
+        //    et ne déclenche AUCUN repli. Le repli Resend reste réservé aux membres.
+        const prospects = await sendProspectsCampaign({ date, subject, briefHtml: brief_html, dateLongFr: date_long_fr });
+
         console.log('[DAILY-BRIEF] ========== DONE ==========');
         return res.status(200).json({
           ok: true, date, mode: 'brevo', dry_run: false,
+          members: { mode: 'brevo', campaignId, listId: syncReport.listId, recipients: syncReport.after },
+          prospects,
           campaignId, listId: syncReport.listId,
           recipients: syncReport.after,
           fallbackReason: null,
@@ -353,6 +419,9 @@ export default async function handler(req, res) {
         : ((Array.isArray(test_emails) && test_emails.length) ? 'test_emails' : (onlyUserId ? 'test_user' : 'production')),
       dry_run: DRY_RUN,
       campaignId: null,
+      // Repli / modes de test : aucune campagne, ni membres ni prospects.
+      members: { mode: fallbackReason ? 'resend_fallback' : 'resend', campaignId: null, recipients: recipients.length, fallbackReason },
+      prospects: { campaignId: null, sent: false, skipped: fallbackReason ? 'repli Resend réservé aux membres' : 'mode de test — aucune campagne' },
       fallbackReason,
       destinataires: recipients.length,
       recipients: recipients.length,
