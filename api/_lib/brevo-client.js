@@ -8,8 +8,9 @@
 //     retiré de notre liste peut appartenir aux listes de Manu. On le retire de la
 //     nôtre, rien de plus.
 //
-// Cette étape ne fait AUCUN envoi : le brief part toujours via Resend. La bascule
-// vers les campagnes Brevo est une étape ultérieure.
+// Deux listes gérées, aux régimes OPPOSÉS :
+//   - LIST_NAME (membres)          : synchronisée depuis le tableur par syncList()
+//   - PROSPECTS_LIST_NAME          : alimentée À LA MAIN, JAMAIS synchronisée
 // ========================================
 
 const BREVO_BASE = 'https://api.brevo.com/v3';
@@ -18,6 +19,13 @@ const BREVO_BASE = 'https://api.brevo.com/v3';
 // et qu'elle ne doit pas être éditée à la main : toute modif manuelle serait
 // écrasée au prochain sync.
 export const LIST_NAME = 'BRIEF QUOTIDIEN T360 (auto)';
+
+// Liste prospects. PAS de suffixe "(auto)" À DESSEIN : contrairement à la liste
+// membres, elle est alimentée À LA MAIN dans l'interface Brevo et n'est JAMAIS
+// synchronisée. Lui appliquer syncList() la viderait pour la conformer au tableur,
+// qui ne contient que des élèves.
+export const PROSPECTS_LIST_NAME = 'BRIEF PROSPECTS T360';
+
 const LIST_FOLDER_ID = 1;
 
 // Attribut portant le statut col D du tableur, pour permettre la segmentation plus tard.
@@ -96,7 +104,8 @@ export async function ensureAttribute() {
 }
 
 // ---- Liste dédiée : recherchée par nom EXACT, créée si absente. Idempotent. ----
-export async function ensureList() {
+// `listName` par défaut = liste membres, pour ne rien changer aux appels existants.
+export async function ensureList(listName = LIST_NAME) {
   let offset = 0;
   // La réponse est paginée : sans pagination on manquerait la liste au-delà de la
   // 1re page et on en recréerait une en double à chaque sync.
@@ -105,7 +114,7 @@ export async function ensureList() {
     if (status < 200 || status >= 300) fail('lecture des listes', status, body);
 
     const lists = (body && body.lists) || [];
-    const match = lists.find(l => l && l.name === LIST_NAME);
+    const match = lists.find(l => l && l.name === listName);
     if (match) return { listId: match.id, listName: match.name, created: false };
 
     offset += LIST_PAGE_LIMIT;
@@ -115,10 +124,10 @@ export async function ensureList() {
 
   const { status, body } = await brevo('/contacts/lists', {
     method: 'POST',
-    body: { name: LIST_NAME, folderId: LIST_FOLDER_ID },
+    body: { name: listName, folderId: LIST_FOLDER_ID },
   });
-  if (status < 200 || status >= 300) fail('création de la liste', status, body);
-  return { listId: body.id, listName: LIST_NAME, created: true };
+  if (status < 200 || status >= 300) fail(`création de la liste "${listName}"`, status, body);
+  return { listId: body.id, listName, created: true };
 }
 
 // ---- Tous les emails de la liste (paginé), en minuscules. ----
