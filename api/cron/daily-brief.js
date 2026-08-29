@@ -105,6 +105,23 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml }) {
         <a href="https://journaltrader360.fr" style="display:inline-block; background:${PALETTE.goldBright}; color:${PALETTE.navy}; padding:14px 32px; border-radius:10px; text-decoration:none; font-weight:600; letter-spacing:0.04em;">Ouvrir mon journal →</a>
       </div>
 
+      <!-- Encart Ambassadeur — action SECONDAIRE, volontairement en retrait du CTA journal :
+           fond or doux, texte réduit, bouton en contour et non plein. L'élève voit d'abord
+           son journal, puis pense à recommander.
+           Aucun tag de personnalisation ici : le bloc est rigoureusement identique sur le
+           chemin campagne Brevo et sur le repli Resend. Les UTM tracent la provenance,
+           pas le destinataire.
+           Table plutôt que div : compatibilité Outlook, aucun flexbox. -->
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
+        <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
+          <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
+            Si tu connais quelqu'un d'intéressé, partage-lui le lien du questionnaire — qu'il indique ton nom, on saura que ça vient de toi.
+          </p>
+          <a href="https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/?utm_source=brief&amp;utm_medium=email&amp;utm_campaign=ambassadeur"
+             style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Partager le questionnaire →</a>
+        </td></tr>
+      </table>
+
       <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
         Trader 360 · brief du ${dateLongFr}<br>
         <em>Le trading comporte des risques de perte en capital. Ce brief est informatif et ne constitue pas un conseil en investissement (AMF).</em>
