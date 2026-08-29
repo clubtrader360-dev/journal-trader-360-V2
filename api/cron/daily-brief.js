@@ -65,11 +65,13 @@ export const BREVO_FIRSTNAME_TAG = '{{ contact.PRENOM|default:"Trader" }}';
 // une campagne, donc les tags sont toujours résolus. Pas de double gestion à prévoir
 // comme pour le prénom en #85.
 //
-// |urlencode est INDISPENSABLE ici : sans lui, un email contenant un '+'
-// (a+trading@gmail.com) verrait ce '+' interprété comme une espace par le formulaire,
-// et un prénom accentué (Émilie, François) ou un nom à espace/apostrophe produirait une
-// URL mal formée. Le filtre existe bien en BTL — le moteur est Pongo2, réimplémentation
-// de Django en Go, d'où aussi la syntaxe sans espaces autour de | et :.
+// |urlencode est INDISPENSABLE ici, et le danger n'est PAS celui qu'on croit : les
+// accents (Émilie) et les apostrophes passent en UTF-8 brut, les parseurs d'URL les
+// tolèrent. Le vrai piège est le '+' des emails — sans encodage, 'a+trading@gmail.com'
+// se relit 'a trading@gmail.com', le '+' devenant une espace. Le formulaire se
+// pré-remplirait alors avec une adresse FAUSSE, sans la moindre erreur visible.
+// Le filtre existe bien en BTL — le moteur est Pongo2, réimplémentation de Django en Go,
+// d'où aussi la syntaxe sans espaces autour de | et :.
 //
 // PAS de |default ici, à la différence de l'accroche : pré-remplir un formulaire avec
 // "Trader" en guise de prénom injecterait une fausse donnée. Un tag vide laisse
@@ -81,12 +83,11 @@ const PREFILL_PARAMS =
 
 const UTM_PROSPECTS = 'utm_source=brief&amp;utm_medium=email&amp;utm_campaign=prospects';
 
-// URL prospect complète : base + pré-remplissage + UTM (utm_content distingue les deux liens).
+// URL prospect complète : base + pré-remplissage + UTM.
 function prospectUrl(base, utmContent) {
   return `${base}?${PREFILL_PARAMS}&amp;${UTM_PROSPECTS}&amp;utm_content=${utmContent}`;
 }
 
-const URL_PRESENTATION = 'https://www.trader360.fr/presentation/';
 const URL_QUESTIONNAIRE = 'https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/';
 
 // ---- Campagne PROSPECTS — toujours secondaire, toujours isolée ----
@@ -188,21 +189,18 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
            pas le destinataire.
            Table plutôt que div : compatibilité Outlook, aucun flexbox. -->
       ${isProspects ? `
-      <!-- Version PROSPECTS — encart d'INVITATION. Ce bouton est la seule action
+      <!-- Version PROSPECTS — encart d'INVITATION. Ce bouton est la SEULE action
            possible pour un prospect : il reçoit donc le poids visuel qu'avait
            "Ouvrir mon journal" chez les membres (goldBright plein, texte navy). -->
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
         <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
-            Si tu veux en savoir plus, découvre la présentation de Trader 360, puis réponds au questionnaire de positionnement pour prendre ton rendez-vous.
+            Si tu veux en savoir plus, réponds au questionnaire de positionnement — tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.
           </p>
-          <!-- Ordre de lecture : texte → vidéo → questionnaire.
-               La présentation est SECONDAIRE (contour), le questionnaire reste le CTA
-               principal (goldBright plein) : c'est lui qui déclenche le rendez-vous. -->
-          <div style="margin:0 0 12px;">
-            <a href="${prospectUrl(URL_PRESENTATION, 'presentation')}"
-               style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Voir la présentation →</a>
-          </div>
+          <!-- CTA UNIQUE. Le questionnaire mène déjà, en aval, à la présentation puis au
+               lien Calendly : proposer la vidéo ici ouvrirait une seconde porte vers un
+               tunnel qui n'en a qu'une, et court-circuiterait l'étape de qualification.
+               Le texte annonce la suite du parcours, ce qui donne une raison de cliquer. -->
           <a href="${prospectUrl(URL_QUESTIONNAIRE, 'questionnaire')}"
              style="display:inline-block; background:${PALETTE.goldBright}; color:${PALETTE.navy}; padding:14px 30px; border-radius:10px; text-decoration:none; font-weight:600; font-size:14px; letter-spacing:0.04em;">Répondre au questionnaire →</a>
         </td></tr>
