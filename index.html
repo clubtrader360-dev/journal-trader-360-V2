@@ -3954,6 +3954,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" onclick="exportAllDataToPDF()" style="margin-top: 10px;">
                     <i class="fas fa-file-pdf mr-3"></i>Exporter PDF pour analyse IA
                 </div>
+                <!-- Période de l'export. Select NATIF : la sidebar est étroite, un composant
+                     custom y serait à l'étroit et coûterait en accessibilité pour rien.
+                     Tokens repris de .sidebar-item (couleur, graisse, padding horizontal). -->
+                <div style="padding: 0 22px 4px; margin-top: -2px;">
+                    <select id="exportPeriodSelect" aria-label="Période de l'export PDF"
+                            style="width:100%; padding:7px 8px; border-radius:8px; cursor:pointer;
+                                   font-size:0.8125rem; font-weight:500; color:var(--sidebar-text);
+                                   background:rgba(255,255,255,0.06); border:1px solid rgba(212,175,55,0.35);">
+                        <option value="all">Tout l'historique</option>
+                        <option value="last7">7 derniers jours</option>
+                        <option value="last30">30 derniers jours</option>
+                        <option value="thisMonth">Mois en cours</option>
+                        <option value="lastMonth">Mois précédent</option>
+                    </select>
+                </div>
                 <div class="sidebar-item" onclick="window.open('https://chatgpt.com/g/g-69690516bf0c819184d382d2dd56d04c-analyste-journal-de-trading', '_blank')" style="margin-top: 5px;">
                     <i class="fas fa-brain mr-3"></i>Analyse IA
                 </div>
@@ -9641,13 +9656,38 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             
             try {
                 // Récupérer toutes les données
-                const trades = window.trades || [];
                 const journalRaw = window.journalEntries;
-                const journal = Array.isArray(journalRaw) ? journalRaw : [];
+                const journalAll = Array.isArray(journalRaw) ? journalRaw : [];
                 const accounts = window.accounts || [];
-                const costs = window.accountCosts || [];
-                const payouts = window.payouts || [];
                 const user = window.currentUser || {};
+
+                // ---- Période choisie, lue AU CLIC (rien n'est persisté ni rechargé) ----
+                const PDF = window.TraderPdfExport;
+                if (!PDF) throw new Error('assets/export-pdf.js non chargé');
+                const periodSel = document.getElementById('exportPeriodSelect');
+                const periodValue = (periodSel && periodSel.value) || 'all';
+                const range = PDF.periodRange(periodValue);
+
+                // Toutes les sources DATÉES sont filtrées sur la même fenêtre : une synthèse
+                // sur 7 jours accompagnée d'un journal complet induirait l'IA en erreur.
+                // `accounts` n'est PAS filtré : il n'est pas daté par nature et sert à résoudre
+                // les noms et le risk_per_trade de trades qui, eux, sont dans la fenêtre.
+                const tradesAll = window.trades || [];
+                const trades = PDF.filterByPeriod(tradesAll, range, ['date', 'trade_date']);
+                const journal = PDF.filterByPeriod(journalAll, range, ['entry_date', 'date']);
+                const costs = PDF.filterByPeriod(window.accountCosts || [], range, ['cost_date', 'date', 'created_at']);
+                const payouts = PDF.filterByPeriod(window.payouts || [], range, ['payout_date', 'date', 'created_at']);
+
+                if (range.from) {
+                    console.log('[EXPORT] 📅 Période ' + range.label + ' : ' + range.from + ' → ' + range.to
+                        + ' | trades ' + tradesAll.length + ' → ' + trades.length);
+                }
+                if (!trades.length) {
+                    alert("Aucun trade sur la période choisie (" + PDF.periodRange(periodValue).label + ").\n\n"
+                        + "Choisis une autre période dans le menu sous le bouton d'export, puis relance l'export.");
+                    console.warn('[EXPORT] ⏹️ Export annulé : 0 trade sur la période', periodValue);
+                    return;
+                }
                 
                 console.log('[EXPORT] Données récupérées:', {
                     trades: trades.length,
@@ -9715,7 +9755,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const meta = {
                     trader: user.name || user.email || 'Unknown',
                     exportedAt: new Date().toISOString(),
-                    periode: dateMin + ' → ' + dateMax,
+                    // Période EFFECTIVE (dates réelles des trades retenus) + libellé choisi :
+                    // l'IA doit savoir sur quelle fenêtre elle raisonne, pas seulement le nom
+                    // de l'option cliquée.
+                    periode: range.from
+                        ? (range.label + ' — du ' + range.from + ' au ' + range.to
+                           + ' (trades du ' + dateMin + ' au ' + dateMax + ')')
+                        : ("Tout l'historique — du " + dateMin + ' au ' + dateMax),
                     nbTrades: dedupedTrades.length,
                     nbTradesBruts: trades.length,
                     comptes: allAccountNames.join(', '),
@@ -9783,7 +9829,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 console.log('[EXPORT] ✅ PDF généré avec succès —', records.length, 'trade(s)');
 
                 const _slug = (user.name || user.email || 'trader').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                const _fname = 'trader360_trades_' + _slug + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+                // La période entre dans le nom : deux exports du même jour sur des fenêtres
+                // différentes ne doivent pas se confondre.
+                const _per = periodValue === 'all' ? 'historique' : periodValue.toLowerCase();
+                const _fname = 'trader360_trades_' + _slug + '_' + _per + '_' + new Date().toISOString().split('T')[0] + '.pdf';
                 doc.save(_fname);
 
                 console.log('[EXPORT] 📥 Fichier téléchargé');

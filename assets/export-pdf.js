@@ -26,6 +26,63 @@
   var FS_H1 = 16;
   var FS_H2 = 11;
 
+  // ---- Fenêtre de période ----
+  // Bornes en CHAÎNES ISO (YYYY-MM-DD), jamais en objets Date : convertir puis
+  // recomparer ferait basculer un trade du 1er du mois dans le mois précédent selon
+  // le fuseau. La comparaison lexicographique de dates ISO est exacte et sûre.
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function iso(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
+
+  // now : injectable pour rendre la fonction testable sans dépendre de l'horloge.
+  function periodRange(value, now) {
+    var d = now ? new Date(now) : new Date();
+    var Y = d.getFullYear(), M = d.getMonth() + 1, D = d.getDate();
+    var today = iso(Y, M, D);
+    switch (value) {
+      case 'last7': {
+        var a = new Date(Y, M - 1, D); a.setDate(a.getDate() - 6); // 7 jours INCLUANT aujourd'hui
+        return { from: iso(a.getFullYear(), a.getMonth() + 1, a.getDate()), to: today, label: '7 derniers jours' };
+      }
+      case 'last30': {
+        var b = new Date(Y, M - 1, D); b.setDate(b.getDate() - 29);
+        return { from: iso(b.getFullYear(), b.getMonth() + 1, b.getDate()), to: today, label: '30 derniers jours' };
+      }
+      case 'thisMonth':
+        return { from: iso(Y, M, 1), to: today, label: 'Mois en cours' };
+      case 'lastMonth': {
+        var pm = new Date(Y, M - 2, 1);                       // 1er du mois précédent
+        var py = pm.getFullYear(), pmo = pm.getMonth() + 1;
+        var last = new Date(py, pmo, 0).getDate();            // dernier jour du mois calendaire
+        return { from: iso(py, pmo, 1), to: iso(py, pmo, last), label: 'Mois précédent' };
+      }
+      default:
+        return { from: null, to: null, label: "Tout l'historique" };
+    }
+  }
+
+  // Bornes INCLUSIVES des deux côtés : un trade daté du premier jour est retenu.
+  function inRange(dateStr, range) {
+    if (!range || (!range.from && !range.to)) return true;
+    var s = String(dateStr || '').slice(0, 10);
+    if (!s) return false;
+    if (range.from && s < range.from) return false;
+    if (range.to && s > range.to) return false;
+    return true;
+  }
+
+  // Filtre une collection sur le premier champ de date trouvé.
+  function filterByPeriod(list, range, fields) {
+    if (!range || (!range.from && !range.to)) return list || [];
+    var keys = fields || ['date', 'entry_date', 'created_at', 'payout_date', 'cost_date'];
+    return (list || []).filter(function (item) {
+      if (!item) return false;
+      for (var i = 0; i < keys.length; i++) {
+        if (item[keys[i]]) return inRange(item[keys[i]], range);
+      }
+      return true; // aucun champ de date → non daté, conservé
+    });
+  }
+
   function money(v) {
     var n = Number(v) || 0;
     return (n >= 0 ? '+' : '-') + Math.abs(n).toFixed(2);
@@ -150,5 +207,6 @@
     return doc;
   }
 
-  return { buildPdf: buildPdf, tradeLines: tradeLines, money: money, pair: pair };
+  return { buildPdf: buildPdf, tradeLines: tradeLines, money: money, pair: pair,
+           periodRange: periodRange, inRange: inRange, filterByPeriod: filterByPeriod };
 });
