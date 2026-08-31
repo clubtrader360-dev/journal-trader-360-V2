@@ -15087,6 +15087,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             });
         }
 
+        // Exposé pour la liste des élèves d'un jour : même format monétaire des deux côtés
+        // (0 décimale, signe moins typographique). Sans ça, le coach voyait +$1 234,56 dans
+        // la liste et +$1 234 dans la fiche pour le même montant.
+        window.coachMoney = coachMoney;
+
         // Exposé pour la liste des élèves d'un jour du calendrier (assets/coach-dashboard.js) :
         // window.coachStudentsRows n'est construit QUE par cette fonction, elle-même appelée
         // uniquement à l'ouverture de l'onglet élèves. Un coach allant droit au calendrier

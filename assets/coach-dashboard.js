@@ -573,8 +573,13 @@
 
   var dayModalToken = 0; // invalide les réponses d'une ouverture précédente
 
+  // Réutilise coachMoney (index.html) pour que la liste et la fiche affichent le MÊME
+  // format. L'ancienne version donnait +$1 234,56 (2 décimales, tiret ASCII) là où la
+  // fiche donne +$1 234 (0 décimale, signe moins typographique) : deux formats pour le
+  // même montant selon l'écran. Repli à l'identique si la fonction n'est pas exposée.
   function fmtMoney(v) {
-    return (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (typeof window.coachMoney === 'function') return window.coachMoney(v);
+    return (v >= 0 ? '+$' : '\u2212$') + Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
   }
   function frDate(iso) {
     var p = String(iso).split('-');
@@ -636,6 +641,15 @@
     return list;
   }
 
+  // Résout l'index d'un uuid dans coachStudentsRows. openCoachStudentDetail attend un
+  // INDEX ; on le résout AU CLIC et non au rendu, pour que l'affordance ne dépende plus
+  // de l'état d'un tableau chargé ailleurs.
+  function idxForUuid(uuid) {
+    var rows = window.coachStudentsRows || [];
+    for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].uuid === uuid) return i;
+    return -1;
+  }
+
   function renderDayStudents(list) {
     var sub = document.getElementById('coachDayStudentsSub');
     var box = document.getElementById('coachDayStudentsList');
@@ -643,33 +657,93 @@
     if (!box) return;
     if (!list.length) { box.innerHTML = '<div style="opacity:.7;font-size:.9rem;">Aucun élève sur cette journée.</div>'; return; }
 
-    // openCoachStudentDetail attend un INDEX, pas un uuid : on le retrouve dans
-    // coachStudentsRows. Un élève absent de ce tableau (compte révoqué, précisément
-    // ceux que la cohérence du compte fait apparaître) reste AFFICHÉ mais non
-    // cliquable, sans curseur pointer, pour ne pas paraître interactif.
-    var rows = window.coachStudentsRows || [];
-    var idxByUuid = {};
-    rows.forEach(function (r, i) { if (r && r.uuid) idxByUuid[r.uuid] = i; });
+    // Bandeau si la table élèves n'a pas pu être chargée : sans lui, TOUTES les lignes
+    // seraient inertes sans que rien ne l'explique — le défaut corrigé ici.
+    var banner = '';
+    if (!(window.coachStudentsRows || []).length) {
+      console.warn('[COACH-DAY] coachStudentsRows vide après tentative de chargement — fiches indisponibles');
+      banner = '<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);'
+        + 'border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:.82rem;">'
+        + 'Liste des élèves indisponible : les fiches ne peuvent pas être ouvertes depuis ici.</div>';
+    }
 
-    box.innerHTML = list.map(function (s) {
-      var idx = idxByUuid[s.uuid];
-      var clickable = idx !== undefined;
+    // TOUTES les lignes porteuses d'un uuid sont cliquables. L'index n'est plus une
+    // condition d'affordance : c'est un détail résolu au clic.
+    box.innerHTML = banner + list.map(function (s) {
       var label = s.name || s.email || ('Compte ' + String(s.uuid).slice(0, 8) + '…');
       var pnlColor = s.pnl >= 0 ? '#10b981' : '#ef4444';
+      var clickable = !!s.uuid;
       return '<div class="coach-day-row"'
-        + (clickable ? ' role="button" tabindex="0" onclick="coachDayOpenStudent(' + idx + ')"'
-            + ' onkeydown="if(event.key===\'Enter\'){coachDayOpenStudent(' + idx + ');}"'
-          : ' title="Fiche indisponible — compte hors de la liste des élèves actifs"')
+        + (clickable ? ' data-uuid="' + esc(s.uuid) + '" data-label="' + esc(label) + '" role="button" tabindex="0"' : '')
         + ' style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:rgba(212,175,55,0.06);'
         + (clickable ? 'cursor:pointer;' : 'opacity:.72;') + '">'
-        + '<div style="min-width:0;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(label) + '</div>'
+        + '<div style="min-width:0;pointer-events:none;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(label) + '</div>'
         + (s.name && s.email ? '<div style="font-size:.75rem;opacity:.6;">' + esc(s.email) + '</div>' : '')
         + '</div>'
-        + '<div style="text-align:right;white-space:nowrap;"><div style="font-weight:700;color:' + pnlColor + ';">' + fmtMoney(s.pnl) + '</div>'
+        + '<div style="text-align:right;white-space:nowrap;pointer-events:none;"><div style="font-weight:700;color:' + pnlColor + ';">' + fmtMoney(s.pnl) + '</div>'
         + '<div style="font-size:.75rem;opacity:.7;">' + s.trades + ' trade' + (s.trades > 1 ? 's' : '') + '</div></div>'
         + '</div>';
     }).join('');
   }
+
+  // Ouvre la fiche d'un élève depuis la liste du jour. AUCUN chemin silencieux : chaque
+  // sortie journalise sa raison, et l'utilisateur est notifié quand rien ne peut s'ouvrir.
+  window.coachDayOpenStudentByUuid = async function (uuid, label) {
+    if (!uuid) { console.warn('[COACH-DAY] clic sans uuid — ligne ignorée'); return; }
+
+    if (typeof window.openCoachStudentDetail !== 'function') {
+      console.warn('[COACH-DAY] window.openCoachStudentDetail absente — fiche impossible pour', uuid);
+      if (window.showNotification) window.showNotification("Fiche élève indisponible sur cette page.", 'error');
+      return;
+    }
+
+    var idx = idxForUuid(uuid);
+
+    // Index introuvable : on tente un rechargement AVANT d'abandonner.
+    if (idx < 0 && typeof window.loadCoachStudents === 'function') {
+      console.warn('[COACH-DAY] index introuvable pour', uuid, '— rechargement de la table élèves');
+      try { await window.loadCoachStudents(); } catch (e) { console.warn('[COACH-DAY] loadCoachStudents a échoué:', e); }
+      idx = idxForUuid(uuid);
+    }
+
+    if (idx < 0) {
+      console.warn('[COACH-DAY] uuid absent de coachStudentsRows après rechargement:', uuid,
+        '| taille du tableau =', (window.coachStudentsRows || []).length);
+      if (window.showNotification) {
+        window.showNotification('Fiche indisponible pour ' + (label || 'cet élève') + " (hors de la liste des élèves actifs).", 'error');
+      }
+      return;
+    }
+
+    window.openCoachStudentDetail(idx);
+  };
+
+  // Délégation : un seul listener, posé une fois, qui survit aux réécritures de innerHTML.
+  // L'ancienne version posait des onclick inline au rendu — absents dès qu'une ligne
+  // était jugée non cliquable, d'où un clic sans effet ET sans message.
+  (function bindDayRowDelegation() {
+    var box = document.getElementById('coachDayStudentsList');
+    if (!box) {
+      // Le modal est plus bas dans le DOM que ce script defer dans certains cas :
+      // on réessaie une fois le document prêt.
+      document.addEventListener('DOMContentLoaded', bindDayRowDelegation, { once: true });
+      return;
+    }
+    if (box.dataset.bound === '1') return;
+    box.dataset.bound = '1';
+    box.addEventListener('click', function (ev) {
+      var row = ev.target && ev.target.closest ? ev.target.closest('.coach-day-row[data-uuid]') : null;
+      if (!row) return;
+      window.coachDayOpenStudentByUuid(row.getAttribute('data-uuid'), row.getAttribute('data-label'));
+    });
+    box.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      var row = ev.target && ev.target.closest ? ev.target.closest('.coach-day-row[data-uuid]') : null;
+      if (!row) return;
+      ev.preventDefault();
+      window.coachDayOpenStudentByUuid(row.getAttribute('data-uuid'), row.getAttribute('data-label'));
+    });
+  })();
 
   window.openCoachDayStudents = async function (iso) {
     var modal = document.getElementById('coachDayStudentsModal');
@@ -709,25 +783,44 @@
     if (m) m.style.display = 'none';
   };
 
-  // Ouvre la fiche élève PAR-DESSUS la liste, sans la refermer : le coach doit pouvoir
-  // enchaîner plusieurs élèves du même jour. La fiche (z-index 1000) passe au-dessus de
-  // cette liste (990) ; sa fermeture la laisse réapparaître.
+  // Conservé pour compatibilité : ouverture par index si un appelant externe l'utilise.
   window.coachDayOpenStudent = function (idx) {
-    if (typeof window.openCoachStudentDetail === 'function') window.openCoachStudentDetail(idx);
+    if (typeof window.openCoachStudentDetail === 'function') { window.openCoachStudentDetail(idx); return; }
+    console.warn('[COACH-DAY] window.openCoachStudentDetail absente — index', idx);
   };
 
-  // Fermeture par clic sur le fond et par Escape, comme les modals existants.
+  // Fermeture par clic sur le fond.
   document.addEventListener('click', function (ev) {
     var m = document.getElementById('coachDayStudentsModal');
     if (m && m.style.display === 'block' && ev.target === m) window.closeCoachDayStudents();
   });
+
+  // ---- Escape, en phase CAPTURE ----
+  // index.html (~l.8187) enregistre au parsing un handler générique qui ferme la PREMIÈRE
+  // modale visible dans l'ordre du DOM, via closeModal(). Or coachDayStudentsModal précède
+  // coachStudentDetailModal dans le document, et openCoachStudentDetail fait un
+  // appendChild(document.body) qui repousse la fiche encore plus loin. Avec les deux
+  // ouvertes, le générique fermait donc la LISTE et laissait la fiche — l'inverse du
+  // comportement voulu. Il ne passait pas non plus par closeCoachDayStudents(), donc
+  // dayModalToken n'était jamais incrémenté.
+  // La capture s'exécute avant TOUT listener bubble du même nœud, quel que soit l'ordre
+  // d'enregistrement : c'est le seul moyen de passer devant un handler déjà en place.
   document.addEventListener('keydown', function (ev) {
     if (ev.key !== 'Escape') return;
-    var m = document.getElementById('coachDayStudentsModal');
-    if (!m || m.style.display !== 'block') return;
-    // Si la fiche élève est ouverte par-dessus, Escape ferme ELLE d'abord.
-    var sd = document.getElementById('coachStudentDetailModal');
-    if (sd && sd.style.display === 'block') return;
-    window.closeCoachDayStudents();
-  });
+    var list = document.getElementById('coachDayStudentsModal');
+    var sheet = document.getElementById('coachStudentDetailModal');
+    var listOpen = !!(list && list.style.display === 'block');
+    var sheetOpen = !!(sheet && sheet.style.display === 'block');
+    // Aucune des deux : on ne touche à rien, le générique garde son comportement.
+    if (!listOpen && !sheetOpen) return;
+
+    if (sheetOpen) {
+      if (typeof window.closeCoachStudentDetail === 'function') window.closeCoachStudentDetail();
+      else sheet.style.display = 'none';
+    } else {
+      window.closeCoachDayStudents();
+    }
+    ev.stopImmediatePropagation();
+    ev.preventDefault();
+  }, true);
 })();
