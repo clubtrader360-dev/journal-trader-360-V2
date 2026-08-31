@@ -275,6 +275,9 @@
       }
 
       renderCalendar();
+      // Réévalue l'état des flèches après CHAQUE rendu : au premier chargement,
+      // calDate vaut le mois courant, le bouton › doit donc être désactivé d'emblée.
+      if (window.updateCoachCalNavState) window.updateCoachCalNavState();
 
       // KPIs
       var set = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
@@ -350,6 +353,19 @@
       if (ratio <= 40) { lbl.textContent = 'Excellent'; desc.textContent = 'Profits bien répartis chez les élèves'; }
       else if (ratio <= 60) { lbl.textContent = 'Correct'; desc.textContent = 'Régularité moyenne'; }
       else { lbl.textContent = 'À surveiller'; desc.textContent = 'Profits trop concentrés sur peu de jours'; }
+    }
+    // Colorisation de la carte — PORTÉE depuis /coach-dashboard.js avant sa suppression.
+    // C'était la SEULE chose que le legacy faisait et qu'assets ne faisait pas. Elle était
+    // déjà inopérante (son unique point d'entrée, le loadCoachDashboard du legacy, était
+    // écrasé par celui-ci), mais on la porte plutôt que de la perdre au passage.
+    var interp = document.getElementById('globalConsistencyInterpretation');
+    if (interp || rEl) {
+      var tone = ratio <= 40 ? { bg: '#f0fdf4', border: '#10b981', text: '#10b981' }
+        : ratio <= 60 ? { bg: '#fefce8', border: '#84cc16', text: '#84cc16' }
+        : ratio <= 80 ? { bg: '#fff7ed', border: '#f59e0b', text: '#f59e0b' }
+        : { bg: '#fef2f2', border: '#ef4444', text: '#ef4444' };
+      if (interp) { interp.style.backgroundColor = tone.bg; interp.style.borderLeftColor = tone.border; }
+      if (rEl) rEl.style.color = tone.text;
     }
 
     if (!window.Chart) return;
@@ -823,4 +839,91 @@
     ev.stopImmediatePropagation();
     ev.preventDefault();
   }, true);
+
+  /* ==========================================================================
+     NAVIGATION MENSUELLE DU CALENDRIER COACH
+     --------------------------------------------------------------------------
+     Ces fonctions vivaient dans /coach-dashboard.js, supprimé ici : sans elles, les
+     boutons ‹ › lèveraient une ReferenceError. Elles pilotent désormais calDate, le
+     véritable état du calendrier affiché, et rechargent les données du mois.
+     ========================================================================== */
+
+  // Rechargement en cours : garde anti-clics multiples. loadCoachDashboard()
+  // refait toutes les requêtes ; empiler les appels produirait des rendus
+  // concurrents dont le dernier arrivé ne serait pas forcément le dernier demandé.
+  var calNavBusy = false;
+
+  function sameMonth(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  }
+
+  // Le mois courant est la borne haute : un mois futur serait nécessairement vide
+  // et passerait pour un bug.
+  function isCurrentMonth() {
+    return sameMonth(calDate, new Date());
+  }
+
+  function setCalNavState(busy) {
+    var prev = document.getElementById('coachCalPrev');
+    var next = document.getElementById('coachCalNext');
+    var grid = document.getElementById('globalCalendarGrid');
+    var label = document.getElementById('globalCalendarMonthYear');
+
+    // Grille atténuée pendant le rechargement : sans ce retour, un clic donne
+    // l'impression que rien ne se passe — précisément le défaut corrigé ici.
+    if (grid) {
+      grid.style.transition = 'opacity .15s';
+      grid.style.opacity = busy ? '0.45' : '';
+      grid.style.pointerEvents = busy ? 'none' : '';
+    }
+    if (label) label.style.opacity = busy ? '0.5' : '';
+
+    var atCurrent = isCurrentMonth();
+    if (prev) {
+      prev.disabled = busy;
+      prev.style.opacity = busy ? '0.4' : '';
+      prev.style.cursor = busy ? 'not-allowed' : '';
+    }
+    if (next) {
+      // Désactivé si on recharge OU si on est déjà sur le mois courant.
+      var lock = busy || atCurrent;
+      next.disabled = lock;
+      next.style.opacity = lock ? '0.35' : '';
+      next.style.cursor = lock ? 'not-allowed' : '';
+      next.title = atCurrent ? 'Mois courant — pas de navigation vers le futur' : '';
+    }
+  }
+  // Exposé : l'état du bouton › doit être réévalué après chaque rendu.
+  window.updateCoachCalNavState = function () { setCalNavState(false); };
+
+  // delta : -1 (mois précédent) | +1 (mois suivant).
+  // new Date(année, mois ± 1, 1) plutôt que setMonth() sur l'objet existant :
+  // partir du 1er évite les débordements (31 janvier + 1 mois → 3 mars).
+  // Le passage d'année est géré nativement (mois -1 → décembre de l'an passé).
+  async function shiftMonth(delta) {
+    if (calNavBusy) return;                       // clics multiples ignorés
+    if (delta > 0 && isCurrentMonth()) return;    // borne haute : pas de futur
+
+    var target = new Date(calDate.getFullYear(), calDate.getMonth() + delta, 1);
+    // Ceinture : même si l'appel venait d'ailleurs que du bouton.
+    if (target > new Date(new Date().getFullYear(), new Date().getMonth(), 1)) return;
+
+    calNavBusy = true;
+    calDate = target;
+    setCalNavState(true);
+    try {
+      // loadCoachDashboard() et non renderCalendar() seul : les données
+      // (dailyDollar, dailyR, dailyPct, dailyActions, dailyErrors, dailyJournal,
+      // dailyChecklist) sont scopées au mois via mKey et doivent être rechargées.
+      await window.loadCoachDashboard();
+    } catch (e) {
+      console.error('[COACH CAL] Rechargement du mois échoué:', e);
+    } finally {
+      calNavBusy = false;
+      setCalNavState(false);
+    }
+  }
+
+  window.previousGlobalMonth = function () { return shiftMonth(-1); };
+  window.nextGlobalMonth = function () { return shiftMonth(1); };
 })();
