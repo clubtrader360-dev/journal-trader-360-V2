@@ -3951,8 +3951,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div id="logoutBtn" class="sidebar-item logoutBtn" data-action="logout" style="margin-top: 20px; border-top: 1px solid var(--sidebar-divider); padding-top: 20px;">
                     <i class="fas fa-sign-out-alt mr-3"></i>Déconnexion
                 </div>
-                <div class="sidebar-item" onclick="exportAllDataToCSV()" style="margin-top: 10px;">
-                    <i class="fas fa-file-download mr-3"></i>Exporter CSV pour analyse IA
+                <div class="sidebar-item" onclick="exportAllDataToPDF()" style="margin-top: 10px;">
+                    <i class="fas fa-file-pdf mr-3"></i>Exporter PDF pour analyse IA
                 </div>
                 <div class="sidebar-item" onclick="window.open('https://chatgpt.com/g/g-69690516bf0c819184d382d2dd56d04c-analyste-journal-de-trading', '_blank')" style="margin-top: 5px;">
                     <i class="fas fa-brain mr-3"></i>Analyse IA
@@ -9636,7 +9636,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         // logout() déplacé vers supabase-auth.js
 
         // ===== EXPORT CSV POUR ANALYSE IA =====
-        function exportAllDataToCSV() {
+        function exportAllDataToPDF() {
             console.log('[EXPORT] 📊 Début de l\'export CSV...');
             
             try {
@@ -9711,18 +9711,18 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 }
                 const allAccountNames = [...new Set((window.accounts || []).map(a => a.name).filter(Boolean))];
 
-                // Métadonnées en commentaires (#) — ignorés par les parsers CSV, lisibles humain/IA
-                csv += `# Export Trader 360 — analyse IA\n`;
-                csv += `# Trader: ${user.name || user.email || 'Unknown'}\n`;
-                csv += `# Date d'export: ${new Date().toISOString()}\n`;
-                csv += `# Periode: ${dateMin} -> ${dateMax}\n`;
-                csv += `# Nombre de trades (apres deduplication): ${dedupedTrades.length}\n`;
-                csv += `# Nombre de trades brut (avec copy-trading): ${trades.length}\n`;
-                csv += `# Comptes: ${allAccountNames.join(', ')}\n`;
-                csv += `#\n`;
-
-                // En-tête CSV (1 seule ligne, sans section marker)
-                csv += 'ID,Date,Day of Week,Entry Time,Exit Time,Duration (min),Session,Instrument,Direction,Type Trade,Quantity,Entry Price,Exit Price,P&L,RR Atteint,Win/Loss,Protection Setup,Protection Target,Protection Invalidation,Account(s),Methode,Notes\n';
+                // Métadonnées de l'export, rendues en tête du PDF.
+                const meta = {
+                    trader: user.name || user.email || 'Unknown',
+                    exportedAt: new Date().toISOString(),
+                    periode: dateMin + ' → ' + dateMax,
+                    nbTrades: dedupedTrades.length,
+                    nbTradesBruts: trades.length,
+                    comptes: allAccountNames.join(', '),
+                };
+                // Un enregistrement structuré par trade : la sérialisation PDF nomme chaque
+                // champ, au lieu de dépendre de sa position comme le faisait le CSV.
+                const records = [];
 
                 const DAYS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
                 const csvCell = (v) => {
@@ -9763,60 +9763,44 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     const entryPrice = parseFloat(trade.entryPrice || trade.entry_price);
                     const exitPrice = parseFloat(trade.exitPrice || trade.exit_price);
 
-                    csv += [
-                        index + 1,
-                        csvCell(trade.date),
-                        dayOfWeek,
-                        entryT,
-                        exitT,
-                        duration,
-                        session,
-                        csvCell(instrument),
-                        direction,
-                        csvCell(typeTrade),
-                        quantity,
-                        isNaN(entryPrice) ? '' : entryPrice,
-                        isNaN(exitPrice) ? '' : exitPrice,
-                        pnl.toFixed(2),
-                        rrAtteint,
-                        winLoss,
-                        protSetup,
-                        protTarget,
-                        protInval,
-                        csvCell(accountsStr),
-                        csvCell(methode),
-                        csvCell(trade.notes || ''),
-                    ].join(',') + '\n';
+                    records.push({
+                        id: index + 1, date: trade.date || '', dayOfWeek, entryT, exitT, duration,
+                        session: entryT ? session : '', instrument, direction, typeTrade,
+                        quantity, entryPrice: isNaN(entryPrice) ? '' : entryPrice,
+                        exitPrice: isNaN(exitPrice) ? '' : exitPrice,
+                        pnl, rrAtteint, winLoss, protSetup, protTarget, protInval,
+                        accountsStr, methode, notes: trade.notes || '',
+                    });
                 });
 
-                console.log('[EXPORT] ✅ CSV généré avec succès');
-                
-                // Télécharger le fichier
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
+                // Rendu PDF en TEXTE NATIF (jsPDF.text). Jamais html2canvas ni capture :
+                // un PDF-image serait illisible par l'IA, ce qui viderait l'export de son sens.
+                const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+                if (!jsPDFCtor) throw new Error('jsPDF non chargé (CDN indisponible ?)');
+                if (!window.TraderPdfExport) throw new Error('assets/export-pdf.js non chargé');
+
+                const doc = window.TraderPdfExport.buildPdf(jsPDFCtor, meta, records);
+                console.log('[EXPORT] ✅ PDF généré avec succès —', records.length, 'trade(s)');
+
                 const _slug = (user.name || user.email || 'trader').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                const _fname = 'trader360_trades_' + _slug + '_' + new Date().toISOString().split('T')[0] + '.csv';
-                a.download = _fname;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-                
+                const _fname = 'trader360_trades_' + _slug + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+                doc.save(_fname);
+
                 console.log('[EXPORT] 📥 Fichier téléchargé');
-                
-                // Notification succès
-                alert('✅ Export CSV réussi !\n\nFichier téléchargé : ' + _fname + '\n\nCSV plat prêt pour l\'analyse IA (ChatGPT/Excel).');
-                
+
+                alert('✅ Export PDF réussi !\n\nFichier téléchargé : ' + _fname + '\n\nPDF en texte natif, prêt à être déposé dans ChatGPT pour analyse.');
+
             } catch (error) {
                 console.error('[EXPORT] ❌ Erreur:', error);
-                alert('❌ Erreur lors de l\'export CSV. Consultez la console pour plus de détails.');
+                alert('❌ Erreur lors de l\'export PDF. Consultez la console pour plus de détails.');
             }
         }
-        
-        // Exposer la fonction globalement
-        window.exportAllDataToCSV = exportAllDataToCSV;
+
+        // Exposer la fonction globalement.
+        window.exportAllDataToPDF = exportAllDataToPDF;
+        // Alias conservé : le bouton sidebar était le SEUL appelant (vérifié), mais un
+        // ancien raccourci ou un signet pourrait encore viser l'ancien nom.
+        window.exportAllDataToCSV = exportAllDataToPDF;
 
         // Navigation
         async function showSection(sectionName) {
@@ -16327,6 +16311,10 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     </div>
 
     <script src="/assets/dashboard-customizer.js" defer></script>
+    <!-- Export PDF « analyse IA » : jsPDF (cdnjs, cohérent avec la stack vanilla) +
+         module de rendu texte natif. Aucun html2canvas : le PDF doit rester du TEXTE. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="/assets/export-pdf.js" defer></script>
     <script src="/assets/coach-dashboard.js" defer></script>
     <script src="/assets/coach-dashboard-customizer.js" defer></script>
     <script>
