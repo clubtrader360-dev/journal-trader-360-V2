@@ -142,7 +142,16 @@
       if (hasTrades) { var p = rec.total_pnl; cls += p > 0 ? ' bg-green-100 text-green-800' : (p < 0 ? ' bg-red-200 text-red-900' : ' bg-gray-100'); }
       else cls += ' text-gray-400';
       var inner = '<div class="font-semibold">' + d + '</div>' + (hasTrades || (cache.dailyActions[iso] || cache.dailyErrors[iso]) ? fmtCell(iso) : '');
-      if (hasTrades && rec.active_students) inner += '<div class="coach-cal-students" style="font-size:11px;font-weight:700;">' + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
+      // Compteur cliquable → liste des élèves du jour. Uniquement quand il existe :
+      // un jour sans trade n'a rien à ouvrir.
+      if (hasTrades && rec.active_students) {
+        inner += '<div class="coach-cal-students coach-cal-students--link" role="button" tabindex="0"'
+          + ' title="Voir les élèves ayant tradé ce jour"'
+          + ' onclick="event.stopPropagation();openCoachDayStudents(\'' + iso + '\')"'
+          + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openCoachDayStudents(\'' + iso + '\');}"'
+          + ' style="font-size:11px;font-weight:700;">'
+          + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
+      }
       html += '<div class="' + cls + '">' + inner + '</div>';
     }
     grid.innerHTML = html;
@@ -266,6 +275,9 @@
       }
 
       renderCalendar();
+      // Réévalue l'état des flèches après CHAQUE rendu : au premier chargement,
+      // calDate vaut le mois courant, le bouton › doit donc être désactivé d'emblée.
+      if (window.updateCoachCalNavState) window.updateCoachCalNavState();
 
       // KPIs
       var set = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
@@ -341,6 +353,19 @@
       if (ratio <= 40) { lbl.textContent = 'Excellent'; desc.textContent = 'Profits bien répartis chez les élèves'; }
       else if (ratio <= 60) { lbl.textContent = 'Correct'; desc.textContent = 'Régularité moyenne'; }
       else { lbl.textContent = 'À surveiller'; desc.textContent = 'Profits trop concentrés sur peu de jours'; }
+    }
+    // Colorisation de la carte — PORTÉE depuis /coach-dashboard.js avant sa suppression.
+    // C'était la SEULE chose que le legacy faisait et qu'assets ne faisait pas. Elle était
+    // déjà inopérante (son unique point d'entrée, le loadCoachDashboard du legacy, était
+    // écrasé par celui-ci), mais on la porte plutôt que de la perdre au passage.
+    var interp = document.getElementById('globalConsistencyInterpretation');
+    if (interp || rEl) {
+      var tone = ratio <= 40 ? { bg: '#f0fdf4', border: '#10b981', text: '#10b981' }
+        : ratio <= 60 ? { bg: '#fefce8', border: '#84cc16', text: '#84cc16' }
+        : ratio <= 80 ? { bg: '#fff7ed', border: '#f59e0b', text: '#f59e0b' }
+        : { bg: '#fef2f2', border: '#ef4444', text: '#ef4444' };
+      if (interp) { interp.style.backgroundColor = tone.bg; interp.style.borderLeftColor = tone.border; }
+      if (rEl) rEl.style.color = tone.text;
     }
 
     if (!window.Chart) return;
@@ -548,4 +573,357 @@
                   y: { beginAtZero: true, title: { display: true, text: "Nb d'élèves", color: axisColor }, ticks: { color: axisColor, precision: 0 }, grid: { color: gridColor } } } }
     });
   };
+
+  /* ==========================================================================
+     LISTE DES ÉLÈVES AYANT TRADÉ UN JOUR DONNÉ
+     --------------------------------------------------------------------------
+     COHÉRENCE DU COMPTE. Le chiffre de la case vient de la vue
+     coach_daily_aggregate : count(DISTINCT user_id) FROM trades, SANS filtre de
+     rôle ni de statut (définition relue en base). La liste est donc construite
+     depuis la MÊME table trades, et surtout PAS depuis getAllStudentsData(), qui
+     ne charge que role='student' AND status='active'. Les comptes révoqués ayant
+     tradé comptent dans le chiffre : les omettre donnerait une liste plus courte
+     que le compteur, soit un bug visible.
+     La vue est security_invoker : RLS identique entre elle et notre requête.
+     ========================================================================== */
+
+  var dayModalToken = 0; // invalide les réponses d'une ouverture précédente
+
+  // Réutilise coachMoney (index.html) pour que la liste et la fiche affichent le MÊME
+  // format. L'ancienne version donnait +$1 234,56 (2 décimales, tiret ASCII) là où la
+  // fiche donne +$1 234 (0 décimale, signe moins typographique) : deux formats pour le
+  // même montant selon l'écran. Repli à l'identique si la fonction n'est pas exposée.
+  function fmtMoney(v) {
+    if (typeof window.coachMoney === 'function') return window.coachMoney(v);
+    return (v >= 0 ? '+$' : '\u2212$') + Math.abs(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+  }
+  function frDate(iso) {
+    var p = String(iso).split('-');
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  function esc(s) {
+    return window.escapeHtml ? window.escapeHtml(String(s == null ? '' : s))
+      : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        });
+  }
+
+  // Agrège les trades du jour par user_id. Une seule requête grâce à la FK
+  // trades_user_id_fkey -> public.users(uuid), vérifiée en base ; repli sur deux
+  // requêtes si l'embed PostgREST échoue (relation ambiguë, RLS sur users...).
+  async function fetchDayStudents(iso) {
+    var sb = window.supabaseClient;
+    if (!sb) throw new Error('Client Supabase indisponible');
+
+    var rows = null, embedded = true;
+    var r = await sb.from('trades').select('user_id, pnl, users(name, email)').eq('trade_date', iso);
+    if (r.error) {
+      embedded = false;
+      var r2 = await sb.from('trades').select('user_id, pnl').eq('trade_date', iso);
+      if (r2.error) throw r2.error;
+      rows = r2.data || [];
+    } else {
+      rows = r.data || [];
+    }
+
+    var byUser = {};
+    rows.forEach(function (t) {
+      var id = t.user_id;
+      if (!id) return;
+      if (!byUser[id]) byUser[id] = { uuid: id, pnl: 0, trades: 0, name: null, email: null };
+      byUser[id].pnl += parseFloat(t.pnl) || 0;
+      byUser[id].trades += 1;
+      if (embedded && t.users) {
+        byUser[id].name = t.users.name || byUser[id].name;
+        byUser[id].email = t.users.email || byUser[id].email;
+      }
+    });
+    var list = Object.keys(byUser).map(function (k) { return byUser[k]; });
+
+    if (!embedded && list.length) {
+      try {
+        var u = await sb.from('users').select('uuid, name, email').in('uuid', list.map(function (x) { return x.uuid; }));
+        if (!u.error && u.data) {
+          var map = {};
+          u.data.forEach(function (x) { map[x.uuid] = x; });
+          list.forEach(function (x) { var m = map[x.uuid]; if (m) { x.name = m.name; x.email = m.email; } });
+        }
+      } catch (e) { console.warn('[COACH-DAY] resolution des noms echouee:', e); }
+    }
+
+    // Tri par P&L décroissant : un coach veut les extrêmes, pas l'ordre alphabétique.
+    list.sort(function (a, b) { return b.pnl - a.pnl; });
+    return list;
+  }
+
+  // Résout l'index d'un uuid dans coachStudentsRows. openCoachStudentDetail attend un
+  // INDEX ; on le résout AU CLIC et non au rendu, pour que l'affordance ne dépende plus
+  // de l'état d'un tableau chargé ailleurs.
+  function idxForUuid(uuid) {
+    var rows = window.coachStudentsRows || [];
+    for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].uuid === uuid) return i;
+    return -1;
+  }
+
+  function renderDayStudents(list) {
+    var sub = document.getElementById('coachDayStudentsSub');
+    var box = document.getElementById('coachDayStudentsList');
+    if (sub) sub.textContent = list.length + ' élève' + (list.length > 1 ? 's' : '') + ' ayant tradé';
+    if (!box) return;
+    if (!list.length) { box.innerHTML = '<div style="opacity:.7;font-size:.9rem;">Aucun élève sur cette journée.</div>'; return; }
+
+    // Bandeau si la table élèves n'a pas pu être chargée : sans lui, TOUTES les lignes
+    // seraient inertes sans que rien ne l'explique — le défaut corrigé ici.
+    var banner = '';
+    if (!(window.coachStudentsRows || []).length) {
+      console.warn('[COACH-DAY] coachStudentsRows vide après tentative de chargement — fiches indisponibles');
+      banner = '<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);'
+        + 'border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:.82rem;">'
+        + 'Liste des élèves indisponible : les fiches ne peuvent pas être ouvertes depuis ici.</div>';
+    }
+
+    // TOUTES les lignes porteuses d'un uuid sont cliquables. L'index n'est plus une
+    // condition d'affordance : c'est un détail résolu au clic.
+    box.innerHTML = banner + list.map(function (s) {
+      var label = s.name || s.email || ('Compte ' + String(s.uuid).slice(0, 8) + '…');
+      var pnlColor = s.pnl >= 0 ? '#10b981' : '#ef4444';
+      var clickable = !!s.uuid;
+      return '<div class="coach-day-row"'
+        + (clickable ? ' data-uuid="' + esc(s.uuid) + '" data-label="' + esc(label) + '" role="button" tabindex="0"' : '')
+        + ' style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:rgba(212,175,55,0.06);'
+        + (clickable ? 'cursor:pointer;' : 'opacity:.72;') + '">'
+        + '<div style="min-width:0;pointer-events:none;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(label) + '</div>'
+        + (s.name && s.email ? '<div style="font-size:.75rem;opacity:.6;">' + esc(s.email) + '</div>' : '')
+        + '</div>'
+        + '<div style="text-align:right;white-space:nowrap;pointer-events:none;"><div style="font-weight:700;color:' + pnlColor + ';">' + fmtMoney(s.pnl) + '</div>'
+        + '<div style="font-size:.75rem;opacity:.7;">' + s.trades + ' trade' + (s.trades > 1 ? 's' : '') + '</div></div>'
+        + '</div>';
+    }).join('');
+  }
+
+  // Ouvre la fiche d'un élève depuis la liste du jour. AUCUN chemin silencieux : chaque
+  // sortie journalise sa raison, et l'utilisateur est notifié quand rien ne peut s'ouvrir.
+  window.coachDayOpenStudentByUuid = async function (uuid, label) {
+    if (!uuid) { console.warn('[COACH-DAY] clic sans uuid — ligne ignorée'); return; }
+
+    if (typeof window.openCoachStudentDetail !== 'function') {
+      console.warn('[COACH-DAY] window.openCoachStudentDetail absente — fiche impossible pour', uuid);
+      if (window.showNotification) window.showNotification("Fiche élève indisponible sur cette page.", 'error');
+      return;
+    }
+
+    var idx = idxForUuid(uuid);
+
+    // Index introuvable : on tente un rechargement AVANT d'abandonner.
+    if (idx < 0 && typeof window.loadCoachStudents === 'function') {
+      console.warn('[COACH-DAY] index introuvable pour', uuid, '— rechargement de la table élèves');
+      try { await window.loadCoachStudents(); } catch (e) { console.warn('[COACH-DAY] loadCoachStudents a échoué:', e); }
+      idx = idxForUuid(uuid);
+    }
+
+    if (idx < 0) {
+      console.warn('[COACH-DAY] uuid absent de coachStudentsRows après rechargement:', uuid,
+        '| taille du tableau =', (window.coachStudentsRows || []).length);
+      if (window.showNotification) {
+        window.showNotification('Fiche indisponible pour ' + (label || 'cet élève') + " (hors de la liste des élèves actifs).", 'error');
+      }
+      return;
+    }
+
+    window.openCoachStudentDetail(idx);
+  };
+
+  // Délégation : un seul listener, posé une fois, qui survit aux réécritures de innerHTML.
+  // L'ancienne version posait des onclick inline au rendu — absents dès qu'une ligne
+  // était jugée non cliquable, d'où un clic sans effet ET sans message.
+  (function bindDayRowDelegation() {
+    var box = document.getElementById('coachDayStudentsList');
+    if (!box) {
+      // Le modal est plus bas dans le DOM que ce script defer dans certains cas :
+      // on réessaie une fois le document prêt.
+      document.addEventListener('DOMContentLoaded', bindDayRowDelegation, { once: true });
+      return;
+    }
+    if (box.dataset.bound === '1') return;
+    box.dataset.bound = '1';
+    box.addEventListener('click', function (ev) {
+      var row = ev.target && ev.target.closest ? ev.target.closest('.coach-day-row[data-uuid]') : null;
+      if (!row) return;
+      window.coachDayOpenStudentByUuid(row.getAttribute('data-uuid'), row.getAttribute('data-label'));
+    });
+    box.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      var row = ev.target && ev.target.closest ? ev.target.closest('.coach-day-row[data-uuid]') : null;
+      if (!row) return;
+      ev.preventDefault();
+      window.coachDayOpenStudentByUuid(row.getAttribute('data-uuid'), row.getAttribute('data-label'));
+    });
+  })();
+
+  window.openCoachDayStudents = async function (iso) {
+    var modal = document.getElementById('coachDayStudentsModal');
+    if (!modal) return;
+    var token = ++dayModalToken;
+
+    var title = document.getElementById('coachDayStudentsTitle');
+    var sub = document.getElementById('coachDayStudentsSub');
+    var box = document.getElementById('coachDayStudentsList');
+    if (title) title.textContent = frDate(iso);
+    if (sub) sub.textContent = 'Chargement…';
+    // Le modal s'ouvre AVANT la réponse : sans état d'attente, une liste vide se
+    // lirait comme « aucun élève » alors que la requête est en cours.
+    if (box) box.innerHTML = '<div style="opacity:.7;font-size:.9rem;padding:8px 0;">Chargement des élèves…</div>';
+    modal.style.display = 'block';
+
+    try {
+      // coachStudentsRows n'existe qu'après l'ouverture de l'onglet élèves. Sans lui,
+      // AUCUNE ligne ne serait cliquable pour un coach venu droit au calendrier.
+      if (!(window.coachStudentsRows || []).length && typeof window.loadCoachStudents === 'function') {
+        try { await window.loadCoachStudents(); } catch (e) { console.warn('[COACH-DAY] loadCoachStudents:', e); }
+      }
+      var list = await fetchDayStudents(iso);
+      if (token !== dayModalToken) return; // une autre journée a été ouverte entre-temps
+      renderDayStudents(list);
+    } catch (e) {
+      console.error('[COACH-DAY] Chargement échoué:', e);
+      if (token !== dayModalToken) return;
+      if (sub) sub.textContent = '';
+      if (box) box.innerHTML = '<div style="color:#ef4444;font-size:.9rem;">Chargement impossible : ' + esc(e.message || e) + '</div>';
+    }
+  };
+
+  window.closeCoachDayStudents = function () {
+    dayModalToken++; // toute réponse encore en vol devient obsolète
+    var m = document.getElementById('coachDayStudentsModal');
+    if (m) m.style.display = 'none';
+  };
+
+  // Conservé pour compatibilité : ouverture par index si un appelant externe l'utilise.
+  window.coachDayOpenStudent = function (idx) {
+    if (typeof window.openCoachStudentDetail === 'function') { window.openCoachStudentDetail(idx); return; }
+    console.warn('[COACH-DAY] window.openCoachStudentDetail absente — index', idx);
+  };
+
+  // Fermeture par clic sur le fond.
+  document.addEventListener('click', function (ev) {
+    var m = document.getElementById('coachDayStudentsModal');
+    if (m && m.style.display === 'block' && ev.target === m) window.closeCoachDayStudents();
+  });
+
+  // ---- Escape, en phase CAPTURE ----
+  // index.html (~l.8187) enregistre au parsing un handler générique qui ferme la PREMIÈRE
+  // modale visible dans l'ordre du DOM, via closeModal(). Or coachDayStudentsModal précède
+  // coachStudentDetailModal dans le document, et openCoachStudentDetail fait un
+  // appendChild(document.body) qui repousse la fiche encore plus loin. Avec les deux
+  // ouvertes, le générique fermait donc la LISTE et laissait la fiche — l'inverse du
+  // comportement voulu. Il ne passait pas non plus par closeCoachDayStudents(), donc
+  // dayModalToken n'était jamais incrémenté.
+  // La capture s'exécute avant TOUT listener bubble du même nœud, quel que soit l'ordre
+  // d'enregistrement : c'est le seul moyen de passer devant un handler déjà en place.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    var list = document.getElementById('coachDayStudentsModal');
+    var sheet = document.getElementById('coachStudentDetailModal');
+    var listOpen = !!(list && list.style.display === 'block');
+    var sheetOpen = !!(sheet && sheet.style.display === 'block');
+    // Aucune des deux : on ne touche à rien, le générique garde son comportement.
+    if (!listOpen && !sheetOpen) return;
+
+    if (sheetOpen) {
+      if (typeof window.closeCoachStudentDetail === 'function') window.closeCoachStudentDetail();
+      else sheet.style.display = 'none';
+    } else {
+      window.closeCoachDayStudents();
+    }
+    ev.stopImmediatePropagation();
+    ev.preventDefault();
+  }, true);
+
+  /* ==========================================================================
+     NAVIGATION MENSUELLE DU CALENDRIER COACH
+     --------------------------------------------------------------------------
+     Ces fonctions vivaient dans /coach-dashboard.js, supprimé ici : sans elles, les
+     boutons ‹ › lèveraient une ReferenceError. Elles pilotent désormais calDate, le
+     véritable état du calendrier affiché, et rechargent les données du mois.
+     ========================================================================== */
+
+  // Rechargement en cours : garde anti-clics multiples. loadCoachDashboard()
+  // refait toutes les requêtes ; empiler les appels produirait des rendus
+  // concurrents dont le dernier arrivé ne serait pas forcément le dernier demandé.
+  var calNavBusy = false;
+
+  function sameMonth(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  }
+
+  // Le mois courant est la borne haute : un mois futur serait nécessairement vide
+  // et passerait pour un bug.
+  function isCurrentMonth() {
+    return sameMonth(calDate, new Date());
+  }
+
+  function setCalNavState(busy) {
+    var prev = document.getElementById('coachCalPrev');
+    var next = document.getElementById('coachCalNext');
+    var grid = document.getElementById('globalCalendarGrid');
+    var label = document.getElementById('globalCalendarMonthYear');
+
+    // Grille atténuée pendant le rechargement : sans ce retour, un clic donne
+    // l'impression que rien ne se passe — précisément le défaut corrigé ici.
+    if (grid) {
+      grid.style.transition = 'opacity .15s';
+      grid.style.opacity = busy ? '0.45' : '';
+      grid.style.pointerEvents = busy ? 'none' : '';
+    }
+    if (label) label.style.opacity = busy ? '0.5' : '';
+
+    var atCurrent = isCurrentMonth();
+    if (prev) {
+      prev.disabled = busy;
+      prev.style.opacity = busy ? '0.4' : '';
+      prev.style.cursor = busy ? 'not-allowed' : '';
+    }
+    if (next) {
+      // Désactivé si on recharge OU si on est déjà sur le mois courant.
+      var lock = busy || atCurrent;
+      next.disabled = lock;
+      next.style.opacity = lock ? '0.35' : '';
+      next.style.cursor = lock ? 'not-allowed' : '';
+      next.title = atCurrent ? 'Mois courant — pas de navigation vers le futur' : '';
+    }
+  }
+  // Exposé : l'état du bouton › doit être réévalué après chaque rendu.
+  window.updateCoachCalNavState = function () { setCalNavState(false); };
+
+  // delta : -1 (mois précédent) | +1 (mois suivant).
+  // new Date(année, mois ± 1, 1) plutôt que setMonth() sur l'objet existant :
+  // partir du 1er évite les débordements (31 janvier + 1 mois → 3 mars).
+  // Le passage d'année est géré nativement (mois -1 → décembre de l'an passé).
+  async function shiftMonth(delta) {
+    if (calNavBusy) return;                       // clics multiples ignorés
+    if (delta > 0 && isCurrentMonth()) return;    // borne haute : pas de futur
+
+    var target = new Date(calDate.getFullYear(), calDate.getMonth() + delta, 1);
+    // Ceinture : même si l'appel venait d'ailleurs que du bouton.
+    if (target > new Date(new Date().getFullYear(), new Date().getMonth(), 1)) return;
+
+    calNavBusy = true;
+    calDate = target;
+    setCalNavState(true);
+    try {
+      // loadCoachDashboard() et non renderCalendar() seul : les données
+      // (dailyDollar, dailyR, dailyPct, dailyActions, dailyErrors, dailyJournal,
+      // dailyChecklist) sont scopées au mois via mKey et doivent être rechargées.
+      await window.loadCoachDashboard();
+    } catch (e) {
+      console.error('[COACH CAL] Rechargement du mois échoué:', e);
+    } finally {
+      calNavBusy = false;
+      setCalNavState(false);
+    }
+  }
+
+  window.previousGlobalMonth = function () { return shiftMonth(-1); };
+  window.nextGlobalMonth = function () { return shiftMonth(1); };
 })();
