@@ -266,6 +266,9 @@
       }
 
       renderCalendar();
+      // Réévalue l'état des flèches après CHAQUE rendu : au premier chargement,
+      // calDate vaut le mois courant, le bouton › doit donc être désactivé d'emblée.
+      if (window.updateCoachCalNavState) window.updateCoachCalNavState();
 
       // KPIs
       var set = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
@@ -548,4 +551,106 @@
                   y: { beginAtZero: true, title: { display: true, text: "Nb d'élèves", color: axisColor }, ticks: { color: axisColor, precision: 0 }, grid: { color: gridColor } } } }
     });
   };
+
+  /* ==========================================================================
+     NAVIGATION MENSUELLE DU CALENDRIER COACH
+     --------------------------------------------------------------------------
+     Deux implémentations du calendrier coach coexistent et écrivent dans les
+     MÊMES éléments DOM (globalCalendarMonthYear, globalCalendarGrid) :
+       - /coach-dashboard.js  : état globalCalendarMonth/Year, rendu par
+                                updateGlobalCalendar(). Définit previous/nextGlobalMonth.
+       - ce fichier           : état calDate, rendu par renderCalendar(), données
+                                par loadCoachDashboard(). C'est LUI qui produit le
+                                calendrier réellement affiché (P&L, R, %, actions,
+                                erreurs, engagement).
+     Les boutons pilotaient donc l'ancien calendrier, invisible : calDate n'était
+     jamais modifié, d'où l'impression que les flèches ne font rien.
+
+     On réassigne ici window.previous/nextGlobalMonth. L'ordre d'exécution est
+     VÉRIFIÉ, pas supposé : les deux fichiers sont des IIFE de premier niveau sans
+     DOMContentLoaded ; /coach-dashboard.js est chargé sans defer (index.html
+     l.2205) donc pendant le parsing, celui-ci avec defer (l.16330) donc après.
+     Nos assignations écrasent bien les siennes. Si l'ancien fichier passait un
+     jour ses exports dans un DOMContentLoaded, l'ordre s'inverserait — les scripts
+     defer s'exécutant AVANT cet événement.
+     ========================================================================== */
+
+  // Rechargement en cours : garde anti-clics multiples. loadCoachDashboard()
+  // refait toutes les requêtes ; empiler les appels produirait des rendus
+  // concurrents dont le dernier arrivé ne serait pas forcément le dernier demandé.
+  var calNavBusy = false;
+
+  function sameMonth(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  }
+
+  // Le mois courant est la borne haute : un mois futur serait nécessairement vide
+  // et passerait pour un bug.
+  function isCurrentMonth() {
+    return sameMonth(calDate, new Date());
+  }
+
+  function setCalNavState(busy) {
+    var prev = document.getElementById('coachCalPrev');
+    var next = document.getElementById('coachCalNext');
+    var grid = document.getElementById('globalCalendarGrid');
+    var label = document.getElementById('globalCalendarMonthYear');
+
+    // Grille atténuée pendant le rechargement : sans ce retour, un clic donne
+    // l'impression que rien ne se passe — précisément le défaut corrigé ici.
+    if (grid) {
+      grid.style.transition = 'opacity .15s';
+      grid.style.opacity = busy ? '0.45' : '';
+      grid.style.pointerEvents = busy ? 'none' : '';
+    }
+    if (label) label.style.opacity = busy ? '0.5' : '';
+
+    var atCurrent = isCurrentMonth();
+    if (prev) {
+      prev.disabled = busy;
+      prev.style.opacity = busy ? '0.4' : '';
+      prev.style.cursor = busy ? 'not-allowed' : '';
+    }
+    if (next) {
+      // Désactivé si on recharge OU si on est déjà sur le mois courant.
+      var lock = busy || atCurrent;
+      next.disabled = lock;
+      next.style.opacity = lock ? '0.35' : '';
+      next.style.cursor = lock ? 'not-allowed' : '';
+      next.title = atCurrent ? 'Mois courant — pas de navigation vers le futur' : '';
+    }
+  }
+  // Exposé : l'état du bouton › doit être réévalué après chaque rendu.
+  window.updateCoachCalNavState = function () { setCalNavState(false); };
+
+  // delta : -1 (mois précédent) | +1 (mois suivant).
+  // new Date(année, mois ± 1, 1) plutôt que setMonth() sur l'objet existant :
+  // partir du 1er évite les débordements (31 janvier + 1 mois → 3 mars).
+  // Le passage d'année est géré nativement (mois -1 → décembre de l'an passé).
+  async function shiftMonth(delta) {
+    if (calNavBusy) return;                       // clics multiples ignorés
+    if (delta > 0 && isCurrentMonth()) return;    // borne haute : pas de futur
+
+    var target = new Date(calDate.getFullYear(), calDate.getMonth() + delta, 1);
+    // Ceinture : même si l'appel venait d'ailleurs que du bouton.
+    if (target > new Date(new Date().getFullYear(), new Date().getMonth(), 1)) return;
+
+    calNavBusy = true;
+    calDate = target;
+    setCalNavState(true);
+    try {
+      // loadCoachDashboard() et non renderCalendar() seul : les données
+      // (dailyDollar, dailyR, dailyPct, dailyActions, dailyErrors, dailyJournal,
+      // dailyChecklist) sont scopées au mois via mKey et doivent être rechargées.
+      await window.loadCoachDashboard();
+    } catch (e) {
+      console.error('[COACH CAL] Rechargement du mois échoué:', e);
+    } finally {
+      calNavBusy = false;
+      setCalNavState(false);
+    }
+  }
+
+  window.previousGlobalMonth = function () { return shiftMonth(-1); };
+  window.nextGlobalMonth = function () { return shiftMonth(1); };
 })();
