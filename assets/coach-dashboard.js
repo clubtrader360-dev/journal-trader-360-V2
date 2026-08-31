@@ -142,7 +142,16 @@
       if (hasTrades) { var p = rec.total_pnl; cls += p > 0 ? ' bg-green-100 text-green-800' : (p < 0 ? ' bg-red-200 text-red-900' : ' bg-gray-100'); }
       else cls += ' text-gray-400';
       var inner = '<div class="font-semibold">' + d + '</div>' + (hasTrades || (cache.dailyActions[iso] || cache.dailyErrors[iso]) ? fmtCell(iso) : '');
-      if (hasTrades && rec.active_students) inner += '<div class="coach-cal-students" style="font-size:11px;font-weight:700;">' + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
+      // Compteur cliquable → liste des élèves du jour. Uniquement quand il existe :
+      // un jour sans trade n'a rien à ouvrir.
+      if (hasTrades && rec.active_students) {
+        inner += '<div class="coach-cal-students coach-cal-students--link" role="button" tabindex="0"'
+          + ' title="Voir les élèves ayant tradé ce jour"'
+          + ' onclick="event.stopPropagation();openCoachDayStudents(\'' + iso + '\')"'
+          + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openCoachDayStudents(\'' + iso + '\');}"'
+          + ' style="font-size:11px;font-weight:700;">'
+          + rec.active_students + ' élève' + (rec.active_students > 1 ? 's' : '') + '</div>';
+      }
       html += '<div class="' + cls + '">' + inner + '</div>';
     }
     grid.innerHTML = html;
@@ -548,4 +557,177 @@
                   y: { beginAtZero: true, title: { display: true, text: "Nb d'élèves", color: axisColor }, ticks: { color: axisColor, precision: 0 }, grid: { color: gridColor } } } }
     });
   };
+
+  /* ==========================================================================
+     LISTE DES ÉLÈVES AYANT TRADÉ UN JOUR DONNÉ
+     --------------------------------------------------------------------------
+     COHÉRENCE DU COMPTE. Le chiffre de la case vient de la vue
+     coach_daily_aggregate : count(DISTINCT user_id) FROM trades, SANS filtre de
+     rôle ni de statut (définition relue en base). La liste est donc construite
+     depuis la MÊME table trades, et surtout PAS depuis getAllStudentsData(), qui
+     ne charge que role='student' AND status='active'. Les comptes révoqués ayant
+     tradé comptent dans le chiffre : les omettre donnerait une liste plus courte
+     que le compteur, soit un bug visible.
+     La vue est security_invoker : RLS identique entre elle et notre requête.
+     ========================================================================== */
+
+  var dayModalToken = 0; // invalide les réponses d'une ouverture précédente
+
+  function fmtMoney(v) {
+    return (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function frDate(iso) {
+    var p = String(iso).split('-');
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  function esc(s) {
+    return window.escapeHtml ? window.escapeHtml(String(s == null ? '' : s))
+      : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        });
+  }
+
+  // Agrège les trades du jour par user_id. Une seule requête grâce à la FK
+  // trades_user_id_fkey -> public.users(uuid), vérifiée en base ; repli sur deux
+  // requêtes si l'embed PostgREST échoue (relation ambiguë, RLS sur users...).
+  async function fetchDayStudents(iso) {
+    var sb = window.supabaseClient;
+    if (!sb) throw new Error('Client Supabase indisponible');
+
+    var rows = null, embedded = true;
+    var r = await sb.from('trades').select('user_id, pnl, users(name, email)').eq('trade_date', iso);
+    if (r.error) {
+      embedded = false;
+      var r2 = await sb.from('trades').select('user_id, pnl').eq('trade_date', iso);
+      if (r2.error) throw r2.error;
+      rows = r2.data || [];
+    } else {
+      rows = r.data || [];
+    }
+
+    var byUser = {};
+    rows.forEach(function (t) {
+      var id = t.user_id;
+      if (!id) return;
+      if (!byUser[id]) byUser[id] = { uuid: id, pnl: 0, trades: 0, name: null, email: null };
+      byUser[id].pnl += parseFloat(t.pnl) || 0;
+      byUser[id].trades += 1;
+      if (embedded && t.users) {
+        byUser[id].name = t.users.name || byUser[id].name;
+        byUser[id].email = t.users.email || byUser[id].email;
+      }
+    });
+    var list = Object.keys(byUser).map(function (k) { return byUser[k]; });
+
+    if (!embedded && list.length) {
+      try {
+        var u = await sb.from('users').select('uuid, name, email').in('uuid', list.map(function (x) { return x.uuid; }));
+        if (!u.error && u.data) {
+          var map = {};
+          u.data.forEach(function (x) { map[x.uuid] = x; });
+          list.forEach(function (x) { var m = map[x.uuid]; if (m) { x.name = m.name; x.email = m.email; } });
+        }
+      } catch (e) { console.warn('[COACH-DAY] resolution des noms echouee:', e); }
+    }
+
+    // Tri par P&L décroissant : un coach veut les extrêmes, pas l'ordre alphabétique.
+    list.sort(function (a, b) { return b.pnl - a.pnl; });
+    return list;
+  }
+
+  function renderDayStudents(list) {
+    var sub = document.getElementById('coachDayStudentsSub');
+    var box = document.getElementById('coachDayStudentsList');
+    if (sub) sub.textContent = list.length + ' élève' + (list.length > 1 ? 's' : '') + ' ayant tradé';
+    if (!box) return;
+    if (!list.length) { box.innerHTML = '<div style="opacity:.7;font-size:.9rem;">Aucun élève sur cette journée.</div>'; return; }
+
+    // openCoachStudentDetail attend un INDEX, pas un uuid : on le retrouve dans
+    // coachStudentsRows. Un élève absent de ce tableau (compte révoqué, précisément
+    // ceux que la cohérence du compte fait apparaître) reste AFFICHÉ mais non
+    // cliquable, sans curseur pointer, pour ne pas paraître interactif.
+    var rows = window.coachStudentsRows || [];
+    var idxByUuid = {};
+    rows.forEach(function (r, i) { if (r && r.uuid) idxByUuid[r.uuid] = i; });
+
+    box.innerHTML = list.map(function (s) {
+      var idx = idxByUuid[s.uuid];
+      var clickable = idx !== undefined;
+      var label = s.name || s.email || ('Compte ' + String(s.uuid).slice(0, 8) + '…');
+      var pnlColor = s.pnl >= 0 ? '#10b981' : '#ef4444';
+      return '<div class="coach-day-row"'
+        + (clickable ? ' role="button" tabindex="0" onclick="coachDayOpenStudent(' + idx + ')"'
+            + ' onkeydown="if(event.key===\'Enter\'){coachDayOpenStudent(' + idx + ');}"'
+          : ' title="Fiche indisponible — compte hors de la liste des élèves actifs"')
+        + ' style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:rgba(212,175,55,0.06);'
+        + (clickable ? 'cursor:pointer;' : 'opacity:.72;') + '">'
+        + '<div style="min-width:0;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(label) + '</div>'
+        + (s.name && s.email ? '<div style="font-size:.75rem;opacity:.6;">' + esc(s.email) + '</div>' : '')
+        + '</div>'
+        + '<div style="text-align:right;white-space:nowrap;"><div style="font-weight:700;color:' + pnlColor + ';">' + fmtMoney(s.pnl) + '</div>'
+        + '<div style="font-size:.75rem;opacity:.7;">' + s.trades + ' trade' + (s.trades > 1 ? 's' : '') + '</div></div>'
+        + '</div>';
+    }).join('');
+  }
+
+  window.openCoachDayStudents = async function (iso) {
+    var modal = document.getElementById('coachDayStudentsModal');
+    if (!modal) return;
+    var token = ++dayModalToken;
+
+    var title = document.getElementById('coachDayStudentsTitle');
+    var sub = document.getElementById('coachDayStudentsSub');
+    var box = document.getElementById('coachDayStudentsList');
+    if (title) title.textContent = frDate(iso);
+    if (sub) sub.textContent = 'Chargement…';
+    // Le modal s'ouvre AVANT la réponse : sans état d'attente, une liste vide se
+    // lirait comme « aucun élève » alors que la requête est en cours.
+    if (box) box.innerHTML = '<div style="opacity:.7;font-size:.9rem;padding:8px 0;">Chargement des élèves…</div>';
+    modal.style.display = 'block';
+
+    try {
+      // coachStudentsRows n'existe qu'après l'ouverture de l'onglet élèves. Sans lui,
+      // AUCUNE ligne ne serait cliquable pour un coach venu droit au calendrier.
+      if (!(window.coachStudentsRows || []).length && typeof window.loadCoachStudents === 'function') {
+        try { await window.loadCoachStudents(); } catch (e) { console.warn('[COACH-DAY] loadCoachStudents:', e); }
+      }
+      var list = await fetchDayStudents(iso);
+      if (token !== dayModalToken) return; // une autre journée a été ouverte entre-temps
+      renderDayStudents(list);
+    } catch (e) {
+      console.error('[COACH-DAY] Chargement échoué:', e);
+      if (token !== dayModalToken) return;
+      if (sub) sub.textContent = '';
+      if (box) box.innerHTML = '<div style="color:#ef4444;font-size:.9rem;">Chargement impossible : ' + esc(e.message || e) + '</div>';
+    }
+  };
+
+  window.closeCoachDayStudents = function () {
+    dayModalToken++; // toute réponse encore en vol devient obsolète
+    var m = document.getElementById('coachDayStudentsModal');
+    if (m) m.style.display = 'none';
+  };
+
+  // Ouvre la fiche élève PAR-DESSUS la liste, sans la refermer : le coach doit pouvoir
+  // enchaîner plusieurs élèves du même jour. La fiche (z-index 1000) passe au-dessus de
+  // cette liste (990) ; sa fermeture la laisse réapparaître.
+  window.coachDayOpenStudent = function (idx) {
+    if (typeof window.openCoachStudentDetail === 'function') window.openCoachStudentDetail(idx);
+  };
+
+  // Fermeture par clic sur le fond et par Escape, comme les modals existants.
+  document.addEventListener('click', function (ev) {
+    var m = document.getElementById('coachDayStudentsModal');
+    if (m && m.style.display === 'block' && ev.target === m) window.closeCoachDayStudents();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    var m = document.getElementById('coachDayStudentsModal');
+    if (!m || m.style.display !== 'block') return;
+    // Si la fiche élève est ouverte par-dessus, Escape ferme ELLE d'abord.
+    var sd = document.getElementById('coachStudentDetailModal');
+    if (sd && sd.style.display === 'block') return;
+    window.closeCoachDayStudents();
+  });
 })();

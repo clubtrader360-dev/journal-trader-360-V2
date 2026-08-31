@@ -1845,3 +1845,20 @@ body:has(#authScreen[style*="display: flex"]) .app-footer { display: none; }
   .app-footer-inner { flex-direction: column; align-items: flex-start; padding: 18px 20px; }
   .app-footer-links { gap: 16px; }
 }
+
+/* Compteur d'élèves d'une case du calendrier coach, rendu cliquable.
+   Sans affordance, rien n'indiquait qu'on pouvait l'ouvrir. Le soulignement
+   pointillé reste discret et n'ajoute pas de hauteur à la case. */
+.coach-cal-students--link {
+  cursor: pointer;
+  text-decoration: underline dotted currentColor;
+  text-underline-offset: 2px;
+  transition: opacity .12s, filter .12s;
+}
+.coach-cal-students--link:hover,
+.coach-cal-students--link:focus-visible {
+  filter: brightness(1.25);
+  text-decoration-style: solid;
+  outline: none;
+}
+.coach-cal-students--link:focus-visible { box-shadow: 0 0 0 2px rgba(212,175,55,.6); border-radius: 4px; }

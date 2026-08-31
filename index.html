@@ -15087,6 +15087,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             });
         }
 
+        // Exposé pour la liste des élèves d'un jour du calendrier (assets/coach-dashboard.js) :
+        // window.coachStudentsRows n'est construit QUE par cette fonction, elle-même appelée
+        // uniquement à l'ouverture de l'onglet élèves. Un coach allant droit au calendrier
+        // n'aurait donc aucune ligne cliquable. Aucune manipulation de section ici, l'appeler
+        // depuis le calendrier est sans effet visuel.
+        window.loadCoachStudents = loadCoachStudents;
+
         window.renderCoachStudentsTable = function () {
             const rows = window.coachStudentsRows || [];
             const tbody = document.getElementById('coachStudentsTable');
@@ -16237,6 +16244,20 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     <script src="/assets/aube-bg.js" defer></script>
     <script src="/assets/aube.js" defer></script>
     <!-- #33 FIX F — Modale drill-down d'une alerte "Points à surveiller" -->
+    <!-- Liste des élèves ayant tradé un jour donné (clic sur le compteur du calendrier coach).
+         z-index 990 volontairement SOUS le .view-modal standard (1000) : la fiche élève,
+         ouverte depuis une ligne d'ici, doit passer AU-DESSUS, et sa fermeture ramène
+         naturellement à cette liste sans la refermer. -->
+    <div id="coachDayStudentsModal" class="view-modal" style="display:none; z-index:990;">
+        <div class="view-modal-content" style="max-width: 560px;">
+            <span class="view-modal-close" onclick="closeCoachDayStudents()" style="cursor:pointer; float:right; font-size:24px;">&times;</span>
+            <h2 id="coachDayStudentsTitle" class="text-xl font-bold mb-1" style="color: var(--color-gold, #d4af37);">Élèves du jour</h2>
+            <div id="coachDayStudentsSub" style="font-size: 0.85rem; color: var(--aube-text-secondary, rgba(255,255,255,0.6)); margin-bottom: 14px;"></div>
+            <div id="coachDayStudentsList" style="max-height: 55vh; overflow-y: auto;"></div>
+            <div style="text-align:right; margin-top:16px;"><button onclick="closeCoachDayStudents()" class="trader-btn-secondary">Fermer</button></div>
+        </div>
+    </div>
+
     <div id="alertDetailModal" class="view-modal" style="display:none;">
         <div class="view-modal-content" style="max-width: 620px;">
             <span class="view-modal-close" onclick="closeAlertDetailModal()" style="cursor:pointer; float:right; font-size:24px;">&times;</span>
