@@ -121,6 +121,52 @@ async function sendProspectsCampaign({ date, subject, briefHtml, dateLongFr }) {
   }
 }
 
+// ---- Retrait du commentaire d'audit ----
+// Le prompt système fait générer un commentaire « AUDIT QUALITÉ » en fin de brief :
+// sources croisées, candidats agenda retenus/rejetés, données n/d. C'est un outil de
+// diagnostic INTERNE, il n'a rien à faire dans un mail envoyé à des élèves — et il
+// pèse pour rien dans le poids du message.
+// Il est retiré du HTML expédié mais CONSERVÉ : renvoyé dans la réponse de l'endpoint
+// et journalisé, donc on ne perd aucun moyen de contrôle.
+//
+// Robustesse : si le commentaire est absent, malformé ou non fermé, la fonction rend le
+// HTML INCHANGÉ. Le brief doit partir même quand le retrait échoue — un audit qui traîne
+// dans le mail est un moindre mal comparé à un envoi annulé.
+export function stripAuditComment(html) {
+  if (!html || typeof html !== 'string') return { html, audit: null, removed: 0 };
+  try {
+    const re = /<!--\s*AUDIT[\s\S]*?-->/i;
+    const m = html.match(re);
+    if (!m) return { html, audit: null, removed: 0 };
+    const out = html.replace(re, '').replace(/\n{3,}/g, '\n\n');
+    // Garde-fou : si le retrait a mangé plus que le commentaire, on renonce.
+    if (out.length < html.length - m[0].length - 50) return { html, audit: null, removed: 0 };
+    return { html: out, audit: m[0], removed: Buffer.byteLength(m[0], 'utf8') };
+  } catch (e) {
+    console.warn('[DAILY-BRIEF] ⚠️ Retrait de l\'audit impossible, HTML laissé tel quel:', e.message);
+    return { html, audit: null, removed: 0 };
+  }
+}
+
+// ---- Garde permanente sur le poids du mail ----
+// Gmail tronque les messages au-delà d'environ 102 Ko et affiche « afficher le message
+// entier ». Le CTA et le bloc questionnaire étant en FIN de mail, ils seraient les
+// premiers masqués. On alerte à 90 Ko pour garder de la marge : le brief va continuer
+// de s'enrichir, mieux vaut être prévenu que le découvrir sur une capture d'écran.
+const HTML_WARN_BYTES = 90 * 1024;
+const GMAIL_CLIP_BYTES = 102 * 1024;
+export function checkHtmlWeight(html, label) {
+  const bytes = Buffer.byteLength(html || '', 'utf8');
+  const pct = ((bytes / GMAIL_CLIP_BYTES) * 100).toFixed(1);
+  if (bytes >= HTML_WARN_BYTES) {
+    console.warn(`[DAILY-BRIEF] ⚠️ POIDS HTML ${label} : ${bytes} octets (${pct}% du seuil Gmail ~102 Ko) — `
+      + `au-delà de 102 Ko, Gmail tronque le mail AVANT le CTA et le bloc questionnaire.`);
+  } else {
+    console.log(`[DAILY-BRIEF] 📏 Poids HTML ${label} : ${bytes} octets (${pct}% du seuil Gmail)`);
+  }
+  return bytes;
+}
+
 // ---- Filet anti tirets longs ----
 // Les cadratins sont une signature d'IA et ne correspondent pas à l'usage français
 // courant. Le prompt système les interdit ; ce filet rattrape ce qui passe malgré tout,
@@ -164,6 +210,9 @@ const PALETTE = {
   bgPage: '#fdfaf3', bgCard: '#ffffff', bgInside: '#fdf8ed',
   gold: '#ac862b', goldBright: '#d4af37', goldFrame: '#d4af37',
   textPrimary: '#1a1208', textSecondary: '#5a5040', textMuted: '#7a6b50', navy: '#000B25',
+  // Fond or doux du « mot de la communauté » : le cadre de partage l'adopte pour que
+  // les deux encarts de fin forment une paire visuelle, au lieu d'un bloc de second rang.
+  bgAccent: '#fdf3d6',
 };
 
 // ---- Wrap le brief HTML dans le layout email "Bourse à l'Aube" ----
@@ -235,7 +284,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
            possible pour un prospect : il reçoit donc le poids visuel qu'avait
            "Ouvrir mon journal" chez les membres (goldBright plein, texte navy). -->
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
-        <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
+        <tr><td style="background:${PALETTE.bgAccent}; border:1px solid ${PALETTE.navy}; border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
             Si tu veux en savoir plus, réponds au questionnaire de positionnement — tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.
           </p>
@@ -248,7 +297,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
         </td></tr>
       </table>` : `
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
-        <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
+        <tr><td style="background:${PALETTE.bgAccent}; border:1px solid ${PALETTE.navy}; border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
             Si tu connais quelqu'un d'intéressé, partage-lui le lien du questionnaire — il devra indiquer ton nom dans l'une des questions, on saura que ça vient de toi.
           </p>
@@ -369,6 +418,18 @@ export default async function handler(req, res) {
   }
   brief_html = _dash.html;
 
+  // Audit retiré du mail, conservé pour le diagnostic (réponse de l'endpoint + logs).
+  const _audit = stripAuditComment(brief_html);
+  const _briefBefore = Buffer.byteLength(brief_html, 'utf8');
+  if (_audit.audit) {
+    brief_html = _audit.html;
+    console.log(`[DAILY-BRIEF] 🧾 Audit retiré du mail : ${_audit.removed} octets `
+      + `(brief ${_briefBefore} → ${Buffer.byteLength(brief_html, 'utf8')} octets)`);
+    console.log('[DAILY-BRIEF] 🧾 AUDIT QUALITÉ (conservé ici, hors du mail) :\n' + _audit.audit);
+  } else {
+    console.log('[DAILY-BRIEF] 🧾 Aucun commentaire d\'audit trouvé — HTML inchangé');
+  }
+
   const onlyUserId = (only_user_id && String(only_user_id).trim()) || null;
   const t0 = Date.now();
 
@@ -425,11 +486,15 @@ export default async function handler(req, res) {
           // son langage dérive de Django, dont le parseur rejette les espaces.
           // Ce tag n'existe QUE sur ce chemin : sur le repli Resend il s'afficherait
           // littéralement, faute d'interpréteur.
-          htmlContent: wrapBriefHtml({
-            firstName: BREVO_FIRSTNAME_TAG,
-            dateLongFr: date_long_fr,
-            briefHtml: brief_html,
-          }),
+          htmlContent: (() => {
+            const _h = wrapBriefHtml({
+              firstName: BREVO_FIRSTNAME_TAG,
+              dateLongFr: date_long_fr,
+              briefHtml: brief_html,
+            });
+            checkHtmlWeight(_h, 'campagne membres');
+            return _h;
+          })(),
           listId: syncReport.listId,
         });
         campaignId = campaign.campaignId;
@@ -447,6 +512,7 @@ export default async function handler(req, res) {
         console.log('[DAILY-BRIEF] ========== DONE ==========');
         return res.status(200).json({
           ok: true, date, mode: 'brevo', dry_run: false,
+          audit: _audit.audit || null,
           members: { mode: 'brevo', campaignId, listId: syncReport.listId, recipients: syncReport.after },
           prospects,
           campaignId, listId: syncReport.listId,
@@ -490,6 +556,7 @@ export default async function handler(req, res) {
     for (const u of recipients) {
       if (DRY_RUN) { results.push({ email: u.email, status: 'dry_run' }); continue; }
       const html = wrapBriefHtml({ firstName: firstNameOf(u.name), dateLongFr: date_long_fr, briefHtml: brief_html });
+      if (results.length === 0) checkHtmlWeight(html, 'envoi Resend');
       const r = await sendBriefEmail({ to: u.email, subject, html });
       if (r.success) { sent++; results.push({ email: u.email, status: 'sent', id: r.id }); }
       else { failed++; results.push({ email: u.email, status: 'error', error: r.error }); }
@@ -506,6 +573,7 @@ export default async function handler(req, res) {
         : ((Array.isArray(test_emails) && test_emails.length) ? 'test_emails' : (onlyUserId ? 'test_user' : 'production')),
       dry_run: DRY_RUN,
       campaignId: null,
+      audit: _audit.audit || null,
       // Repli / modes de test : aucune campagne, ni membres ni prospects.
       members: { mode: fallbackReason ? 'resend_fallback' : 'resend', campaignId: null, recipients: recipients.length, fallbackReason },
       prospects: { campaignId: null, sent: false, skipped: fallbackReason ? 'repli Resend réservé aux membres' : 'mode de test — aucune campagne' },

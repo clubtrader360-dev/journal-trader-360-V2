@@ -116,6 +116,16 @@ Nasdaq, Dow Jones, US10Y, DXY, Nikkei, Hang Seng, CAC40, DAX, BTC, ETH, EUR/USD.
 Rédige un mindset **court (2–3 phrases max)**, ton pédagogique mais pas moralisateur. Varie le thème chaque jour parmi : discipline, gestion émotionnelle, gestion du risque, patience, journaling, mental de coach. **Aucune citation attribuée à une personne réelle** (risque d'hallucination) — formule en ta propre voix Trader 360.
 
 ## 💼 ENCART AMBASSADEUR (rotation Lun→Ven)
+
+⛔ **TITRE IMPOSÉ, NON NÉGOCIABLE.** L'intitulé vu par le lecteur est EXACTEMENT :
+
+    Le mot de la communauté
+
+Recopie-le au caractère près. Aucun synonyme, aucune reformulation, aucun ajout, aucun
+retrait. Ni « Le mot de l'ambassadeur », ni « Le mot du coach », ni « La voix de la
+communauté ». Le mot « ambassadeur » désigne la MÉCANIQUE INTERNE (rotation des
+variants, ligne d'audit) et ne doit JAMAIS apparaître dans le titre affiché.
+
 Génère **1 variant** adapté au jour de la semaine fourni (1=Lun … 5=Ven), **1 paragraphe court**, ton Trader 360. Varie le thème selon le jour parmi : témoignage communauté, success story anonymisée, encouragement formation, valorisation Discord, célébration des progrès. Rien de nominatif réel, rien d'inventé de précis (pas de chiffres de résultats faux).
 
 ---
@@ -134,13 +144,141 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
 ### Sections à produire, dans cet ordre (PAS de logo, PAS de « Bonjour », PAS de bouton, PAS de footer)
 1. **Intro chaleureuse** : 1–2 phrases qui posent l'ambiance du jour (`<p>`).
 2. **🧠 Mindset du jour** : encart fond `#fdf8ed`, cadre or, le mindset généré.
-3. **🎯 SPX — zones à surveiller** : d'abord **ES Futures** (public confirmé), puis **CFD SPX500** avec la mention en navy gras *« Pour les débutants en trading démo »*. Clôture, variation, H/L séance, H/L semaine, niveaux psycho. Toute donnée non vérifiée → « n/d (raison) ».
-4. **📅 Agenda éco** : nom de l'événement en `<strong>`, heure normale, impact en gris ; ou la phrase « Pas d'événement macro majeur prévu aujourd'hui. »
-5. **⚡ Volatilité (VIX)** : niveau + variation + lecture courte.
-6. **✅ Checklist pré-séance** : liste `<ul>` de 7 rappels (capital risqué défini, état émotionnel, agenda lu, plan Discord lu, taille de position, stop placé, journal ouvert). **Rappels, pas de cases interactives.**
-7. **📰 Actualité éco** : synthèse en **3 paragraphes** (~180 mots) — P1 bilan US d'hier, P2 réactions transversales (taux/devises/matières premières/géopolitique), P3 watch-list du jour + Asie/Europe + risques.
-8. **🧠 Ce qu'il faut retenir** : 2–3 puces de synthèse actionnable (sans plan de trade précis).
-9. **💼 Encart Ambassadeur** : `<div>` fond or doux (`background:#fdf3d6`) bordure navy (`border:1px solid #000B25`), le variant du jour.
+3. **🎯 SPX — zones à surveiller** : d'abord **ES Futures** (public confirmé), puis **CFD SPX500** avec la mention en navy gras *« Pour les débutants en trading démo »*.
+   Mise en forme obligatoire, voir **GABARITS DE DONNÉES CHIFFRÉES** :
+   - **Clôture de la veille** (ES puis CFD SPX500) → **GABARIT A**, bloc ENCADRÉ.
+   - **H/L séance** et **H/L semaine** → **GABARIT B**, blocs LIBRES, non encadrés.
+   - **Niveaux psychologiques** → **GABARIT D**, bloc encadré RÉDUIT.
+   Trois poids visuels, dans cet ordre décroissant : clôture (A) > niveaux psycho (D) > H/L (B).
+   C'est ce contraste qui fait ressortir la clôture : n'encadre pas tout, et n'utilise pas
+   le gabarit A pour les niveaux psycho.
+   Toute donnée non vérifiée → « n/d (raison) », dans le même gabarit.
+4. **📅 Agenda éco** : un **GABARIT C** par événement.
+   ⛔ **PUBLIE TOUS LES ÉVÉNEMENTS RETENUS PAR LA MÉTHODE, SANS LIMITE DE NOMBRE.**
+   Le coût de mise en forme n'est JAMAIS une raison d'en omettre un : un événement
+   retenu coûte un bloc HTML entier, c'est normal et voulu. S'il y en a cinq, produis
+   cinq blocs. Ne « résume » pas, ne garde pas « les plus importants », ne fusionne pas
+   deux événements dans un même bloc.
+   S'il n'y a rien à publier, la phrase « Pas d'événement macro majeur prévu aujourd'hui. » en `<p>` simple, SANS gabarit.
+5. **⚡ Volatilité (VIX)** : un **GABARIT A** avec le niveau et la variation, puis la lecture courte en `<p>` **SOUS** le bloc — jamais à l'intérieur.
+6. **📰 Actualité éco** : synthèse en **3 paragraphes** (~180 mots) — P1 bilan US d'hier, P2 réactions transversales (taux/devises/matières premières/géopolitique), P3 watch-list du jour + Asie/Europe + risques.
+7. **🧠 Ce qu'il faut retenir** : 2–3 puces de synthèse actionnable (sans plan de trade précis).
+8. **💼 Le mot de la communauté** : `<div>` fond or doux (`background:#fdf3d6`) bordure navy (`border:1px solid #000B25`), le variant du jour. **Titre exact : « Le mot de la communauté »** (cf. section ENCART AMBASSADEUR).
+9. **✅ Checklist pré-séance** : liste `<ul>` de 7 rappels (capital risqué défini, état émotionnel, agenda lu, plan Discord lu, taille de position, stop placé, journal ouvert). **Rappels, pas de cases interactives.**
+   ⚠️ C'est la **DERNIÈRE** section du brief : le lecteur termine sur une action concrète, juste avant le bouton « Ouvrir mon journal » ajouté ensuite par l'endpoint. Ne la place nulle part ailleurs.
+
+---
+
+## 📊 GABARITS DE DONNÉES CHIFFRÉES
+
+**Recopie ces gabarits en remplaçant uniquement les `{{MARQUEURS}}`.** Ce ne sont pas des
+suggestions de style : ce sont des blocs à reproduire tels quels. N'invente pas d'autre
+mise en forme pour les chiffres, ne change ni les couleurs, ni les tailles, ni la structure
+des tableaux.
+
+Principes que ces gabarits matérialisent, et qu'il ne faut pas casser :
+- **Hiérarchie à trois étages** : libellé discret en petites capitales → valeur dominante → variation/contexte en petit dessous.
+- **Encadrement sélectif** : les gabarits A, C et D sont encadrés, le B ne l'est jamais.
+  A et D partagent le liseré or mais PAS la taille : D est réduit, pour rester sous A.
+- **Contenu centré dans tous les blocs encadrés** (A, C, D) : `align="center"` en attribut
+  ET `text-align:center` en style. Outlook ignore l'un ou l'autre selon les versions.
+- **De l'air** : garde les marges des gabarits, ne les resserre pas.
+
+Contraintes email à ne jamais contourner :
+- **Tableaux uniquement** pour les colonnes. Ni flexbox ni grid : Outlook les ignore et empile tout.
+- **Styles en ligne exclusivement.** Aucune classe, aucune balise `<style>`.
+- **Deux colonnes maximum.** Sur 375 px, trois colonnes de chiffres deviennent illisibles.
+- `border-radius` est ignoré par Outlook : c'est acceptable, un bloc à coins droits avec son liseré or reste correct. **Ne compense ni par une image, ni par du VML.**
+- **Signe ET couleur, jamais la couleur seule** : `▲` pour une hausse, `▼` pour une baisse, plus le signe `+` ou `-` dans le nombre.
+- `▲` et `▼` en Unicode direct, pas d'entité HTML.
+
+### GABARIT A — bloc chiffré ENCADRÉ (clôture de la veille, VIX)
+
+Contenu CENTRÉ. `align="center"` en attribut **et** `text-align:center` en style : Outlook
+ignore l'un ou l'autre selon les versions, il faut les deux.
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;">
+  <tr><td align="center" style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:18px 20px; text-align:center;">
+    <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">{{LIBELLE}}</div>
+    <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:26px; font-weight:700; color:#1a1208; line-height:1.15; margin-top:8px;">{{VALEUR}}</div>
+    <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:13px; font-weight:700; color:{{COULEUR}}; margin-top:6px;">{{FLECHE}} {{VARIATION}}</div>
+  </td></tr>
+</table>
+```
+
+- `{{LIBELLE}}` : « ES Futures · clôture 31/08 », « CFD SPX500 · clôture 31/08 », « VIX · clôture 31/08 »
+- `{{VALEUR}}` : le nombre seul avec son unité, ex. `7 699,00 pts` ou `14,92`
+- `{{COULEUR}}` : `#067a4f` en hausse, `#c62828` en baisse, `#5a5040` si stable ou n/d
+- `{{FLECHE}}` : `▲` en hausse, `▼` en baisse, `•` si stable ou n/d
+- `{{VARIATION}}` : ex. `-0,30% (-23,25 pts)`. Si la variation est inconnue, mets `n/d (raison)` et `{{FLECHE}}` = `•`
+
+### GABARIT B — blocs chiffrés LIBRES, non encadrés (H/L séance, H/L semaine)
+
+Réservé aux hauts/bas. Les niveaux psychologiques ont leur propre gabarit (D).
+Deux colonnes maximum. Pour un seul élément, laisse la seconde cellule vide (`&nbsp;`).
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+  <tr>
+    <td width="50%" style="padding:0 12px 14px 0; vertical-align:top;">
+      <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">{{LIBELLE_1}}</div>
+      <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:16px; font-weight:700; color:#1a1208; margin-top:5px;">{{VALEUR_1}}</div>
+    </td>
+    <td width="50%" style="padding:0 0 14px 12px; vertical-align:top;">
+      <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">{{LIBELLE_2}}</div>
+      <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:16px; font-weight:700; color:#1a1208; margin-top:5px;">{{VALEUR_2}}</div>
+    </td>
+  </tr>
+</table>
+```
+
+### GABARIT C — ligne d'événement de l'agenda éco (un par événement)
+
+Contenu CENTRÉ, badge d'impact à la place du texte gris. Le badge est une table
+imbriquée et non un `<span>` : Outlook rend mal `display:inline-block` avec un fond.
+
+⚠️ Le mot « FORT » ou « MOYEN » est écrit EN TOUTES LETTRES dans le badge.
+L'information ne repose jamais sur la seule couleur — lisible par un daltonien, et
+quand les couleurs ne s'affichent pas.
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 10px;">
+  <tr><td align="center" style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:14px 18px; text-align:center;">
+    <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">{{HEURE}} · Paris</div>
+    <div style="font-size:15px; font-weight:700; color:#1a1208; margin-top:5px;">{{EVENEMENT}}</div>
+    <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:8px auto 0;">
+      <tr><td align="center" style="background:{{BADGE_FOND}}; color:{{BADGE_TEXTE}}; border-radius:6px; padding:4px 12px; font-size:10px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; text-align:center;">{{BADGE_LIBELLE}}</td></tr>
+    </table>
+  </td></tr>
+</table>
+```
+
+- Impact **fort** → `{{BADGE_FOND}}` = `#fbe9e7`, `{{BADGE_TEXTE}}` = `#c62828`, `{{BADGE_LIBELLE}}` = `IMPACT FORT`
+- Impact **moyen** → `{{BADGE_FOND}}` = `#fdf0d5`, `{{BADGE_TEXTE}}` = `#b26a00`, `{{BADGE_LIBELLE}}` = `IMPACT MOYEN`
+
+Le rouge du badge signale un impact fort, pas une baisse : c'est la convention des
+calendriers économiques. **Ne mélange jamais un badge d'impact et une variation
+chiffrée dans un même bloc**, pour que les deux usages du rouge ne se croisent pas.
+
+### GABARIT D — bloc ENCADRÉ RÉDUIT (niveaux psychologiques)
+
+Mêmes coins arrondis et même liseré or que le gabarit A, mais **nettement plus petit et
+plus resserré** : la clôture de la veille doit continuer à dominer visuellement. Deux
+tailles de bloc, jamais une seule — si les niveaux psycho pèsent autant que la clôture,
+la hiérarchie disparaît.
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+  <tr><td align="center" style="background:#fdf8ed; border:1px solid #d4af37; border-radius:8px; padding:10px 14px; text-align:center;">
+    <div style="color:#5a5040; font-size:9px; letter-spacing:0.14em; text-transform:uppercase;">{{LIBELLE}}</div>
+    <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:14px; font-weight:700; color:#1a1208; margin-top:4px;">{{VALEUR}}</div>
+  </td></tr>
+</table>
+```
+
+- `{{LIBELLE}}` : « Niveaux psychologiques »
+- `{{VALEUR}}` : ex. `7 750 · 7 700 · 7 650 · 7 600`
 
 ### Audit qualité — en commentaire HTML invisible, à la TOUTE FIN (juste avant le `</div>` de fermeture)
 ```
@@ -151,7 +289,7 @@ SPX H/L séance : <valeur> ✓/n-d
 SPX H/L semaine : <valeur> ✓/n-d
 ES pré-marché : <valeur> ✓/n-d
 VIX (source1 + source2) : <valeur> ✓/n-d
-Agenda éco : événements retenus (✓ FF + Investing) / rejetés (raison)
+Agenda éco : liste EXHAUSTIVE des candidats. Pour CHACUN : nom, heure, impact, et son sort — RETENU (sources croisées) ou REJETÉ (raison précise). Aucun candidat ne doit être passé sous silence : un événement absent de cette liste est une omission, pas un rejet.
 Mindset : thème du jour
 Encart ambassadeur : variant jour <n>
 Données 'n/d' : <liste ou "aucune">
