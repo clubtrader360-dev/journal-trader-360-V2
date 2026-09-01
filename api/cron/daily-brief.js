@@ -164,6 +164,9 @@ const PALETTE = {
   bgPage: '#fdfaf3', bgCard: '#ffffff', bgInside: '#fdf8ed',
   gold: '#ac862b', goldBright: '#d4af37', goldFrame: '#d4af37',
   textPrimary: '#1a1208', textSecondary: '#5a5040', textMuted: '#7a6b50', navy: '#000B25',
+  // Fond or doux du « mot de la communauté » : le cadre de partage l'adopte pour que
+  // les deux encarts de fin forment une paire visuelle, au lieu d'un bloc de second rang.
+  bgAccent: '#fdf3d6',
 };
 
 // ---- Wrap le brief HTML dans le layout email "Bourse à l'Aube" ----
@@ -235,7 +238,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
            possible pour un prospect : il reçoit donc le poids visuel qu'avait
            "Ouvrir mon journal" chez les membres (goldBright plein, texte navy). -->
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
-        <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
+        <tr><td style="background:${PALETTE.bgAccent}; border:1px solid ${PALETTE.navy}; border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
             Si tu veux en savoir plus, réponds au questionnaire de positionnement — tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.
           </p>
@@ -248,7 +251,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
         </td></tr>
       </table>` : `
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
-        <tr><td style="background:${PALETTE.bgInside}; border:1px solid rgba(212,175,55,0.35); border-radius:10px; padding:18px 20px; text-align:center;">
+        <tr><td style="background:${PALETTE.bgAccent}; border:1px solid ${PALETTE.navy}; border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
             Si tu connais quelqu'un d'intéressé, partage-lui le lien du questionnaire — il devra indiquer ton nom dans l'une des questions, on saura que ça vient de toi.
           </p>
