@@ -121,6 +121,36 @@ async function sendProspectsCampaign({ date, subject, briefHtml, dateLongFr }) {
   }
 }
 
+// ---- Filet anti tirets longs ----
+// Les cadratins sont une signature d'IA et ne correspondent pas à l'usage français
+// courant. Le prompt système les interdit ; ce filet rattrape ce qui passe malgré tout,
+// et JOURNALISE le nombre de remplacements pour qu'on sache si la consigne tient.
+//
+// Ne touche QUE le texte, jamais le markup : le remplacement ne s'applique qu'aux
+// segments situés entre '>' et '<'. Un cadratin présent dans un attribut, une URL ou
+// une valeur de style est donc laissé intact.
+// Le trait d'union ordinaire (U+002D) n'est JAMAIS visé : il est légitime dans
+// « Nasdaq-100 », « au-dessus », « sur-performance ».
+export function stripLongDashes(html) {
+  if (!html) return { html: html, count: 0 };
+  let count = 0;
+  const fix = (txt) => txt
+    // Entités équivalentes : &mdash; / &ndash; afficheraient le même caractère.
+    // Les espaces alentour sont absorbés, sinon on laisse une double espace.
+    .replace(/\s*&[mn]dash;\s*/g, () => { count++; return ', '; })
+    // INTERVALLE entre deux nombres (« 09:30–16:00 », « 7 650–7 700 ») : la virgule
+    // serait un contresens, c'est une plage. « à » est la forme française correcte.
+    .replace(/(\d)\s*[\u2014\u2013]\s*(\d)/g, (m, a, b) => { count++; return a + ' à ' + b; })
+    // Cadratin en TÊTE de segment (usage de type liste) : retiré, plutôt que d'ouvrir
+    // la phrase par une virgule orpheline.
+    .replace(/^(\s*)[\u2014\u2013]\s*/, (m, sp) => { count++; return sp; })
+    // Cas courant « mot — mot » : la virgule est la substitution la plus sûre en français.
+    .replace(/\s*[\u2014\u2013]\s*/g, () => { count++; return ', '; });
+
+  const out = html.replace(/>([^<]*)</g, (m, txt) => '>' + fix(txt) + '<');
+  return { html: out, count };
+}
+
 export function emailSubject(dateLongFr) {
   return `📊 Brief marché — ${dateLongFr}`;
 }
@@ -149,11 +179,23 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
 <body style="margin:0; padding:0; background:${PALETTE.bgPage};">
 <div style="background:${PALETTE.bgPage}; padding:40px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:${PALETTE.textPrimary};">
   <table role="presentation" width="600" align="center" cellspacing="0" cellpadding="0" style="max-width:600px; margin:0 auto; background:${PALETTE.bgCard}; border:1px solid ${PALETTE.goldFrame}; border-radius:14px;">
+    <!-- Bandeau : ligne de tableau DÉDIÉE, sans padding, pour que l'image touche les
+         bords de la carte et épouse ses coins arrondis. La placer dans le <td> à
+         padding:32px l'aurait laissée flotter au milieu.
+         line-height:0 sur le <td> : sans ça, certains clients ajoutent une bande sous
+         l'image. display:block joue le même rôle côté Gmail.
+         width en ATTRIBUT ET en style : Outlook ignore le CSS.
+         alt renseigné : beaucoup de clients bloquent les images, l'alt est alors tout
+         ce que le lecteur voit. -->
+    <tr><td style="padding:0; line-height:0; font-size:0;">
+      <img src="https://journaltrader360.fr/assets/brief-header.jpg" width="600" alt="Trader 360 — Brief marché"
+           style="display:block; width:100%; max-width:600px; height:auto; border:0; border-radius:14px 14px 0 0;">
+    </td></tr>
     <tr><td style="padding:32px;">
 
+      <!-- Logo et <h1> retirés : le visuel porte DÉJÀ le logo et le mot « Brief marché ».
+           Seule la date reste, elle n'est pas dans l'image. -->
       <div style="text-align:center; margin-bottom:24px;">
-        <img src="https://journaltrader360.fr/assets/trader360-logo-clean.png" width="72" alt="Trader 360" style="display:inline-block;">
-        <h1 style="color:${PALETTE.gold}; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; margin:16px 0 4px;">Brief marché</h1>
         <p style="color:${PALETTE.textSecondary}; font-style:italic; margin:0; font-size:14px;">${dateLongFr}</p>
       </div>
 
@@ -299,7 +341,7 @@ export default async function handler(req, res) {
 
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
-  const { date, date_long_fr, brief_html, only_user_id, test_emails } = req.body || {};
+  let { date, date_long_fr, brief_html, only_user_id, test_emails } = req.body || {};
   if (!date || !date_long_fr || !brief_html) {
     return res.status(400).json({ error: 'Champs requis : date, date_long_fr, brief_html' });
   }
@@ -316,6 +358,16 @@ export default async function handler(req, res) {
   if (/^\s*(le brief|voici|j['´’]?ai|points cl|sauvegard|\/tmp\/)/i.test(brief_html)) {
     return res.status(400).json({ error: 'brief_html contient un méta-commentaire suspect' });
   }
+
+  // Filet appliqué UNE fois, après validation : les deux variantes (membres et
+  // prospects) partent du même brief_html, la correction vaut donc pour les deux.
+  const _dash = stripLongDashes(brief_html);
+  if (_dash.count > 0) {
+    console.warn(`[DAILY-BRIEF] ✂️ ${_dash.count} tiret(s) long(s) remplacé(s) — la consigne du prompt système n'a pas tenu`);
+  } else {
+    console.log('[DAILY-BRIEF] ✂️ aucun tiret long à corriger');
+  }
+  brief_html = _dash.html;
 
   const onlyUserId = (only_user_id && String(only_user_id).trim()) || null;
   const t0 = Date.now();

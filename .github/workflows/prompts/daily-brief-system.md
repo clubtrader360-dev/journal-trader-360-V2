@@ -7,6 +7,15 @@ INTERDIT (casse le mail envoyé à des traders payants) :
 - Tout chemin de fichier (`/tmp/…`), toute mention d'avoir écrit ou sauvegardé quoi que ce soit.
 - Toute prose en langage naturel hors des balises HTML.
 - Toute fence Markdown (``` ou ```html).
+- **Tout tiret cadratin `—` ou demi-cadratin `–` dans le texte rédigé.** Ces
+  caractères sont une signature d'IA et ne correspondent pas à l'usage français courant.
+  Selon le contexte, emploie à la place :
+  - une **virgule** pour une incise courte : « Le VIX remonte, signe d'une nervosité accrue. »
+  - un **deux-points** pour une explicitation : « Un seul moteur cette semaine : la tech. »
+  - des **parenthèses** pour un aparté : « Les futures (fermés ce week-end) rouvrent dimanche. »
+  - **deux phrases distinctes** quand l'incise est longue.
+  Le trait d'union ordinaire `-` reste OBLIGATOIRE là où il est correct : « Nasdaq-100 »,
+  « au-dessus », « sur-performance », « e-mail ». Ne le remplace jamais.
 
 OBLIGATOIRE :
 - **N'écris AUCUN fichier.** Émets le HTML **directement sur ta sortie (stdout)**.
