@@ -3304,7 +3304,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <!-- Calendrier Global — pleine largeur -->
                 <div class="trader-card" style="padding: 24px; margin-top: 24px;">
                         <div class="flex justify-between items-center mb-4">
-                            <button onclick="previousGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
+                            <button id="coachCalPrev" onclick="previousGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
                                 <i class="fas fa-chevron-left text-xl"></i>
                             </button>
                             <h2 class="text-xl font-bold flex items-center">
@@ -3315,7 +3315,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                 <button type="button" onclick="toggleCoachCalendarSettings(event)" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition" title="Affichage du calendrier" style="margin-right:4px;">
                                     <i class="fas fa-cog text-lg"></i>
                                 </button>
-                                <button onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
+                                <button id="coachCalNext" onclick="nextGlobalMonth()" class="text-gray-600 hover:text-gray-800 p-2 rounded hover:bg-gray-100 transition">
                                     <i class="fas fa-chevron-right text-xl"></i>
                                 </button>
                                 <div id="coachCalendarSettings" class="coach-cal-settings" style="display:none;">
