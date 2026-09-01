@@ -147,10 +147,19 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
 3. **🎯 SPX — zones à surveiller** : d'abord **ES Futures** (public confirmé), puis **CFD SPX500** avec la mention en navy gras *« Pour les débutants en trading démo »*.
    Mise en forme obligatoire, voir **GABARITS DE DONNÉES CHIFFRÉES** :
    - **Clôture de la veille** (ES puis CFD SPX500) → **GABARIT A**, bloc ENCADRÉ.
-   - **H/L séance**, **H/L semaine**, **niveaux psychologiques** → **GABARIT B**, blocs LIBRES, non encadrés.
-   C'est le contraste encadré / non encadré qui fait ressortir la clôture : n'encadre pas tout.
+   - **H/L séance** et **H/L semaine** → **GABARIT B**, blocs LIBRES, non encadrés.
+   - **Niveaux psychologiques** → **GABARIT D**, bloc encadré RÉDUIT.
+   Trois poids visuels, dans cet ordre décroissant : clôture (A) > niveaux psycho (D) > H/L (B).
+   C'est ce contraste qui fait ressortir la clôture : n'encadre pas tout, et n'utilise pas
+   le gabarit A pour les niveaux psycho.
    Toute donnée non vérifiée → « n/d (raison) », dans le même gabarit.
-4. **📅 Agenda éco** : un **GABARIT C** par événement. S'il n'y a rien à publier, la phrase « Pas d'événement macro majeur prévu aujourd'hui. » en `<p>` simple, SANS gabarit.
+4. **📅 Agenda éco** : un **GABARIT C** par événement.
+   ⛔ **PUBLIE TOUS LES ÉVÉNEMENTS RETENUS PAR LA MÉTHODE, SANS LIMITE DE NOMBRE.**
+   Le coût de mise en forme n'est JAMAIS une raison d'en omettre un : un événement
+   retenu coûte un bloc HTML entier, c'est normal et voulu. S'il y en a cinq, produis
+   cinq blocs. Ne « résume » pas, ne garde pas « les plus importants », ne fusionne pas
+   deux événements dans un même bloc.
+   S'il n'y a rien à publier, la phrase « Pas d'événement macro majeur prévu aujourd'hui. » en `<p>` simple, SANS gabarit.
 5. **⚡ Volatilité (VIX)** : un **GABARIT A** avec le niveau et la variation, puis la lecture courte en `<p>` **SOUS** le bloc — jamais à l'intérieur.
 6. **📰 Actualité éco** : synthèse en **3 paragraphes** (~180 mots) — P1 bilan US d'hier, P2 réactions transversales (taux/devises/matières premières/géopolitique), P3 watch-list du jour + Asie/Europe + risques.
 7. **🧠 Ce qu'il faut retenir** : 2–3 puces de synthèse actionnable (sans plan de trade précis).
@@ -169,7 +178,10 @@ des tableaux.
 
 Principes que ces gabarits matérialisent, et qu'il ne faut pas casser :
 - **Hiérarchie à trois étages** : libellé discret en petites capitales → valeur dominante → variation/contexte en petit dessous.
-- **Encadrement sélectif** : seuls les gabarits A et C sont encadrés. Le B ne l'est jamais.
+- **Encadrement sélectif** : les gabarits A, C et D sont encadrés, le B ne l'est jamais.
+  A et D partagent le liseré or mais PAS la taille : D est réduit, pour rester sous A.
+- **Contenu centré dans tous les blocs encadrés** (A, C, D) : `align="center"` en attribut
+  ET `text-align:center` en style. Outlook ignore l'un ou l'autre selon les versions.
 - **De l'air** : garde les marges des gabarits, ne les resserre pas.
 
 Contraintes email à ne jamais contourner :
@@ -182,9 +194,12 @@ Contraintes email à ne jamais contourner :
 
 ### GABARIT A — bloc chiffré ENCADRÉ (clôture de la veille, VIX)
 
+Contenu CENTRÉ. `align="center"` en attribut **et** `text-align:center` en style : Outlook
+ignore l'un ou l'autre selon les versions, il faut les deux.
+
 ```html
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;">
-  <tr><td style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:18px 20px;">
+  <tr><td align="center" style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:18px 20px; text-align:center;">
     <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">{{LIBELLE}}</div>
     <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:26px; font-weight:700; color:#1a1208; line-height:1.15; margin-top:8px;">{{VALEUR}}</div>
     <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:13px; font-weight:700; color:{{COULEUR}}; margin-top:6px;">{{FLECHE}} {{VARIATION}}</div>
@@ -198,9 +213,10 @@ Contraintes email à ne jamais contourner :
 - `{{FLECHE}}` : `▲` en hausse, `▼` en baisse, `•` si stable ou n/d
 - `{{VARIATION}}` : ex. `-0,30% (-23,25 pts)`. Si la variation est inconnue, mets `n/d (raison)` et `{{FLECHE}}` = `•`
 
-### GABARIT B — blocs chiffrés LIBRES, non encadrés (H/L séance, H/L semaine, niveaux psycho)
+### GABARIT B — blocs chiffrés LIBRES, non encadrés (H/L séance, H/L semaine)
 
-Deux colonnes maximum. Pour un seul élément, laisse la seconde cellule vide.
+Réservé aux hauts/bas. Les niveaux psychologiques ont leur propre gabarit (D).
+Deux colonnes maximum. Pour un seul élément, laisse la seconde cellule vide (`&nbsp;`).
 
 ```html
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
@@ -217,24 +233,52 @@ Deux colonnes maximum. Pour un seul élément, laisse la seconde cellule vide.
 </table>
 ```
 
-- Exemples de `{{LIBELLE}}` : « H/L séance », « H/L semaine », « Niveaux psychologiques », « Pré-marché »
-- Exemples de `{{VALEUR}}` : `7 724,00 / 7 674,75`, `7 750 · 7 700 · 7 650 · 7 600`
-
 ### GABARIT C — ligne d'événement de l'agenda éco (un par événement)
+
+Contenu CENTRÉ, badge d'impact à la place du texte gris. Le badge est une table
+imbriquée et non un `<span>` : Outlook rend mal `display:inline-block` avec un fond.
+
+⚠️ Le mot « FORT » ou « MOYEN » est écrit EN TOUTES LETTRES dans le badge.
+L'information ne repose jamais sur la seule couleur — lisible par un daltonien, et
+quand les couleurs ne s'affichent pas.
 
 ```html
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 10px;">
-  <tr><td style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:14px 18px;">
+  <tr><td align="center" style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:14px 18px; text-align:center;">
     <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">{{HEURE}} · Paris</div>
     <div style="font-size:15px; font-weight:700; color:#1a1208; margin-top:5px;">{{EVENEMENT}}</div>
-    <div style="font-size:12px; color:#5a5040; margin-top:4px;">Impact {{IMPACT}}</div>
+    <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:8px auto 0;">
+      <tr><td align="center" style="background:{{BADGE_FOND}}; color:{{BADGE_TEXTE}}; border-radius:6px; padding:4px 12px; font-size:10px; font-weight:700; letter-spacing:0.10em; text-transform:uppercase; text-align:center;">{{BADGE_LIBELLE}}</td></tr>
+    </table>
   </td></tr>
 </table>
 ```
 
-- `{{HEURE}}` : ex. `11:00`
-- `{{EVENEMENT}}` : ex. `Inflation zone euro, estimation flash août (YoY)`
-- `{{IMPACT}}` : `fort`, `modéré` ou `faible`
+- Impact **fort** → `{{BADGE_FOND}}` = `#fbe9e7`, `{{BADGE_TEXTE}}` = `#c62828`, `{{BADGE_LIBELLE}}` = `IMPACT FORT`
+- Impact **moyen** → `{{BADGE_FOND}}` = `#fdf0d5`, `{{BADGE_TEXTE}}` = `#b26a00`, `{{BADGE_LIBELLE}}` = `IMPACT MOYEN`
+
+Le rouge du badge signale un impact fort, pas une baisse : c'est la convention des
+calendriers économiques. **Ne mélange jamais un badge d'impact et une variation
+chiffrée dans un même bloc**, pour que les deux usages du rouge ne se croisent pas.
+
+### GABARIT D — bloc ENCADRÉ RÉDUIT (niveaux psychologiques)
+
+Mêmes coins arrondis et même liseré or que le gabarit A, mais **nettement plus petit et
+plus resserré** : la clôture de la veille doit continuer à dominer visuellement. Deux
+tailles de bloc, jamais une seule — si les niveaux psycho pèsent autant que la clôture,
+la hiérarchie disparaît.
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+  <tr><td align="center" style="background:#fdf8ed; border:1px solid #d4af37; border-radius:8px; padding:10px 14px; text-align:center;">
+    <div style="color:#5a5040; font-size:9px; letter-spacing:0.14em; text-transform:uppercase;">{{LIBELLE}}</div>
+    <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:14px; font-weight:700; color:#1a1208; margin-top:4px;">{{VALEUR}}</div>
+  </td></tr>
+</table>
+```
+
+- `{{LIBELLE}}` : « Niveaux psychologiques »
+- `{{VALEUR}}` : ex. `7 750 · 7 700 · 7 650 · 7 600`
 
 ### Audit qualité — en commentaire HTML invisible, à la TOUTE FIN (juste avant le `</div>` de fermeture)
 ```
@@ -245,7 +289,7 @@ SPX H/L séance : <valeur> ✓/n-d
 SPX H/L semaine : <valeur> ✓/n-d
 ES pré-marché : <valeur> ✓/n-d
 VIX (source1 + source2) : <valeur> ✓/n-d
-Agenda éco : événements retenus (✓ FF + Investing) / rejetés (raison)
+Agenda éco : liste EXHAUSTIVE des candidats. Pour CHACUN : nom, heure, impact, et son sort — RETENU (sources croisées) ou REJETÉ (raison précise). Aucun candidat ne doit être passé sous silence : un événement absent de cette liste est une omission, pas un rejet.
 Mindset : thème du jour
 Encart ambassadeur : variant jour <n>
 Données 'n/d' : <liste ou "aucune">
