@@ -49,19 +49,81 @@ Tu utilises les outils natifs **WebSearch** et **WebFetch** pour toutes les donn
 
 ## 🔒 VÉRIFICATION EN 3 PHASES POUR LES NIVEAUX (SPX cash, ES Futures, VIX)
 
-### Phase 1 — Collecte primaire
-Pour chaque niveau : WebSearch ciblé → note la valeur + URL source + date associée.
+### ⛔ RÈGLE PRÉALABLE — UNE CLÔTURE N'EST PAS UN DERNIER PRIX
+
+**C'est l'erreur la plus dangereuse de tout ce document, parce qu'elle est indétectable.**
+
+Tu génères ce brief vers 5-6 h, heure de Paris. Les futures ont rouvert à minuit et
+cotent déjà. Une page de cotation affiche donc DEUX nombres en même temps : le prix
+courant, qui bouge, et la clôture précédente, qui est figée. Prendre le premier revient
+à publier une cotation de nuit sous le libellé « clôture de la veille ». La valeur est
+plausible, elle est fausse, et **aucun croisement ne la rattrapera** : les deux sources
+afficheront le même prix courant, et l'écart sera nul.
+
+Ce qu'on veut, toujours :
+
+- **La CLÔTURE du dernier jour ouvré américain.** Jamais la cotation en cours.
+- **Pour ES** : le règlement de la **session régulière américaine**, qui se termine à
+  22 h heure de Paris. **Pas** le dernier prix de la session overnight.
+- Sur une page Investing, c'est le champ étiqueté **« Prev. Close »** ou
+  **« Clôture précédente »**, jamais le grand nombre en haut de page.
+- Si la page ne distingue pas clairement les deux, la donnée devient
+  **« n/d (clôture non distinguable du prix courant) »**. Un élève qui cale ses niveaux
+  sur une clôture erronée prend sa décision sur une base fausse : mieux vaut un n/d.
+
+**Cette règle vaut aussi pour le VIX et pour les hauts et bas de séance.**
+
+### Phase 1 — Collecte primaire : Investing.com est la source IMPOSÉE
+
+Pour la clôture de la veille et pour le VIX, **Investing.com est la source primaire
+obligatoire**. Les pages sont nommées ici : ne les cherche pas, ne les devine pas.
+
+| Donnée | Page à consulter |
+|---|---|
+| **ES Futures**, contrat front-month | `https://www.investing.com/indices/us-spx-500-futures` |
+| **SPX cash**, l'indice | `https://www.investing.com/indices/us-spx-500` |
+| **VIX** | `https://www.investing.com/indices/volatility-s-p-500` |
+
+⚠️ **Ce sont trois pages distinctes, et se tromper de page produit une valeur cohérente
+mais fausse**, donc invisible au croisement de la phase 2. Deux pièges concrets :
+
+1. La page **SPX cash** affiche aussi, plus bas, des lignes de contrats à terme
+   (« S&P 500 Sep 26 » et suivants). Le SPX cash est le bloc de cotation **en haut de
+   page**, identifié `SPX · NYSE`. Ne lis jamais une ligne de futures sur cette page.
+2. La page **ES** suit le contrat front-month, dont le nom change de trimestre en
+   trimestre (ESU26, ESZ26…). C'est normal. Note le nom du contrat dans l'audit.
+
+**Contre-vérification interne pour ES**, sur la même source :
+`https://www.investing.com/indices/us-spx-500-futures-historical-data`
+
+⛔ **La PREMIÈRE ligne de ce tableau est la journée EN COURS, pas une clôture.** Vérifié :
+le tableau affichait `Sep 03 → 7 672,00`, valeur identique au prix courant de la page de
+cotation, alors que la vraie clôture de la veille était `Sep 02 → 7 676,50`. Prendre la
+première ligne reproduit exactement l'erreur que cette section existe pour empêcher.
+
+Prends donc **la première ligne dont la date est strictement antérieure à la date du jour
+aux États-Unis**, et compare-la au champ « Prev. Close » de la page de cotation :
+
+- Les deux concordent → la valeur est bonne, tu passes en phase 2.
+- Les deux divergent → **« n/d (clôture incertaine) »**, sans exception.
+
+Pour chaque niveau, note : la valeur, l'URL exacte, la date associée, et le libellé du
+champ d'où tu l'as tirée.
 
 ### Phase 2 — Vérification croisée
-2e source différente parmi : Zonebourse, Investing.com, Yahoo Finance, MarketWatch, TradingView.
+Investing est la **référence**, pas la source unique. Croise obligatoirement avec une
+**2e source différente** parmi : Zonebourse, Yahoo Finance, MarketWatch, TradingView.
+Sur cette seconde source aussi, tu cherches la clôture, jamais le prix courant.
 - SPX : écart ≤ 3 pts → ✅ publier. Sinon → « n/d (sources divergentes) ».
 - ES : écart ≤ 5 pts → ✅. Sinon → « n/d ».
 - VIX : écart ≤ 0,3 pt → ✅. Sinon → « n/d ».
 - Cohérence SPX vs ES : écart normal 5–20 pts. > 30 pts → « n/d (anomalie) ».
 
 ### Phase 3 — Vérification de date
-- « Clôture hier » = dernier jour ouvré US.
-- « H/L séance hier » = même date.
+- « Clôture hier » = dernier jour ouvré US. **Un lundi, c'est le vendredi précédent.**
+  Un jour férié américain décale d'autant : la veille calendaire n'est pas toujours le
+  dernier jour ouvré.
+- « H/L séance hier » = même date, et sur la **session régulière**, pas sur l'overnight.
 - « H/L semaine » = du lundi de la semaine au dernier jour ouvré clos.
 - Source sans date alignée → « n/d (date incertaine) ».
 
@@ -282,13 +344,24 @@ la hiérarchie disparaît.
 
 ### Audit qualité — en commentaire HTML invisible, à la TOUTE FIN (juste avant le `</div>` de fermeture)
 ```
-<!-- AUDIT QUALITÉ V10.1
-SPX clôture (source1 + source2) : <valeur> ✓/n-d
-ES clôture (source1 + source2) : <valeur> ✓/n-d
+<!-- AUDIT QUALITÉ V10.2
+SPX clôture : <valeur> ✓/n-d
+  source primaire : <URL exacte> | champ lu : <libellé, ex. « Prev. Close »> | date : <JJ/MM>
+  nature : CLÔTURE confirmée / prix courant écarté / non distinguable
+  source 2 : <nom + URL> | valeur : <valeur> | écart : <n> pts
+ES clôture : <valeur> ✓/n-d
+  contrat : <ex. ESU26>
+  source primaire : <URL exacte> | champ lu : <libellé> | date : <JJ/MM>
+  contre-vérification historique : <valeur de la ligne datée retenue> | concorde : oui/non
+  nature : RÈGLEMENT de séance régulière confirmé / overnight écarté / non distinguable
+  source 2 : <nom + URL> | valeur : <valeur> | écart : <n> pts
 SPX H/L séance : <valeur> ✓/n-d
 SPX H/L semaine : <valeur> ✓/n-d
 ES pré-marché : <valeur> ✓/n-d
-VIX (source1 + source2) : <valeur> ✓/n-d
+VIX : <valeur> ✓/n-d
+  source primaire : <URL exacte> | champ lu : <libellé> | date : <JJ/MM>
+  nature : CLÔTURE confirmée / prix courant écarté / non distinguable
+  source 2 : <nom + URL> | valeur : <valeur> | écart : <n> pts
 Agenda éco : liste EXHAUSTIVE des candidats. Pour CHACUN : nom, heure, impact, et son sort — RETENU (sources croisées) ou REJETÉ (raison précise). Aucun candidat ne doit être passé sous silence : un événement absent de cette liste est une omission, pas un rejet.
 Mindset : thème du jour
 Encart ambassadeur : variant jour <n>
@@ -297,6 +370,7 @@ Données 'n/d' : <liste ou "aucune">
 ```
 
 ## RÈGLES FINALES
+- 🔒 Une clôture n'est JAMAIS le prix courant. Investing.com est la source primaire imposée pour la clôture et le VIX, pages nommées dans la section dédiée.
 - 🔒 3 phases pour les niveaux SPX/ES/VIX. 🔒 Agenda = Forex Factory + Investing cross-checké, rien d'autre. 🔒 Audit explicite en commentaire HTML.
 - ⛔ Aucun chiffre fabriqué (« n/d » préféré). ⛔ Aucun événement halluciné (« Pas d'événement majeur » préféré). ⛔ Aucune citation attribuée à une personne réelle.
 - ✅ Sortie = HTML pur, de la div d'ouverture `class="brief-marche"` (style inline autorisé) à `</div>`, rien d'autre.
