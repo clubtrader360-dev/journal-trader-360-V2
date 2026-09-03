@@ -22,6 +22,10 @@ on:
         description: 'Email de test : envoi UNIQUEMENT à cette adresse (prioritaire sur only_user_id, zéro élève touché)'
         required: false
         default: ''
+      test_subject_suffix:
+        description: "Suffixe ajouté à la date, donc au sujet. Sert à ne PAS retomber sur le sujet d'un envoi précédent, que Gmail regrouperait en repliant la fin du message. Branche de test uniquement."
+        required: false
+        default: ''
 
 jobs:
   generate-and-send-brief:
@@ -55,6 +59,11 @@ jobs:
           DATE_ISO=$(TZ=Europe/Paris date +%Y-%m-%d)
           DATE_LONG_FR=$(TZ=Europe/Paris LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=Europe/Paris date +"%A %-d %B %Y")
           DOW=$(TZ=Europe/Paris date +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
+          # Suffixe de test : il entre dans la date, donc dans le sujet, ce qui suffit
+          # à sortir du fil Gmail d'un envoi précédent portant la même date.
+          if [ -n "${{ github.event.inputs.test_subject_suffix }}" ]; then
+            DATE_LONG_FR="$DATE_LONG_FR ${{ github.event.inputs.test_subject_suffix }}"
+          fi
           echo "📅 Brief du $DATE_LONG_FR ($DATE_ISO) · jour $DOW"
 
           # Contexte daté injecté en tête (évite que Claude devine la date).
