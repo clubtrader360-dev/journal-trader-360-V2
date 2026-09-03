@@ -235,9 +235,17 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
          l'image. display:block joue le même rôle côté Gmail.
          width en ATTRIBUT ET en style : Outlook ignore le CSS.
          alt renseigné : beaucoup de clients bloquent les images, l'alt est alors tout
-         ce que le lecteur voit. -->
+         ce que le lecteur voit.
+         Le nom de fichier porte -v2 VOLONTAIREMENT. Réutiliser brief-header.jpg aurait
+         laissé les clients mail servir l'ancienne image depuis leur cache chez les
+         destinataires qui l'ont déjà reçue. L'ancienne reste en ligne : les briefs déjà
+         envoyés pointent dessus, la retirer casserait l'affichage de tous les mails
+         passés dans les boîtes de réception.
+         Aucune hauteur n'est fixée : le nouveau visuel est plus plat (2,36:1 contre
+         1,78:1, soit ~254 px de haut à 600 px de large au lieu de 338). Coder une
+         hauteur la déformerait. -->
     <tr><td style="padding:0; line-height:0; font-size:0;">
-      <img src="https://journaltrader360.fr/assets/brief-header.jpg" width="600" alt="Trader 360 — Brief marché"
+      <img src="https://journaltrader360.fr/assets/brief-header-v2.jpg" width="600" alt="Trader 360 — Brief marché"
            style="display:block; width:100%; max-width:600px; height:auto; border:0; border-radius:14px 14px 0 0;">
     </td></tr>
     <tr><td style="padding:32px;">
