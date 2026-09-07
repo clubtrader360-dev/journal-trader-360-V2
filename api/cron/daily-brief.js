@@ -4,7 +4,11 @@
 // Déclenché par GitHub Actions (Lun-Ven 6h Paris) : Claude Code CLI génère le brief
 // marché en HTML puis POST ce HTML ici. L'endpoint le wrap dans le layout email
 // "Bourse à l'Aube" (cohérent avec weekly-report) et l'envoie via Resend.
-// Body JSON : { date, date_long_fr, brief_html, only_user_id?, test_emails?: string[] }
+// Body JSON : { date, brief_html, only_user_id?, test_emails?: string[] }
+//  - date : ISO AAAA-MM-JJ. L'endpoint en dérive LUI-MÊME la date longue française,
+//    via api/_lib/date-fr.js. Le champ date_long_fr n'est plus lu : une date déjà
+//    formatée en amont, c'était deux sources de vérité, et l'une des deux est
+//    partie en anglais pendant des jours sans que rien ne le signale.
 //  - test_emails présent  → envoi UNIQUEMENT à ces adresses (rodage)
 //  - only_user_id présent → envoi UNIQUEMENT à cet élève éligible (test ciblé)
 //  - sinon                → envoi à tous les élèves éligibles (production)
@@ -13,6 +17,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { getBriefRecipients } from '../_lib/tableur-recipients.js';
 import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_NAME } from '../_lib/brevo-client.js';
+import { formatDateLongFr, capitaliser } from '../_lib/date-fr.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -197,6 +202,8 @@ export function stripLongDashes(html) {
   return { html: out, count };
 }
 
+// La date reste en MINUSCULES ici : elle suit « Brief marché », donc elle est au
+// milieu du titre et non en tête. Une capitale y serait une capitale à l'anglaise.
 export function emailSubject(dateLongFr) {
   return `📊 Brief marché — ${dateLongFr}`;
 }
@@ -236,16 +243,16 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
          width en ATTRIBUT ET en style : Outlook ignore le CSS.
          alt renseigné : beaucoup de clients bloquent les images, l'alt est alors tout
          ce que le lecteur voit.
-         Le nom de fichier porte -v2 VOLONTAIREMENT. Réutiliser brief-header.jpg aurait
-         laissé les clients mail servir l'ancienne image depuis leur cache chez les
-         destinataires qui l'ont déjà reçue. L'ancienne reste en ligne : les briefs déjà
-         envoyés pointent dessus, la retirer casserait l'affichage de tous les mails
-         passés dans les boîtes de réception.
-         Aucune hauteur n'est fixée : le nouveau visuel est plus plat (2,36:1 contre
-         1,78:1, soit ~254 px de haut à 600 px de large au lieu de 338). Coder une
-         hauteur la déformerait. -->
+         Le nom de fichier est VERSIONNÉ volontairement (-v2, puis -v3). Réutiliser brief-header.jpg aurait
+         Réutiliser un nom existant laisserait les clients mail servir l'ancienne image
+         depuis leur cache chez les destinataires qui l'ont déjà reçue. Les versions
+         précédentes restent en ligne : les briefs déjà envoyés pointent dessus, les
+         retirer casserait l'affichage de tous les mails passés dans les boîtes.
+         Aucune hauteur n'est fixée : le visuel est en 2,36:1, soit ~254 px de haut à
+         600 px de large. Coder une hauteur le déformerait, et le ratio a déjà changé
+         une fois. -->
     <tr><td style="padding:0; line-height:0; font-size:0;">
-      <img src="https://journaltrader360.fr/assets/brief-header-v2.jpg" width="600" alt="Trader 360 · Brief marché"
+      <img src="https://journaltrader360.fr/assets/brief-header-v3.jpg" width="600" alt="Trader 360 · Brief marché"
            style="display:block; width:100%; max-width:600px; height:auto; border:0; border-radius:14px 14px 0 0;">
     </td></tr>
     <tr><td style="padding:32px;">
@@ -253,7 +260,11 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
       <!-- Logo et <h1> retirés : le visuel porte DÉJÀ le logo et le mot « Brief marché ».
            Seule la date reste, elle n'est pas dans l'image. -->
       <div style="text-align:center; margin-bottom:24px;">
-        <p style="color:${PALETTE.textSecondary}; font-style:italic; margin:0; font-size:14px;">${dateLongFr}</p>
+        <!-- Capitale initiale ICI et nulle part ailleurs : cette ligne est un bloc
+             autonome sous le bandeau, elle ouvre donc une « phrase ». Dans le sujet
+             et dans le pied de page la date est au milieu d'une formulation, elle y
+             reste en minuscules. -->
+        <p style="color:${PALETTE.textSecondary}; font-style:italic; margin:0; font-size:14px;">${capitaliser(dateLongFr)}</p>
       </div>
 
       <p style="color:${PALETTE.textPrimary}; font-size:15px; line-height:1.6; margin:0 0 8px;">${hi}</p>
@@ -398,9 +409,19 @@ export default async function handler(req, res) {
 
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
-  let { date, date_long_fr, brief_html, only_user_id, test_emails } = req.body || {};
-  if (!date || !date_long_fr || !brief_html) {
-    return res.status(400).json({ error: 'Champs requis : date, date_long_fr, brief_html' });
+  let { date, brief_html, only_user_id, test_emails } = req.body || {};
+  if (!date || !brief_html) {
+    return res.status(400).json({ error: 'Champs requis : date (ISO AAAA-MM-JJ), brief_html' });
+  }
+
+  // Date longue française dérivée ICI, une fois, à partir de la seule date ISO.
+  // Tous les emplacements qui l'affichent — sujet, ligne sous le bandeau, pied de
+  // page, campagnes Brevo — lisent cette variable et aucune autre.
+  let date_long_fr;
+  try {
+    date_long_fr = formatDateLongFr(date);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
   }
 
   // Défense finale anti-méta-commentaire (bug prod P1) : rejette AVANT tout appel Resend,

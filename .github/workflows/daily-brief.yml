@@ -53,8 +53,31 @@ jobs:
           fi
 
           DATE_ISO=$(TZ=Europe/Paris date +%Y-%m-%d)
-          DATE_LONG_FR=$(TZ=Europe/Paris LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=Europe/Paris date +"%A %-d %B %Y")
           DOW=$(TZ=Europe/Paris date +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
+
+          # Date longue formatée par api/_lib/date-fr.js, la MÊME fonction que celle
+          # qu'utilise l'endpoint. Elle n'est pas recopiée ici : une deuxième
+          # implémentation finirait par diverger de la première.
+          #
+          # L'ancienne ligne était :
+          #   LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=... date ...
+          # Elle a produit « Thursday 3 September 2026 » pendant des jours. La locale
+          # fr_FR n'est pas installée sur le runner, mais `date` ne plante pas pour
+          # autant : il sort en anglais avec un code de retour 0, si bien que le repli
+          # `||` ne pouvait JAMAIS se déclencher. Pas de sortie non nulle, pas d'alerte.
+          # `set -e` ne pouvait rien voir non plus.
+          DATE_LONG_FR=$(node -e "
+            import('./api/_lib/date-fr.js')
+              .then(m => process.stdout.write(m.formatDateLongFr('$DATE_ISO')))
+              .catch(e => { console.error(e.message); process.exit(1); })
+          ")
+          # Ce garde-là, LUI, peut se déclencher : node sort en code 1 sur une erreur
+          # d'import ou une date invalide, et la variable est alors vide.
+          if [ -z "$DATE_LONG_FR" ]; then
+            echo "::error::Formatage de la date échoué pour $DATE_ISO (api/_lib/date-fr.js)."
+            exit 1
+          fi
+
           echo "📅 Brief du $DATE_LONG_FR ($DATE_ISO) · jour $DOW"
 
           # Contexte daté injecté en tête (évite que Claude devine la date).
@@ -147,7 +170,6 @@ jobs:
             exit 1
           fi
           DATE_ISO="${{ steps.brief.outputs.date_iso }}"
-          DATE_LONG_FR="${{ steps.brief.outputs.date_long_fr }}"
 
           # Validation UUID si only_user_id fourni (anti-injection).
           if [ -n "$ONLY_USER_ID" ] && ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
@@ -158,16 +180,16 @@ jobs:
           # Construction du body JSON (jq gère l'échappement du HTML).
           if [ -n "$TEST_EMAIL" ]; then
             echo "🧪 Test email ciblé : $TEST_EMAIL (aucun élève réel touché)"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" \
-              '{date:$date, date_long_fr:$dl, brief_html:$bh, test_emails:[$te]}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" \
+              '{date:$date, brief_html:$bh, test_emails:[$te]}')
           elif [ -n "$ONLY_USER_ID" ]; then
             echo "🎯 Test ciblé élève : $ONLY_USER_ID"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html --arg uid "$ONLY_USER_ID" \
-              '{date:$date, date_long_fr:$dl, brief_html:$bh, only_user_id:$uid}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg uid "$ONLY_USER_ID" \
+              '{date:$date, brief_html:$bh, only_user_id:$uid}')
           else
             echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html \
-              '{date:$date, date_long_fr:$dl, brief_html:$bh}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html \
+              '{date:$date, brief_html:$bh}')
           fi
 
           response=$(curl -sSL -w "\n---HTTP_STATUS:%{http_code}---" -X POST \
@@ -188,15 +210,37 @@ jobs:
             exit 1
           fi
 
-          sent=$(echo "$body" | grep -oE '"sent":[0-9]+' | head -1 | cut -d: -f2 || echo "?")
-          failed=$(echo "$body" | grep -oE '"failed":[0-9]+' | head -1 | cut -d: -f2 || echo "?")
-          dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | head -1 | cut -d: -f2 || echo "?")
+          # Le repli est SORTI du pipeline, il n'y est plus en queue.
+          # `a | b | c || repli` teste le code de sortie de c seulement. Ici c'était
+          # `cut`, qui réussit sur une entrée vide en ne produisant rien : le repli ne
+          # se déclenchait jamais et la variable devenait une chaîne VIDE, pas « ? ».
+          # Conséquence mesurée sur une réponse inattendue : le log affichait
+          # « ✅  envoyé(s) ·  échec(s) », et Discord affichait « 0 / 0 » à cause du
+          # `${x:-0}` plus bas — soit une affirmation fausse et confiante là où la
+          # vérité est « on ne sait pas ».
+          sent=$(echo "$body" | grep -oE '"sent":[0-9]+' | head -1 | cut -d: -f2)
+          sent=${sent:-?}
+          failed=$(echo "$body" | grep -oE '"failed":[0-9]+' | head -1 | cut -d: -f2)
+          failed=${failed:-?}
+          dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | head -1 | cut -d: -f2)
+          dest=${dest:-?}
           echo "✅ $sent envoyé(s) · $failed échec(s) · $dest destinataire(s)"
-          if [ "${failed:-0}" != "0" ] && [ -n "${failed}" ]; then
+
+          # Test arithmétique, et non textuel. L'ancienne condition était
+          # `[ "${failed:-0}" != "0" ] && [ -n "${failed}" ]` : elle marchait tant que
+          # `failed` était vide, mais devient FAUSSE dès que la valeur vaut « ? », car
+          # « ? » est différent de « 0 » et non vide. Corriger l'extraction sans
+          # corriger ce test aurait donc introduit un faux avertissement à chaque
+          # réponse inattendue. `-gt` échoue proprement sur du non-numérique, et la
+          # redirection d'erreur évite le message « integer expression expected ».
+          if [ "$failed" -gt 0 ] 2>/dev/null; then
             echo "::warning::$failed mail(s) ont échoué côté Resend. Voir le JSON ci-dessus."
           fi
-          # Expose les compteurs au step de notif Discord.
-          { echo "sent=${sent:-0}"; echo "failed=${failed:-0}"; echo "dest=${dest:-0}"; } >> "$GITHUB_OUTPUT"
+
+          # Expose les compteurs au step de notif Discord. Plus de `${x:-0}` : les
+          # variables sont désormais toujours renseignées, et surtout ce défaut-là
+          # transformait un « inconnu » en « 0 », ce qui est le contraire du but.
+          { echo "sent=$sent"; echo "failed=$failed"; echo "dest=$dest"; } >> "$GITHUB_OUTPUT"
 
       - name: Notify Discord
         if: always()
