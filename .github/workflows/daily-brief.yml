@@ -53,8 +53,31 @@ jobs:
           fi
 
           DATE_ISO=$(TZ=Europe/Paris date +%Y-%m-%d)
-          DATE_LONG_FR=$(TZ=Europe/Paris LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=Europe/Paris date +"%A %-d %B %Y")
           DOW=$(TZ=Europe/Paris date +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
+
+          # Date longue formatée par api/_lib/date-fr.js, la MÊME fonction que celle
+          # qu'utilise l'endpoint. Elle n'est pas recopiée ici : une deuxième
+          # implémentation finirait par diverger de la première.
+          #
+          # L'ancienne ligne était :
+          #   LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=... date ...
+          # Elle a produit « Thursday 3 September 2026 » pendant des jours. La locale
+          # fr_FR n'est pas installée sur le runner, mais `date` ne plante pas pour
+          # autant : il sort en anglais avec un code de retour 0, si bien que le repli
+          # `||` ne pouvait JAMAIS se déclencher. Pas de sortie non nulle, pas d'alerte.
+          # `set -e` ne pouvait rien voir non plus.
+          DATE_LONG_FR=$(node -e "
+            import('./api/_lib/date-fr.js')
+              .then(m => process.stdout.write(m.formatDateLongFr('$DATE_ISO')))
+              .catch(e => { console.error(e.message); process.exit(1); })
+          ")
+          # Ce garde-là, LUI, peut se déclencher : node sort en code 1 sur une erreur
+          # d'import ou une date invalide, et la variable est alors vide.
+          if [ -z "$DATE_LONG_FR" ]; then
+            echo "::error::Formatage de la date échoué pour $DATE_ISO (api/_lib/date-fr.js)."
+            exit 1
+          fi
+
           echo "📅 Brief du $DATE_LONG_FR ($DATE_ISO) · jour $DOW"
 
           # Contexte daté injecté en tête (évite que Claude devine la date).
@@ -147,7 +170,6 @@ jobs:
             exit 1
           fi
           DATE_ISO="${{ steps.brief.outputs.date_iso }}"
-          DATE_LONG_FR="${{ steps.brief.outputs.date_long_fr }}"
 
           # Validation UUID si only_user_id fourni (anti-injection).
           if [ -n "$ONLY_USER_ID" ] && ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
@@ -158,16 +180,16 @@ jobs:
           # Construction du body JSON (jq gère l'échappement du HTML).
           if [ -n "$TEST_EMAIL" ]; then
             echo "🧪 Test email ciblé : $TEST_EMAIL (aucun élève réel touché)"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" \
-              '{date:$date, date_long_fr:$dl, brief_html:$bh, test_emails:[$te]}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" \
+              '{date:$date, brief_html:$bh, test_emails:[$te]}')
           elif [ -n "$ONLY_USER_ID" ]; then
             echo "🎯 Test ciblé élève : $ONLY_USER_ID"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html --arg uid "$ONLY_USER_ID" \
-              '{date:$date, date_long_fr:$dl, brief_html:$bh, only_user_id:$uid}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg uid "$ONLY_USER_ID" \
+              '{date:$date, brief_html:$bh, only_user_id:$uid}')
           else
             echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --arg dl "$DATE_LONG_FR" --rawfile bh /tmp/brief.html \
-              '{date:$date, date_long_fr:$dl, brief_html:$bh}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html \
+              '{date:$date, brief_html:$bh}')
           fi
 
           response=$(curl -sSL -w "\n---HTTP_STATUS:%{http_code}---" -X POST \
