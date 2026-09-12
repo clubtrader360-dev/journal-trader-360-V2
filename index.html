@@ -31,8 +31,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-    <!-- #35 : préchargement du logo pour le canvas de partage Instagram (évite le délai au 1er render) -->
-    <link rel="preload" href="/assets/trader360-logo-clean.png" as="image">
+    <!-- #35 : préchargement du logo pour le canvas de partage Instagram (évite le délai au 1er render).
+         C'est le PNG DORÉ qui est préchargé, pas le SVG source : le canvas dessine un
+         PNG, parce qu'un SVG sans largeur ni hauteur intrinsèques est rendu par
+         `drawImage` à une taille par défaut qui dépend du navigateur. -->
+    <link rel="preload" href="/assets/marque/t360-logo-or.png" as="image">
+    <!-- L'onglet n'avait aucune icône : le monogramme de la marque, doré, lisible sur
+         un onglet clair comme sombre. -->
+    <link rel="icon" type="image/png" href="/assets/marque/t360-monogramme-or.png">
     <!-- "Bourse à l'Aube" — GSAP (gratuit, Étape 0 validée) pour count-up & chorégraphie -->
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <!-- Dashboard personnalisable (#27) — Sortable.js pour le drag des blocs en mode édition -->
@@ -833,6 +839,41 @@
             justify-content: center;
         }
         .logo img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+        /* =========================================================
+           LA MARQUE, EN MASQUE CSS
+
+           Le fichier source porte `fill="currentColor"` : sa couleur vient du CSS,
+           et c'est ce qui lui permet de suivre le thème. Posé dans une balise <img>,
+           il serait rendu dans un document ISOLÉ où `currentColor` retombe sur le
+           noir — vérifié sur le fond marine du journal, pas supposé : le logo y
+           ressort noir sur marine, donc invisible.
+
+           En masque, seule la FORME du fichier est utilisée et la couleur est celle
+           de `background-color`. Un seul fichier sert donc les deux thèmes, au lieu
+           de deux fichiers de couleurs différentes à maintenir en parallèle.
+
+           Le rapport de forme est déclaré : le verrou fait 1211 x 224 dans son
+           `viewBox`, et sans `aspect-ratio` un élément vide n'aurait aucune hauteur.
+           ========================================================= */
+        :root { --marque-couleur: var(--color-navy, #000B25); }
+        body.dark-mode { --marque-couleur: var(--color-gold, #d4af37); }
+
+        .marque {
+            display: block;
+            background-color: var(--marque-couleur);
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-position: center;
+            -webkit-mask-size: contain;
+            mask-size: contain;
+        }
+        .marque--verrou {
+            -webkit-mask-image: url('/assets/marque/t360-logo.svg');
+            mask-image: url('/assets/marque/t360-logo.svg');
+            aspect-ratio: 1211 / 224;
+        }
 
         /* =========================================================
            TABLES
@@ -3119,7 +3160,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     <div id="authScreen" class="auth-container" role="main" aria-label="Authentification" style="display: none;">
         <div class="auth-card">
             <div class="logo">
-                <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 120px; height: auto;">
+                <!-- OR, ET PAS LA COULEUR DU THÈME. La règle `.auth-card` de ce fichier
+                     déclare un fond blanc, mais aube.css le remplace par un verre sombre
+                     posé sur la photographie de bureau : la carte est sombre dans les
+                     DEUX thèmes. Relevé sur le rendu réel, pas lu dans la feuille de
+                     style — un premier essai en navy y était presque invisible. -->
+                <span class="marque marque--verrou" role="img" aria-label="Trader 360"
+                      style="width: 200px; margin: 0 auto 0.75rem; --marque-couleur: var(--color-gold, #d4af37);"></span>
                 <div style="color: #666; font-size: 0.875rem; margin-top: 15px;">Journal de Trading Professionnel</div>
             </div>
             
@@ -3203,7 +3250,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <!-- Sidebar Coach -->
         <div class="sidebar" id="coachAppSidebar">
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
-                <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
+                <span class="marque marque--verrou" role="img" aria-label="Trader 360"
+                      style="width: 170px; margin: 0 auto;"></span>
                 <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
                 <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
                 <!-- #33 commit 3 — entrée mode personnalisation du dashboard coach -->
@@ -3871,7 +3919,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <!-- Sidebar -->
         <div class="sidebar" id="mainAppSidebar">
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
-                <img src="/assets/trader360-logo-clean.png" alt="Trader 360 Logo" style="width: 80px; height: auto; margin: 0 auto;">
+                <span class="marque marque--verrou" role="img" aria-label="Trader 360"
+                      style="width: 170px; margin: 0 auto;"></span>
                 <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
             </div>
             
@@ -16144,7 +16193,13 @@ async function renderInstagramCanvas(metrics, timeframe) {
     ctx.strokeStyle = SHARE_PALETTE.goldFrame; ctx.lineWidth = 2;
     ctx.strokeRect(30, 30, 1020, 1290);
 
-    await _shareDrawImage(ctx, '/assets/trader360-logo-clean.png', { x: 465, y: 60, w: 150, h: 150 });
+    // Le PNG DORÉ, et pas le SVG source : `drawImage` d'un SVG sans largeur ni
+    // hauteur intrinsèques est rendu à une taille par défaut selon le navigateur, et
+    // la couleur `currentColor` du fichier n'a de sens que dans un document qui la
+    // porte — dans un canvas, elle retomberait sur le noir. Le verrou étant large
+    // (1211 x 224) là où l'ancien logo était carré, la boîte passe de 150 x 150
+    // centrée à 400 x 74, de même centre vertical.
+    await _shareDrawImage(ctx, '/assets/marque/t360-logo-or.png', { x: 340, y: 98, w: 400, h: 74 });
 
     ctx.fillStyle = SHARE_PALETTE.gold;
     ctx.font = '600 28px Inter, system-ui, sans-serif';

@@ -4,18 +4,48 @@
 
 | Fichier | Taille | Usage |
 |---------|--------|-------|
-| `trader360-logo-clean.png` | 402 KB | Logo hexagonal Trader 360 sans fond bleu (PNG transparent). À utiliser sur fond dark ou clair. |
+| `t360-logo.svg` | 7,8 Ko | Le verrou : hexagone et logotype. Couleur pilotée par le CSS. Source. |
+| `t360-monogramme.svg` | 4,2 Ko | L'hexagone seul, pour les espaces étroits et la favicon. Source. |
+| `t360-logo-or.png` | 14 Ko | Verrou doré, 800 px de large. Dérivé, pour le courriel et le canvas. |
+| `t360-monogramme-or.png` | 4,1 Ko | Monogramme doré, 192 px. Dérivé, pour la favicon. |
 | `executive-bg.png` | 2 MB | Image cinématique "Bourse à l'Aube" — bureau exécutif privé NYC heure dorée. À utiliser comme `background-image` plein écran sur login + dashboard. |
 
 ## Usage du logo
 
+Deux fichiers source, copies octet pour octet de ceux du dépôt du site
+(`src/marque/`) : `t360-logo.svg` (le verrou complet, hexagone et logotype) et
+`t360-monogramme.svg` (l'hexagone seul, pour les espaces étroits et la favicon).
+
+Ils portent `fill="currentColor"` : **leur couleur vient du CSS**, ce qui leur permet
+de suivre le thème clair ou sombre. Posés dans une balise `<img>`, ils seraient rendus
+dans un document isolé où cette couleur retombe sur le NOIR — donc invisibles sur le
+fond marine. On les pose en **masque CSS** :
+
 ```html
-<img src="design-system-trader360/06-assets/trader360-logo-clean.png"
-     alt="Trader 360"
-     width="100"
-     height="100"
-     style="display: block; margin: 0 auto;">
+<span class="marque" role="img" aria-label="Trader 360"></span>
 ```
+
+```css
+.marque {
+  display: block;
+  width: 190px;
+  aspect-ratio: 1211 / 224;   /* le viewBox du verrou ; 459 / 446 pour le monogramme */
+  background-color: currentColor;
+  -webkit-mask: url('t360-logo.svg') no-repeat center / contain;
+  mask: url('t360-logo.svg') no-repeat center / contain;
+}
+```
+
+Deux contextes ne peuvent pas utiliser de masque, et reçoivent donc un PNG doré :
+le **courriel**, qu'aucun client ne rend en SVG, et le **canvas de partage**, où
+`drawImage` d'un SVG sans dimensions intrinsèques est rendu à une taille par défaut.
+Ce sont `t360-logo-or.png` et `t360-monogramme-or.png`, régénérables par
+`node assets/marque/generer.mjs`.
+
+L'ancien `trader360-logo-clean.png` a été retiré d'ici. Il reste servi à
+`/assets/trader360-logo-clean.png`, et uniquement pour cette raison : les rapports
+hebdomadaires déjà partis le pointent par URL absolue dans les boîtes de réception des
+élèves. Il n'est plus envoyé à personne.
 
 ## Usage de l'image de fond
 

@@ -5,6 +5,7 @@
 // ========================================================================
 
 import { Resvg } from '@resvg/resvg-js';
+import { VERROU_SVG } from './marque.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -501,6 +502,52 @@ function buildT360RadarPNGBuffer(components) {
   return resvg.render().asPng(); // Buffer Node natif
 }
 
+// ── LE LOGO DU RAPPORT ──────────────────────────────────────────────────────────
+// Même traitement que le radar, et pour la même raison : un client de messagerie
+// n'affiche pas de SVG — Gmail, Outlook et Yahoo l'ignorent ou le bloquent. Le logo
+// part donc en PNG, rendu depuis le SVG source par le même moteur que le radar.
+//
+// EN PIÈCE JOINTE INLINE PLUTÔT QU'EN URL, contrairement à l'ancien logo. Une image
+// distante reste soumise au blocage des images externes, que beaucoup de boîtes
+// appliquent par défaut ; une pièce jointe `cid:` s'affiche sans rien demander. Elle
+// ne dépend pas non plus d'un déploiement : le rapport de test montre le bon logo
+// avant que quoi que ce soit soit en ligne, ce qu'une URL ne permettait pas.
+const LOGO_CID = 'logo-t360';
+
+function buildLogoPNGBuffer() {
+  // La couleur est celle du PALETTE du rapport, et pas l'or de la marque : le gabarit
+  // du courriel est clair — fond crème, carte blanche — et l'or vif #d4af37 y tombe à
+  // 1,9 de contraste. `PALETTE.gold` est l'or assombri déjà utilisé par les titres du
+  // rapport, à 4,0 sur blanc. Le logo suit donc le document dans lequel il vit.
+  return new Resvg(VERROU_SVG.replaceAll('currentColor', PALETTE.gold), {
+    // Affiché 200 px de large : on rend au double, les écrans à densité double
+    // étant la norme y compris dans les applications de messagerie.
+    fitTo: { mode: 'width', value: 400 },
+    background: 'rgba(0,0,0,0)',
+  }).render().asPng();
+}
+
+// mode 'cid' = courriel ; 'datauri' = aperçu navigateur, où `cid:` ne s'affiche pas.
+function buildLogo(mode) {
+  const style = 'display:inline-block; border:0;';
+  try {
+    const b64 = buildLogoPNGBuffer().toString('base64');
+    if (mode === 'cid') {
+      return {
+        html: `<img src="cid:${LOGO_CID}" width="200" alt="Trader 360" style="${style}">`,
+        attachments: [{ filename: 't360-logo.png', content: b64, content_id: LOGO_CID, content_type: 'image/png' }],
+      };
+    }
+    return { html: `<img src="data:image/png;base64,${b64}" width="200" alt="Trader 360" style="${style}">`, attachments: [] };
+  } catch (e) {
+    // Repli sur le PNG servi par le site. C'est le MÊME logo, sous son nom propre :
+    // l'ancien fichier reste servi à son URL d'origine pour les rapports déjà partis,
+    // mais il n'est plus envoyé à personne.
+    console.error('[WEEKLY-REPORT] ❌ Logo PNG échoué, repli sur le fichier servi :', e);
+    return { html: `<img src="https://journaltrader360.fr/assets/marque/t360-logo-or.png" width="200" alt="Trader 360" style="${style}">`, attachments: [] };
+  }
+}
+
 // radarMode : 'cid' (email — img cid: + attachment, Gmail-safe) ou 'datauri' (preview navigateur).
 // Retourne { html, attachments } (attachments vide en mode datauri).
 function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, historicalTrades, startDate, endDate, radarMode = 'cid' }) {
@@ -515,6 +562,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
   const insights = runExpertSystem(trades, journalEntries, score, accounts, historicalTrades);
   const actions = buildActionPlan(insights, weakest);
   const RADAR_CID = 'radar-t360';
+  const logo = buildLogo(radarMode === 'cid' ? 'cid' : 'datauri');
   let radarHtml, attachments = [];
   if (radarMode === 'cid') {
     // Email : PNG en attachment CID inline (Gmail bloque les data URI <img>).
@@ -561,7 +609,7 @@ function generateWeeklyReportHTML({ user, trades, journalEntries, accounts, hist
     <tr><td style="padding:32px;">
 
       <div style="text-align:center; margin-bottom:28px;">
-        <img src="https://journaltrader360.fr/assets/trader360-logo-clean.png" width="72" alt="Trader 360" style="display:inline-block;">
+        ${logo.html}
         <h1 style="color:${PALETTE.gold}; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; margin:16px 0 4px;">Rapport hebdomadaire</h1>
         <p style="color:${PALETTE.bronze}; font-style:italic; margin:0; font-size:14px;">${userName} · semaine du ${formatDate(startDate)} au ${formatDate(endDate)}</p>
       </div>
@@ -616,14 +664,17 @@ ${noJournalNotice}
   </table>
 </div>
 </body></html>`;
-  return { html, attachments };
+  return { html, attachments: [...attachments, ...logo.attachments] };
 }
 
 // ========================================================================
 // RAPPORT PASSIF (#21) — élève sans journal dans les 3 derniers jours.
 // Version alternative unique (motivation + article éducatif). Même DA/shell.
 // ========================================================================
-function generatePassiveReportHTML({ user }) {
+// Le rapport passif rend désormais { html, attachments } comme l'actif : son logo est
+// une pièce jointe inline, il ne peut donc plus se contenter de rendre une chaîne.
+function generatePassiveReportHTML({ user, mode = 'cid' }) {
+  const logo = buildLogo(mode);
   const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
   const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:28px 0;"></div>`;
 
@@ -649,7 +700,7 @@ function generatePassiveReportHTML({ user }) {
     <tr><td style="padding:32px;">
 
       <div style="text-align:center; margin-bottom:28px;">
-        <img src="https://journaltrader360.fr/assets/trader360-logo-clean.png" width="72" alt="Trader 360" style="display:inline-block;">
+        ${logo.html}
         <h1 style="color:${PALETTE.gold}; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; margin:16px 0 4px;">Ton rapport de la semaine</h1>
         <p style="color:${PALETTE.bronze}; font-style:italic; margin:0; font-size:14px;">${userName}</p>
       </div>
@@ -689,7 +740,7 @@ function generatePassiveReportHTML({ user }) {
   </table>
 </div>
 </body></html>`;
-  return html;
+  return { html, attachments: logo.attachments };
 }
 
 export {
