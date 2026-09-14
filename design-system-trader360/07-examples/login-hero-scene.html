@@ -48,11 +48,17 @@
     max-width: 460px;
     width: 100%;
   }
+  /* La marque en MASQUE CSS : le fichier source porte fill="currentColor", donc
+     posé en <img> il serait rendu dans un document isolé et retomberait sur le noir.
+     En masque, la couleur est celle de background-color et suit le contexte. */
   .auth-logo {
     display: block;
-    width: 100px;
-    height: auto;
+    width: 190px;
+    aspect-ratio: 1211 / 224;
     margin: 0 auto 0.75rem auto;
+    background-color: var(--gold-aurum, #d4af37);
+    -webkit-mask: url('../06-assets/t360-logo.svg') no-repeat center / contain;
+    mask: url('../06-assets/t360-logo.svg') no-repeat center / contain;
   }
   .auth-subtitle {
     font-size: var(--text-sm);
@@ -208,7 +214,7 @@
 
 <div class="auth-wrapper">
   <div class="auth-card">
-    <img src="../06-assets/trader360-logo-clean.png" alt="Trader 360" class="auth-logo">
+    <span class="auth-logo" role="img" aria-label="Trader 360"></span>
     <div class="auth-subtitle">Journal de Trading Professionnel</div>
     <h1 class="auth-title">Connexion</h1>
 

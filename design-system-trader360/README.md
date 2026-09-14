@@ -65,7 +65,7 @@ Le design system EST déjà appliqué via `assets/aube.css` + `assets/aube.js` +
 | `03-typography.md` | Fonts (Fraunces, JetBrains Mono, Inter), tailles, weights, usages |
 | `04-components.md` | Recettes : cards glass forge, modales, boutons, hover states, etc. |
 | `05-animations.md` | Easings, durées, micro-interactions, choreographies |
-| `06-assets/` | Logo clean + image executive-bg + icônes éventuelles |
+| `06-assets/` | Les deux SVG de marque (source) + leurs dérivés PNG + image executive-bg |
 | `07-examples/` | Fichiers HTML/CSS standalone prêts à copier pour démarrer rapidement |
 
 ---

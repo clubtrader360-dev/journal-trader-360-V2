@@ -125,13 +125,12 @@ async function generateForUser(supabase, user, period) {
     countTradesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr),
   ]);
 
-  const passive = () => ({
-    html: generatePassiveReportHTML({ user }),
-    attachments: undefined,
-    subject: PASSIVE_SUBJECT,
-    reportType: 'passive',
-    entriesWeek, tradesWeek,
-  });
+  // Le rapport passif porte lui aussi son logo en pièce jointe inline : il rend donc
+  // { html, attachments } comme le rapport actif, et non plus une simple chaîne.
+  const passive = () => {
+    const { html, attachments } = generatePassiveReportHTML({ user });
+    return { html, attachments, subject: PASSIVE_SUBJECT, reportType: 'passive', entriesWeek, tradesWeek };
+  };
 
   // Aucun trade → rapport passif (peu importe le journal : rien de chiffré à analyser)
   if (tradesWeek === 0) return passive();
@@ -181,6 +180,17 @@ export default async function handler(req, res) {
     if (!onlyUserId) return res.status(400).json({ error: 'testTo requires onlyUserId (évite d\'envoyer tous les élèves au testeur)' });
     console.log(`[WEEKLY-REPORT] 🧪 Override destinataire actif → ${testTo}`);
   }
+  // Suffixe de sujet — PREVIEW UNIQUEMENT, et seulement en même temps qu'un override
+  // de destinataire. Sert à reconnaître un envoi de test dans une boîte qui reçoit
+  // aussi les vrais rapports : sans lui, le test et le rapport du lundi portent le
+  // même objet et se confondent. Les mêmes garde-fous que `testTo`, pour la même
+  // raison : rien de tout cela ne doit pouvoir partir en production.
+  const testSubject = req.query.testSubject || null;
+  if (testSubject) {
+    if (!isPreview) return res.status(403).json({ error: 'testSubject only allowed in preview deployments' });
+    if (!testTo) return res.status(400).json({ error: 'testSubject requires testTo' });
+    if (testSubject.length > 80) return res.status(400).json({ error: 'testSubject : 80 caractères maximum' });
+  }
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
   try {
@@ -214,7 +224,8 @@ export default async function handler(req, res) {
         }
         const recipientForSend = testTo || user.email;
         if (testTo) console.log(`[WEEKLY-REPORT][TEST-OVERRIDE] user=${user.uuid} originalEmail=${user.email} → sentTo=${testTo}`);
-        const sent = await sendEmail({ to: recipientForSend, subject, html, attachments });
+        const subjectForSend = testSubject ? `${testSubject} — ${subject}` : subject;
+        const sent = await sendEmail({ to: recipientForSend, subject: subjectForSend, html, attachments });
         results.push(sent.success
           ? { email: user.email, status: 'sent', reportType, sentTo: recipientForSend, emailId: sent.id }
           : { email: user.email, status: 'failed', reportType, error: sent.error });
@@ -225,7 +236,7 @@ export default async function handler(req, res) {
     }
 
     console.log('[WEEKLY-REPORT] ========== FIN ==========', JSON.stringify(results));
-    return res.status(200).json({ success: true, period, eligible: eligible.length, dryRun: DRY_RUN, onlyUserId: onlyUserId || undefined, testToOverride: testTo || undefined, results });
+    return res.status(200).json({ success: true, period, eligible: eligible.length, dryRun: DRY_RUN, onlyUserId: onlyUserId || undefined, testToOverride: testTo || undefined, testSubject: testSubject || undefined, results });
   } catch (error) {
     console.error('[WEEKLY-REPORT] ❌ Erreur globale:', error);
     return res.status(500).json({ error: error.message });

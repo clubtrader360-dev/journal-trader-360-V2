@@ -70,7 +70,9 @@ body.dark-mode #mainAppSidebar .text-gray-400 { color: rgba(255, 255, 255, 0.85)
   overflow-y: auto !important;
 }
 /* Compactage interne → contenu ~450px : les 3 boutons visibles SANS scroll (≤900px) */
-#authScreen .auth-card .logo img { width: 100px !important; height: auto !important; margin: 0 auto 0.75rem !important; display: block !important; }
+/* Le logo n'est plus une <img> mais un masque CSS (cf. .marque dans index.html) :
+   le sélecteur suit, sinon cette règle de compactage devient inerte sans qu'on le voie. */
+#authScreen .auth-card .logo .marque { width: 200px !important; margin: 0 auto 0.75rem !important; display: block !important; }
 #authScreen .auth-card .logo { margin-bottom: 4px !important; }
 #authScreen .auth-card h2 { margin: 0.5rem 0 !important; }
 #authScreen .auth-card .form-group { margin-bottom: 10px !important; }

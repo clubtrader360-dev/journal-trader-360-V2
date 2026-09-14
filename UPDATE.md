@@ -79,7 +79,7 @@ CDN externes utilisés (lignes en haut d'`index.html`) :
 ├── package.json
 ├── .gitignore                    # Créé en session — voir §10
 ├── .env.example                  # Créé en session — voir §10
-└── trader360-logo.png            # Asset source du logo (le logo est déjà bakké en base64 dans index.html)
+└── trader360-logo.png            # Ancien asset source, plus référencé nulle part (cf. assets/marque/ pour la marque actuelle)
 ```
 
 ---
@@ -326,8 +326,17 @@ Utilisé partout dans `supabase-tradovate.js` (et probablement ailleurs dans le 
 - Clé Resend hardcodée retirée de `test-email.js` (fichier ensuite supprimé entièrement).
 - Commentaire SECURITY dans `supabase-config.js` clarifiant que la clé anon est publique by design (vraie défense = RLS).
 
+> **Note du 2026-09-12.** La valeur de la clé Resend figurait EN CLAIR dans ce document,
+> et ce document est suivi par git et poussé sur le dépôt distant : la protection de
+> GitHub a bloqué un push sans rapport parce qu'elle l'a détectée ici. La valeur a été
+> retirée du texte. Retirer du fichier ne la retire pas de l'historique — elle reste
+> lisible dans le commit `0748aa1` de ce dépôt et, d'après ce même document, dans
+> l'historique public de V1. **La seule mesure qui protège est la révocation**, point 1
+> ci-dessous. Ne jamais réécrire une valeur de clé dans un fichier suivi, même pour
+> documenter qu'il faut la révoquer : son nom suffit.
+
 ### ⚠️ À faire impérativement par le owner
-1. **Révoquer la clé Resend `re_fKHnUNaD_GUGaLdbGP7bsoxapnLSWUwJ6`** sur https://resend.com/api-keys. Elle est dans l'historique git public de **V1** (commit `93261d0` du 2026-04-27), donc compromise. Générer une nouvelle clé et la mettre **uniquement dans Vercel Env Vars**.
+1. **Révoquer la clé Resend** sur https://resend.com/api-keys. Elle est dans l'historique git public de **V1** (commit `93261d0` du 2026-04-27), donc compromise. Générer une nouvelle clé et la mettre **uniquement dans Vercel Env Vars**.
 2. **Auditer RLS** sur Supabase via la requête `pg_policies` ci-dessus (§6).
 3. **Vérifier `TRADOVATE_ENCRYPTION_KEY`** : doit être en env var Vercel, pas dans le code.
 4. **Le repo V2 a un historique propre** (un seul commit créé en cette session, sans l'ancien `93261d0` polluant). Mais V1 reste public avec la clé visible — il faudrait soit supprimer/archiver V1 soit purger l'historique.
@@ -380,7 +389,9 @@ Variables à définir en local dans un `.env` (jamais commité) ou en prod dans 
   - 1 CSV vide (`tradovate_example.csv`)
   - 22 fichiers `.md` de doc (TOUS les guides/notes/correctifs hérités du V1)
   - 2 SQL obsolètes (`fix_pnl_with_fees.sql` v1, `diagnostic_methode.sql`)
-- Logo PNG (`trader360-logo.png`) conservé comme asset source (mais déjà bakké en base64 dans `index.html`).
+- Logo PNG (`trader360-logo.png`) conservé comme asset source.
+  - ⚠️ **Correction (2026-09-12)** : la mention « déjà bakké en base64 dans `index.html` » qui figurait ici était **fausse** — aucune image en `data:` dans le fichier, vérifié. Ce PNG n'est référencé nulle part : ni dans le code, ni dans le CSS, ni dans les courriels. Il est conservé sur décision explicite, pas par nécessité technique.
+  - La marque actuelle vit dans `assets/marque/` : deux SVG source copiés du dépôt du site, plus leurs dérivés PNG. Voir `assets/marque/LISEZ-MOI.md`.
 
 ### Sécurité
 - `.gitignore` créé.
