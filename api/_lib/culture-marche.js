@@ -54,7 +54,12 @@ export const NOTIONS = [
  * saute : mieux vaut un brief sans rubrique culture qu'une rubrique avec une image
  * manquante. La liste grandit au fur et à mesure que les schémas sont produits.
  */
-export const SCHEMAS_DISPONIBLES = new Set(['rsi', 'macd', 'support-resistance']);
+export const SCHEMAS_DISPONIBLES = new Set([
+  // Lot initial, validé.
+  'rsi', 'macd', 'support-resistance',
+  // Lot 1 : cinq notions de plus, mêmes règles de série.
+  'moyenne-mobile', 'break-of-structure', 'chandelier-japonais', 'volume', 'gap',
+]);
 
 /** Base publique des schémas. Le brief part en campagne Brevo : l'image est une URL. */
 export const BASE_SCHEMAS = 'https://journaltrader360.fr/assets/culture';

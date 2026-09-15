@@ -183,8 +183,34 @@ jobs:
           fi
 
           echo "✅ HTML validé ($SIZE octets)"
+
+          # === RELEVÉ DE STRUCTURE ===
+          # Le HTML produit n'était imprimé qu'en cas d'ÉCHEC. Sur un run réussi on ne
+          # voyait donc que sa taille : impossible de constater qu'une section attendue
+          # est là, et impossible de voir ce que lit quelqu'un dont le client masque les
+          # images. Ce relevé coûte quelques lignes de log et répond aux deux.
+          compter() { grep -o "$1" /tmp/brief.html 2>/dev/null | wc -l | tr -d ' '; }
+          echo "📐 Structure du brief :"
+          echo "   tableau SPX (en-tête ES/CFD) ......... $(compter '>ES<')/$(compter '>CFD<')"
+          echo "   lignes du tableau (HAUT SEM.) ........ $(compter 'HAUT SEM\.')"
+          echo "   niveaux psychologiques ............... $(compter 'Niveaux psychologiques')"
+          echo "   encart culture ....................... $(compter 'Culture de march')"
+          echo "   schéma référencé ..................... $(grep -o 'assets/culture/[a-z0-9-]*\.png' /tmp/brief.html | sort -u | tr '\n' ' ')"
+          echo "   attribut alt du schéma ............... $(grep -o 'alt="Schéma[^"]*"' /tmp/brief.html | head -1)"
+          echo "   tirets longs restants ................ $(compter '[—–]')"
+          echo "   poids ................................ $SIZE octets ($(( SIZE * 100 / 92160 ))% de la garde des 90 Ko)"
+
           echo "date_iso=$DATE_ISO" >> "$GITHUB_OUTPUT"
           echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
+
+      - name: Archiver le HTML produit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-html-${{ steps.brief.outputs.date_iso || github.run_id }}
+          path: /tmp/brief.html
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: POST to daily-brief endpoint
         id: post

@@ -112,6 +112,98 @@ const SCHEMAS = {
     <circle cx="133" cy="235" r="5.5" fill="${HAUSSE}"/>
     <circle cx="336" cy="212" r="5.5" fill="${BAISSE}"/>`,
 
+  // ── Moyenne mobile ────────────────────────────────────────────────────────────
+  // Un seul panneau : la moyenne vit SUR le prix, la séparer serait un contresens.
+  // Deux lissages pour tenir l'angle « simple contre exponentielle » : le trait plein
+  // colle au prix, le pointillé traîne derrière. C'est toute la différence, et elle se
+  // voit sans qu'on ait à l'écrire.
+  'moyenne-mobile': `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M40 210 78 178 116 196 154 148 192 172 230 118 268 142 306 92 344 124 382 104 420 150 458 128 496 176 534 150 560 186"
+          fill="none" stroke="${GRILLE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 200 78 190 116 188 154 174 192 168 230 152 268 146 306 132 344 128 382 124 420 130 458 132 496 144 534 148 560 158"
+          fill="none" stroke="${ACCENT}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 196 78 192 116 190 154 184 192 180 230 172 268 166 306 156 344 150 382 146 420 146 458 148 496 154 534 158 560 164"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.4" stroke-dasharray="7 6" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  // ── Break of structure ────────────────────────────────────────────────────────
+  // Une suite de creux ascendants, puis un passage SOUS le dernier. Le niveau rompu
+  // est tiré à l'horizontale jusqu'au point de rupture : sans ce prolongement, on voit
+  // une baisse ordinaire et pas une rupture de structure.
+  'break-of-structure': `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M40 232 92 168 140 212 192 130 240 176 292 96 340 148 392 78 440 132 470 176 500 220 530 252 560 244"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M240 176h250" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6"/>
+    <circle cx="192" cy="130" r="5" fill="${HAUSSE}"/>
+    <circle cx="240" cy="176" r="5" fill="${ACCENT}"/>
+    <circle cx="340" cy="148" r="5" fill="${HAUSSE}"/>
+    <circle cx="490" cy="176" r="6.5" fill="${BAISSE}"/>`,
+
+  // ── Chandelier japonais ───────────────────────────────────────────────────────
+  // Une bougie AGRANDIE, et les quatre niveaux qu'elle résume tirés à sa gauche. Pas
+  // de légende : les quatre traits montrent qu'un corps et deux mèches encodent quatre
+  // prix, ce qui est exactement la notion. Trois bougies de taille normale à droite
+  // remettent l'échelle en place.
+  //
+  // Les traits vont JUSQU'À l'axe de la mèche (x=202), pas jusqu'au bord du corps. À
+  // 180 ils s'arrêtaient quatre pixels avant un corps translucide : sur la planche à
+  // 279 px, ils flottaient à gauche sans qu'on voie ce qu'ils désignaient, et le
+  // schéma devenait « une grosse bougie et des pointillés ». Encre STRUCTURE et non
+  // grille, pour la même raison : à cette taille, la grille disparaît.
+  'chandelier-japonais': `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M60 66h142M60 108h142M60 212h142M60 254h142" stroke="${STRUCTURE}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.55"/>
+    <path d="M200 66v188" stroke="${HAUSSE}" stroke-width="3"/>
+    <rect x="176" y="108" width="48" height="104" rx="3" fill="${HAUSSE}" opacity="0.18" stroke="${HAUSSE}" stroke-width="2.6"/>
+    <path d="M330 92v150" stroke="${BAISSE}" stroke-width="2.6"/>
+    <rect x="312" y="122" width="36" height="86" rx="3" fill="${BAISSE}" opacity="0.18" stroke="${BAISSE}" stroke-width="2.4"/>
+    <path d="M420 110v120" stroke="${HAUSSE}" stroke-width="2.6"/>
+    <rect x="402" y="140" width="36" height="58" rx="3" fill="${HAUSSE}" opacity="0.18" stroke="${HAUSSE}" stroke-width="2.4"/>
+    <path d="M510 78v160" stroke="${HAUSSE}" stroke-width="2.6"/>
+    <rect x="492" y="104" width="36" height="106" rx="3" fill="${HAUSSE}" opacity="0.18" stroke="${HAUSSE}" stroke-width="2.4"/>`,
+
+  // ── Volume ────────────────────────────────────────────────────────────────────
+  // Douze barres, sous le seuil de densité du MACD. Chaque barre prend la couleur du
+  // sens de sa séance : c'est ce qui fait qu'on lit le volume AVEC le prix et non à
+  // côté. Les deux barres hautes tombent sur les deux mouvements marqués du prix.
+  volume: `
+    ${panneau(24, 20, 552, 132)}
+    <path d="M52 118 96 104 140 112 184 82 228 94 272 54 316 68 360 46 404 74 448 62 492 96 536 84"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    ${panneau(24, 176, 552, 104)}
+    <path d="M24 268h552" stroke="${GRILLE}" stroke-width="1"/>
+    <g opacity="0.62">
+      <rect x="42" y="242" width="20" height="26" rx="2" fill="${BAISSE}"/>
+      <rect x="86" y="230" width="20" height="38" rx="2" fill="${HAUSSE}"/>
+      <rect x="130" y="248" width="20" height="20" rx="2" fill="${BAISSE}"/>
+      <rect x="174" y="204" width="20" height="64" rx="2" fill="${HAUSSE}"/>
+      <rect x="218" y="246" width="20" height="22" rx="2" fill="${BAISSE}"/>
+      <rect x="262" y="192" width="20" height="76" rx="2" fill="${HAUSSE}"/>
+      <rect x="306" y="244" width="20" height="24" rx="2" fill="${BAISSE}"/>
+      <rect x="350" y="218" width="20" height="50" rx="2" fill="${HAUSSE}"/>
+      <rect x="394" y="240" width="20" height="28" rx="2" fill="${BAISSE}"/>
+      <rect x="438" y="234" width="20" height="34" rx="2" fill="${HAUSSE}"/>
+      <rect x="482" y="226" width="20" height="42" rx="2" fill="${BAISSE}"/>
+      <rect x="526" y="250" width="20" height="18" rx="2" fill="${HAUSSE}"/>
+    </g>`,
+
+  // ── Gap ───────────────────────────────────────────────────────────────────────
+  // Deux séances et le vide entre elles. La bande grise EST la notion : ce n'est pas
+  // une baisse, c'est une zone où aucun prix n'a été échangé. La coupure verticale
+  // marque la fin d'une séance et le début de la suivante.
+  gap: `
+    ${panneau(24, 20, 552, 260)}
+    <rect x="24" y="112" width="552" height="70" rx="3" fill="${STRUCTURE}" opacity="0.10"/>
+    <path d="M24 112h552M24 182h552" stroke="${STRUCTURE}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.7"/>
+    <path d="M290 34v232" stroke="${GRILLE}" stroke-width="1.4"/>
+    <path d="M48 226 90 202 132 214 174 186 216 196 258 182"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M322 112 364 88 406 102 448 74 490 88 532 62"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="258" cy="182" r="5.5" fill="${ACCENT}"/>
+    <circle cx="322" cy="112" r="5.5" fill="${ACCENT}"/>`,
+
   // ── Support et résistance ─────────────────────────────────────────────────────
   // Un seul panneau : la notion tient dans le prix lui-même. Les deux niveaux sont des
   // BANDES et non des traits, parce que c'est ainsi qu'ils se comportent — le prix ne
