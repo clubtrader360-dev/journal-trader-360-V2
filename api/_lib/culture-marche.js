@@ -52,15 +52,26 @@ export const NOTIONS = [
 /**
  * Les schémas RÉELLEMENT dessinés. Tant qu'une notion n'y figure pas, la rotation la
  * saute : mieux vaut un brief sans rubrique culture qu'une rubrique avec une image
- * manquante. La liste grandit au fur et à mesure que les schémas sont produits.
+ * manquante.
+ *
+ * ✅ LA BIBLIOTHÈQUE EST COMPLÈTE. Les vingt notions ont leur schéma, produits en
+ * quatre lots. Ce garde-fou n'a donc plus rien à écarter — il reste en place parce
+ * qu'il est ce qui garantit qu'une notion ajoutée plus tard à `NOTIONS` sans son image
+ * sautera d'elle-même au lieu de partir avec une image manquante chez soixante-seize
+ * destinataires. Le supprimer aujourd'hui ne gagnerait rien et coûterait exactement
+ * cette protection-là.
  */
 export const SCHEMAS_DISPONIBLES = new Set([
   // Lot initial, validé.
   'rsi', 'macd', 'support-resistance',
   // Lot 1 : cinq notions de plus, mêmes règles de série.
   'moyenne-mobile', 'break-of-structure', 'chandelier-japonais', 'volume', 'gap',
-  // Lot 2 : cinq de plus. Treize schémas sur vingt.
+  // Lot 2 : cinq de plus. Treize sur vingt.
   'tendance', 'range', 'bandes-de-bollinger', 'atr', 'fibonacci',
+  // Lot 3 : cinq de plus, dont la divergence, mesurée avant d'être retenue.
+  'divergence', 'pullback', 'double-sommet', 'triangle', 'vwap',
+  // Lot 4 : les deux dernières. Vingt sur vingt.
+  'order-block', 'liquidite',
 ]);
 
 /** Base publique des schémas. Le brief part en campagne Brevo : l'image est une URL. */
@@ -99,6 +110,12 @@ function rangDepuisOrigine(dateIso) {
  * schéma, et la règle se dissout d'elle-même : quand les vingt seront dessinés, les
  * disponibles SERONT la liste entière. Le prix à payer est qu'ajouter un schéma décale
  * l'ordre — sans conséquence tant que rien n'est établi.
+ *
+ * ✅ C'EST FAIT : les vingt schémas existent, la rotation porte donc désormais sur la
+ * liste entière et le décalage annoncé ne peut plus se produire. Le cycle est de vingt
+ * jours ouvrés et non calendaires — le brief ne part pas le week-end, mais le rang est
+ * calculé sur la date, si bien que deux semaines consécutives ne présentent pas les
+ * mêmes cinq notions.
  *
  * Rend `null` si aucun schéma n'existe : la rubrique saute, elle ne part jamais avec
  * une image manquante.
