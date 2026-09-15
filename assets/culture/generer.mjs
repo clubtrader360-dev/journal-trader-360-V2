@@ -3,6 +3,7 @@
  *
  *   node assets/culture/generer.mjs            → régénère les PNG
  *   node assets/culture/planche.mjs <sortie.png> <slug...>  → planche à taille réelle
+ *   node assets/culture/lisibilite.mjs                     → densité et lisibilité à 279 px
  *
  * ── POURQUOI DES PNG DESSINÉS À L'AVANCE ────────────────────────────────────────
  * Deux impasses, écartées avant d'écrire une ligne :
@@ -306,6 +307,177 @@ const SCHEMAS = {
     <circle cx="44" cy="244" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
     <circle cx="296" cy="68" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
     <circle cx="398" cy="158" r="6" fill="${ACCENT}"/>`,
+
+  // ── Divergence ────────────────────────────────────────────────────────────────
+  // LA PLUS EXIGEANTE DES VINGT, et la seule dont la notion ne vit dans aucun des deux
+  // panneaux : elle vit dans la COMPARAISON entre eux. Un sommet plus haut sur le prix,
+  // un sommet plus bas sur l'oscillateur, au même moment.
+  //
+  // Ce qui la rend tenable à 279 px, alors qu'elle porte deux fois la matière de l'ATR :
+  // le tracé est réduit au strict nécessaire — deux sommets et le creux entre eux — et
+  // tout le reste du dessin sert la comparaison. Les DEUX VERTICALES TRAVERSENT LE
+  // VIDE ENTRE LES PANNEAUX, ce qu'aucun autre schéma de la série ne fait. C'est
+  // délibéré : sans elles on regarde deux dessins côte à côte, avec elles on lit un
+  // même instant vu deux fois. Les deux droites d'accent ont des pentes exactement
+  // opposées, 26 points sur 222 dans un sens et dans l'autre — c'est ce contraste
+  // d'inclinaison, et non la hauteur des sommets, qui survit à la réduction.
+  //
+  // Les deux droites passent PAR le centre des points et non au-dessus : au premier
+  // jet elles flottaient huit pixels plus haut pour ne rien recouvrir, et on lisait
+  // quatre points d'un côté et deux droites de l'autre au lieu d'une seule figure.
+  divergence: `
+    ${panneau(24, 20, 552, 132)}
+    <path d="M176 26v248M392 26v248" stroke="${GRILLE}" stroke-width="1.4" stroke-dasharray="3 5"/>
+    <path d="M40 126 96 106 140 86 176 60 226 102 280 88 336 72 392 34 448 80 500 66 556 96"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M162 62 410 32" stroke="${ACCENT}" stroke-width="2" stroke-dasharray="6 6"/>
+    <circle cx="176" cy="60" r="5.5" fill="${ACCENT}"/>
+    <circle cx="392" cy="34" r="5.5" fill="${ACCENT}"/>
+    ${panneau(24, 176, 552, 104)}
+    <path d="M40 248 96 238 140 224 176 200 226 242 280 232 336 238 392 226 448 254 500 246 556 264"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M162 198 410 228" stroke="${ACCENT}" stroke-width="2" stroke-dasharray="6 6"/>
+    <circle cx="176" cy="200" r="5.5" fill="${ACCENT}"/>
+    <circle cx="392" cy="226" r="5.5" fill="${ACCENT}"/>`,
+
+  // ── Pullback ──────────────────────────────────────────────────────────────────
+  // Le repli est PEINT, pas annoté. Le tracé est coupé en trois morceaux et seul celui
+  // du milieu porte l'accent : la notion est un segment du mouvement, pas un point, et
+  // un point posé sur une courbe continue aurait demandé de deviner où le repli
+  // commence et où il finit. Aucune ligne, aucun niveau, aucun chiffre — un pullback
+  // n'a pas de mesure, c'est ce qui le distingue du retracement de Fibonacci.
+  //
+  // LA BANDE TEINTÉE A ÉTÉ AJOUTÉE APRÈS LA PLANCHE. Sans elle, le segment d'accent
+  // tenait à 600 px et s'évanouissait à 279 : le schéma se lisait comme une simple
+  // dent dans une montée, c'est-à-dire comme rien. Un trait de couleur ne pèse pas
+  // assez à cette taille, une surface oui — même vocabulaire que le range.
+  pullback: `
+    ${panneau(24, 20, 552, 260)}
+    <rect x="252" y="20" width="88" height="260" fill="${ACCENT}" opacity="0.10"/>
+    <path d="M44 246 120 192 196 132 252 96"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M252 96 300 140 340 170"
+          fill="none" stroke="${ACCENT}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M340 170 400 122 460 78 520 46 556 62"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="340" cy="170" r="5.5" fill="${ACCENT}"/>`,
+
+  // ── Double sommet ─────────────────────────────────────────────────────────────
+  // Deux tentatives sur le MÊME niveau, et la cassure de la ligne de cou. Les trois
+  // éléments sont indispensables : deux sommets sans cassure ne sont qu'un range, une
+  // cassure sans les deux sommets n'est qu'une baisse.
+  //
+  // Les sommets sont marqués en accent PLEIN alors que ceux de la tendance sont évidés.
+  // Ce n'est pas une entorse : l'accent plein désigne partout dans la série les points
+  // QUI FONT la notion. Dans la tendance, ce sont les creux qui portent la droite ;
+  // ici, ce sont les deux sommets eux-mêmes.
+  'double-sommet': `
+    ${panneau(24, 20, 552, 260)}
+    <rect x="24" y="62" width="552" height="16" rx="3" fill="${ACCENT}" opacity="0.10"/>
+    <path d="M24 62h552M24 78h552" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.7"/>
+    <path d="M24 178h552" stroke="${ACCENT}" stroke-width="1.8" stroke-dasharray="6 6"/>
+    <path d="M44 238 110 190 180 70 232 130 288 178 342 124 396 70 448 136 500 178 540 234 560 246"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="180" cy="70" r="5.5" fill="${ACCENT}"/>
+    <circle cx="396" cy="70" r="5.5" fill="${ACCENT}"/>
+    <circle cx="500" cy="178" r="5" fill="${FOND}" stroke="${ACCENT}" stroke-width="2.4"/>`,
+
+  // ── Triangle ──────────────────────────────────────────────────────────────────
+  // La COMPRESSION est tout le sujet : chaque oscillation est plus courte que la
+  // précédente. Les deux droites ne sont pas décoratives, elles sont ce que le tracé
+  // touche — chaque extrémité vient s'y poser, alternativement en haut et en bas. La
+  // dernière jambe sort par le haut : un triangle qui ne se résout pas n'est qu'une
+  // figure en cours, et le schéma doit montrer la notion achevée.
+  triangle: `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M60 70 520 160M60 250 520 160" stroke="${ACCENT}" stroke-width="1.8" stroke-dasharray="6 6" opacity="0.85"/>
+    <path d="M60 250 120 92 180 210 245 118 305 190 365 136 425 178 470 155 520 120 556 66"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  // ── VWAP ──────────────────────────────────────────────────────────────────────
+  // Deux panneaux, parce que la notion est le mot PONDÉRÉ. Un VWAP dessiné seul sous
+  // une courbe de prix est indiscernable d'une moyenne mobile : ce qui les sépare est
+  // en bas. Les barres lourdes sont toutes à gauche, là où le prix était bas, et c'est
+  // pour cela que la ligne finit loin SOUS le prix au lieu de le rejoindre.
+  //
+  // La ligne S'APLATIT au milieu, exactement là où les barres maigrissent. Au premier
+  // jet elle montait d'une pente régulière et se lisait comme une droite de tendance :
+  // c'est le coude, et lui seul, qui dit qu'une séance récente ne pèse presque rien.
+  //
+  // Les barres sont en accent et non en vert et rouge comme celles du schéma « volume ».
+  // Là-bas, la couleur disait le sens de la séance, donc un résultat de marché. Ici la
+  // barre dit un poids. La règle 5 lui refuse la couleur.
+  //
+  // LES BARRES ONT ÉTÉ RACCOURCIES APRÈS MESURE. Le premier jet passait le plafond de
+  // densité de la série — 9,19 % d'encre à 279 px contre 7,22 % pour le volume à douze
+  // barres, le schéma le plus chargé que Trader 360 ait validé. Douze barres, oui,
+  // mais pas douze barres plus hautes que celles du schéma qui sert de plafond : ce
+  // panneau porte en plus une seconde ligne dans le panneau du haut. Le contraste
+  // lourd/léger, qui est la notion, tient aussi bien à cette échelle.
+  vwap: `
+    ${panneau(24, 20, 552, 132)}
+    <path d="M52 118 96 110 140 116 184 100 228 106 272 88 316 66 360 74 404 48 448 58 492 40 536 50"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M52 116 96 115 140 115 184 112 228 110 272 106 316 99 360 95 404 92 448 90 492 88 536 87"
+          fill="none" stroke="${ACCENT}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    ${panneau(24, 176, 552, 104)}
+    <path d="M24 268h552" stroke="${GRILLE}" stroke-width="1"/>
+    <g opacity="0.55" fill="${ACCENT}">
+      <rect x="42" y="222" width="20" height="46" rx="2"/>
+      <rect x="86" y="212" width="20" height="56" rx="2"/>
+      <rect x="130" y="228" width="20" height="40" rx="2"/>
+      <rect x="174" y="210" width="20" height="58" rx="2"/>
+      <rect x="218" y="218" width="20" height="50" rx="2"/>
+      <rect x="262" y="224" width="20" height="44" rx="2"/>
+      <rect x="306" y="254" width="20" height="14" rx="2"/>
+      <rect x="350" y="258" width="20" height="10" rx="2"/>
+      <rect x="394" y="252" width="20" height="16" rx="2"/>
+      <rect x="438" y="258" width="20" height="10" rx="2"/>
+      <rect x="482" y="254" width="20" height="14" rx="2"/>
+      <rect x="526" y="260" width="20" height="8" rx="2"/>
+    </g>`,
+
+  // ── Order block ───────────────────────────────────────────────────────────────
+  // La zone est dessinée en DEUX intensités : pleine là où elle a été formée, atténuée
+  // sur sa projection à droite. C'est la seule façon de montrer qu'un order block est
+  // à la fois un endroit du passé et un niveau qui reste actif — une bande d'intensité
+  // unique se lirait comme un support, et le schéma « support et résistance » existe
+  // déjà. Le prix en sort une première fois, y revient, et repart : sans le retour, on
+  // aurait dessiné une impulsion et non un order block.
+  'order-block': `
+    ${panneau(24, 20, 552, 260)}
+    <rect x="230" y="182" width="346" height="40" fill="${ACCENT}" opacity="0.07"/>
+    <rect x="150" y="182" width="80" height="40" rx="3" fill="${ACCENT}" opacity="0.28"/>
+    <path d="M150 182h426M150 222h426" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.7"/>
+    <path d="M44 214 90 200 140 206 180 192 212 202 260 120 300 86 350 130 400 190 450 122 510 74 556 48"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="400" cy="190" r="5.5" fill="${ACCENT}"/>`,
+
+  // ── Liquidité ─────────────────────────────────────────────────────────────────
+  // La bande est SOUS les deux creux, pas dessus. C'est ce décalage de quelques points
+  // qui fait toute la notion et qui la sépare d'un support : les ordres en attente ne
+  // s'accumulent pas au niveau, ils s'accumulent juste en dessous. CE DÉCALAGE EST
+  // MESURÉ : dix-huit points, et non huit comme au premier jet. À huit, la planche
+  // montrait le niveau et le bord de la bande fondus en un seul trait doré dès 279 px
+  // — la seule chose qui sépare ce schéma d'un support avait disparu. Les traits courts
+  // dans la bande sont ces ordres — six, pas davantage : il faut qu'on lise une
+  // accumulation, pas une trame.
+  //
+  // Le prix descend AU TRAVERS de la bande puis repart d'un coup. Un balayage qui ne
+  // serait pas suivi du retournement ne montrerait qu'une cassure.
+  liquidite: `
+    ${panneau(24, 20, 552, 260)}
+    <rect x="24" y="208" width="552" height="30" rx="3" fill="${ACCENT}" opacity="0.12"/>
+    <path d="M24 208h552M24 238h552" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.7"/>
+    <g stroke="${STRUCTURE}" stroke-width="1.4" opacity="0.55" stroke-linecap="round">
+      <path d="M60 223h26M146 223h26M232 223h26M318 223h26M404 223h26M490 223h26"/>
+    </g>
+    <path d="M24 190h452" stroke="${ACCENT}" stroke-width="1.8" stroke-dasharray="6 6"/>
+    <path d="M44 110 100 156 160 190 220 140 280 168 340 190 400 150 442 182 480 256 506 240 532 130 556 84"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="160" cy="190" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
+    <circle cx="340" cy="190" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
+    <circle cx="480" cy="256" r="5.5" fill="${ACCENT}"/>`,
 
   // ── Support et résistance ─────────────────────────────────────────────────────
   // Un seul panneau : la notion tient dans le prix lui-même. Les deux niveaux sont des
