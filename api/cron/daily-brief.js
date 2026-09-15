@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getBriefRecipients } from '../_lib/tableur-recipients.js';
 import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_NAME } from '../_lib/brevo-client.js';
 import { formatDateLongFr, capitaliser } from '../_lib/date-fr.js';
+import { notionDuJour } from '../_lib/culture-marche.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -448,6 +449,29 @@ export default async function handler(req, res) {
   brief_html = _dash.html;
 
   // Audit retiré du mail, conservé pour le diagnostic (réponse de l'endpoint + logs).
+  // ---- Culture de marché : on trace, et on vérifie la concordance ----
+  // La rotation est calculée par la MÊME fonction que celle qu'utilise le workflow pour
+  // injecter la notion dans le prompt. La recalculer ici n'est pas une redondance : c'est
+  // le seul moyen de constater que le HTML reçu porte bien le schéma du jour. Un modèle
+  // qui reprend l'URL de la veille, ou qui l'invente, produit un brief où la définition
+  // et l'image ne parlent pas de la même chose — et rien, dans le HTML, ne le signale.
+  try {
+    const notion = notionDuJour(date);
+    if (!notion) {
+      console.log('[DAILY-BRIEF] 📚 Culture : aucune notion disponible ce jour');
+    } else if (brief_html.includes(notion.urlSchema)) {
+      console.log(`[DAILY-BRIEF] 📚 Culture : ${notion.nom} (rotation ${notion.rang}, catalogue ${notion.rangCatalogue}) — schéma concordant`);
+    } else if (/assets\/culture\//.test(brief_html)) {
+      console.warn(`[DAILY-BRIEF] ⚠️ Culture : le brief porte un schéma qui n'est PAS celui du jour (attendu ${notion.urlSchema}). Texte et image risquent de ne pas parler de la même notion.`);
+    } else {
+      console.log(`[DAILY-BRIEF] 📚 Culture : ${notion.nom} attendue, section absente du brief (le modèle a passé son tour)`);
+    }
+  } catch (e) {
+    // Un échec de rotation ne doit pas empêcher un brief de partir : c'est un contrôle,
+    // pas une dépendance.
+    console.warn('[DAILY-BRIEF] ⚠️ Contrôle culture impossible :', e.message);
+  }
+
   const _audit = stripAuditComment(brief_html);
   const _briefBefore = Buffer.byteLength(brief_html, 'utf8');
   if (_audit.audit) {

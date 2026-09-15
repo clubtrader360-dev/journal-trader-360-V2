@@ -73,6 +73,29 @@ Ce qu'on veut, toujours :
 
 **Cette règle vaut aussi pour le VIX et pour les hauts et bas de séance.**
 
+#### Deux cas que les audits ont montrés, et leur traitement
+
+Ces deux points ne sont pas théoriques : ils sortent des audits des runs des 11, 14 et
+15 septembre 2026. Ils ne durcissent rien à l'aveugle, ils tranchent deux situations
+que la règle laissait ouvertes.
+
+**1. L'indice CASH quand le marché est fermé.** Le SPX cash ne cote pas la nuit. À
+5-6 h heure de Paris, le grand nombre en haut de sa page N'EST PAS un prix courant :
+c'est la clôture, et la page l'indique par une mention du type « Closed ». Le lire est
+donc correct — mais tu ne peux pas t'en contenter, parce que c'est précisément le geste
+que la règle interdit pour ES. **Confirme-le toujours par « Prev. Close » ou par la
+ligne datée du tableau historique**, et écris dans l'audit lequel des deux t'a servi de
+confirmation. Sans cette confirmation, la valeur est `n/d`.
+
+**2. Le roulement du contrat ES.** Quand le front-month change de trimestre, deux
+contrats cotent en parallèle et leurs clôtures diffèrent de plusieurs dizaines de
+points. **Toutes les valeurs ES d'un même brief doivent porter sur LE MÊME contrat** :
+la clôture publiée, les hauts et bas, et la base de calcul du pré-marché. Un audit du
+14 septembre 2026 publiait `ES clôture 7 659,50 (ESU26)` et calculait le pré-marché
+contre `7 727,25 (ESZ26)` : le lecteur qui soustrait les deux nombres affichés trouve
+l'inverse du signe annoncé. Si les deux contrats apparaissent dans tes sources, choisis
+le front-month du jour, note son nom dans l'audit, et **recalcule tout dessus**.
+
 ### Phase 1 — Collecte primaire : Investing.com est la source IMPOSÉE
 
 Pour la clôture de la veille et pour le VIX, **Investing.com est la source primaire
@@ -206,15 +229,16 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
 ### Sections à produire, dans cet ordre (PAS de logo, PAS de « Bonjour », PAS de bouton, PAS de footer)
 1. **Intro chaleureuse** : 1–2 phrases qui posent l'ambiance du jour (`<p>`).
 2. **🧠 Mindset du jour** : encart fond `#fdf8ed`, cadre or, le mindset généré.
-3. **🎯 SPX — zones à surveiller** : d'abord **ES Futures** (public confirmé), puis **CFD SPX500** avec la mention en navy gras *« Pour les débutants en trading démo »*.
-   Mise en forme obligatoire, voir **GABARITS DE DONNÉES CHIFFRÉES** :
-   - **Clôture de la veille** (ES puis CFD SPX500) → **GABARIT A**, bloc ENCADRÉ.
-   - **H/L séance** et **H/L semaine** → **GABARIT B**, blocs LIBRES, non encadrés.
-   - **Niveaux psychologiques** → **GABARIT D**, bloc encadré RÉDUIT.
-   Trois poids visuels, dans cet ordre décroissant : clôture (A) > niveaux psycho (D) > H/L (B).
-   C'est ce contraste qui fait ressortir la clôture : n'encadre pas tout, et n'utilise pas
-   le gabarit A pour les niveaux psycho.
-   Toute donnée non vérifiée → « n/d (raison) », dans le même gabarit.
+3. **🎯 SPX : zones à surveiller**. Un SEUL gabarit pour toute la section, le **GABARIT E** :
+   le tableau à deux colonnes de valeurs, ES et CFD SPX500 côte à côte.
+   ⚠️ Le titre de section s'écrit avec un DEUX-POINTS, pas un tiret long. Le filet
+   anti-cadratin de l'endpoint le remplacerait par une virgule, et le brief partirait
+   avec « SPX, zones à surveiller ».
+   ⛔ Les gabarits A, B et D ne s'appliquent PLUS à cette section. Elle ne comporte
+   qu'un tableau, suivi de la mention en navy gras *« Pour les débutants en trading
+   démo »* sous le tableau, qui se rapporte à la colonne CFD.
+   Toute donnée non vérifiée → « n/d (raison) », dans sa cellule.
+   Le gabarit A reste en service pour le VIX, le C pour l'agenda.
 4. **📅 Agenda éco** : un **GABARIT C** par événement.
    ⛔ **PUBLIE TOUS LES ÉVÉNEMENTS RETENUS PAR LA MÉTHODE, SANS LIMITE DE NOMBRE.**
    Le coût de mise en forme n'est JAMAIS une raison d'en omettre un : un événement
@@ -225,8 +249,15 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
 5. **⚡ Volatilité (VIX)** : un **GABARIT A** avec le niveau et la variation, puis la lecture courte en `<p>` **SOUS** le bloc — jamais à l'intérieur.
 6. **📰 Actualité éco** : synthèse en **3 paragraphes** (~180 mots) — P1 bilan US d'hier, P2 réactions transversales (taux/devises/matières premières/géopolitique), P3 watch-list du jour + Asie/Europe + risques.
 7. **🧠 Ce qu'il faut retenir** : 2–3 puces de synthèse actionnable (sans plan de trade précis).
-8. **💼 Le mot de la communauté** : `<div>` fond or doux (`background:#fdf3d6`) bordure navy (`border:1px solid #000B25`), le variant du jour. **Titre exact : « Le mot de la communauté »** (cf. section ENCART AMBASSADEUR).
-9. **✅ Checklist pré-séance** : liste `<ul>` de 7 rappels (capital risqué défini, état émotionnel, agenda lu, plan Discord lu, taille de position, stop placé, journal ouvert). **Rappels, pas de cases interactives.**
+8. **📚 Culture de marché** : la notion du jour, **injectée en tête de ce prompt**.
+   Voir **GABARIT F**. C'est du bonus culturel : il vient une fois l'opérationnel traité
+   et ne repousse pas la checklist.
+   Si aucune notion n'est injectée, ou si tu n'es pas certain de la définition,
+   **n'écris pas cette section du tout**. Elle saute sans explication : une rubrique
+   absente ne se remarque pas, une définition fausse envoyée à soixante-seize traders,
+   si.
+9. **💼 Le mot de la communauté** : `<div>` fond or doux (`background:#fdf3d6`) bordure navy (`border:1px solid #000B25`), le variant du jour. **Titre exact : « Le mot de la communauté »** (cf. section ENCART AMBASSADEUR).
+10. **✅ Checklist pré-séance** : liste `<ul>` de 7 rappels (capital risqué défini, état émotionnel, agenda lu, plan Discord lu, taille de position, stop placé, journal ouvert). **Rappels, pas de cases interactives.**
    ⚠️ C'est la **DERNIÈRE** section du brief : le lecteur termine sur une action concrète, juste avant le bouton « Ouvrir mon journal » ajouté ensuite par l'endpoint. Ne la place nulle part ailleurs.
 
 ---
@@ -295,6 +326,100 @@ Deux colonnes maximum. Pour un seul élément, laisse la seconde cellule vide (`
 </table>
 ```
 
+### GABARIT E — tableau SPX, ES et CFD côte à côte
+
+Remplace les gabarits A, B et D dans la section SPX. Les deux colonnes se lisent
+ensemble : c'est tout l'intérêt du tableau, l'écart entre ES et CFD saute aux yeux au
+lieu de demander qu'on remonte de quinze lignes.
+
+**Tableau HTML classique, styles en ligne.** Ni flexbox ni grille : Outlook ne les
+rend pas, et un courriel qui se décompose chez un lecteur sur trois ne vaut pas la
+modernité de sa mise en page.
+
+⚠️ **LES TROIS LARGEURS DE COLONNE SONT DÉCLARÉES** (32 % / 34 % / 34 %), en attribut
+ET en style. Sans elles, une cellule « n/d (source unique) » tire sa colonne à 238 px
+pendant que l'autre reste à 126 : les deux colonnes de valeurs ne se comparent plus,
+ce qui est exactement ce que le tableau existe pour permettre. Mesuré.
+
+⚠️ **LE SÉPARATEUR DE MILLIERS EST UNE ESPACE INSÉCABLE `&nbsp;`, jamais une espace
+ordinaire.** Sur une colonne de 92 px, `7 692,75` écrit avec une espace ordinaire se
+coupe en `7` / `692,75` sur deux lignes. Mesuré, pas supposé.
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px; border-collapse:separate; border-spacing:0; background:#fdf8ed; border:1px solid #d4af37; border-radius:10px;">
+  <tr>
+    <td width="32%" style="width:32%; padding:12px 6px 8px 12px;"></td>
+    <td width="34%" align="center" style="width:34%; padding:12px 4px 8px; text-align:center; color:#ac862b; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; font-weight:700;">ES</td>
+    <td width="34%" align="center" style="width:34%; padding:12px 12px 8px 4px; text-align:center; color:#ac862b; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; font-weight:700;">CFD</td>
+  </tr>
+  <!-- Une ligne par donnée. {{LIB}} : CLÔTURE · HAUT SÉANCE · BAS SÉANCE · HAUT SEM. · BAS SEM. -->
+  <tr>
+    <td style="padding:7px 6px 7px 12px; border-top:1px solid rgba(212,175,55,0.30); color:#5a5040; font-size:10px; letter-spacing:0.10em; text-transform:uppercase;">{{LIB}}</td>
+    <td align="center" style="padding:7px 4px; border-top:1px solid rgba(212,175,55,0.30); text-align:center; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:14px; font-weight:700; color:#1a1208;">{{ES}}</td>
+    <td align="center" style="padding:7px 12px 7px 4px; border-top:1px solid rgba(212,175,55,0.30); text-align:center; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:14px; font-weight:700; color:#1a1208;">{{CFD}}</td>
+  </tr>
+  <!-- … quatre autres lignes sur le même modèle … -->
+  <tr>
+    <td colspan="3" style="padding:10px 12px 12px; border-top:1px solid rgba(212,175,55,0.30);">
+      <div style="color:#5a5040; font-size:10px; letter-spacing:0.10em; text-transform:uppercase;">Niveaux psychologiques</div>
+      <div style="font-family:'JetBrains Mono',ui-monospace,monospace; font-size:14px; font-weight:700; color:#1a1208; margin-top:5px;">{{NIVEAUX}}</div>
+    </td>
+  </tr>
+</table>
+```
+
+- **Les cinq libellés sont EXACTEMENT** : `CLÔTURE`, `HAUT SÉANCE`, `BAS SÉANCE`,
+  `HAUT SEM.`, `BAS SEM.` Abrégés à dessein : trois colonnes dans 279 px — la largeur
+  réelle sur un téléphone de 375 px une fois retirés les rembourrages du courriel —
+  ne laissent pas la place à « HAUT SEMAINE ». Ce sont les VALEURS qu'on vient lire,
+  pas les libellés : on raccourcit les seconds.
+- **Les valeurs ne portent PAS d'unité.** `7&nbsp;692,75` et non `7 692,75 pts` :
+  l'unité est la même sur toute la colonne et elle coûte quatre caractères par cellule.
+- **La variation ne figure PAS dans le tableau.** Elle se met en une phrase sous le
+  tableau, en `<p>`, pour ES seulement. Un tableau de dix nombres ne se lit plus.
+- `{{NIVEAUX}}` : deux à quatre nombres séparés par ` · `, ex. `7&nbsp;600 · 7&nbsp;650 · 7&nbsp;700`.
+- Une donnée non vérifiée : `n/d (raison)` dans sa cellule, en `font-size:11px;
+  color:#5a5040; font-weight:400` — elle a le droit de passer à la ligne, les nombres non.
+- La mention *« Pour les débutants en trading démo »* va SOUS le tableau, en navy gras,
+  et se rapporte à la colonne CFD.
+
+### GABARIT F — culture de marché
+
+La notion, son angle et l'adresse de son schéma sont **injectés en tête de ce prompt**.
+Tu ne choisis pas la notion et tu ne dessines rien : tu écris le texte, et tu reprends
+l'adresse de l'image **telle quelle**, sans la modifier ni la deviner.
+
+```html
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+  <tr><td style="background:#fdf8ed; border:1px solid #d4af37; border-radius:10px; padding:18px 20px;">
+    <div style="color:#5a5040; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;">Culture de marché</div>
+    <div style="color:#ac862b; font-size:17px; font-weight:700; margin-top:6px;">{{NOM}}</div>
+    <p style="margin:10px 0 0; font-size:14px; line-height:1.6; color:#1a1208;">{{DEFINITION}}</p>
+    <p style="margin:10px 0 0; font-size:14px; line-height:1.6; color:#1a1208;">{{USAGE}}</p>
+    <img src="{{URL_SCHEMA}}" width="600" alt="Schéma : {{NOM}}"
+         style="display:block; width:100%; max-width:600px; height:auto; border:0; border-radius:8px; margin:14px 0 0;">
+    <p style="margin:12px 0 0; font-size:12px; color:#5a5040; font-style:italic;">Culture de marché, pour comprendre ce qu'on croise ailleurs : dans une vidéo, sur un forum, ou dans la bouche d'un autre trader.</p>
+  </td></tr>
+</table>
+```
+
+- `{{DEFINITION}}` : **deux phrases**, ce que c'est. Pas trois, pas un paragraphe.
+- `{{USAGE}}` : **deux à trois phrases**, ce qu'un trader en fait, ce qu'il y cherche.
+- La phrase en italique est **fixe** : recopie-la mot pour mot.
+
+⛔ **CE QUE CETTE RUBRIQUE NE CONTIENT JAMAIS :**
+- aucune comparaison avec la méthode Trader 360, ni explicite ni suggérée ;
+- aucune raison pour laquelle la maison ne l'utiliserait pas ;
+- aucune recommandation : pas de « tu peux l'utiliser pour », pas de réglage conseillé,
+  pas de période, pas de seuil présenté comme un signal d'entrée ;
+- aucun jugement de valeur sur l'outil.
+
+C'est de la culture, pas un argument commercial déguisé. Décris, n'oriente pas.
+
+⛔ **Si tu n'es pas certain de la définition, n'écris pas la section.** La règle d'or
+du document s'applique ici comme partout : mieux vaut une rubrique absente qu'une
+définition approximative. Note-le dans l'audit, et passe à la suite.
+
 ### GABARIT C — ligne d'événement de l'agenda éco (un par événement)
 
 Contenu CENTRÉ, badge d'impact à la place du texte gris. Le badge est une table
@@ -344,9 +469,10 @@ la hiérarchie disparaît.
 
 ### Audit qualité — en commentaire HTML invisible, à la TOUTE FIN (juste avant le `</div>` de fermeture)
 ```
-<!-- AUDIT QUALITÉ V10.2
+<!-- AUDIT QUALITÉ V11
 SPX clôture : <valeur> ✓/n-d
   source primaire : <URL exacte> | champ lu : <libellé, ex. « Prev. Close »> | date : <JJ/MM>
+  confirmation : <« Prev. Close » ou ligne historique datée — obligatoire si le champ lu est le cours affiché marché fermé>
   nature : CLÔTURE confirmée / prix courant écarté / non distinguable
   source 2 : <nom + URL> | valeur : <valeur> | écart : <n> pts
 ES clôture : <valeur> ✓/n-d
@@ -364,6 +490,7 @@ VIX : <valeur> ✓/n-d
   source 2 : <nom + URL> | valeur : <valeur> | écart : <n> pts
 Agenda éco : liste EXHAUSTIVE des candidats. Pour CHACUN : nom, heure, impact, et son sort — RETENU (sources croisées) ou REJETÉ (raison précise). Aucun candidat ne doit être passé sous silence : un événement absent de cette liste est une omission, pas un rejet.
 Mindset : thème du jour
+Culture de marché : <nom de la notion> | rang <n>/20 | publiée / SAUTÉE (raison)
 Encart ambassadeur : variant jour <n>
 Données 'n/d' : <liste ou "aucune">
 -->

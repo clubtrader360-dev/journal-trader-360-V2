@@ -22,6 +22,10 @@ on:
         description: 'Email de test : envoi UNIQUEMENT à cette adresse (prioritaire sur only_user_id, zéro élève touché)'
         required: false
         default: ''
+      test_subject_suffix:
+        description: "Suffixe de sujet, pour sortir du fil Gmail d'un envoi précédent. Branche jetable uniquement."
+        required: false
+        default: ''
 
 jobs:
   generate-and-send-brief:
@@ -78,11 +82,36 @@ jobs:
             exit 1
           fi
 
+          if [ -n "${{ github.event.inputs.test_subject_suffix }}" ]; then
+            DATE_LONG_FR="$DATE_LONG_FR ${{ github.event.inputs.test_subject_suffix }}"
+          fi
           echo "📅 Brief du $DATE_LONG_FR ($DATE_ISO) · jour $DOW"
 
+          # NOTION DE CULTURE DU JOUR. La rotation est calculée par api/_lib/culture-marche.js,
+          # la MÊME fonction que celle qu'utilise l'endpoint pour journaliser et vérifier.
+          # Elle n'est pas recopiée ici : deux implémentations de la rotation finiraient par
+          # diverger, et le brief publierait une définition du MACD sous un schéma de RSI.
+          # Une notion dont le schéma n'est pas encore dessiné rend une ligne « aucune » :
+          # la rubrique saute ce jour-là, elle ne part pas avec une image manquante.
+          CULTURE=$(node -e "
+            import('./api/_lib/culture-marche.js')
+              .then(m => {
+                const n = m.notionDuJour('$DATE_ISO');
+                process.stdout.write(n
+                  ? 'Notion de culture du jour : ' + n.nom + ' (rotation ' + n.rang + ', catalogue ' + n.rangCatalogue + '). Angle a traiter : ' + n.angle + '. Adresse du schema, a reprendre TELLE QUELLE : ' + n.urlSchema
+                  : 'Aucune notion de culture aujourd hui : ne produis pas la section 8.');
+              })
+              .catch(e => { console.error(e.message); process.exit(1); })
+          ")
+          if [ -z "$CULTURE" ]; then
+            echo "::error::Rotation culture échouée pour $DATE_ISO (api/_lib/culture-marche.js)."
+            exit 1
+          fi
+          echo "📚 $CULTURE"
+
           # Contexte daté injecté en tête (évite que Claude devine la date).
-          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n\n%s' \
-            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
+          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n%s\n\n%s' \
+            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$CULTURE" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
 
           echo "🤖 Claude Code CLI version : $(claude --version 2>&1 || echo 'inconnue')"
           echo "📝 Prompt système : $(wc -l < .github/workflows/prompts/daily-brief-system.md) lignes, $(wc -c < .github/workflows/prompts/daily-brief-system.md) octets"
