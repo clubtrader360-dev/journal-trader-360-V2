@@ -2,7 +2,7 @@
  * Les schémas de la rubrique « culture de marché ». UNE SÉRIE, pas des dessins.
  *
  *   node assets/culture/generer.mjs            → régénère les PNG
- *   PLANCHE=/chemin node assets/culture/...    → écrit en plus une planche contact
+ *   node assets/culture/planche.mjs <sortie.png> <slug...>  → planche à taille réelle
  *
  * ── POURQUOI DES PNG DESSINÉS À L'AVANCE ────────────────────────────────────────
  * Deux impasses, écartées avant d'écrire une ligne :
@@ -203,6 +203,109 @@ const SCHEMAS = {
           fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="258" cy="182" r="5.5" fill="${ACCENT}"/>
     <circle cx="322" cy="112" r="5.5" fill="${ACCENT}"/>`,
+
+  // ── Tendance ──────────────────────────────────────────────────────────────────
+  // Sommets ET creux ascendants, marqués tous les deux : c'est leur conjonction qui
+  // définit une tendance, pas la pente générale. La droite qui relie les creux est en
+  // accent parce que c'est elle qu'on trace en pratique.
+  //
+  // Les sommets sont des cercles ÉVIDÉS et non des points verts. Un sommet plus haut
+  // que le précédent n'est pas un résultat de marché, c'est une structure : la règle 5
+  // lui interdit le vert. Le creux plein et le sommet évidé se distinguent sans
+  // qu'aucune couleur n'ait à porter un sens qu'elle n'a pas.
+  tendance: `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M44 244 96 186 148 218 206 154 258 190 316 118 368 156 426 84 478 124 536 56 560 76"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M96 192 478 130" stroke="${ACCENT}" stroke-width="2" stroke-dasharray="6 6"/>
+    <circle cx="96" cy="186" r="5.5" fill="${ACCENT}"/>
+    <circle cx="258" cy="190" r="5.5" fill="${ACCENT}"/>
+    <circle cx="478" cy="124" r="5.5" fill="${ACCENT}"/>
+    <circle cx="206" cy="154" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
+    <circle cx="316" cy="118" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
+    <circle cx="426" cy="84" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>`,
+
+  // ── Range ─────────────────────────────────────────────────────────────────────
+  // Tout l'intérieur est teinté, et non deux bandes fines : c'est ce qui distingue
+  // visuellement un range d'un couple support/résistance. Aucun point de réaction —
+  // les points sont le vocabulaire de l'autre schéma, les reprendre ici brouillerait
+  // les deux.
+  //
+  // HUIT ALLERS-RETOURS ET NON DOUZE. Le premier tracé en comptait douze, la limite
+  // haute de la série : à 279 px la planche montrait une dent de scie mécanique où
+  // l'œil ne distinguait plus une oscillation d'une autre. La notion est « borné »,
+  // pas « nombreux ». La bande occupe aussi plus de hauteur qu'au premier jet, où le
+  // panneau était vide sur ses deux tiers.
+  range: `
+    ${panneau(24, 20, 552, 260)}
+    <rect x="24" y="68" width="552" height="164" rx="3" fill="${ACCENT}" opacity="0.08"/>
+    <path d="M24 68h552M24 232h552" stroke="${ACCENT}" stroke-width="1.8" stroke-dasharray="6 6" opacity="0.8"/>
+    <path d="M44 224 108 76 172 226 236 74 300 228 364 76 428 224 492 78 556 180"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  // ── Bandes de Bollinger ───────────────────────────────────────────────────────
+  // L'enveloppe se RESSERRE puis s'écarte : c'est la seule chose que ce schéma doit
+  // montrer. Un Bollinger dessiné à largeur constante ne dit rien de ce qu'il mesure.
+  //
+  // La moyenne centrale est en ACCENT comme les deux bandes, et non en structure : les
+  // trois lignes SONT le même indicateur, le prix seul appartient à l'autre encre. Au
+  // premier jet la moyenne partageait l'encre du prix et, à 279 px, on lisait deux
+  // tracés sombres entremêlés sans savoir lequel était le prix.
+  'bandes-de-bollinger': `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M40 92 96 104 152 126 208 138 264 140 320 132 376 104 432 72 488 54 544 44"
+          fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 208 96 196 152 178 208 168 264 166 320 176 376 204 432 234 488 250 544 258"
+          fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 150 96 150 152 152 208 153 264 153 320 154 376 154 432 153 488 152 544 151"
+          fill="none" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="7 6" stroke-linecap="round"/>
+    <path d="M40 126 82 168 124 140 166 162 208 146 250 158 292 144 334 164 376 122 418 188 460 88 502 214 544 96"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  // ── ATR ───────────────────────────────────────────────────────────────────────
+  // Le prix du haut passe d'une phase calme à une phase agitée ; la courbe du bas
+  // suit. Les deux panneaux doivent se lire ensemble : un ATR seul est une courbe
+  // sans objet. Le trait vertical au même x dans les deux panneaux est ce qui les
+  // relie — sans lui, on regarde deux dessins et non une cause et son effet.
+  //
+  // La partie calme de la courbe basse a été remontée de huit pixels : collée au bas
+  // du panneau, elle se confondait avec la bordure et la marche perdait son départ.
+  atr: `
+    ${panneau(24, 20, 552, 132)}
+    <path d="M40 92 78 84 116 96 154 86 192 94 230 82 268 100 306 62 344 128 382 48 420 118 458 56 496 112 534 70 560 96"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M290 26v120" stroke="${GRILLE}" stroke-width="1.4"/>
+    ${panneau(24, 176, 552, 104)}
+    <path d="M40 250 78 248 116 252 154 246 192 250 230 244 268 246 306 220 344 200 382 190 420 196 458 186 496 192 534 188 560 194"
+          fill="none" stroke="${ACCENT}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M290 182v92" stroke="${GRILLE}" stroke-width="1.4"/>`,
+
+  // ── Retracement de Fibonacci ──────────────────────────────────────────────────
+  // Les trois pourcentages sont écrits parce qu'ils SONT la notion : un retracement
+  // sans 38,2, 50 et 61,8 n'est qu'un repli. Les niveaux sont MESURÉS sur l'impulsion
+  // dessinée — de y=244 à y=68, soit 176 points — et tombent donc là où ils doivent :
+  // 68 + 0,382 × 176 = 135, 68 + 0,5 × 176 = 156, 68 + 0,618 × 176 = 177.
+  //
+  // Les chiffres sont à 17 px et non à 14 : sur la planche à taille réelle, les trois
+  // pourcentages étaient une tache illisible à 279 px, c'est-à-dire que la seule chose
+  // que ce schéma doit dire disparaissait exactement là où il est le plus lu.
+  // Les extrémités du mouvement sont des cercles évidés, pas un point vert et un point
+  // rouge : un creux et un sommet sont des structures, pas des résultats (règle 5).
+  fibonacci: `
+    ${panneau(24, 20, 552, 260)}
+    <path d="M24 135h416" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.75"/>
+    <path d="M24 156h416" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.75"/>
+    <path d="M24 177h416" stroke="${ACCENT}" stroke-width="1.4" stroke-dasharray="5 6" opacity="0.75"/>
+    <text x="450" y="141" font-family="JetBrains Mono" font-size="17" fill="${ACCENT}">38,2</text>
+    <text x="450" y="162" font-family="JetBrains Mono" font-size="17" fill="${ACCENT}">50</text>
+    <text x="450" y="183" font-family="JetBrains Mono" font-size="17" fill="${ACCENT}">61,8</text>
+    <path d="M44 244 86 226 128 208 170 172 212 140 254 106 296 68"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M296 68 330 104 364 134 398 158 432 148"
+          fill="none" stroke="${STRUCTURE}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="44" cy="244" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
+    <circle cx="296" cy="68" r="5" fill="${FOND}" stroke="${STRUCTURE}" stroke-width="2"/>
+    <circle cx="398" cy="158" r="6" fill="${ACCENT}"/>`,
 
   // ── Support et résistance ─────────────────────────────────────────────────────
   // Un seul panneau : la notion tient dans le prix lui-même. Les deux niveaux sont des

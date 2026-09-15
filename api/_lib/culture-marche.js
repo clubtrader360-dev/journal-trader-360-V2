@@ -59,6 +59,8 @@ export const SCHEMAS_DISPONIBLES = new Set([
   'rsi', 'macd', 'support-resistance',
   // Lot 1 : cinq notions de plus, mêmes règles de série.
   'moyenne-mobile', 'break-of-structure', 'chandelier-japonais', 'volume', 'gap',
+  // Lot 2 : cinq de plus. Treize schémas sur vingt.
+  'tendance', 'range', 'bandes-de-bollinger', 'atr', 'fibonacci',
 ]);
 
 /** Base publique des schémas. Le brief part en campagne Brevo : l'image est une URL. */
