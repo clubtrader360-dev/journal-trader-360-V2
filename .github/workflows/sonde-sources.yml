@@ -1,0 +1,20 @@
+# Sonde jetable : quelles sources de marché répondent depuis un runner GitHub.
+# Déclenchée au push sur sa branche de chantier, PAS sur main. Elle sera retirée
+# une fois la source choisie — son rôle est de trancher par la mesure, pas de rester.
+name: Sonde sources marché
+on:
+  push:
+    branches: [chantier/brief-donnees-par-code]
+  workflow_dispatch:
+jobs:
+  sonder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Adresse publique du runner
+        run: curl -s --max-time 10 https://api.ipify.org || echo "(indisponible)"
+      - name: Sonder les candidats
+        run: node outils/sonder-sources.mjs
