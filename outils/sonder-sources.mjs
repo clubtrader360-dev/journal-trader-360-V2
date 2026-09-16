@@ -15,43 +15,37 @@
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 const CANDIDATS = [
-  // ═══ TOUR 2 — ES seulement. Le tour 1 a écarté Yahoo (429 comme depuis Vercel et
-  // Supabase), CME (403 anti-scraping), Investing (challenge Cloudflare), Stooq (page
-  // anti-robot), Barchart (403). Il reste à savoir si TradingView rend une VALEUR et
-  // non une enveloppe vide, et si d'autres chemins existent.
-  { cible: 'ES', nom: 'TradingView scanner CME_MINI:ESZ2026', corps: true,
-    url: 'https://scanner.tradingview.com/futures/scan', post: JSON.stringify({
-      symbols: { tickers: ['CME_MINI:ESZ2026'] },
-      columns: ['close', 'high', 'low', 'prev_close_price', 'update_mode'] }) },
-  { cible: 'ES', nom: 'TradingView scanner ES1! (front-month)', corps: true,
-    url: 'https://scanner.tradingview.com/futures/scan', post: JSON.stringify({
-      symbols: { tickers: ['CME_MINI:ES1!'] },
-      columns: ['close', 'high', 'low', 'prev_close_price', 'description', 'update_mode'] }) },
-  { cible: 'ES', nom: 'TradingView symbol ESZ2026', corps: true,
-    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=close,high,low,prev_close_price,description&no_404=true' },
-  { cible: 'ES', nom: 'TradingView history ESZ2026 (UDF)', corps: true,
-    url: 'https://scanner.tradingview.com/futures/scan?label-product=markets-screener' , post: JSON.stringify({
-      symbols: { tickers: ['CME_MINI:ESZ2026'] }, columns: ['open', 'high', 'low', 'close', 'volume'] }) },
+  // ═══ TOUR 3 — trouver la SÉANCE CLOSE, pas la cotation courante.
+  //
+  // Le tour 2 a montré que TradingView répond et nomme le contrat, mais qu'il rend la
+  // séance EN COURS. C'est précisément le piège : le brief part à 18h43 à New York, or
+  // le Globex a rouvert à 18h00. À cette heure-là, « la » séance d'ES est la NOUVELLE,
+  // pas celle qui vient de se régler. Une source qui ne sait pas distinguer les deux
+  // rendra toujours une valeur — la mauvaise.
+  { cible: 'ES', nom: 'TradingView champs suffixés |1D (bougie journalière)', corps: true,
+    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=close%7C1D,high%7C1D,low%7C1D,open%7C1D,close,description&no_404=true' },
+  { cible: 'ES', nom: 'TradingView champs de clôture veille', corps: true,
+    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=prev_close_price,price_52_week_high,change,change_abs,close,description,update_mode&no_404=true' },
+  { cible: 'SPX', nom: 'TradingView SP:SPX séance close', corps: true,
+    url: 'https://scanner.tradingview.com/symbol?symbol=SP%3ASPX&fields=close,high,low,open,prev_close_price,description,update_mode&no_404=true' },
 
-  { cible: 'ES', nom: 'CME ftp settle stlint_v2', corps: true,
-    url: 'https://www.cmegroup.com/ftp/pub/settle/stlint_v2' },
-  { cible: 'ES', nom: 'CME ftp settle (index)', corps: true,
-    url: 'https://www.cmegroup.com/ftp/settle/' },
+  { cible: 'ES', nom: 'WSJ historical-prices download ESZ26', corps: true,
+    url: 'https://www.wsj.com/market-data/quotes/futures/ESZ26/historical-prices/download?MOD=mw_quote&startDate=09/01/2026&endDate=09/16/2026' },
+  { cible: 'ES', nom: 'Nasdaq API historique ES', corps: true,
+    url: 'https://api.nasdaq.com/api/quote/ES%3ACME/historical?assetclass=commodities&fromdate=2026-09-01&todate=2026-09-16&limit=20' },
+  { cible: 'ES', nom: 'EODHD ES.COMM (jeton demo)', corps: true,
+    url: 'https://eodhd.com/api/eod/ES.COMM?api_token=demo&fmt=json&from=2026-09-01' },
+  { cible: 'ES', nom: 'Stooq es.f sans en-tête navigateur', corps: true, brut: true,
+    url: 'https://stooq.com/q/d/l/?s=es.f&i=d' },
+  { cible: 'ES', nom: 'Stooq .pl es.f', corps: true, brut: true,
+    url: 'https://stooq.pl/q/d/l/?s=es.f&i=d' },
+  { cible: 'ES', nom: 'Investing via ProxySite-like (allorigins)', corps: true,
+    url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.investing.com/indices/us-spx-500-futures-historical-data') },
 
-  { cible: 'ES', nom: 'Twelve Data demo ES (clé demo)', corps: true,
-    url: 'https://api.twelvedata.com/time_series?symbol=ES&interval=1day&outputsize=5&apikey=demo' },
-  { cible: 'ES', nom: 'FMP ESUSD (clé demo)', corps: true,
-    url: 'https://financialmodelingprep.com/api/v3/historical-price-full/ESUSD?apikey=demo' },
-  { cible: 'ES', nom: 'Databento (sans clé — attendu 401, teste la joignabilité)', corps: true,
-    url: 'https://hist.databento.com/v0/metadata.list_datasets' },
-
-  { cible: 'ES', nom: 'Relais texte r.jina.ai sur Investing futures', corps: true,
-    url: 'https://r.jina.ai/https://www.investing.com/indices/us-spx-500-futures-historical-data' },
-  { cible: 'ES', nom: 'Relais texte r.jina.ai sur Barchart ESZ26', corps: true,
-    url: 'https://r.jina.ai/https://www.barchart.com/futures/quotes/ESZ26/price-history/daily' },
-
-  { cible: 'SPX', nom: 'Cboe SPX_History.csv (re-témoin)', corps: true,
-    url: 'https://cdn.cboe.com/api/global/us_indices/daily_prices/SPX_History.csv' },
+  { cible: 'SPX', nom: 'Cboe quote délayé _SPX (OHLC du jour)', corps: true,
+    url: 'https://cdn.cboe.com/api/global/delayed_quotes/quotes/_SPX.json' },
+  { cible: 'SPX', nom: 'Cboe index dashboard SPX', corps: true,
+    url: 'https://cdn.cboe.com/api/global/us_indices/definitions/all_indices.json' },
 ];
 
 /** Ce qu'on a vraiment reçu — et non ce que le code HTTP prétend. */
@@ -71,7 +65,7 @@ for (const c of CANDIDATS) {
     try {
       const r = await fetch(c.url, {
         method: c.post ? 'POST' : 'GET',
-        headers: { 'user-agent': UA, accept: '*/*', ...(c.post ? { 'content-type': 'application/json' } : {}) },
+        headers: { ...(c.brut ? {} : { 'user-agent': UA }), accept: '*/*', ...(c.post ? { 'content-type': 'application/json' } : {}) },
         body: c.post,
         signal: AbortSignal.timeout(25000),
       });
