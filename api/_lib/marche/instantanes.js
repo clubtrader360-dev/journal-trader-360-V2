@@ -30,6 +30,9 @@ function lireSeance(dossier, dateIso) {
   let j;
   try { j = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; }
   if (j?.date !== dateIso) return null;
+  // Un prélèvement forcé a été pris hors de l'interruption du Globex : ses hauts et
+  // bas décrivent une séance en cours. Il est refusé, pas corrigé.
+  if (j.force) return null;
   const nb = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const haut = nb(j.esHaut), bas = nb(j.esBas);
   if (haut === null || bas === null || !(haut > bas)) return null;

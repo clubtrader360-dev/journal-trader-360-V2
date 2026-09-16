@@ -129,6 +129,8 @@ else if (commande === 'instantanes-test') {
       { date: '2026-09-15', contrat: 'ESU2026', esHaut: 7689.25, esBas: 7638.5 }]],
     ['haut inférieur au bas', [
       { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 100, esBas: 200 }]],
+    ['prélèvement forcé (hors fenêtre)', [
+      { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 7689.25, esBas: 7658.75, force: true }]],
     ['aucun instantané', []],
   ];
   for (const [nom, fichiers] of CAS) {
@@ -161,6 +163,13 @@ else if (commande === 'instantane') {
     esCloture: es.prixCourant, esHaut: es.hautCourant, esBas: es.basCourant,
     spxCloture: spx.cloture, spxHaut: spx.haut, spxBas: spx.bas,
     preleveA: new Date().toISOString(),
+    // ⚠️ UN PRÉLÈVEMENT FORCÉ SE DÉNONCE. Hors de l'interruption du Globex, le haut et
+    // le bas décrivent une séance EN COURS : ce sont des valeurs de test, pas des
+    // valeurs de séance. Sans cette marque, un essai déposé en pleine journée serait
+    // relu tel quel le lendemain matin et publié comme la fourchette d'une séance
+    // réglée. C'est arrivé au premier essai, et le nettoyage à la main aurait laissé
+    // le piège intact pour la fois suivante.
+    force: process.env.PRELEVEMENT_FORCE === 'oui' || undefined,
   };
   const m = [...controlerOhlc('ES', { haut: sortie.esHaut, bas: sortie.esBas, cloture: sortie.esCloture }),
              ...controlerOhlc('SPX', { haut: sortie.spxHaut, bas: sortie.spxBas, cloture: sortie.spxCloture }),
@@ -242,6 +251,8 @@ else if (commande === 'instantanes-test') {
       { date: '2026-09-15', contrat: 'ESU2026', esHaut: 7689.25, esBas: 7638.5 }]],
     ['haut inférieur au bas', [
       { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 100, esBas: 200 }]],
+    ['prélèvement forcé (hors fenêtre)', [
+      { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 7689.25, esBas: 7658.75, force: true }]],
     ['aucun instantané', []],
   ];
   for (const [nom, fichiers] of CAS) {
@@ -274,6 +285,13 @@ else if (commande === 'instantane') {
     esCloture: es.prixCourant, esHaut: es.hautCourant, esBas: es.basCourant,
     spxCloture: spx.cloture, spxHaut: spx.haut, spxBas: spx.bas,
     preleveA: new Date().toISOString(),
+    // ⚠️ UN PRÉLÈVEMENT FORCÉ SE DÉNONCE. Hors de l'interruption du Globex, le haut et
+    // le bas décrivent une séance EN COURS : ce sont des valeurs de test, pas des
+    // valeurs de séance. Sans cette marque, un essai déposé en pleine journée serait
+    // relu tel quel le lendemain matin et publié comme la fourchette d'une séance
+    // réglée. C'est arrivé au premier essai, et le nettoyage à la main aurait laissé
+    // le piège intact pour la fois suivante.
+    force: process.env.PRELEVEMENT_FORCE === 'oui' || undefined,
   };
   const m = [...controlerOhlc('ES', { haut: sortie.esHaut, bas: sortie.esBas, cloture: sortie.esCloture }),
              ...controlerOhlc('SPX', { haut: sortie.spxHaut, bas: sortie.spxBas, cloture: sortie.spxCloture }),
