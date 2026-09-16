@@ -64,6 +64,7 @@ jobs:
           # sous une date qui n'a jamais été une séance.
           SEANCE=$(TZ=America/New_York date +%Y-%m-%d)
           echo "seance=$SEANCE" >> "$GITHUB_OUTPUT"
+          export PRELEVEMENT_FORCE="${{ github.event.inputs.forcer }}"
           node outils/marche.mjs instantane "$SEANCE" > /tmp/instantane.json
           cat /tmp/instantane.json
 

@@ -123,12 +123,22 @@ jobs:
           #
           # L'historique des instantanés est récupéré s'il existe : il porte le haut et
           # le bas des séances réglées, que rien ne peut donner à l'heure du brief.
-          git fetch origin donnees-marche --depth=30 2>/dev/null \
-            && git show origin/donnees-marche:seances 2>/dev/null >/dev/null \
-            && echo "📈 Historique d'instantanés disponible" \
-            || echo "📈 Aucun historique d'instantanés — hauts et bas de séance ES en n/d"
+          # Les instantanés sont EXTRAITS, pas seulement récupérés. La version
+          # précédente faisait un `git fetch` puis imprimait une ligne de log
+          # rassurante, et personne ne lisait les fichiers : `collecterMarche` accepte
+          # un paramètre `historique` qu'aucun appelant ne remplissait. Les hauts et
+          # bas d'ES seraient restés en n/d indéfiniment.
+          INSTANTANES=""
+          if git fetch origin donnees-marche --depth=30 2>/dev/null \
+             && git archive origin/donnees-marche seances 2>/dev/null | tar -x -C /tmp; then
+            INSTANTANES=/tmp/seances
+            echo "📈 Instantanés extraits : $(ls -1 $INSTANTANES 2>/dev/null | wc -l | tr -d ' ') séance(s)"
+            ls -1 "$INSTANTANES" 2>/dev/null | tail -6 | sed 's/^/     /'
+          else
+            echo "📈 Aucun instantané déposé — hauts et bas d'ES en n/d, le reste du tableau n'en dépend pas"
+          fi
 
-          MARCHE=$(node outils/marche.mjs collecte "$DATE_ISO" 2>/tmp/marche_err.log)
+          MARCHE=$(node outils/marche.mjs collecte "$DATE_ISO" "$INSTANTANES" 2>/tmp/marche_err.log)
           if [ -z "$MARCHE" ]; then
             echo "::error::La collecte de marché n'a rien produit. $(cat /tmp/marche_err.log)"
             exit 1

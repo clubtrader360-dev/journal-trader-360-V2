@@ -115,8 +115,12 @@ export async function collecterMarche(dateBrief, { historique = null } = {}) {
     // manque, ces deux cases sortent en n/d, et elles seules — le reste du tableau ne
     // dépend plus de lui.
     const h = historique || {};
-    const deHisto = (cle) => (typeof h[cle] === 'number' ? val(h[cle], { source: 'prélèvement 17h05' })
-      : nd("haut/bas d'ES : aucun fournisseur atteignable ne rend la bougie journalière datée d'un contrat CME ; prélèvement de 17h05 absent pour cette séance"));
+    const manque = h.motif
+      || "haut/bas d'ES : aucun fournisseur atteignable ne rend la bougie journalière datée d'un contrat CME ; prélèvement de 17h05 absent pour cette séance";
+    const deHisto = (cle) => (typeof h[cle] === 'number'
+      ? val(h[cle], { source: 'prélèvement 17h05', seances: h.seancesSemaine, preleveA: h.preleveA })
+      : nd(manque));
+    if (h.ecartes?.length) noter(`ES : instantanés écartés pour cause de contrat différent — ${h.ecartes.join(', ')}`);
     r.es.haut = deHisto('esHautSeance');
     r.es.bas = deHisto('esBasSeance');
     r.es.hautSemaine = deHisto('esHautSemaine');
