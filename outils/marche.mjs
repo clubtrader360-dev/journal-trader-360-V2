@@ -1,11 +1,13 @@
 /**
  * La collecte de marché, en ligne de commande.
  *
- *   node outils/marche.mjs collecte [AAAA-MM-JJ]   → ce qui serait injecté dans le prompt
+ *   node outils/marche.mjs collecte [AAAA-MM-JJ] [dossier-instantanes]
+ *                                                  → ce qui serait injecté dans le prompt
  *   node outils/marche.mjs json     [AAAA-MM-JJ]   → l'objet structuré
  *   node outils/marche.mjs determinisme [n]        → n collectes de suite, mêmes valeurs ?
  *   node outils/marche.mjs echec-force             → un contrôle mis en échec exprès
  *   node outils/marche.mjs divergence-forcee       → deux chemins écartés : n/d + écart
+ *   node outils/marche.mjs instantanes-test        → les instantanés, lus et rejetés
  *   node outils/marche.mjs instantane              → l'instantané de clôture (17h05 NY)
  *   node outils/marche.mjs comparaison             → trois séances passées contre relevé manuel
  *
@@ -20,15 +22,32 @@ import { concilier, TOLERANCE_ES } from '../api/_lib/marche/croisement.js';
 import { viderCacheMarche } from '../api/_lib/marche/sources.js';
 import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre } from '../api/_lib/marche/validation.js';
 
-const [commande = 'collecte', arg] = process.argv.slice(2);
+const [commande = 'collecte', arg, arg2] = process.argv.slice(2);
+
+/**
+ * Les instantanés du prélèvement de 17h05, s'ils ont été déposés.
+ *
+ * Le dossier est passé en argument par le workflow, qui l'extrait de la branche
+ * `donnees-marche`. Absent, la collecte se poursuit : les hauts et bas d'ES sortent en
+ * n/d avec leur motif, et rien d'autre du tableau n'en dépend.
+ */
+async function historiqueDe(dateBrief, dossier) {
+  if (!dossier) return null;
+  const { historiqueInstantanes } = await import('../api/_lib/marche/instantanes.js');
+  const { dernierJourOuvre: djo } = await import('../api/_lib/marche/validation.js');
+  const { contratFrontMonth: cfm } = await import('../api/_lib/marche/sources.js');
+  return historiqueInstantanes(dossier, djo(dateBrief), cfm(dateBrief).contrat);
+}
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
 if (commande === 'collecte') {
-  console.log(versPrompt(await collecterMarche(arg || aujourdhui())));
+  const d = arg || aujourdhui();
+  console.log(versPrompt(await collecterMarche(d, { historique: await historiqueDe(d, arg2) })));
 }
 
 else if (commande === 'json') {
-  console.log(JSON.stringify(await collecterMarche(arg || aujourdhui()), null, 2));
+  const d = arg || aujourdhui();
+  console.log(JSON.stringify(await collecterMarche(d, { historique: await historiqueDe(d, arg2) }), null, 2));
 }
 
 else if (commande === 'determinisme') {
@@ -85,6 +104,48 @@ else if (commande === 'echec-force') {
   const r = await collecterMarche(aujourdhui());
   console.log('     → motifs remontés :', r.motifs.length);
   for (const m of r.motifs) console.log('       ·', m);
+}
+
+else if (commande === 'instantanes-test') {
+  // Les instantanés sont-ils RÉELLEMENT lus, et les mauvais rejetés ? Le mécanisme
+  // avait été écrit, testé isolément, déployé — et laissé débranché : le workflow
+  // récupérait la branche de données sans jamais passer le dossier à la collecte.
+  // Ce test-ci va de bout en bout, du fichier au tableau, parce que c'est la seule
+  // manière de voir un débranchement.
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const { historiqueInstantanes } = await import('../api/_lib/marche/instantanes.js');
+  const d = fs.mkdtempSync(os.tmpdir() + '/instantanes-');
+  const ecrire = (o) => fs.writeFileSync(`${d}/${o.nom || o.date}.json`, JSON.stringify(o));
+  const CAS = [
+    ['nominal, deux séances', [
+      { date: '2026-09-14', contrat: 'ESZ2026', esHaut: 7719.5, esBas: 7661.25 },
+      { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 7689.25, esBas: 7638.5 }]],
+    ['date interne ≠ nom de fichier', [
+      { date: '2026-09-14', contrat: 'ESZ2026', esHaut: 7719.5, esBas: 7661.25 },
+      { nom: '2026-09-15', date: '2026-09-11', contrat: 'ESZ2026', esHaut: 9999, esBas: 1 }]],
+    ['contrat d\'une autre échéance', [
+      { date: '2026-09-14', contrat: 'ESZ2026', esHaut: 7719.5, esBas: 7661.25 },
+      { date: '2026-09-15', contrat: 'ESU2026', esHaut: 7689.25, esBas: 7638.5 }]],
+    ['haut inférieur au bas', [
+      { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 100, esBas: 200 }]],
+    ['aucun instantané', []],
+  ];
+  for (const [nom, fichiers] of CAS) {
+    for (const f of fs.readdirSync(d)) fs.unlinkSync(`${d}/${f}`);
+    fichiers.forEach(ecrire);
+    const h = historiqueInstantanes(d, '2026-09-15', 'ESZ2026');
+    const r = h.esHautSeance != null
+      ? `séance ${h.esBasSeance}–${h.esHautSeance} · semaine ${h.esBasSemaine}–${h.esHautSemaine} (${h.seancesSemaine} séances)`
+      : `n/d — ${h.motif}`;
+    console.log(`  ${nom.padEnd(32)} → ${r}`);
+    if (nom.startsWith('nominal') && h.esHautSeance == null) process.exit(1);
+    if (!nom.startsWith('nominal') && h.esHautSeance != null) { console.error('   ATTENDU : rejet'); process.exit(1); }
+    // Une semaine ne doit JAMAIS sortir sans la séance de référence.
+    if (h.esHautSeance == null && h.esHautSemaine != null) { console.error('   semaine rendue sans sa séance de référence'); process.exit(1); }
+  }
+  fs.rmSync(d, { recursive: true, force: true });
+  console.log('\n  Les instantanés sont lus, et les mauvais rejetés sans emporter le reste.\n');
 }
 
 else if (commande === 'instantane') {
@@ -156,6 +217,48 @@ else if (commande === 'divergence-forcee') {
   }
   console.log('\n  Et le contrôle de contrat, sur le cas du 14/09 :');
   console.log('    →', JSON.stringify(controlerContrat({ contrat: 'ESU2026', expiration: 20260918 }, contratFrontMonth('2026-09-14'))));
+}
+
+else if (commande === 'instantanes-test') {
+  // Les instantanés sont-ils RÉELLEMENT lus, et les mauvais rejetés ? Le mécanisme
+  // avait été écrit, testé isolément, déployé — et laissé débranché : le workflow
+  // récupérait la branche de données sans jamais passer le dossier à la collecte.
+  // Ce test-ci va de bout en bout, du fichier au tableau, parce que c'est la seule
+  // manière de voir un débranchement.
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const { historiqueInstantanes } = await import('../api/_lib/marche/instantanes.js');
+  const d = fs.mkdtempSync(os.tmpdir() + '/instantanes-');
+  const ecrire = (o) => fs.writeFileSync(`${d}/${o.nom || o.date}.json`, JSON.stringify(o));
+  const CAS = [
+    ['nominal, deux séances', [
+      { date: '2026-09-14', contrat: 'ESZ2026', esHaut: 7719.5, esBas: 7661.25 },
+      { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 7689.25, esBas: 7638.5 }]],
+    ['date interne ≠ nom de fichier', [
+      { date: '2026-09-14', contrat: 'ESZ2026', esHaut: 7719.5, esBas: 7661.25 },
+      { nom: '2026-09-15', date: '2026-09-11', contrat: 'ESZ2026', esHaut: 9999, esBas: 1 }]],
+    ['contrat d\'une autre échéance', [
+      { date: '2026-09-14', contrat: 'ESZ2026', esHaut: 7719.5, esBas: 7661.25 },
+      { date: '2026-09-15', contrat: 'ESU2026', esHaut: 7689.25, esBas: 7638.5 }]],
+    ['haut inférieur au bas', [
+      { date: '2026-09-15', contrat: 'ESZ2026', esHaut: 100, esBas: 200 }]],
+    ['aucun instantané', []],
+  ];
+  for (const [nom, fichiers] of CAS) {
+    for (const f of fs.readdirSync(d)) fs.unlinkSync(`${d}/${f}`);
+    fichiers.forEach(ecrire);
+    const h = historiqueInstantanes(d, '2026-09-15', 'ESZ2026');
+    const r = h.esHautSeance != null
+      ? `séance ${h.esBasSeance}–${h.esHautSeance} · semaine ${h.esBasSemaine}–${h.esHautSemaine} (${h.seancesSemaine} séances)`
+      : `n/d — ${h.motif}`;
+    console.log(`  ${nom.padEnd(32)} → ${r}`);
+    if (nom.startsWith('nominal') && h.esHautSeance == null) process.exit(1);
+    if (!nom.startsWith('nominal') && h.esHautSeance != null) { console.error('   ATTENDU : rejet'); process.exit(1); }
+    // Une semaine ne doit JAMAIS sortir sans la séance de référence.
+    if (h.esHautSeance == null && h.esHautSemaine != null) { console.error('   semaine rendue sans sa séance de référence'); process.exit(1); }
+  }
+  fs.rmSync(d, { recursive: true, force: true });
+  console.log('\n  Les instantanés sont lus, et les mauvais rejetés sans emporter le reste.\n');
 }
 
 else if (commande === 'instantane') {

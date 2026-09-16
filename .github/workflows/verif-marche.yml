@@ -35,6 +35,9 @@ jobs:
       - name: 4ter. Divergence forcée entre chemins + contrôle de contrat
         run: node outils/marche.mjs divergence-forcee
 
+      - name: 4quater. Les instantanés sont lus de bout en bout, les mauvais rejetés
+        run: node outils/marche.mjs instantanes-test
+
       - name: 5. Contrôles mis en échec — la valeur devient n/d avec son motif
         run: node outils/marche.mjs echec-force
 

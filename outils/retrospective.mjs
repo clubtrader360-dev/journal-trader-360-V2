@@ -27,7 +27,7 @@ const RUNS = [
     mecanisme: 'champ ambigu retenu faute de règlement daté' },
   { brief: '2026-09-14', seance: '2026-09-11', ancien: '7 659,50',
     motif: "contrat ESU26 alors que le front-month était ESZ26",
-    mecanisme: 'MAUVAIS CONTRAT' },
+    mecanisme: 'contrat choisi par le modèle' },
   { brief: '2026-09-11', seance: '2026-09-10', ancien: 'n/d',
     motif: "aucune 2e source exploitable après neuf tentatives",
     mecanisme: 'témoin tiers absent' },
@@ -61,9 +61,12 @@ const VERDICTS = {
   'champ ambigu retenu faute de règlement daté': {
     issue: 'PUBLIÉ, valeur corrigée',
     pourquoi: "le règlement CNBC porte SA date : plus besoin d'arbitrer entre un cadran et une ligne de tableau" },
-  'MAUVAIS CONTRAT': {
-    issue: 'n/d VOULU',
-    pourquoi: "le contrôle de contrat passe AVANT le croisement : deux chemins concordants sur un contrat périmé restent une valeur fausse" },
+  'contrat choisi par le modèle': {
+    issue: 'PUBLIÉ, valeur corrigée',
+    pourquoi: "le contrat n'est plus choisi, il est CALCULÉ puis NOMMÉ dans la requête — "
+      + "`contratFrontMonth('2026-09-14')` rend ESZ2026, et c'est la clôture d'ESZ26 qui part, "
+      + "pas celle d'ESU26. Le contrôle de contrat est un GARDE-FOU contre une substitution par "
+      + "la source, pas un producteur de n/d" },
   'aucun défaut': { issue: 'PUBLIÉ', pourquoi: 'rien à corriger' },
 };
 
@@ -77,8 +80,15 @@ for (const r of RUNS) {
 }
 console.log('  ' + '─'.repeat(96));
 console.log(`\n  Publiées : ${publies}/10 contre 5/10 aujourd'hui.`);
-console.log(`  Fausses  : 0/10 contre 2 aujourd'hui au moins — le 14/09 devient un n/d VOULU,`);
-console.log('             pas un n/d subi : le contrôle de contrat le refuse avant tout croisement.\n');
+console.log('  Fausses  : 0/10 contre 2 aujourd\'hui au moins.\n');
+console.log('  ⚠️ CORRECTION D\'UNE VERSION PRÉCÉDENTE DE CE TABLEAU. Le 14/09 y était classé');
+console.log('  « n/d voulu », au motif que le contrôle de contrat l\'aurait refusé. C\'était');
+console.log('  trop pessimiste et mal raisonné : le contrôle ne compare pas le contrat à une');
+console.log('  attente abstraite, il vérifie que la SOURCE a rendu celui qu\'on lui a NOMMÉ.');
+console.log('  Comme la requête porte désormais ESZ26, c\'est la clôture d\'ESZ26 qui part, et');
+console.log('  la journée est publiée avec la bonne valeur. Le compte est donc 10/10, pas 9/10.');
+console.log('  Le contrôle reste indispensable — il attrape une substitution par la source —');
+console.log('  mais il n\'est pas ce qui corrige le 14/09 : c\'est le calcul du front-month.\n');
 for (const [m, v] of Object.entries(VERDICTS)) {
   if (m === 'aucun défaut') continue;
   console.log(`  · ${m}\n      → ${v.issue} : ${v.pourquoi}`);
