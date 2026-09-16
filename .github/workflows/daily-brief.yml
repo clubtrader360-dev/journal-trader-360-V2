@@ -109,9 +109,48 @@ jobs:
           fi
           echo "📚 $CULTURE"
 
+          # ═══ DONNÉES DE MARCHÉ COLLECTÉES PAR DU CODE ═══════════════════════════
+          #
+          # Jusqu'ici TOUS les chiffres du brief venaient du modèle, via WebSearch et
+          # WebFetch. Un modèle qui lit une page rend toujours une valeur plausible :
+          # mauvais champ, page modifiée, contrat qui vient de rouler, il ne plante pas,
+          # il produit un nombre crédible. Sur les dix derniers runs de production, la
+          # clôture ES est sortie en n/d cinq fois et fausse au moins deux fois — le
+          # 14/09 sur le contrat périmé ESU26, à soixante-huit points de la réalité.
+          #
+          # Le code, lui, échoue bruyamment. Une valeur qui rate un contrôle devient
+          # n/d avec son motif, et le motif part dans l'audit ET dans Discord.
+          #
+          # L'historique des instantanés est récupéré s'il existe : il porte le haut et
+          # le bas des séances réglées, que rien ne peut donner à l'heure du brief.
+          git fetch origin donnees-marche --depth=30 2>/dev/null \
+            && git show origin/donnees-marche:seances 2>/dev/null >/dev/null \
+            && echo "📈 Historique d'instantanés disponible" \
+            || echo "📈 Aucun historique d'instantanés — hauts et bas de séance ES en n/d"
+
+          MARCHE=$(node outils/marche.mjs collecte "$DATE_ISO" 2>/tmp/marche_err.log)
+          if [ -z "$MARCHE" ]; then
+            echo "::error::La collecte de marché n'a rien produit. $(cat /tmp/marche_err.log)"
+            exit 1
+          fi
+          echo "$MARCHE"
+
+          # Nombre de valeurs indisponibles, pour l'alerte Discord. Compté sur la
+          # sortie réellement injectée, pas sur une intention.
+          ND=$(echo "$MARCHE" | grep -c ' : n/d (' || true)
+          echo "marche_nd=$ND" >> "$GITHUB_OUTPUT"
+          {
+            echo 'marche_motifs<<FIN'
+            echo "$MARCHE" | grep ' : n/d (' | sed 's/^ *//' | head -12
+            echo 'FIN'
+          } >> "$GITHUB_OUTPUT"
+          if [ "$ND" -gt 0 ]; then
+            echo "::warning::$ND valeur(s) de marché indisponibles — elles partiront en n/d."
+          fi
+
           # Contexte daté injecté en tête (évite que Claude devine la date).
-          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n%s\n\n%s' \
-            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$CULTURE" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
+          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n%s\n\n%s\n\n%s' \
+            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$CULTURE" "$MARCHE" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
 
           echo "🤖 Claude Code CLI version : $(claude --version 2>&1 || echo 'inconnue')"
           echo "📝 Prompt système : $(wc -l < .github/workflows/prompts/daily-brief-system.md) lignes, $(wc -c < .github/workflows/prompts/daily-brief-system.md) octets"
@@ -199,6 +238,33 @@ jobs:
           echo "   attribut alt du schéma ............... $(grep -o 'alt="Schéma[^"]*"' /tmp/brief.html | head -1)"
           echo "   tirets longs restants ................ $(compter '[—–]')"
           echo "   poids ................................ $SIZE octets ($(( SIZE * 100 / 92160 ))% de la garde des 90 Ko)"
+
+          # === LE MODÈLE A-T-IL REPRIS LES CHIFFRES TELS QUELS ? ===
+          # Le prompt le lui interdit ; cette vérification ne fait pas confiance au
+          # prompt. Trois durcissements successifs des instructions n'ont rien changé
+          # au problème, ce qui est la raison même de cette refonte : une consigne
+          # n'est pas un contrôle. Chaque valeur FOURNIE est cherchée dans le HTML
+          # produit, au format français, telle qu'elle a été transmise.
+          echo "🔢 Reprise des chiffres fournis :"
+          MANQUANTS=0
+          while IFS= read -r ligne; do
+            libelle=$(echo "$ligne" | sed 's/ : .*//; s/^ *//')
+            valeur=$(echo "$ligne" | sed 's/.* : //')
+            case "$valeur" in n/d*) continue;; esac
+            # L'espace fine insécable des milliers peut être rendu par plusieurs
+            # caractères selon le modèle : la comparaison porte sur les chiffres seuls.
+            chiffres=$(echo "$valeur" | sed 's/[^0-9,]//g')
+            if grep -qF "$chiffres" <(sed 's/[^0-9,]//g' /tmp/brief.html); then
+              echo "   ✅ $libelle = $valeur"
+            else
+              echo "   ❌ $libelle = $valeur — ABSENTE du brief"
+              MANQUANTS=$((MANQUANTS + 1))
+            fi
+          done < <(echo "$MARCHE" | grep -E '^  .+ : ')
+          echo "marche_manquants=$MANQUANTS" >> "$GITHUB_OUTPUT"
+          if [ "$MANQUANTS" -gt 0 ]; then
+            echo "::warning::$MANQUANTS valeur(s) fournie(s) n'apparaissent pas telles quelles dans le brief — le modèle les a modifiées ou omises."
+          fi
 
           echo "date_iso=$DATE_ISO" >> "$GITHUB_OUTPUT"
           echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
@@ -303,6 +369,9 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
           POST_OUTCOME: ${{ steps.post.outcome }}
           DATE_LONG_FR: ${{ steps.brief.outputs.date_long_fr }}
+          MARCHE_ND: ${{ steps.brief.outputs.marche_nd }}
+          MARCHE_MOTIFS: ${{ steps.brief.outputs.marche_motifs }}
+          MARCHE_MANQUANTS: ${{ steps.brief.outputs.marche_manquants }}
           SENT: ${{ steps.post.outputs.sent }}
           FAILED: ${{ steps.post.outputs.failed }}
           DEST: ${{ steps.post.outputs.dest }}
@@ -316,14 +385,37 @@ jobs:
           GOLD=13938487   # 0xd4af37
           RED=15680580    # 0xef4444
           FAILED_N=$(echo "${FAILED:-0}" | grep -oE '^[0-9]+$' || echo 0)
+          # Les données de marché indisponibles remontent DANS LA NOTIFICATION, et
+          # plus seulement dans un log. C'est le point 3 de la refonte : aujourd'hui,
+          # un chiffre absent ou faux partait sans que personne ne le sache avant qu'un
+          # élève le remarque. Un brief dont des valeurs manquent n'est pas un brief
+          # « envoyé » sans plus de commentaire — il est envoyé AVEC des trous, et la
+          # notification doit le dire en couleur.
+          ND_N=$(echo "${MARCHE_ND:-0}" | grep -oE '^[0-9]+$' || echo 0)
+          MANQ_N=$(echo "${MARCHE_MANQUANTS:-0}" | grep -oE '^[0-9]+$' || echo 0)
+          ORANGE=16750848   # 0xff9900
           if [ "$POST_OUTCOME" = "success" ]; then
-            if [ "$FAILED_N" -gt 0 ]; then COLOR=$RED; else COLOR=$GOLD; fi
-            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_DISP" \
+            if [ "$FAILED_N" -gt 0 ]; then COLOR=$RED
+            elif [ "$ND_N" -gt 0 ] || [ "$MANQ_N" -gt 0 ]; then COLOR=$ORANGE
+            else COLOR=$GOLD; fi
+            if [ "$ND_N" -gt 0 ]; then
+              MARCHE_TXT="⚠️ $ND_N valeur(s) en n/d :"$'\n'"$(echo "$MARCHE_MOTIFS" | head -6)"
+            else
+              MARCHE_TXT="✅ toutes les valeurs collectées et validées"
+            fi
+            if [ "$MANQ_N" -gt 0 ]; then
+              MARCHE_TXT="$MARCHE_TXT"$'\n'"❌ $MANQ_N chiffre(s) fourni(s) absents du brief — le modèle les a modifiés."
+            fi
+            TITRE="📊 Daily Brief envoyé"
+            [ "$ND_N" -gt 0 ] || [ "$MANQ_N" -gt 0 ] && TITRE="📊 Daily Brief envoyé — données incomplètes"
+            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_DISP" --arg titre "$TITRE" \
               --arg served "${SENT:-?} / ${DEST:-?}" --arg failed "${FAILED:-0}" --arg url "$RUN_URL" \
-              '{embeds:[{title:"📊 Daily Brief envoyé",color:$c,fields:[
+              --arg marche "$(echo "$MARCHE_TXT" | cut -c1-900)" \
+              '{embeds:[{title:$titre,color:$c,fields:[
                 {name:"Date",value:$date,inline:true},
                 {name:"Élèves servis",value:$served,inline:true},
                 {name:"Échecs",value:$failed,inline:true},
+                {name:"Données de marché",value:$marche,inline:false},
                 {name:"Run",value:("[Voir le run](\($url))"),inline:false}
               ],timestamp:(now|todate)}]}')
           else

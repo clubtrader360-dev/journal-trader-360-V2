@@ -1,0 +1,104 @@
+name: Instantané de clôture marché
+
+# POURQUOI UN SECOND RENDEZ-VOUS, ET POURQUOI À CETTE HEURE-LÀ.
+#
+# Le brief part à 18h43 à New York. Le Globex a rouvert à 18h00 : à cette heure, le
+# haut et le bas que rend n'importe quelle source d'ES couvrent la séance NOUVELLE,
+# pas celle qui vient de se régler. Aucune des vingt-trois sources éprouvées ne rend
+# le haut et le bas d'une séance ES terminée à 18h43.
+#
+# Il existe une fenêtre où la question ne se pose pas : l'interruption technique du
+# Globex, 17h00-18h00 à New York. La bougie journalière y est figée. C'est là qu'on
+# prélève, et c'est la seule raison d'être de ce workflow.
+#
+# DEUX HORAIRES parce que New York change d'heure et pas GitHub : 21h05 UTC vaut 17h05
+# à New York en heure d'été, 22h05 UTC vaut 17h05 en heure d'hiver. Le job vérifie
+# lui-même l'heure de New York et s'arrête si elle est hors de la fenêtre, plutôt que
+# de faire confiance au cron. Un cron qui dérive d'une heure deux fois par an est
+# exactement le genre de panne saisonnière qu'on ne diagnostique jamais.
+on:
+  schedule:
+    - cron: '5 21 * * 1-5'
+    - cron: '5 22 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      forcer:
+        description: "Prélever même hors de la fenêtre 17h00-18h00 NY (test uniquement)"
+        required: false
+        default: 'non'
+
+permissions:
+  contents: write
+
+jobs:
+  instantane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Sommes-nous dans l'interruption du Globex ?
+        id: fenetre
+        run: |
+          H=$(TZ=America/New_York date +%H)
+          M=$(TZ=America/New_York date +%M)
+          echo "Heure de New York : $H:$M"
+          if [ "${{ github.event.inputs.forcer }}" = "oui" ]; then
+            echo "⚠️ Prélèvement FORCÉ hors fenêtre — valeurs non fiables, test uniquement."
+            echo "ok=oui" >> "$GITHUB_OUTPUT"
+          elif [ "$H" = "17" ]; then
+            echo "ok=oui" >> "$GITHUB_OUTPUT"
+          else
+            echo "Hors de la fenêtre 17h00-17h59 à New York — ce déclenchement ne prélève rien."
+            echo "ok=non" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prélever
+        if: steps.fenetre.outputs.ok == 'oui'
+        id: prelever
+        run: |
+          # La date de la SÉANCE est celle de New York, pas celle du runner : à 21h05
+          # UTC le runner est déjà au lendemain en hiver, et l'instantané serait classé
+          # sous une date qui n'a jamais été une séance.
+          SEANCE=$(TZ=America/New_York date +%Y-%m-%d)
+          echo "seance=$SEANCE" >> "$GITHUB_OUTPUT"
+          node outils/marche.mjs instantane "$SEANCE" > /tmp/instantane.json
+          cat /tmp/instantane.json
+
+      - name: Déposer sur la branche de données
+        if: steps.fenetre.outputs.ok == 'oui'
+        env:
+          SEANCE: ${{ steps.prelever.outputs.seance }}
+        run: |
+          # La branche `donnees-marche` est une branche de DONNÉES : elle ne contient
+          # que des instantanés, elle n'est jamais fusionnée dans main et aucun code
+          # n'en vient. C'est ce qui permet à un job de CI d'y écrire tous les soirs
+          # sans jamais toucher à main, ni demander de validation.
+          git config user.name  "Instantané marché"
+          git config user.email "clubtrader360@gmail.com"
+          git fetch origin donnees-marche --depth=1 2>/dev/null \
+            && git checkout donnees-marche \
+            || git checkout --orphan donnees-marche && git rm -rq --cached . 2>/dev/null || true
+          mkdir -p seances
+          cp /tmp/instantane.json "seances/$SEANCE.json"
+          git add "seances/$SEANCE.json"
+          if git diff --cached --quiet; then
+            echo "Instantané identique à celui déjà déposé — rien à écrire."
+          else
+            git commit -qm "instantané $SEANCE"
+            git push -q origin donnees-marche
+            echo "✅ seances/$SEANCE.json déposé"
+          fi
+
+      - name: Alerter Discord si le prélèvement a échoué
+        if: failure() && steps.fenetre.outputs.ok == 'oui'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$DISCORD_WEBHOOK" ] && exit 0
+          PAYLOAD=$(jq -n --arg url "$RUN_URL" '{embeds:[{title:"⚠️ Instantané de clôture manqué",color:15680580,
+            description:("Le haut et le bas d'\''ES sortiront en n/d dans le prochain brief.\n[Voir le run](\($url))")}]}')
+          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" || true
