@@ -40,6 +40,32 @@ const DELAI_MS = 20000;
  * logique de ce fichier ne branche sur son contenu.
  */
 async function obtenir(url, options = {}) {
+  // Une reprise BORNÉE sur 429 et 5xx. Cboe limite le débit : le fichier historique
+  // fait 1,7 Mo et dix appels rapprochés le font basculer en 429 pendant une bonne
+  // minute. Ce n'est pas une panne de la source, c'est une politesse qu'on lui doit —
+  // et c'est le test de déterminisme qui l'a révélé, en s'infligeant lui-même le
+  // blocage qu'il croyait mesurer.
+  //
+  // Les attentes sont MESURÉES et non choisies au hasard : une fois le débit bloqué,
+  // Cboe répond encore 429 à 5 s et à 10 s, et repasse en 200 à 20 s. Une reprise à
+  // deux essais rapprochés serait donc tombée dans le trou à chaque fois.
+  //
+  // ⚠️ LA REPRISE NE MASQUE RIEN. Après ses essais, elle relève l'erreur avec le code
+  // réel : un blocage durable reste un échec, il n'est pas maquillé en valeur.
+  const ATTENTES = [0, 3000, 9000, 20000];
+  let derniere;
+  for (const attente of ATTENTES) {
+    if (attente) await new Promise((r) => setTimeout(r, attente));
+    try { return await obtenirUneFois(url, options); }
+    catch (e) {
+      derniere = e;
+      if (!/^HTTP (429|5\d\d)$/.test(e.message)) throw e;   // seules ces causes se reprennent
+    }
+  }
+  throw new Error(`${derniere.message} après ${ATTENTES.length} tentatives`);
+}
+
+async function obtenirUneFois(url, options = {}) {
   let r;
   try {
     r = await fetch(url, {
@@ -198,7 +224,26 @@ export function contratFrontMonth(dateIso) {
 //
 // Conséquence directe : les hauts et bas de séance ET de semaine du comptant sont
 // disponibles immédiatement, par date, sans rien attendre d'un prélèvement.
+// Mémorisé par PROCESSUS. Une collecte demande la séance puis la semaine : sans cache,
+// c'est deux fois 1,7 Mo par symbole, quatre téléchargements pour un seul brief. La
+// durée de vie est courte à dessein — le brief ne tourne qu'une fois par jour, il
+// repart donc toujours d'une lecture fraîche ; seuls les outils qui enchaînent les
+// collectes en profitent.
+const CACHE = new Map();
+const CACHE_MS = 15 * 60 * 1000;
+
 async function historiqueCboe(symbole) {
+  const garde = CACHE.get(symbole);
+  if (garde && Date.now() - garde.a < CACHE_MS) return garde.v;
+  const v = await historiqueCboeFrais(symbole);
+  CACHE.set(symbole, { v, a: Date.now() });
+  return v;
+}
+
+/** Vider le cache : utilisé par le test de déterminisme, qui doit VRAIMENT relire. */
+export function viderCacheMarche() { CACHE.clear(); }
+
+async function historiqueCboeFrais(symbole) {
   const txt = await obtenir(`https://cdn.cboe.com/api/global/delayed_quotes/charts/historical/${symbole}.json`);
   let j;
   try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }

@@ -17,6 +17,7 @@
 import { collecterMarche, versPrompt } from '../api/_lib/marche/collecte.js';
 import { spxCboe, vixCboe, esTradingView, esCnbc, codeCnbc, contratFrontMonth, seanceCboe, semaineCboe } from '../api/_lib/marche/sources.js';
 import { concilier, TOLERANCE_ES } from '../api/_lib/marche/croisement.js';
+import { viderCacheMarche } from '../api/_lib/marche/sources.js';
 import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre } from '../api/_lib/marche/validation.js';
 
 const [commande = 'collecte', arg] = process.argv.slice(2);
@@ -37,6 +38,13 @@ else if (commande === 'determinisme') {
   const lu = (r, c) => { const [a, b] = c.split('.'); const v = r[a][b]; return v?.nd ? `n/d` : v?.valeur; };
   const series = new Map(cles.map((c) => [c, []]));
   for (let i = 0; i < n; i++) {
+    // Le cache est VIDÉ à chaque tour, et les tours sont espacés de trois secondes.
+    // Sans le vidage, on mesurerait dix fois la même réponse en mémoire, ce qui ne
+    // prouve rien. Sans l'espacement, on s'inflige le blocage de débit de Cboe et on
+    // mesure sa politique de quota au lieu du déterminisme de la collecte : le premier
+    // essai de ce test rendait « n/d » une fois sur deux pour cette seule raison.
+    viderCacheMarche();
+    if (i) await new Promise((r) => setTimeout(r, 3000));
     const r = await collecterMarche(date);
     for (const c of cles) series.get(c).push(lu(r, c));
     process.stdout.write(`  ${i + 1}/${n} ${cles.map((c) => `${c}=${series.get(c).at(-1)}`).join(' ')}\n`);
