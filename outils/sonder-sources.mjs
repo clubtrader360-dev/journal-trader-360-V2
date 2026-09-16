@@ -15,37 +15,13 @@
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 const CANDIDATS = [
-  // ═══ TOUR 3 — trouver la SÉANCE CLOSE, pas la cotation courante.
-  //
-  // Le tour 2 a montré que TradingView répond et nomme le contrat, mais qu'il rend la
-  // séance EN COURS. C'est précisément le piège : le brief part à 18h43 à New York, or
-  // le Globex a rouvert à 18h00. À cette heure-là, « la » séance d'ES est la NOUVELLE,
-  // pas celle qui vient de se régler. Une source qui ne sait pas distinguer les deux
-  // rendra toujours une valeur — la mauvaise.
-  { cible: 'ES', nom: 'TradingView champs suffixés |1D (bougie journalière)', corps: true,
-    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=close%7C1D,high%7C1D,low%7C1D,open%7C1D,close,description&no_404=true' },
-  { cible: 'ES', nom: 'TradingView champs de clôture veille', corps: true,
-    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=prev_close_price,price_52_week_high,change,change_abs,close,description,update_mode&no_404=true' },
-  { cible: 'SPX', nom: 'TradingView SP:SPX séance close', corps: true,
-    url: 'https://scanner.tradingview.com/symbol?symbol=SP%3ASPX&fields=close,high,low,open,prev_close_price,description,update_mode&no_404=true' },
-
-  { cible: 'ES', nom: 'WSJ historical-prices download ESZ26', corps: true,
-    url: 'https://www.wsj.com/market-data/quotes/futures/ESZ26/historical-prices/download?MOD=mw_quote&startDate=09/01/2026&endDate=09/16/2026' },
-  { cible: 'ES', nom: 'Nasdaq API historique ES', corps: true,
-    url: 'https://api.nasdaq.com/api/quote/ES%3ACME/historical?assetclass=commodities&fromdate=2026-09-01&todate=2026-09-16&limit=20' },
-  { cible: 'ES', nom: 'EODHD ES.COMM (jeton demo)', corps: true,
-    url: 'https://eodhd.com/api/eod/ES.COMM?api_token=demo&fmt=json&from=2026-09-01' },
-  { cible: 'ES', nom: 'Stooq es.f sans en-tête navigateur', corps: true, brut: true,
-    url: 'https://stooq.com/q/d/l/?s=es.f&i=d' },
-  { cible: 'ES', nom: 'Stooq .pl es.f', corps: true, brut: true,
-    url: 'https://stooq.pl/q/d/l/?s=es.f&i=d' },
-  { cible: 'ES', nom: 'Investing via ProxySite-like (allorigins)', corps: true,
-    url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.investing.com/indices/us-spx-500-futures-historical-data') },
-
-  { cible: 'SPX', nom: 'Cboe quote délayé _SPX (OHLC du jour)', corps: true,
-    url: 'https://cdn.cboe.com/api/global/delayed_quotes/quotes/_SPX.json' },
-  { cible: 'SPX', nom: 'Cboe index dashboard SPX', corps: true,
-    url: 'https://cdn.cboe.com/api/global/us_indices/definitions/all_indices.json' },
+  // ═══ TOUR 4 — reste-t-il, chez TradingView, un champ qui porte la séance CLOSE ?
+  { cible: 'ES', nom: 'TradingView, large éventail de champs', corps: true,
+    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=close,open,high,low,prev_close_price,premarket_close,postmarket_close,Perf.1D,change,change_abs,volume,expiration,front_contract,session_regular,update_mode,description,pricescale,minmov,last_bar_update_time,time,market_cap_calc,High.1M,Low.1M,High.3M,Low.3M,average_volume_10d_calc&no_404=true' },
+  { cible: 'ES', nom: 'TradingView, mêmes champs sur SP:SPX (témoin)', corps: true,
+    url: 'https://scanner.tradingview.com/symbol?symbol=SP%3ASPX&fields=close,open,high,low,prev_close_price,premarket_close,postmarket_close,Perf.1D,change,change_abs,volume,expiration,front_contract,session_regular,update_mode,description,pricescale,minmov,last_bar_update_time,time,market_cap_calc,High.1M,Low.1M,High.3M,Low.3M,average_volume_10d_calc&no_404=true' },
+  { cible: 'ES', nom: 'TradingView metainfo futures', corps: true,
+    url: 'https://scanner.tradingview.com/futures/metainfo' },
 ];
 
 /** Ce qu'on a vraiment reçu — et non ce que le code HTTP prétend. */
