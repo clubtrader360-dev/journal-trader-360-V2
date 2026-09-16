@@ -3,9 +3,14 @@ name: Vérification collecte marché
 # Jetable comme la sonde qui l'a précédée : elle sert à établir, DEPUIS LE RUNNER, que
 # la collecte tient. Elle sera retirée une fois la refonte validée — son rôle est de
 # fournir des preuves, pas de rester.
+# Le filtre nommait UNE branche, celle du premier chantier. Elle a été supprimée au
+# merge, et la suite a donc cessé de se déclencher sans rien signaler : le chantier
+# suivant a été poussé sans qu'aucune vérification ne tourne. Un déclencheur qui ne se
+# déclenche plus ne produit pas d'échec, il produit un silence — et un silence se lit
+# comme un succès.
 on:
   push:
-    branches: [chantier/brief-donnees-par-code]
+    branches: ['chantier/**']
   workflow_dispatch:
 
 jobs:
