@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-16",
+  "contrat": "ESZ2026",
+  "libelle": "E-mini S&P 500 Futures (Dec 2026)",
+  "modeMaj": "delayed_streaming_600",
+  "esCloture": 7685,
+  "esHaut": 7689.25,
+  "esBas": 7658.75,
+  "spxCloture": 7615.4502,
+  "spxHaut": 7615.8198,
+  "spxBas": 7597.6099,
+  "preleveA": "2026-09-16T15:16:46.118Z"
+}
