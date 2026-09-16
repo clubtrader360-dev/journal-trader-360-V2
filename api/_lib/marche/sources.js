@@ -16,10 +16,14 @@
 //   - Yahoo Finance : 429 sur les trois essais, depuis le runner comme depuis Vercel
 //     et Supabase. Le blocage n'est pas propre à l'hébergeur.
 //   - CME Group, y compris ses fichiers de règlement : 403 « suspected web scraping ».
-//   - Investing.com, en direct comme via un relais de texte : challenge Cloudflare.
-//     C'est le point important — le MODÈLE sait lire Investing, le CODE ne peut pas.
-//     Reprendre la même source en la passant au code était l'idée évidente ; elle est
-//     mesurément impossible.
+//   - Investing.com : SEPT portes essayées, sept fois 403 ou challenge Cloudflare —
+//     la page historique, l'API financialdata, la voie héritée HistoricalDataAjax, les
+//     flux de graphique tvc4 et tvc6, l'ancien domaine forexpros. C'est le point
+//     important, et il mérite d'être dit sans ambiguïté : le MODÈLE sait lire
+//     Investing par WebFetch, depuis l'infrastructure d'Anthropic ; le CODE lit depuis
+//     le runner GitHub, et n'y arrive par aucune porte. Que le SPX et le VIX en
+//     soient sortis justes dix fois sur dix ne prouve donc rien sur l'accès du code :
+//     ces valeurs-là étaient lues par le modèle, et elles viennent aujourd'hui de Cboe.
 //   - Stooq, Barchart, WSJ, EODHD, stockanalysis : page anti-robot, 401 ou 403.
 // ========================================================================
 
@@ -183,3 +187,107 @@ export function contratFrontMonth(dateIso) {
   }
   throw new Error(`front-month introuvable pour ${dateIso}`);
 }
+
+
+// ── HISTORIQUE DATÉ, source Cboe ──────────────────────────────────────────────────
+//
+// C'est la trouvaille qui change le tableau. Le fichier `SPX_History.csv` ne porte que
+// les clôtures — c'est sur cette base que les hauts et bas de semaine avaient été
+// déclarés indisponibles. Mais Cboe sert aussi un historique de GRAPHIQUE, sur un
+// autre chemin, et celui-là porte l'OHLC complet de chaque séance depuis 1975.
+//
+// Conséquence directe : les hauts et bas de séance ET de semaine du comptant sont
+// disponibles immédiatement, par date, sans rien attendre d'un prélèvement.
+async function historiqueCboe(symbole) {
+  const txt = await obtenir(`https://cdn.cboe.com/api/global/delayed_quotes/charts/historical/${symbole}.json`);
+  let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+  if (!Array.isArray(j?.data) || j.data.length === 0) throw new Error('tableau « data » absent ou vide');
+  const parDate = new Map();
+  for (const r of j.data) {
+    const o = Number(r.open), h = Number(r.high), b = Number(r.low), c = Number(r.close);
+    if ([o, h, b, c].every(Number.isFinite)) parDate.set(r.date, { ouverture: o, haut: h, bas: b, cloture: c });
+  }
+  return { parDate, derniere: j.data.at(-1)?.date || null,
+           source: `Cboe (charts/historical/${symbole}.json, lignes datées)` };
+}
+
+/** L'OHLC d'une séance DONNÉE. Une date absente est une absence, jamais une approximation. */
+export async function seanceCboe(symbole, dateIso) {
+  const h = await historiqueCboe(symbole);
+  const l = h.parDate.get(dateIso);
+  if (!l) throw new Error(`aucune ligne datée du ${dateIso} (dernière disponible : ${h.derniere})`);
+  return { ...l, date: dateIso, source: h.source };
+}
+
+/**
+ * Le haut et le bas d'une PLAGE de séances — la semaine en cours du brief.
+ *
+ * La semaine est comptée du lundi à la séance de référence incluse, et JAMAIS au-delà :
+ * publier un haut de semaine qui engloberait une séance postérieure à celle du brief
+ * serait le même défaut de date que celui qu'on corrige sur la clôture.
+ */
+export async function semaineCboe(symbole, seanceIso) {
+  const h = await historiqueCboe(symbole);
+  const [a, m, j] = seanceIso.split('-').map(Number);
+  const fin = Date.UTC(a, m - 1, j);
+  const jourSemaine = new Date(fin).getUTCDay();          // 0 = dimanche
+  const debut = fin - ((jourSemaine + 6) % 7) * 86400000; // lundi de la même semaine
+  const dans = [];
+  for (let t = debut; t <= fin; t += 86400000) {
+    const l = h.parDate.get(new Date(t).toISOString().slice(0, 10));
+    if (l) dans.push(l);
+  }
+  if (dans.length === 0) throw new Error(`aucune séance entre le lundi et le ${seanceIso}`);
+  return {
+    haut: Math.max(...dans.map((l) => l.haut)),
+    bas: Math.min(...dans.map((l) => l.bas)),
+    seances: dans.length,
+    debutIso: new Date(debut).toISOString().slice(0, 10),
+    source: h.source,
+  };
+}
+
+// ── ES, source CNBC, CONTRAT NOMMÉ, RÈGLEMENT DATÉ ────────────────────────────────
+//
+// La source qui règle le problème des n/d. Elle rend, pour le contrat nommé :
+//
+//   settlePrice + settleDate  → le prix de RÈGLEMENT, avec sa date. Pas un « dernier
+//                               prix » qu'il faudrait interpréter : le règlement, daté.
+//   previous_day_closing      → la clôture de la veille, calculée autrement par le
+//                               même fournisseur.
+//   expiration_date, shortName → de quoi VÉRIFIER le contrat au lieu de l'espérer.
+//   curmktstatus              → l'état du marché, pour savoir si la séance est close.
+//
+// Les deux premiers champs sont les DEUX CHEMINS du croisement interne réclamé par les
+// coachs. Leur idée portait sur Investing, que le code ne peut pas atteindre ; le
+// principe, lui, s'applique mieux ici — parce que `settleDate` rend la date EXPLICITE
+// au lieu de la faire déduire d'une ligne de tableau.
+export async function esCnbc(contrat) {
+  if (!/^ES[FGHJKMNQUVXZ]\d{2}$/.test(contrat)) {
+    throw new Error(`contrat mal formé pour CNBC : « ${contrat} » (attendu ESZ26 et compagnie)`);
+  }
+  const txt = await obtenir('https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol'
+    + `?symbols=${contrat}&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1`);
+  let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+  const q = j?.FormattedQuoteResult?.FormattedQuote?.[0];
+  if (!q) throw new Error('cotation absente de la réponse');
+  // `code` non nul = symbole inconnu. CNBC répond 200 dans ce cas : sans ce contrôle,
+  // un contrat mal orthographié passerait pour une source muette au lieu d'une erreur.
+  if (q.code !== 0) throw new Error(`symbole « ${contrat} » refusé par CNBC (code ${q.code})`);
+  const nb = (v) => { const x = Number(String(v ?? '').replace(/[ ,\u202f\u00a0]/g, '')); return Number.isFinite(x) ? x : null; };
+  return {
+    contrat,
+    libelle: q.shortName || q.altName || null,
+    reglement: nb(q.settlePrice), dateReglement: q.settleDate || null,
+    clotureVeille: nb(q.previous_day_closing),
+    prixCourant: nb(q.last), hautCourant: nb(q.high), basCourant: nb(q.low),
+    expirationIso: q.expiration_date || null,
+    etatMarche: q.curmktstatus || null,
+    source: `CNBC (quote.cnbc.com, ${contrat})`,
+  };
+}
+
+/** Le code CNBC du contrat : ESZ26 là où TradingView écrit ESZ2026. */
+export const codeCnbc = (contratTv) => contratTv.replace(/^ES([FGHJKMNQUVXZ])\d{2}(\d{2})$/, 'ES$1$2');

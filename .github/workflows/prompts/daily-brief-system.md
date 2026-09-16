@@ -503,7 +503,8 @@ la hiérarchie disparaît.
 ### Audit qualité — en commentaire HTML invisible, à la TOUTE FIN (juste avant le `</div>` de fermeture)
 ```
 <!-- AUDIT QUALITÉ V11
-Chiffres de marché : FOURNIS par la collecte, recopiés tels quels — tu confirmes
+Chiffres de marché : FOURNIS par la collecte, croisés sur PLUSIEURS CHEMINS avant de
+t'être transmis — le bloc fourni liste ces chemins et leur écart. Recopiés tels quels — tu confirmes
 ci-dessous que c'est bien le cas, valeur par valeur, et tu signales toute valeur que
 tu n'as pas pu placer dans le brief.
 SPX clôture : <valeur reprise du bloc fourni> ✓/n-d

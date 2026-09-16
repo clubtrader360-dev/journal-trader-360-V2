@@ -5,6 +5,7 @@
  *   node outils/marche.mjs json     [AAAA-MM-JJ]   → l'objet structuré
  *   node outils/marche.mjs determinisme [n]        → n collectes de suite, mêmes valeurs ?
  *   node outils/marche.mjs echec-force             → un contrôle mis en échec exprès
+ *   node outils/marche.mjs divergence-forcee       → deux chemins écartés : n/d + écart
  *   node outils/marche.mjs instantane              → l'instantané de clôture (17h05 NY)
  *   node outils/marche.mjs comparaison             → trois séances passées contre relevé manuel
  *
@@ -14,7 +15,8 @@
  * c'est une impression.
  */
 import { collecterMarche, versPrompt } from '../api/_lib/marche/collecte.js';
-import { spxCboe, vixCboe, esTradingView, contratFrontMonth } from '../api/_lib/marche/sources.js';
+import { spxCboe, vixCboe, esTradingView, esCnbc, codeCnbc, contratFrontMonth, seanceCboe, semaineCboe } from '../api/_lib/marche/sources.js';
+import { concilier, TOLERANCE_ES } from '../api/_lib/marche/croisement.js';
 import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre } from '../api/_lib/marche/validation.js';
 
 const [commande = 'collecte', arg] = process.argv.slice(2);
@@ -75,6 +77,77 @@ else if (commande === 'echec-force') {
   const r = await collecterMarche(aujourdhui());
   console.log('     → motifs remontés :', r.motifs.length);
   for (const m of r.motifs) console.log('       ·', m);
+}
+
+else if (commande === 'instantane') {
+  // L'instantané de clôture. À lancer pendant l'interruption technique du Globex,
+  // 17h00-18h00 à New York : la bougie journalière d'ES y est figée, et c'est la SEULE
+  // fenêtre où son haut et son bas décrivent la séance qui vient de se régler.
+  const date = arg || aujourdhui();
+  const front = contratFrontMonth(date);
+  const es = await esTradingView(front.contrat);
+  const spx = await spxCboe();
+  const sortie = {
+    date, contrat: es.contrat, libelle: es.libelle, modeMaj: es.modeMaj,
+    esCloture: es.prixCourant, esHaut: es.hautCourant, esBas: es.basCourant,
+    spxCloture: spx.cloture, spxHaut: spx.haut, spxBas: spx.bas,
+    preleveA: new Date().toISOString(),
+  };
+  const m = [...controlerOhlc('ES', { haut: sortie.esHaut, bas: sortie.esBas, cloture: sortie.esCloture }),
+             ...controlerOhlc('SPX', { haut: sortie.spxHaut, bas: sortie.spxBas, cloture: sortie.spxCloture }),
+             ...controlerContrat(es, front)];
+  if (m.length) { console.error('Instantané REFUSÉ :\n  ' + m.join('\n  ')); process.exit(1); }
+  console.log(JSON.stringify(sortie, null, 2));
+}
+
+else if (commande === 'comparaison') {
+  // Trois séances passées, hauts et bas de SÉANCE et de SEMAINE, comparés à ce que le
+  // brief avait publié à l'époque — valeurs que le modèle avait alors croisées à la
+  // main sur Investing, Yahoo et la presse. C'est le relevé manuel demandé.
+  const CAS = [
+    { seance: '2026-09-09', hautPub: 7660.68, basPub: 7624.16, hautSemPub: 7717.81, basSemPub: 7624.16, vixPub: 16.46 },
+    { seance: '2026-09-10', hautPub: 7612.86, basPub: 7580.06, hautSemPub: 7717.81, basSemPub: 7580.06, vixPub: 17.84 },
+    { seance: '2026-09-11', hautPub: 7677.02, basPub: 7636.75, hautSemPub: 7717.81, basSemPub: 7580.06, vixPub: 15.84 },
+  ];
+  let bon = true;
+  const cmp = (nom, obtenu, publie) => {
+    const e = obtenu - publie;
+    if (Math.abs(e) > 0.005) bon = false;
+    return `${nom} ${String(obtenu).padStart(9)} contre ${String(publie).padStart(9)} publié  écart ${e.toFixed(2).padStart(6)}`;
+  };
+  for (const c of CAS) {
+    const s = await seanceCboe('_SPX', c.seance);
+    const w = await semaineCboe('_SPX', c.seance);
+    const v = await seanceCboe('_VIX', c.seance);
+    console.log(`\n  ── séance ${c.seance} ──`);
+    console.log('    ' + cmp('haut séance ', s.haut, c.hautPub));
+    console.log('    ' + cmp('bas séance  ', s.bas, c.basPub));
+    console.log('    ' + cmp('haut semaine', w.haut, c.hautSemPub) + `  (${w.seances} séances depuis le ${w.debutIso})`);
+    console.log('    ' + cmp('bas semaine ', w.bas, c.basSemPub));
+    console.log('    ' + cmp('VIX clôture ', v.cloture, c.vixPub));
+  }
+  console.log(`\n  ${bon ? 'Les trois séances concordent avec le relevé, séance ET semaine.' : 'ÉCART DÉTECTÉ.'}\n`);
+  if (!bon) process.exit(1);
+}
+
+else if (commande === 'divergence-forcee') {
+  // On ne fabrique pas le résultat : on donne aux chemins de vraies valeurs écartées
+  // et on regarde ce que la conciliation en fait. Les nombres sont ceux du 16/09 —
+  // 7 656 contre la ligne historique d'Investing à 7 665,50, l'écart même qui avait
+  // fait écarter une valeur juste ce matin-là.
+  const cas = [
+    ['deux chemins à 9,50 pt', [{ nom: 'règlement CNBC daté', valeur: 7656 }, { nom: 'chemin tiers', valeur: 7665.5 }]],
+    ['deux chemins à un demi-tick', [{ nom: 'règlement CNBC daté', valeur: 7656 }, { nom: 'chemin tiers', valeur: 7656.125 }]],
+    ['deux chemins à un tick pile', [{ nom: 'règlement CNBC daté', valeur: 7656 }, { nom: 'chemin tiers', valeur: 7656.25 }]],
+    ['deux chemins à deux ticks', [{ nom: 'règlement CNBC daté', valeur: 7656 }, { nom: 'chemin tiers', valeur: 7656.5 }]],
+    ['un seul chemin disponible', [{ nom: 'règlement CNBC daté', valeur: 7656 }, { nom: 'chemin tiers', valeur: null, motif: 'HTTP 429' }]],
+  ];
+  for (const [nom, chemins] of cas) {
+    const a = concilier('ES clôture', chemins, TOLERANCE_ES);
+    console.log(`  ${nom.padEnd(30)} → ${a.valeur === null ? 'n/d — ' + a.motif : 'publié ' + a.valeur}`);
+  }
+  console.log('\n  Et le contrôle de contrat, sur le cas du 14/09 :');
+  console.log('    →', JSON.stringify(controlerContrat({ contrat: 'ESU2026', expiration: 20260918 }, contratFrontMonth('2026-09-14'))));
 }
 
 else if (commande === 'instantane') {
