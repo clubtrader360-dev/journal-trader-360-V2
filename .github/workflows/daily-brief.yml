@@ -248,13 +248,24 @@ jobs:
           echo "🔢 Reprise des chiffres fournis :"
           MANQUANTS=0
           while IFS= read -r ligne; do
-            libelle=$(echo "$ligne" | sed 's/ : .*//; s/^ *//')
-            valeur=$(echo "$ligne" | sed 's/.* : //')
+            # Découpage sur le PREMIER deux-points, pas le dernier. Avec `.* : ` le
+            # motif est glouton : sur « haut de semaine : n/d (… clôtures : le fichier
+            # Cboe …) » il coupait au deux-points du MOTIF, la valeur devenait un bout
+            # de phrase, le test « commence par n/d » ne la reconnaissait plus, et la
+            # ligne repartait dans la comparaison. Elle y passait, parce que la
+            # réduction aux chiffres rendait une chaîne VIDE et que `grep -F ""` trouve
+            # toujours. Deux n/d comptés comme vérifiés : un faux ✅ est pire qu'une
+            # absence de contrôle, puisqu'il affirme.
+            libelle=$(echo "$ligne" | sed 's/^ *//; s/ *:.*//')
+            valeur=$(echo "$ligne" | sed 's/^[^:]*: *//')
             case "$valeur" in n/d*) continue;; esac
             # L'espace fine insécable des milliers peut être rendu par plusieurs
             # caractères selon le modèle : la comparaison porte sur les chiffres seuls.
             chiffres=$(echo "$valeur" | sed 's/[^0-9,]//g')
-            if grep -qF "$chiffres" <(sed 's/[^0-9,]//g' /tmp/brief.html); then
+            if [ -z "$chiffres" ]; then
+              echo "   ❌ $libelle — valeur « $valeur » sans chiffre, non vérifiable"
+              MANQUANTS=$((MANQUANTS + 1))
+            elif grep -qF "$chiffres" <(sed 's/[^0-9,]//g' /tmp/brief.html); then
               echo "   ✅ $libelle = $valeur"
             else
               echo "   ❌ $libelle = $valeur — ABSENTE du brief"
