@@ -15,53 +15,43 @@
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 const CANDIDATS = [
-  // ── ES, contrat explicite ────────────────────────────────────────────────────
-  { cible: 'ES', nom: 'CME settlements ES (JSON officiel)',
-    url: 'https://www.cmegroup.com/CmeWS/mvc/Settlements/Futures/Settlements/133/FUT?tradeDate=09/15/2026&strategy=DEFAULT' },
-  { cible: 'ES', nom: 'CME settlements ES (id produit 138)',
-    url: 'https://www.cmegroup.com/CmeWS/mvc/Settlements/Futures/Settlements/138/FUT?tradeDate=09/15/2026&strategy=DEFAULT' },
-  { cible: 'ES', nom: 'Yahoo chart ESZ26.CME (contrat nommé)',
-    url: 'https://query1.finance.yahoo.com/v8/finance/chart/ESZ26.CME?range=1mo&interval=1d' },
-  { cible: 'ES', nom: 'Yahoo chart ES=F (ticker générique)',
-    url: 'https://query2.finance.yahoo.com/v8/finance/chart/ES%3DF?range=1mo&interval=1d' },
-  { cible: 'ES', nom: 'Stooq es.f (CSV continu)',
-    url: 'https://stooq.com/q/d/l/?s=es.f&i=d' },
-  { cible: 'ES', nom: 'Stooq esz26.f (CSV contrat)',
-    url: 'https://stooq.com/q/d/l/?s=esz26.f&i=d' },
-  { cible: 'ES', nom: 'Barchart queryeod ESZ26',
-    url: 'https://www.barchart.com/proxies/timeseries/queryeod.ashx?symbol=ESZ26&data=daily&maxrecords=20&volume=contract&order=asc' },
-  { cible: 'ES', nom: 'Investing API historique (futures SPX)',
-    url: 'https://api.investing.com/api/financialdata/historical/8839?start-date=2026-09-01&end-date=2026-09-16&time-frame=Daily' },
-  { cible: 'ES', nom: 'Investing page futures (HTML brut)',
-    url: 'https://www.investing.com/indices/us-spx-500-futures-historical-data' },
-  { cible: 'ES', nom: 'TradingView scanner futures (POST)',
+  // ═══ TOUR 2 — ES seulement. Le tour 1 a écarté Yahoo (429 comme depuis Vercel et
+  // Supabase), CME (403 anti-scraping), Investing (challenge Cloudflare), Stooq (page
+  // anti-robot), Barchart (403). Il reste à savoir si TradingView rend une VALEUR et
+  // non une enveloppe vide, et si d'autres chemins existent.
+  { cible: 'ES', nom: 'TradingView scanner CME_MINI:ESZ2026', corps: true,
     url: 'https://scanner.tradingview.com/futures/scan', post: JSON.stringify({
       symbols: { tickers: ['CME_MINI:ESZ2026'] },
       columns: ['close', 'high', 'low', 'prev_close_price', 'update_mode'] }) },
+  { cible: 'ES', nom: 'TradingView scanner ES1! (front-month)', corps: true,
+    url: 'https://scanner.tradingview.com/futures/scan', post: JSON.stringify({
+      symbols: { tickers: ['CME_MINI:ES1!'] },
+      columns: ['close', 'high', 'low', 'prev_close_price', 'description', 'update_mode'] }) },
+  { cible: 'ES', nom: 'TradingView symbol ESZ2026', corps: true,
+    url: 'https://scanner.tradingview.com/symbol?symbol=CME_MINI%3AESZ2026&fields=close,high,low,prev_close_price,description&no_404=true' },
+  { cible: 'ES', nom: 'TradingView history ESZ2026 (UDF)', corps: true,
+    url: 'https://scanner.tradingview.com/futures/scan?label-product=markets-screener' , post: JSON.stringify({
+      symbols: { tickers: ['CME_MINI:ESZ2026'] }, columns: ['open', 'high', 'low', 'close', 'volume'] }) },
 
-  // ── SPX cash / CFD SPX500 ────────────────────────────────────────────────────
-  { cible: 'SPX', nom: 'Cboe _SPX_History.csv',
-    url: 'https://cdn.cboe.com/api/global/us_indices/daily_prices/_SPX_History.csv' },
-  { cible: 'SPX', nom: 'Cboe SPX_History.csv',
+  { cible: 'ES', nom: 'CME ftp settle stlint_v2', corps: true,
+    url: 'https://www.cmegroup.com/ftp/pub/settle/stlint_v2' },
+  { cible: 'ES', nom: 'CME ftp settle (index)', corps: true,
+    url: 'https://www.cmegroup.com/ftp/settle/' },
+
+  { cible: 'ES', nom: 'Twelve Data demo ES (clé demo)', corps: true,
+    url: 'https://api.twelvedata.com/time_series?symbol=ES&interval=1day&outputsize=5&apikey=demo' },
+  { cible: 'ES', nom: 'FMP ESUSD (clé demo)', corps: true,
+    url: 'https://financialmodelingprep.com/api/v3/historical-price-full/ESUSD?apikey=demo' },
+  { cible: 'ES', nom: 'Databento (sans clé — attendu 401, teste la joignabilité)', corps: true,
+    url: 'https://hist.databento.com/v0/metadata.list_datasets' },
+
+  { cible: 'ES', nom: 'Relais texte r.jina.ai sur Investing futures', corps: true,
+    url: 'https://r.jina.ai/https://www.investing.com/indices/us-spx-500-futures-historical-data' },
+  { cible: 'ES', nom: 'Relais texte r.jina.ai sur Barchart ESZ26', corps: true,
+    url: 'https://r.jina.ai/https://www.barchart.com/futures/quotes/ESZ26/price-history/daily' },
+
+  { cible: 'SPX', nom: 'Cboe SPX_History.csv (re-témoin)', corps: true,
     url: 'https://cdn.cboe.com/api/global/us_indices/daily_prices/SPX_History.csv' },
-  { cible: 'SPX', nom: 'Yahoo chart ^GSPC',
-    url: 'https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1mo&interval=1d' },
-  { cible: 'SPX', nom: 'Stooq ^spx (CSV)',
-    url: 'https://stooq.com/q/d/l/?s=%5Espx&i=d' },
-  { cible: 'SPX', nom: 'FRED SP500 (clôture seule)',
-    url: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500' },
-  { cible: 'SPX', nom: 'stockanalysis.com SPX historique',
-    url: 'https://stockanalysis.com/api/symbol/i/SPX/history?range=1M&period=Daily' },
-  { cible: 'SPX', nom: 'Investing page SPX (HTML brut)',
-    url: 'https://www.investing.com/indices/us-spx-500-historical-data' },
-
-  // ── VIX ──────────────────────────────────────────────────────────────────────
-  { cible: 'VIX', nom: 'Cboe VIX_History.csv (officiel)',
-    url: 'https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv' },
-  { cible: 'VIX', nom: 'Yahoo chart ^VIX',
-    url: 'https://query2.finance.yahoo.com/v8/finance/chart/%5EVIX?range=1mo&interval=1d' },
-  { cible: 'VIX', nom: 'Stooq ^vix (CSV)',
-    url: 'https://stooq.com/q/d/l/?s=%5Evix&i=d' },
 ];
 
 /** Ce qu'on a vraiment reçu — et non ce que le code HTTP prétend. */
@@ -87,7 +77,7 @@ for (const c of CANDIDATS) {
       });
       const txt = await r.text();
       essais.push({ code: r.status, o: txt.length, ms: Date.now() - t0,
-                    nat: nature(txt, r.headers.get('content-type')), tete: txt.slice(0, 160).replace(/\s+/g, ' ') });
+                    nat: nature(txt, r.headers.get('content-type')), tete: txt.slice(0, c.corps ? 400 : 160).replace(/\s+/g, ' ') });
     } catch (e) {
       essais.push({ code: 'ERR', o: 0, ms: Date.now() - t0, nat: e.name === 'TimeoutError' ? 'TIMEOUT' : 'ERREUR', tete: e.message.slice(0, 120) });
     }
@@ -99,7 +89,7 @@ for (const c of CANDIDATS) {
   const ok = essais.every((e) => e.code === 200) && !nats.includes('ANTI-ROBOT') && !nats.includes('ERREUR');
   console.log(`${ok ? '✅' : '❌'} [${c.cible}] ${c.nom}`);
   console.log(`      codes ${codes} · ${nats} · ${essais.map((e) => e.o).join('/')} o · ${essais.map((e) => e.ms).join('/')} ms`);
-  if (!ok || process.env.VERBEUX) console.log(`      → ${essais[0].tete}`);
+  if (!ok || c.corps || process.env.VERBEUX) console.log(`      → ${essais[0].tete}`);
 }
 
 console.log('\n───────── RETENUS (trois réponses 200, contenu exploitable) ─────────');
