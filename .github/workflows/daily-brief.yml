@@ -27,6 +27,11 @@ on:
         required: false
         default: ''
 
+# L'archivage de la notion de culture écrit sur la branche de données, d'où ce droit.
+# Il reste minimal : rien d'autre dans ce workflow n'écrit dans le dépôt.
+permissions:
+  contents: write
+
 jobs:
   generate-and-send-brief:
     name: Génère le brief (Claude Code CLI) et l'envoie
@@ -289,6 +294,46 @@ jobs:
 
           echo "date_iso=$DATE_ISO" >> "$GITHUB_OUTPUT"
           echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
+
+      - name: Archiver la notion de culture
+        # ⚠️ POURQUOI CETTE ÉTAPE, ET POURQUOI ICI.
+        # Le texte de la rubrique culture est rédigé au moment de l'envoi. Il ne vivait
+        # nulle part ensuite : l'artefact du run est purgé au bout de QUATORZE JOURS, et
+        # la seule copie durable était une boîte mail. Une notion tombe chaque jour
+        # ouvré, donc sans cette étape la prose des vingt notions se perdait au fil de
+        # l'eau, et il aurait fallu la réécrire pour les articles du site.
+        #
+        # Elle vient APRÈS la validation du HTML et AVANT l'envoi : on archive ce qui a
+        # été jugé bon, et on n'attend pas que l'envoi réussisse pour le faire. Un
+        # échec d'envoi ne doit pas coûter le texte en plus du brief.
+        #
+        # `continue-on-error` : l'archivage ne doit JAMAIS empêcher un brief de partir.
+        # Mais il ne passe pas en silence pour autant, le script écrit `::error::` et
+        # l'étape ressort en rouge dans le récapitulatif du run.
+        if: always() && steps.brief.outcome == 'success'
+        continue-on-error: true
+        run: |
+          node outils/archiver-culture.mjs /tmp/brief.html /tmp/culture || exit 0
+          [ -z "$(ls -A /tmp/culture 2>/dev/null)" ] && { echo "Rien à archiver."; exit 0; }
+
+          git config user.name  "Archive culture"
+          git config user.email "clubtrader360@gmail.com"
+          # La branche de données ne porte que des textes. Elle n'est jamais fusionnée,
+          # aucun code n'en vient, et c'est ce qui permet à la CI d'y écrire chaque jour
+          # sans jamais toucher à main.
+          git fetch origin donnees-culture --depth=1 2>/dev/null \
+            && git checkout donnees-culture \
+            || { git checkout --orphan donnees-culture && git rm -rq --cached . 2>/dev/null || true; }
+          mkdir -p textes
+          cp /tmp/culture/*.md textes/
+          git add textes
+          if git diff --cached --quiet; then
+            echo "Texte identique à celui déjà archivé pour cette notion : rien à écrire."
+          else
+            git commit -qm "archive : notion du $(TZ=Europe/Paris date +%Y-%m-%d)"
+            git push -q origin donnees-culture
+            echo "✅ notion archivée sur donnees-culture"
+          fi
 
       - name: Archiver le HTML produit
         if: always()
