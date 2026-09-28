@@ -16,16 +16,50 @@ section Ressources du site.
 
 ## Ce que contient un fichier
 
-Un fichier par notion, `textes/<slug>.md`, avec la date de publication, le schéma
-correspondant, et le texte découpé **une phrase par ligne** : les différences d'une
-version à l'autre se lisent alors ligne à ligne plutôt qu'en un seul pâté.
+Un fichier par notion, `textes/<slug>.md`, avec le nom lisible, la date de publication,
+le schéma correspondant, et le texte découpé **une phrase par ligne** : les différences
+d'une version à l'autre se lisent alors ligne à ligne plutôt qu'en un seul pâté.
 
 ## Comment il se remplit
 
-Automatiquement, par l'étape « Archiver la notion de culture » de
-`.github/workflows/daily-brief.yml`. Chaque brief dépose sa notion ici au passage.
-Une notion qui repasse écrase sa version précédente : l'historique git conserve les
-deux, et c'est là qu'il faut regarder pour comparer.
+**Aujourd'hui : à la main, et seulement quand quelqu'un y pense.**
+
+L'étape « Archiver la notion de culture » qui devait remplir cette branche
+automatiquement a été écrite dans la **PR #106**, ouverte le 23 septembre 2026. Elle
+n'a jamais été fusionnée. Le workflow `daily-brief.yml` exécuté chaque nuit sur `main`
+ne porte donc aucune étape d'archivage.
+
+⚠️ **Ce paragraphe affirmait le contraire jusqu'au 28 septembre 2026.** Il disait :
+« Automatiquement, par l'étape "Archiver la notion de culture" de
+`.github/workflows/daily-brief.yml`. Chaque brief dépose sa notion ici au passage. »
+C'était l'intention de la PR, écrite au présent comme si elle était déjà en service.
+Personne n'est allé vérifier, puisque le document disait que c'était fait.
+
+Coût mesuré : neuf notions ont été publiées dans les briefs entre le 16 et le 28
+septembre. Cinq figuraient ici, déposées à la main le 23 septembre. **Quatre avaient
+disparu** avec l'expiration de leurs artefacts, sans qu'aucun signal ne le dise. Elles
+ont été récupérées le 28 septembre depuis les campagnes Brevo, qui conservent le HTML
+envoyé.
+
+Le texte de `support-resistance.md` a été remplacé à cette occasion : la version
+déposée à la main différait de celle réellement publiée dans le brief du 21 septembre.
+C'est le texte envoyé aux élèves qui fait foi.
+
+**Demain, si la PR #108 est fusionnée :** automatiquement, par l'étape « Archiver le
+brief et la notion de culture », APRÈS l'envoi du brief. Et surtout, un second
+workflow, `verif-archive.yml`, vérifie chaque matin que chaque brief parti a bien
+rejoint l'archive — sans rien demander à l'archivage lui-même, en partant des
+artefacts de brief. C'est ce qui permet de détecter un dispositif qui n'a jamais été
+branché : du code absent ne lève pas d'erreur, et c'est exactement ce qui s'est passé
+ici.
+
+Tant que ce n'est pas fusionné, **ce paragraphe reste vrai au présent** : rien ne
+remplit cette branche tout seul.
+
+## Une notion qui repasse
+
+La rotation revient sur les mêmes notions. Un texte réécrit écrase le précédent :
+l'historique git conserve les deux, et c'est là qu'il faut regarder pour comparer.
 
 ## Cette branche n'est jamais fusionnée
 
