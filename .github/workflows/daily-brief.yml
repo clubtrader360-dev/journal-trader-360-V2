@@ -27,6 +27,13 @@ on:
         required: false
         default: ''
 
+# L'archivage écrit sur la branche de données `donnees-culture` du dépôt, d'où ce
+# droit. Il reste minimal : rien d'autre dans ce workflow n'écrit dans le dépôt.
+# L'écriture dans le dépôt du SITE, elle, ne passe pas par ce jeton mais par
+# SITE_ARCHIVE_TOKEN : le GITHUB_TOKEN d'un run ne vaut que pour son propre dépôt.
+permissions:
+  contents: write
+
 jobs:
   generate-and-send-brief:
     name: Génère le brief (Claude Code CLI) et l'envoie
@@ -384,6 +391,230 @@ jobs:
           # transformait un « inconnu » en « 0 », ce qui est le contraire du but.
           { echo "sent=$sent"; echo "failed=$failed"; echo "dest=$dest"; } >> "$GITHUB_OUTPUT"
 
+      - name: Archiver le brief et la notion de culture
+        id: archive
+        # ══ POURQUOI CETTE ÉTAPE, ET POURQUOI ICI ══════════════════════════════
+        #
+        # Un brief ne vivait nulle part après son envoi. L'artefact du run est purgé
+        # au bout de QUATORZE JOURS, et la seule copie durable était une boîte mail.
+        # Cette étape en fait une page publique, et conserve au passage la prose de
+        # la notion de culture du jour pour les articles du site.
+        #
+        # ⚠️ ELLE VIENT APRÈS L'ENVOI, ET C'EST UN CHANGEMENT DÉLIBÉRÉ PAR RAPPORT
+        # À LA PR #106, qui archivait AVANT. L'archive AFFIRME « ce brief a été
+        # envoyé aux membres le matin du … ». Archiver un brief que personne n'a
+        # reçu ferait de cette page une affirmation fausse. Rien n'est perdu pour
+        # autant : la rotation des notions est calculée sur la DATE, donc un envoi
+        # raté ne consomme pas la notion, elle revient.
+        #
+        # ⛔ L'ARCHIVAGE NE DOIT JAMAIS EMPÊCHER UN BRIEF DE PARTIR. `continue-on-error`
+        # garantit que le job reste vert : les soixante-seize destinataires passent
+        # avant l'archive. Et de toute façon l'envoi a déjà eu lieu quand on arrive ici.
+        #
+        # ⚠️ MAIS L'ÉCHEC N'EST PAS SILENCIEUX POUR AUTANT, et c'est là que la #106
+        # se trompait. Elle écrivait `node outils/archiver-culture.mjs … || exit 0`,
+        # puis affirmait en commentaire que « l'étape ressort en rouge ». Avec
+        # `|| exit 0` elle ne pouvait PAS ressortir en rouge : le step sortait en 0,
+        # son `outcome` valait `success`, et un refus d'archivage se lisait comme une
+        # réussite. Aucun `|| exit 0` ici. Le step échoue pour de bon, `outcome` vaut
+        # `failure`, et l'étape Discord le lit et le dit.
+        # ⛔ PAS D'ARCHIVAGE SUR UN ENVOI DE TEST. `test_email` et `only_user_id`
+        # font partir le brief à une seule adresse, et l'endpoint répond 200 : la
+        # condition « l'envoi a réussi » est donc vraie, et un essai manuel aurait
+        # publié son brief sur le site. Ces deux entrées n'existent que sur
+        # workflow_dispatch ; sur le cron, `github.event.inputs` est nul, et `!null`
+        # vaut vrai — la condition laisse donc passer les vrais envois.
+        if: >-
+          always() && steps.post.outcome == 'success'
+          && !github.event.inputs.test_email && !github.event.inputs.only_user_id
+        continue-on-error: true
+        env:
+          DATE_ISO: ${{ steps.brief.outputs.date_iso }}
+          DATE_LONG_FR: ${{ steps.brief.outputs.date_long_fr }}
+          SITE_TOKEN: ${{ secrets.SITE_ARCHIVE_TOKEN }}
+        run: |
+          set -u
+          ECHECS=""
+          FAIT=""
+          note() { echo "$2" ; if [ "$1" = "ko" ]; then ECHECS="$ECHECS$2 | "; else FAIT="$FAIT$2 | "; fi; }
+
+          git config --global user.name  "Archive Trader 360"
+          git config --global user.email "clubtrader360@gmail.com"
+
+          # ─── 1. LE BRIEF → DÉPÔT DU SITE ──────────────────────────────────────
+          # Le site est un build Astro statique : le fichier doit être DANS son dépôt
+          # au moment du build. On y écrit donc directement, plutôt que de déposer
+          # sur une branche de données que le site irait chercher au build.
+          #
+          # ⚠️ Ce choix est celui du MODE DE PANNE. Un site qui récupère son contenu
+          # par le réseau au moment du build produit, quand la récupération échoue,
+          # un site VALIDE avec moins de briefs — et personne ne le remarque. Un
+          # fichier commité, lui, est visible dans l'historique, relisible, et un
+          # brief manquant se compte.
+          # La cible — dépôt, branche, chemins — est lue dans outils/cible-archive.mjs,
+          # LE MÊME fichier que celui qu'utilise le contrôleur de couverture. Deux
+          # réponses différentes à « où va l'archive ? » produisent une panne verte :
+          # on dépose là où rien ne rend, le contrôleur trouve le fichier, et la
+          # notification annonce « à jour ». C'est arrivé, voir le commentaire de
+          # cible-archive.mjs.
+          CIBLE=$(node -e "
+            import('./outils/cible-archive.mjs')
+              .then(m => process.stdout.write([m.CIBLE.depot, m.CIBLE.branche, m.CIBLE.dossierBriefs, m.CIBLE.dossierRessources].join(' ')))
+              .catch(e => { console.error(e.message); process.exit(1); })
+          ")
+          if [ -z "$CIBLE" ]; then
+            echo "::error::Lecture de outils/cible-archive.mjs échouée. Rien n'est archivé."
+            ECHECS="$ECHECS site: cible illisible | "
+          fi
+          set -- $CIBLE
+          SITE_DEPOT="${1:-}"; SITE_BRANCHE="${2:-}"; SITE_BRIEFS="${3:-}"; SITE_RESS="${4:-}"
+
+          if [ -z "${SITE_TOKEN:-}" ]; then
+            echo "::error::SITE_ARCHIVE_TOKEN absent des secrets du dépôt. Le brief du $DATE_ISO n'est PAS archivé sur le site. Créer un jeton d'accès fin, portée « Contents: write » sur $SITE_DEPOT UNIQUEMENT, et l'enregistrer sous ce nom."
+            ECHECS="$ECHECS site: jeton absent | "
+          elif [ -n "$SITE_BRANCHE" ]; then
+            rm -rf /tmp/site
+            # ⚠️ `--branch` EXPLICITE. Sans lui, git clone la branche par DÉFAUT du
+            # dépôt du site, qui n'est pas celle où vit la structure d'accueil de
+            # l'archive. Le brief atterrissait sur `main`, où aucune page ne le rend.
+            if git clone --depth=1 --quiet --branch "$SITE_BRANCHE" \
+                 "https://x-access-token:${SITE_TOKEN}@github.com/${SITE_DEPOT}.git" /tmp/site; then
+
+              # ══ RECONSTRUIRE LE COURRIEL RÉELLEMENT ENVOYÉ ═══════════════════
+              # ⚠️ /tmp/brief.html N'EST PAS LE COURRIEL. C'est le CORPS seul, extrait
+              # de la sortie du modèle au `<div class="brief-marche">`. L'enveloppe —
+              # fond crème, carte à 600 px, bandeau, pied — est posée bien plus tard,
+              # par `wrapBriefHtml()` dans l'endpoint, au moment de l'envoi.
+              #
+              # Archiver /tmp/brief.html tel quel aurait produit un brief sans bandeau
+              # ni carte : un artefact DIFFÉRENT de celui du rattrapage, alors que
+              # toute la conception tient à ce que les deux chemins passent par la
+              # même routine sur la même forme d'entrée. Le défaut ne se serait vu
+              # qu'au premier envoi réel, sur la page publiée.
+              #
+              # On rejoue donc la chaîne de l'endpoint, avec SES fonctions et dans
+              # SON ordre : stripLongDashes, puis stripAuditComment, puis
+              # wrapBriefHtml. Pas de réimplémentation : une deuxième version du
+              # gabarit finirait par diverger de celle qui part aux élèves.
+              # `firstName: null` rend « Bonjour, » plutôt qu'un prénom ; la routine
+              # d'archivage retire cette ligne dans les deux cas.
+              if ! node -e "
+                Promise.all([import('./api/cron/daily-brief.js'), import('node:fs')])
+                  .then(([m, fs]) => {
+                    let h = fs.readFileSync('/tmp/brief.html', 'utf8');
+                    h = m.stripLongDashes(h).html;
+                    h = m.stripAuditComment(h).html;
+                    fs.writeFileSync('/tmp/courriel.html', m.wrapBriefHtml({
+                      firstName: null,
+                      dateLongFr: process.env.DATE_LONG_FR,
+                      briefHtml: h,
+                    }));
+                  })
+                  .catch((e) => { console.error(e.message); process.exit(1); });
+              "; then
+                note ko "site: reconstruction du courriel impossible"
+                cd "$GITHUB_WORKSPACE"
+                RC=1
+              else
+                RC=0
+              fi
+
+              # ⚠️ PAS DE `if node … | tee …; then`. Un `if` sur un pipeline teste le
+              # code de sortie de la DERNIÈRE commande — `tee`, qui réussit toujours.
+              # Le refus d'archivage serait passé pour une réussite. Ce piège a déjà
+              # coûté un faux « ✅ envoyé » dans ce même workflow.
+              if [ $RC -eq 0 ]; then
+                node outils/archiver-brief.mjs /tmp/courriel.html "$DATE_ISO" "/tmp/site/$SITE_BRIEFS" \
+                  > /tmp/archive.log 2>&1
+                RC=$?
+                cat /tmp/archive.log
+              fi
+
+              if [ $RC -eq 0 ]; then
+                # Les fichiers du courriel — bandeau, logo, schéma de culture — sont
+                # servis par le SITE et non par journaltrader360.fr, dont le sort
+                # n'est pas tranché. La routine annonce ceux dont ce brief a besoin,
+                # une ligne « RESSOURCE <chemin> » chacun : on ne redevine pas la
+                # liste ici. Le bandeau est versionné (-v2, -v3…) et un grep écrit à
+                # la main sur « culture/ » l'aurait manqué à chaque changement.
+                MANQUE=0
+                while IFS= read -r CHEMIN; do
+                  [ -z "$CHEMIN" ] && continue
+                  DEST="/tmp/site/$SITE_RESS/$CHEMIN"
+                  [ -f "$DEST" ] && continue
+                  mkdir -p "$(dirname "$DEST")"
+                  # -L est indispensable : le domaine répond 308 sans lui, et curl
+                  # écrirait quinze octets de redirection dans un fichier .png.
+                  curl -sSL --max-time 30 -o "$DEST" "https://journaltrader360.fr/assets/$CHEMIN" || true
+                  case "$(file -b --mime-type "$DEST" 2>/dev/null)" in
+                    image/*) echo "   fichier du courriel récupéré : $CHEMIN" ;;
+                    *) rm -f "$DEST"; MANQUE=$((MANQUE + 1))
+                       echo "::warning::Fichier « $CHEMIN » non récupéré — l'archive du jour s'affichera sans lui." ;;
+                  esac
+                done < <(sed -n 's/^RESSOURCE //p' /tmp/archive.log)
+
+                cd /tmp/site
+                git add "$SITE_BRIEFS" "$SITE_RESS" 2>/dev/null || git add "$SITE_BRIEFS"
+                if git diff --cached --quiet; then
+                  note ok "site: déjà archivé"
+                elif git commit -qm "archive : brief du $DATE_ISO" && git push -q origin "HEAD:$SITE_BRANCHE"; then
+                  note ok "site: brief du $DATE_ISO publié sur $SITE_BRANCHE$([ "$MANQUE" -gt 0 ] && echo " ($MANQUE fichier(s) manquant(s))")"
+                else
+                  note ko "site: commit ou push refusé"
+                fi
+                cd "$GITHUB_WORKSPACE"
+              else
+                note ko "site: nettoyage refusé (voir ::error:: ci-dessus)"
+              fi
+            else
+              note ko "site: clone de $SITE_BRANCHE impossible (branche absente, jeton expiré, ou portée insuffisante ?)"
+            fi
+          fi
+
+          # ─── 2. LA NOTION DE CULTURE → BRANCHE donnees-culture ────────────────
+          # Retour au dépôt courant, quoi qu'il se soit passé au-dessus. Le bloc
+          # précédent fait un `cd /tmp/site`, et tous ses chemins de sortie repassent
+          # bien ici — mais « tous les chemins repassent bien ici » est le genre
+          # d'affirmation qu'un ajout futur rend fausse sans rien casser tout de suite.
+          cd "$GITHUB_WORKSPACE"
+          # Un fichier par NOTION, pas par date : c'est ce qui sert à écrire les
+          # articles du site. L'archive des briefs, elle, est chronologique. Les deux
+          # ne font donc pas double emploi.
+          if node outils/archiver-culture.mjs /tmp/brief.html /tmp/culture "$DATE_ISO"; then
+            if [ -z "$(ls -A /tmp/culture 2>/dev/null)" ]; then
+              note ok "culture: aucune notion ce jour"
+            else
+              # Même motif que marche-cloture.yml, qui écrit sur `donnees-marche`
+              # depuis des mois : c'est le seul écrivain de branche de données dont
+              # on sache qu'il fonctionne en production.
+              if git fetch origin donnees-culture --depth=1 2>/dev/null && git checkout -q donnees-culture; then :;
+              else git checkout -q --orphan donnees-culture && git rm -rq --cached . 2>/dev/null || true; fi
+              mkdir -p textes && cp /tmp/culture/*.md textes/ && git add textes
+              if git diff --cached --quiet; then
+                note ok "culture: texte identique, rien à écrire"
+              elif git commit -qm "archive : notion du $DATE_ISO" && git push -q origin donnees-culture; then
+                note ok "culture: $(ls /tmp/culture | tr '\n' ' ')archivée"
+              else
+                note ko "culture: commit ou push refusé"
+              fi
+            fi
+          else
+            note ko "culture: extraction refusée (voir ::error:: ci-dessus)"
+          fi
+
+          # ─── 3. VERDICT ───────────────────────────────────────────────────────
+          # Écrit AVANT le exit : les sorties d'un step qui échoue restent lisibles
+          # par les steps suivants, et c'est l'étape Discord qui en a besoin.
+          {
+            echo "fait=${FAIT:-rien}"
+            echo "echecs=${ECHECS:-aucun}"
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$ECHECS" ]; then
+            echo "::error::Archivage incomplet : $ECHECS"
+            exit 1
+          fi
+          echo "✅ Archivage complet : $FAIT"
+
       - name: Notify Discord
         if: always()
         env:
@@ -396,6 +627,9 @@ jobs:
           SENT: ${{ steps.post.outputs.sent }}
           FAILED: ${{ steps.post.outputs.failed }}
           DEST: ${{ steps.post.outputs.dest }}
+          ARCHIVE_OUTCOME: ${{ steps.archive.outcome }}
+          ARCHIVE_FAIT: ${{ steps.archive.outputs.fait }}
+          ARCHIVE_ECHECS: ${{ steps.archive.outputs.echecs }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
@@ -415,8 +649,28 @@ jobs:
           ND_N=$(echo "${MARCHE_ND:-0}" | grep -oE '^[0-9]+$' || echo 0)
           MANQ_N=$(echo "${MARCHE_MANQUANTS:-0}" | grep -oE '^[0-9]+$' || echo 0)
           ORANGE=16750848   # 0xff9900
+          # ══ ÉTAT DE L'ARCHIVAGE ════════════════════════════════════════════
+          # ⚠️ ON LIT `outcome`, PAS `conclusion`. L'étape d'archivage porte
+          # `continue-on-error: true` pour ne jamais retenir un brief. GitHub met
+          # alors `conclusion` à `success` quoi qu'il arrive, et ne laisse la vérité
+          # que dans `outcome`. Une alerte branchée sur `conclusion` serait muette
+          # POUR TOUJOURS, sans jamais rien casser : exactement le motif de panne qui
+          # a laissé l'archivage de la culture inactif pendant cinq jours.
+          #
+          # Le cas « l'étape n'a pas tourné du tout » est traité à part. `outcome`
+          # vaut alors la chaîne vide (step sauté) : ce n'est ni un succès ni un
+          # échec, et le dire « ✅ » serait une affirmation fausse.
+          case "${ARCHIVE_OUTCOME:-}" in
+            success) ARCHIVE_TXT="✅ ${ARCHIVE_FAIT:-déposé}"; ARCHIVE_KO=0 ;;
+            failure) ARCHIVE_TXT="❌ ${ARCHIVE_ECHECS:-échec}"; ARCHIVE_KO=1 ;;
+            "")      ARCHIVE_TXT="⏭️ étape non exécutée (envoi non réussi) — rien n'est archivé"; ARCHIVE_KO=1 ;;
+            *)       ARCHIVE_TXT="❓ état inattendu : $ARCHIVE_OUTCOME"; ARCHIVE_KO=1 ;;
+          esac
+          ARCHIVE_TXT=$(echo "$ARCHIVE_TXT" | sed 's/ | $//' | cut -c1-500)
+
           if [ "$POST_OUTCOME" = "success" ]; then
             if [ "$FAILED_N" -gt 0 ]; then COLOR=$RED
+            elif [ "$ARCHIVE_KO" -eq 1 ]; then COLOR=$RED
             elif [ "$ND_N" -gt 0 ] || [ "$MANQ_N" -gt 0 ]; then COLOR=$ORANGE
             else COLOR=$GOLD; fi
             if [ "$ND_N" -gt 0 ]; then
@@ -429,14 +683,17 @@ jobs:
             fi
             TITRE="📊 Daily Brief envoyé"
             [ "$ND_N" -gt 0 ] || [ "$MANQ_N" -gt 0 ] && TITRE="📊 Daily Brief envoyé — données incomplètes"
+            [ "$ARCHIVE_KO" -eq 1 ] && TITRE="📊 Daily Brief envoyé — ARCHIVAGE EN ÉCHEC"
             PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_DISP" --arg titre "$TITRE" \
               --arg served "${SENT:-?} / ${DEST:-?}" --arg failed "${FAILED:-0}" --arg url "$RUN_URL" \
               --arg marche "$(echo "$MARCHE_TXT" | cut -c1-900)" \
+              --arg archive "$ARCHIVE_TXT" \
               '{embeds:[{title:$titre,color:$c,fields:[
                 {name:"Date",value:$date,inline:true},
                 {name:"Élèves servis",value:$served,inline:true},
                 {name:"Échecs",value:$failed,inline:true},
                 {name:"Données de marché",value:$marche,inline:false},
+                {name:"Archive",value:$archive,inline:false},
                 {name:"Run",value:("[Voir le run](\($url))"),inline:false}
               ],timestamp:(now|todate)}]}')
           else
