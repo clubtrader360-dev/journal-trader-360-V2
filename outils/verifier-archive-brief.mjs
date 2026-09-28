@@ -41,6 +41,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { extraireCourriel, nettoyer } from './archiver-brief.mjs';
+import * as api from '../api/cron/daily-brief.js';
 
 /* ─── Contrôle A : liste tenue à part, exprès ──────────────────────────────── */
 const SUSPECTS = [
@@ -158,6 +159,100 @@ function controleB(sources) {
   return { compares, echecs };
 }
 
+/* ─── Contrôle C : les deux chemins produisent-ils le même document ? ───────
+ *
+ * ══ CE QUE CE CONTRÔLE EXISTE POUR ATTRAPER ═════════════════════════════════
+ * Toute la conception tient à une phrase : UNE SEULE ROUTINE, deux appelants. Mais
+ * les deux appelants ne partent pas de la même chose, et c'est là que ça casse.
+ *
+ *   · le RATTRAPAGE part d'une source de campagne Brevo : le courriel complet,
+ *     enveloppe comprise ;
+ *   · l'AUTOMATIQUE part de `/tmp/brief.html`, qui n'est QUE le corps. L'enveloppe
+ *     est posée plus tard, par `wrapBriefHtml()`, au moment de l'envoi.
+ *
+ * Archiver `/tmp/brief.html` tel quel aurait produit un brief sans bandeau ni
+ * carte, et le défaut ne se serait vu qu'au premier envoi réel, sur la page
+ * publiée. Le workflow rejoue donc la chaîne de l'endpoint — stripLongDashes,
+ * stripAuditComment, wrapBriefHtml — et c'est cela qu'on vérifie ici.
+ *
+ * ⚠️ Un écart RÉEL a été trouvé par ce chemin : l'endpoint écrit les séparateurs
+ * de paramètres `&amp;`, Brevo les stocke `&`. `new URL()` lisait alors
+ * « amp;utm_medium », qui ne commence pas par `utm_`, et le paramètre de campagne
+ * survivait. Le rattrapage n'avait jamais rencontré la graphie échappée.
+ *
+ * Le critère est l'IDENTITÉ, caractère pour caractère. Deux documents « propres »
+ * mais différents signifieraient que l'archive n'a pas la même tête selon le jour
+ * où elle a été produite. */
+function controleC(sources) {
+  const echecs = [];
+  const horsGabarit = [];
+  let compares = 0;
+
+  // ⚠️ LE GABARIT D'ENVELOPPE A CHANGÉ EN COURS DE ROUTE. Les briefs d'août
+  // portaient un logo et un titre ; depuis, c'est un bandeau, versionné (-v2, -v3).
+  // Reconstruire un brief d'août avec le gabarit d'aujourd'hui ne peut pas rendre
+  // l'enveloppe d'août : la divergence serait réelle, mais elle ne dirait rien du
+  // nettoyage. On repère donc le bandeau que produit le gabarit COURANT, et on
+  // écarte explicitement les campagnes qui ne le portent pas — en le DISANT, plutôt
+  // qu'en les comparant quand même ou en les ignorant en silence.
+  // Le repère se met à jour tout seul : le jour du bandeau v4, les briefs v3
+  // sortiront du champ sans qu'on touche à ce fichier.
+  const temoin = api.wrapBriefHtml({ firstName: null, dateLongFr: 'lundi 1 janvier 2026', briefHtml: '<div class="brief-marche"></div>' });
+  const bandeauCourant = (/assets\/(brief-header[^"']*)/i.exec(temoin) || [])[1] || null;
+
+  for (const source of sources) {
+    const nom = path.basename(source);
+    const campagne = fs.readFileSync(source, 'utf8');
+    if (bandeauCourant && !campagne.includes(bandeauCourant)) {
+      horsGabarit.push(`${nom} : enveloppe antérieure au gabarit courant (${bandeauCourant} absent)`);
+      continue;
+    }
+
+    // Ce que le workflow trouve dans /tmp/brief.html : le corps seul.
+    const ouv = /<div[^>]*\bbrief-marche\b[^>]*>/i.exec(campagne);
+    if (!ouv) { echecs.push(`${nom} : corps « brief-marche » introuvable`); continue; }
+    let prof = 1; const bal = /<(\/?)div\b[^>]*>/gi; bal.lastIndex = ouv.index + ouv[0].length;
+    let corps = null;
+    for (let t; (t = bal.exec(campagne));) {
+      prof += t[1] ? -1 : 1;
+      if (prof === 0) { corps = campagne.slice(ouv.index, t.index + t[0].length); break; }
+    }
+    if (!corps) { echecs.push(`${nom} : corps non refermé`); continue; }
+
+    // La date affichée dans l'enveloppe, reprise de la campagne : sans elle les
+    // deux documents différeraient sur une ligne qui n'a rien à voir avec le sujet.
+    const dateAff = /<p[^>]*font-style:italic[^>]*>([^<]+)<\/p>/i.exec(campagne);
+
+    let auto;
+    try {
+      let h = corps;
+      h = api.stripLongDashes(h).html;
+      h = api.stripAuditComment(h).html;
+      const courriel = api.wrapBriefHtml({
+        firstName: null,
+        dateLongFr: (dateAff ? dateAff[1] : '').replace(/^./, (c) => c.toLowerCase()).trim(),
+        briefHtml: h,
+      });
+      auto = nettoyer(extraireCourriel(courriel) ?? '');
+    } catch (e) { echecs.push(`${nom} : chaîne d'envoi impossible — ${e.message}`); continue; }
+
+    const rattrapage = nettoyer(extraireCourriel(campagne) ?? '');
+    compares += 1;
+
+    if (auto !== rattrapage) {
+      const n = Math.min(auto.length, rattrapage.length);
+      let i = 0; while (i < n && auto[i] === rattrapage[i]) i += 1;
+      echecs.push(`${nom} : les deux chemins divergent à l'octet ${i} — `
+        + `auto « ${auto.slice(Math.max(0, i - 25), i + 45).replace(/\s+/g, ' ')} » / `
+        + `rattrapage « ${rattrapage.slice(Math.max(0, i - 25), i + 45).replace(/\s+/g, ' ')} »`);
+    }
+    for (const [motif, libelle] of SUSPECTS) {
+      if (motif.test(auto)) echecs.push(`${nom} : ${libelle} survit sur le chemin AUTOMATIQUE`);
+    }
+  }
+  return { compares, echecs, horsGabarit };
+}
+
 /* ─── Exécution ───────────────────────────────────────────────────────────── */
 const [dossier, ...sources] = process.argv.slice(2);
 if (!dossier) {
@@ -183,4 +278,13 @@ if (sources.length) {
   console.log('\n── Contrôle B non exécuté : aucune source de campagne fournie.');
 }
 
-process.exit(a.echecs.length + b.echecs.length ? 1 : 0);
+let c = { compares: 0, echecs: [] };
+if (sources.length) {
+  c = controleC(sources);
+  console.log(`\n── Contrôle C — ${c.compares} document(s) produit(s) par les DEUX chemins et comparé(s)`);
+  console.log(`   ${c.echecs.length ? `❌ ${c.echecs.length} anomalie(s)` : '✅ le chemin automatique rend exactement le même document que le rattrapage'}`);
+  c.echecs.slice(0, 10).forEach((e) => console.log(`      · ${e}`));
+  c.horsGabarit.forEach((e) => console.log(`      ⏭️ ${e}`));
+}
+
+process.exit(a.echecs.length + b.echecs.length + c.echecs.length ? 1 : 0);

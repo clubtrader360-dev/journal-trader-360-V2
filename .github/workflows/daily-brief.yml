@@ -418,10 +418,19 @@ jobs:
         # son `outcome` valait `success`, et un refus d'archivage se lisait comme une
         # réussite. Aucun `|| exit 0` ici. Le step échoue pour de bon, `outcome` vaut
         # `failure`, et l'étape Discord le lit et le dit.
-        if: always() && steps.post.outcome == 'success'
+        # ⛔ PAS D'ARCHIVAGE SUR UN ENVOI DE TEST. `test_email` et `only_user_id`
+        # font partir le brief à une seule adresse, et l'endpoint répond 200 : la
+        # condition « l'envoi a réussi » est donc vraie, et un essai manuel aurait
+        # publié son brief sur le site. Ces deux entrées n'existent que sur
+        # workflow_dispatch ; sur le cron, `github.event.inputs` est nul, et `!null`
+        # vaut vrai — la condition laisse donc passer les vrais envois.
+        if: >-
+          always() && steps.post.outcome == 'success'
+          && !github.event.inputs.test_email && !github.event.inputs.only_user_id
         continue-on-error: true
         env:
           DATE_ISO: ${{ steps.brief.outputs.date_iso }}
+          DATE_LONG_FR: ${{ steps.brief.outputs.date_long_fr }}
           SITE_TOKEN: ${{ secrets.SITE_ARCHIVE_TOKEN }}
         run: |
           set -u
@@ -442,35 +451,114 @@ jobs:
           # un site VALIDE avec moins de briefs — et personne ne le remarque. Un
           # fichier commité, lui, est visible dans l'historique, relisible, et un
           # brief manquant se compte.
+          # La cible — dépôt, branche, chemins — est lue dans outils/cible-archive.mjs,
+          # LE MÊME fichier que celui qu'utilise le contrôleur de couverture. Deux
+          # réponses différentes à « où va l'archive ? » produisent une panne verte :
+          # on dépose là où rien ne rend, le contrôleur trouve le fichier, et la
+          # notification annonce « à jour ». C'est arrivé, voir le commentaire de
+          # cible-archive.mjs.
+          CIBLE=$(node -e "
+            import('./outils/cible-archive.mjs')
+              .then(m => process.stdout.write([m.CIBLE.depot, m.CIBLE.branche, m.CIBLE.dossierBriefs, m.CIBLE.dossierRessources].join(' ')))
+              .catch(e => { console.error(e.message); process.exit(1); })
+          ")
+          if [ -z "$CIBLE" ]; then
+            echo "::error::Lecture de outils/cible-archive.mjs échouée. Rien n'est archivé."
+            ECHECS="$ECHECS site: cible illisible | "
+          fi
+          set -- $CIBLE
+          SITE_DEPOT="${1:-}"; SITE_BRANCHE="${2:-}"; SITE_BRIEFS="${3:-}"; SITE_RESS="${4:-}"
+
           if [ -z "${SITE_TOKEN:-}" ]; then
-            echo "::error::SITE_ARCHIVE_TOKEN absent des secrets du dépôt. Le brief du $DATE_ISO n'est PAS archivé sur le site. Créer un jeton d'accès fin, portée « Contents: write » sur clubtrader360-dev/trader360-site UNIQUEMENT, et l'enregistrer sous ce nom."
+            echo "::error::SITE_ARCHIVE_TOKEN absent des secrets du dépôt. Le brief du $DATE_ISO n'est PAS archivé sur le site. Créer un jeton d'accès fin, portée « Contents: write » sur $SITE_DEPOT UNIQUEMENT, et l'enregistrer sous ce nom."
             ECHECS="$ECHECS site: jeton absent | "
-          else
+          elif [ -n "$SITE_BRANCHE" ]; then
             rm -rf /tmp/site
-            if git clone --depth=1 --quiet \
-                 "https://x-access-token:${SITE_TOKEN}@github.com/clubtrader360-dev/trader360-site.git" /tmp/site; then
-              if node outils/archiver-brief.mjs /tmp/brief.html "$DATE_ISO" /tmp/site/src/contenu/briefs; then
-                # Le schéma de la notion du jour accompagne le brief : la page
-                # d'archive le sert depuis le site, et non depuis journaltrader360.fr,
-                # dont le sort n'est pas tranché. Déjà présent = rien à faire.
-                SLUG=$(grep -o 'assets/culture/[a-z0-9-]*\.png' /tmp/brief.html | head -1 | sed 's#.*/##; s#\.png##' || true)
-                if [ -n "$SLUG" ] && [ ! -f "/tmp/site/public/culture/$SLUG.png" ]; then
-                  mkdir -p /tmp/site/public/culture
-                  curl -sSL --max-time 30 -o "/tmp/site/public/culture/$SLUG.png" \
-                    "https://journaltrader360.fr/assets/culture/$SLUG.png" || true
+            # ⚠️ `--branch` EXPLICITE. Sans lui, git clone la branche par DÉFAUT du
+            # dépôt du site, qui n'est pas celle où vit la structure d'accueil de
+            # l'archive. Le brief atterrissait sur `main`, où aucune page ne le rend.
+            if git clone --depth=1 --quiet --branch "$SITE_BRANCHE" \
+                 "https://x-access-token:${SITE_TOKEN}@github.com/${SITE_DEPOT}.git" /tmp/site; then
+
+              # ══ RECONSTRUIRE LE COURRIEL RÉELLEMENT ENVOYÉ ═══════════════════
+              # ⚠️ /tmp/brief.html N'EST PAS LE COURRIEL. C'est le CORPS seul, extrait
+              # de la sortie du modèle au `<div class="brief-marche">`. L'enveloppe —
+              # fond crème, carte à 600 px, bandeau, pied — est posée bien plus tard,
+              # par `wrapBriefHtml()` dans l'endpoint, au moment de l'envoi.
+              #
+              # Archiver /tmp/brief.html tel quel aurait produit un brief sans bandeau
+              # ni carte : un artefact DIFFÉRENT de celui du rattrapage, alors que
+              # toute la conception tient à ce que les deux chemins passent par la
+              # même routine sur la même forme d'entrée. Le défaut ne se serait vu
+              # qu'au premier envoi réel, sur la page publiée.
+              #
+              # On rejoue donc la chaîne de l'endpoint, avec SES fonctions et dans
+              # SON ordre : stripLongDashes, puis stripAuditComment, puis
+              # wrapBriefHtml. Pas de réimplémentation : une deuxième version du
+              # gabarit finirait par diverger de celle qui part aux élèves.
+              # `firstName: null` rend « Bonjour, » plutôt qu'un prénom ; la routine
+              # d'archivage retire cette ligne dans les deux cas.
+              if ! node -e "
+                Promise.all([import('./api/cron/daily-brief.js'), import('node:fs')])
+                  .then(([m, fs]) => {
+                    let h = fs.readFileSync('/tmp/brief.html', 'utf8');
+                    h = m.stripLongDashes(h).html;
+                    h = m.stripAuditComment(h).html;
+                    fs.writeFileSync('/tmp/courriel.html', m.wrapBriefHtml({
+                      firstName: null,
+                      dateLongFr: process.env.DATE_LONG_FR,
+                      briefHtml: h,
+                    }));
+                  })
+                  .catch((e) => { console.error(e.message); process.exit(1); });
+              "; then
+                note ko "site: reconstruction du courriel impossible"
+                cd "$GITHUB_WORKSPACE"
+                RC=1
+              else
+                RC=0
+              fi
+
+              # ⚠️ PAS DE `if node … | tee …; then`. Un `if` sur un pipeline teste le
+              # code de sortie de la DERNIÈRE commande — `tee`, qui réussit toujours.
+              # Le refus d'archivage serait passé pour une réussite. Ce piège a déjà
+              # coûté un faux « ✅ envoyé » dans ce même workflow.
+              if [ $RC -eq 0 ]; then
+                node outils/archiver-brief.mjs /tmp/courriel.html "$DATE_ISO" "/tmp/site/$SITE_BRIEFS" \
+                  > /tmp/archive.log 2>&1
+                RC=$?
+                cat /tmp/archive.log
+              fi
+
+              if [ $RC -eq 0 ]; then
+                # Les fichiers du courriel — bandeau, logo, schéma de culture — sont
+                # servis par le SITE et non par journaltrader360.fr, dont le sort
+                # n'est pas tranché. La routine annonce ceux dont ce brief a besoin,
+                # une ligne « RESSOURCE <chemin> » chacun : on ne redevine pas la
+                # liste ici. Le bandeau est versionné (-v2, -v3…) et un grep écrit à
+                # la main sur « culture/ » l'aurait manqué à chaque changement.
+                MANQUE=0
+                while IFS= read -r CHEMIN; do
+                  [ -z "$CHEMIN" ] && continue
+                  DEST="/tmp/site/$SITE_RESS/$CHEMIN"
+                  [ -f "$DEST" ] && continue
+                  mkdir -p "$(dirname "$DEST")"
                   # -L est indispensable : le domaine répond 308 sans lui, et curl
                   # écrirait quinze octets de redirection dans un fichier .png.
-                  if [ "$(file -b --mime-type "/tmp/site/public/culture/$SLUG.png" 2>/dev/null)" != "image/png" ]; then
-                    rm -f "/tmp/site/public/culture/$SLUG.png"
-                    echo "::warning::Schéma « $SLUG » non récupéré — l'archive du jour s'affichera sans image."
-                  fi
-                fi
+                  curl -sSL --max-time 30 -o "$DEST" "https://journaltrader360.fr/assets/$CHEMIN" || true
+                  case "$(file -b --mime-type "$DEST" 2>/dev/null)" in
+                    image/*) echo "   fichier du courriel récupéré : $CHEMIN" ;;
+                    *) rm -f "$DEST"; MANQUE=$((MANQUE + 1))
+                       echo "::warning::Fichier « $CHEMIN » non récupéré — l'archive du jour s'affichera sans lui." ;;
+                  esac
+                done < <(sed -n 's/^RESSOURCE //p' /tmp/archive.log)
+
                 cd /tmp/site
-                git add src/contenu/briefs public/culture 2>/dev/null || git add src/contenu/briefs
+                git add "$SITE_BRIEFS" "$SITE_RESS" 2>/dev/null || git add "$SITE_BRIEFS"
                 if git diff --cached --quiet; then
                   note ok "site: déjà archivé"
-                elif git commit -qm "archive : brief du $DATE_ISO" && git push -q origin HEAD; then
-                  note ok "site: brief du $DATE_ISO publié"
+                elif git commit -qm "archive : brief du $DATE_ISO" && git push -q origin "HEAD:$SITE_BRANCHE"; then
+                  note ok "site: brief du $DATE_ISO publié sur $SITE_BRANCHE$([ "$MANQUE" -gt 0 ] && echo " ($MANQUE fichier(s) manquant(s))")"
                 else
                   note ko "site: commit ou push refusé"
                 fi
@@ -479,7 +567,7 @@ jobs:
                 note ko "site: nettoyage refusé (voir ::error:: ci-dessus)"
               fi
             else
-              note ko "site: clone impossible (jeton expiré ou portée insuffisante ?)"
+              note ko "site: clone de $SITE_BRANCHE impossible (branche absente, jeton expiré, ou portée insuffisante ?)"
             fi
           fi
 

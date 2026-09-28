@@ -143,12 +143,24 @@ export function nettoyer(fragment) {
   h = h.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (tout, attrs, texte) => {
     const href = /href\s*=\s*"([^"]*)"/i.exec(attrs);
     if (!href) return texte;
+    // ⚠️ LES ENTITÉS SONT DÉCODÉES AVANT D'ANALYSER L'ADRESSE. Dans un attribut
+    // HTML, les séparateurs de paramètres sont écrits `&amp;`. `new URL()` lit
+    // alors le paramètre suivant comme s'il s'appelait « amp;utm_medium », qui ne
+    // commence pas par `utm_` et survit donc au filtrage.
+    // Le rattrapage n'a jamais rencontré le cas : Brevo déséchappe les `&` en
+    // stockant la campagne. Le chemin automatique, lui, part de la sortie de
+    // `wrapBriefHtml()`, qui les échappe. Deux sources, deux graphies, un filtre
+    // qui ne mordait que sur l'une des deux.
+    const adresse = href[1].replace(/&amp;/gi, '&').replace(/&#0*38;/g, '&');
     let url;
-    try { url = new URL(href[1], 'https://journaltrader360.fr'); } catch { return texte; }
+    try { url = new URL(adresse, 'https://journaltrader360.fr'); } catch { return texte; }
     if (!/^https?:$/.test(url.protocol)) return texte;           // javascript:, data:…
     if (!HOTES_AUTORISES.some((d) => url.hostname === d || url.hostname.endsWith(`.${d}`))) return texte;
     [...url.searchParams.keys()].filter((k) => /^utm_/i.test(k)).forEach((k) => url.searchParams.delete(k));
-    return `<a${attrs.replace(/href\s*=\s*"[^"]*"/i, `href="${url.toString()}"`)}>${texte}</a>`;
+    // Réécrite échappée : c'est un attribut HTML, et une esperluette nue y est une
+    // entité mal formée.
+    const propre = url.toString().replace(/&/g, '&amp;');
+    return `<a${attrs.replace(/href\s*=\s*"[^"]*"/i, `href="${propre}"`)}>${texte}</a>`;
   });
 
   // Images : les fichiers du courriel sont servis par le SITE, et non par

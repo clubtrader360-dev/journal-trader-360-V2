@@ -35,9 +35,17 @@
  * C'est ce qui permet de détecter un archivage qui n'a jamais été branché.
  */
 
+import { CIBLE } from './cible-archive.mjs';
+
 const DEPOT_JOURNAL = 'clubtrader360-dev/journal-trader-360-V2';
-const DEPOT_SITE = 'clubtrader360-dev/trader360-site';
 const BRANCHE_CULTURE = 'donnees-culture';
+
+// ⚠️ LA CIBLE VIENT DU MÊME FICHIER QUE POUR L'ÉCRITURE. Un contrôleur qui
+// interroge une autre branche que celle où l'on dépose est pire qu'absent : il rend
+// un verdict, et le verdict est faux dans les deux sens. Soit il ne trouve rien et
+// crie à tort, soit — le cas qui s'est présenté — il trouve sur `main` ce qu'on y a
+// déposé par erreur, et déclare « à jour » une archive que personne ne rend.
+const { depot: DEPOT_SITE, branche: BRANCHE_SITE, dossierBriefs: DOSSIER_BRIEFS } = CIBLE;
 
 const jetonJournal = process.env.GITHUB_TOKEN;
 const jetonSite = process.env.SITE_ARCHIVE_TOKEN;
@@ -76,7 +84,8 @@ async function briefsEnvoyes() {
 
 /* ─── 2. CE QUE L'ARCHIVE PORTE ─────────────────────────────────────────────── */
 async function datesArchivees() {
-  const r = await gh(`/repos/${DEPOT_SITE}/contents/src/contenu/briefs`, jetonSite);
+  // `?ref=` EXPLICITE : sans lui l'API rend le contenu de la branche par défaut.
+  const r = await gh(`/repos/${DEPOT_SITE}/contents/${DOSSIER_BRIEFS}?ref=${encodeURIComponent(BRANCHE_SITE)}`, jetonSite);
   if (r.absent) return { jamais: true, dates: [] };
   return {
     jamais: false,
@@ -135,7 +144,7 @@ const alertes = [];
 
 lignes.push(`Briefs partis sur la fenêtre des artefacts (14 j) : ${envoyes.length}`
   + (envoyes.length ? ` — du ${envoyes[0]} au ${envoyes.at(-1)}` : ''));
-lignes.push(`Briefs archivés sur le site : ${archive.dates.length}`
+lignes.push(`Briefs archivés sur ${DEPOT_SITE}@${BRANCHE_SITE} : ${archive.dates.length}`
   + (archive.dates.length ? ` — dernier ${archive.dates.at(-1)}` : ''));
 lignes.push(`Notions archivées sur ${BRANCHE_CULTURE} : ${culture.slugs.length}`);
 
@@ -151,8 +160,8 @@ if (!envoyes.length) {
      manquent », elle se lit comme « le dispositif n'a jamais rien produit ». */
   const couverts = envoyes.filter((d) => archive.dates.includes(d));
   if (archive.jamais) {
-    alertes.push(`ARCHIVE DES BRIEFS INEXISTANTE : le dossier src/contenu/briefs est absent de `
-      + `${DEPOT_SITE}, alors que ${envoyes.length} brief(s) sont partis. Le dispositif n'a JAMAIS rien produit — `
+    alertes.push(`ARCHIVE DES BRIEFS INEXISTANTE : le dossier ${DOSSIER_BRIEFS} est absent de `
+      + `${DEPOT_SITE}@${BRANCHE_SITE}, alors que ${envoyes.length} brief(s) sont partis. Le dispositif n'a JAMAIS rien produit — `
       + `vérifier qu'il est branché, pas qu'il a échoué.`);
   } else if (couverts.length === 0) {
     alertes.push(`ARCHIVAGE DES BRIEFS JAMAIS DÉCLENCHÉ : aucune des ${envoyes.length} date(s) de la fenêtre `
