@@ -1,0 +1,116 @@
+name: Vérification de l'archive
+
+# ══════════════════════════════════════════════════════════════════════════════
+# UN BRIEF EST-IL PARTI SANS REJOINDRE L'ARCHIVE ?
+#
+# ── POURQUOI UN WORKFLOW SÉPARÉ ───────────────────────────────────────────────
+# L'étape d'archivage de `daily-brief.yml` signale déjà ses propres échecs dans la
+# notification Discord du run. Cela couvre UN cas : le dispositif a tourné, il a
+# raté.
+#
+# ⚠️ Cela ne couvre pas le cas qui s'est réellement produit. La PR #106 ajoutait
+# l'archivage de la notion de culture. Elle est restée ouverte. Le workflow exécuté
+# chaque nuit ne portait donc AUCUNE étape d'archivage : rien n'a échoué, rien n'a
+# alerté, et quatre notions publiées entre le 23 et le 28 septembre ont disparu
+# avec l'expiration de leurs artefacts. Le LISEZ-MOI de `donnees-culture`
+# affirmait pendant ce temps que la branche « se remplit automatiquement ».
+#
+# Un dispositif qui n'a JAMAIS rien produit ne peut pas se signaler lui-même : du
+# code absent ne lève pas d'erreur, et une notification qu'on n'a pas écrite ne
+# s'envoie pas. Il faut un observateur EXTÉRIEUR, qui ne demande rien au dispositif
+# et part d'un fait indépendant : des briefs sont partis à ces dates-là.
+#
+# ── DÉLAI DE DÉTECTION ────────────────────────────────────────────────────────
+# Le brief part entre 23h43 et 1h du matin. Ce contrôle passe à 7h05 UTC, soit
+# 9h05 Paris en été et 8h05 en hiver. Un brief envoyé cette nuit et non archivé est
+# donc signalé LE MATIN MÊME, en moins de neuf heures. La notification du run, elle,
+# signale en quelques minutes le cas « l'étape a tourné et raté ».
+#
+# ── ET SI CE CONTRÔLE-LÀ S'ARRÊTE ? ───────────────────────────────────────────
+# Un chien de garde muet ne vaut rien, et GitHub désactive les workflows planifiés
+# après soixante jours sans activité dans le dépôt. D'où la BATTUE HEBDOMADAIRE :
+# le lundi, le contrôle poste son résultat même quand tout va bien. Une semaine
+# sans message du lundi veut dire que le contrôle lui-même ne tourne plus.
+# ══════════════════════════════════════════════════════════════════════════════
+
+on:
+  schedule:
+    # Bien après le brief (23h43-1h) et bien avant la fin de matinée. Minute non
+    # ronde pour éviter la file d'attente des crons à l'heure pile.
+    - cron: '5 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read      # lire la liste et le contenu des artefacts de brief
+  contents: read     # lire la branche donnees-culture
+
+jobs:
+  couverture:
+    name: Chaque brief parti est-il archivé ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Comparer les briefs partis et l'archive
+        id: verif
+        # ⛔ PAS de `continue-on-error` ici, et c'est volontairement l'inverse de
+        # l'étape d'archivage. Là-bas, un échec ne doit pas retenir le brief. Ici,
+        # l'échec EST le produit : il doit se voir dans l'historique des runs, en
+        # rouge, même si la notification Discord venait à ne pas partir.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SITE_ARCHIVE_TOKEN: ${{ secrets.SITE_ARCHIVE_TOKEN }}
+        run: |
+          if [ -z "${SITE_ARCHIVE_TOKEN:-}" ]; then
+            echo "::error::SITE_ARCHIVE_TOKEN absent : impossible de lire l'archive du site. Le contrôle ne peut pas conclure, et une absence de conclusion n'est PAS un feu vert."
+            exit 1
+          fi
+          node outils/verifier-couverture-archive.mjs
+
+      - name: Alerter Discord
+        # `always()` : c'est justement quand l'étape précédente a échoué qu'il faut
+        # parler. Et le lundi, on parle aussi quand tout va bien — voir la battue
+        # hebdomadaire en tête de fichier.
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
+          VERIF_OUTCOME: ${{ steps.verif.outcome }}
+          ANOMALIES: ${{ steps.verif.outputs.anomalies }}
+          RESUME: ${{ steps.verif.outputs.resume }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "::warning::DISCORD_CRON_WEBHOOK_URL absent — alerte non envoyée."
+            exit 0
+          fi
+          JOUR=$(date -u +%u)   # 1 = lundi
+          ROUGE=15680580; VERT=3066993; ORANGE=16750848
+
+          if [ "$VERIF_OUTCOME" != "success" ] && [ -z "${ANOMALIES:-}" ]; then
+            # Le script n'a pas pu conclure (jeton manquant, API indisponible…).
+            # ⚠️ Ce n'est ni un succès ni une anomalie d'archivage, et l'annoncer
+            # en vert serait affirmer quelque chose qu'on ne sait pas.
+            TITRE="❓ Vérification de l'archive impossible"
+            COULEUR=$ORANGE
+            TEXTE="Le contrôle n'a pas pu s'exécuter jusqu'au bout. Tant qu'il ne conclut pas, on ne sait PAS si les briefs sont archivés."
+          elif [ "${ANOMALIES:-0}" -gt 0 ] 2>/dev/null; then
+            TITRE="🚨 Des briefs sont partis sans rejoindre l'archive"
+            COULEUR=$ROUGE
+            TEXTE="$RESUME"
+          elif [ "$JOUR" = "1" ]; then
+            TITRE="✅ Archive des briefs à jour"
+            COULEUR=$VERT
+            TEXTE="$RESUME"$'\n\n'"_Message du lundi. S'il manque une semaine, c'est le contrôle lui-même qui ne tourne plus._"
+          else
+            echo "Rien à signaler et nous ne sommes pas lundi : aucune notification."
+            exit 0
+          fi
+
+          PAYLOAD=$(jq -n --arg t "$TITRE" --argjson c "$COULEUR" --arg url "$RUN_URL" \
+            --arg d "$(printf '%s' "$TEXTE" | cut -c1-3500)" \
+            '{embeds:[{title:$t,color:$c,description:($d+"\n\n[Voir le run](\($url))"),timestamp:(now|todate)}]}')
+          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" \
+            && echo "Alerte envoyée." || echo "::warning::Échec de l'envoi Discord."
