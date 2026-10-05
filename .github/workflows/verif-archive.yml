@@ -116,10 +116,24 @@ jobs:
             } catch { process.stdout.write('inconnue'); }
           ")
 
+          # ⚠️ QUELS DÉPÔTS CE JETON COUVRE-T-IL, AU JUSTE ? C'est la question qui
+          # tranche entre « le dépôt n'est pas dans sa liste » et « ce n'est pas le
+          # bon jeton qu'on a modifié ». Un 404 ne dit ni l'un ni l'autre : GitHub
+          # rend 404 pour tout dépôt qu'un jeton ne voit pas, afin de ne pas révéler
+          # son existence. La liste, elle, est sans ambiguïté.
+          CODE_LISTE=$(APPEL "https://api.github.com/user/repos?per_page=100")
+          LISTE=$(node -e "
+            try {
+              const d = JSON.parse(require('node:fs').readFileSync('/tmp/corps','utf8'));
+              process.stdout.write(Array.isArray(d) ? (d.map(r => r.full_name).join(', ') || '(aucun)') : '(réponse inattendue)');
+            } catch { process.stdout.write('(illisible)'); }
+          ")
+
           echo "Santé du jeton du site :"
           echo "   GET /                → HTTP $CODE_RACINE"
           echo "   GET /user            → HTTP $CODE_USER  ${PORTEUR:+(porteur : $PORTEUR)}"
           echo "   GET /repos/$CIBLE → HTTP $CODE_DEPOT  (écriture : $ECRITURE)"
+          echo "   dépôts couverts      → HTTP $CODE_LISTE · $LISTE"
           echo "   échéance             → ${EXP:-non communiquée}"
           if [ -n "$PORTEES" ]; then
             echo "   nature               → jeton CLASSIQUE, portées : $PORTEES"
