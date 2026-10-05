@@ -103,11 +103,23 @@ jobs:
           PORTEUR=$(sed -n 's/.*"login" *: *"\([^"]*\)".*/\1/p' /tmp/corps | head -1)
 
           CODE_DEPOT=$(APPEL "https://api.github.com/repos/$CIBLE")
+          # ⚠️ UN 200 PROUVE L'ACCÈS, PAS L'ÉCRITURE. Deux défaillances distinctes se
+          # ressemblent de loin : le dépôt absent de la liste du jeton (404 ici), et
+          # le dépôt présent mais en lecture seule (200 ici, et le push qui casse
+          # cette nuit). La réponse de l'API porte un bloc `permissions` qui reflète
+          # les droits EFFECTIFS du jeton : on le lit, plutôt que de déduire
+          # l'écriture d'une lecture réussie. Rien n'est écrit pour le savoir.
+          ECRITURE=$(node -e "
+            try {
+              const p = JSON.parse(require('node:fs').readFileSync('/tmp/corps','utf8')).permissions || {};
+              process.stdout.write(p.push === true ? 'oui' : (p.push === false ? 'non' : 'inconnue'));
+            } catch { process.stdout.write('inconnue'); }
+          ")
 
           echo "Santé du jeton du site :"
           echo "   GET /                → HTTP $CODE_RACINE"
           echo "   GET /user            → HTTP $CODE_USER  ${PORTEUR:+(porteur : $PORTEUR)}"
-          echo "   GET /repos/$CIBLE → HTTP $CODE_DEPOT"
+          echo "   GET /repos/$CIBLE → HTTP $CODE_DEPOT  (écriture : $ECRITURE)"
           echo "   échéance             → ${EXP:-non communiquée}"
           if [ -n "$PORTEES" ]; then
             echo "   nature               → jeton CLASSIQUE, portées : $PORTEES"
@@ -127,6 +139,14 @@ jobs:
               echo "::error::Le jeton ne voit PAS $CIBLE (HTTP $CODE_DEPOT). C'est un jeton FIN : le dépôt n'est pas dans la liste des dépôts qu'il couvre. GitHub rend 404 plutôt que 403 pour ne pas révéler l'existence d'un dépôt. L'archivage échouera à chaque brief."
             fi
             exit 1
+          fi
+
+          if [ "$ECRITURE" = "non" ]; then
+            echo "::error::Le jeton voit $CIBLE mais en LECTURE SEULE. Le contrôle de couverture passera au vert — il ne fait que lire — et c'est le push de cette nuit qui échouera. Donner la permission « Contents: Read and write »."
+            exit 1
+          fi
+          if [ "$ECRITURE" = "inconnue" ]; then
+            echo "::warning::Droits d'écriture non déterminés sur $CIBLE : l'API n'a pas rendu de bloc « permissions »."
           fi
 
           if [ -n "$EXP" ]; then
