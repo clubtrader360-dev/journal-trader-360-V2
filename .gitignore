@@ -43,3 +43,8 @@ _*.sh
 
 # Audits internes
 audit-*.md
+
+# Dossiers de transfert : fichiers déposés à la main pour un chantier, consommés puis
+# laissés sur place. Ce ne sont ni des sources ni des livrables, et ils ont déjà été
+# commités par erreur deux fois par un `git add -A`.
+_transfert-*/
