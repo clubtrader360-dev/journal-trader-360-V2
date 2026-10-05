@@ -54,6 +54,58 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
 
+      - name: Quand le jeton du site expire-t-il ?
+        id: jeton
+        # ══ POURQUOI CE CONTRÔLE EST ICI ══════════════════════════════════════
+        # Un jeton d'accès fin EXPIRE. Le jour où celui-ci expire, le clone du dépôt
+        # du site échoue, l'archivage s'arrête — et il s'arrête proprement, en
+        # `continue-on-error`, donc sans rien casser. C'est exactement la panne que
+        # ce workflow existe pour voir, et c'est la seule dont on connaisse la date
+        # À L'AVANCE. Autant la dire avant plutôt qu'après.
+        #
+        # ⛔ LE JETON N'EST JAMAIS AFFICHÉ. Seul l'en-tête de réponse l'est. GitHub
+        # masque de toute façon les secrets dans les journaux, mais on ne s'appuie
+        # pas là-dessus : on n'imprime que ce qu'on veut lire.
+        if: always()
+        env:
+          SITE_ARCHIVE_TOKEN: ${{ secrets.SITE_ARCHIVE_TOKEN }}
+        run: |
+          if [ -z "${SITE_ARCHIVE_TOKEN:-}" ]; then
+            echo "expire=absent" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # ⚠️ Le repli est SORTI du pipeline. `curl | grep | cut || defaut` ne teste
+          # que le code de sortie de `cut`, qui réussit sur une entrée vide : le repli
+          # ne se déclencherait jamais et la variable serait vide, pas « inconnue ».
+          EN_TETES=$(curl -sS -I -H "authorization: Bearer $SITE_ARCHIVE_TOKEN" \
+                       -H "accept: application/vnd.github+json" https://api.github.com/ || true)
+          EXP=$(printf '%s' "$EN_TETES" | tr -d '\r' \
+                 | sed -n 's/^[Gg]ithub-[Aa]uthentication-[Tt]oken-[Ee]xpiration: *//p' | head -1)
+
+          if [ -z "$EXP" ]; then
+            # Pas d'en-tête : jeton sans expiration, ou jeton classique. Ce n'est pas
+            # une anomalie, mais ce n'est pas non plus une bonne nouvelle à taire.
+            echo "::warning::Le jeton du site ne communique pas de date d'expiration (jeton sans échéance, ou classique)."
+            echo "expire=non communiquée" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Le jeton du site expire le : $EXP"
+          echo "expire=$EXP" >> "$GITHUB_OUTPUT"
+
+          # `date -d` accepte le format rendu par GitHub (« 2027-10-05 12:58:58 +0100 »).
+          FIN=$(date -u -d "$EXP" +%s 2>/dev/null || echo "")
+          if [ -n "$FIN" ]; then
+            JOURS=$(( (FIN - $(date -u +%s)) / 86400 ))
+            echo "jours=$JOURS" >> "$GITHUB_OUTPUT"
+            echo "Soit $JOURS jour(s)."
+            if [ "$JOURS" -lt 0 ]; then
+              echo "::error::Le jeton du site a EXPIRÉ. L'archivage échoue depuis son expiration."
+              exit 1
+            elif [ "$JOURS" -lt 21 ]; then
+              echo "::warning::Le jeton du site expire dans $JOURS jour(s) — à renouveler avant l'échéance, sans quoi l'archivage s'arrêtera."
+            fi
+          fi
+
       - name: Comparer les briefs partis et l'archive
         id: verif
         # ⛔ PAS de `continue-on-error` ici, et c'est volontairement l'inverse de
@@ -78,6 +130,8 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
           VERIF_OUTCOME: ${{ steps.verif.outcome }}
+          JETON_EXPIRE: ${{ steps.jeton.outputs.expire }}
+          JETON_JOURS: ${{ steps.jeton.outputs.jours }}
           ANOMALIES: ${{ steps.verif.outputs.anomalies }}
           RESUME: ${{ steps.verif.outputs.resume }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -103,7 +157,7 @@ jobs:
           elif [ "$JOUR" = "1" ]; then
             TITRE="✅ Archive des briefs à jour"
             COULEUR=$VERT
-            TEXTE="$RESUME"$'\n\n'"_Message du lundi. S'il manque une semaine, c'est le contrôle lui-même qui ne tourne plus._"
+            TEXTE="$RESUME"$'\n\n'"Jeton du site : expire le ${JETON_EXPIRE:-?}${JETON_JOURS:+ (dans $JETON_JOURS j)}."$'\n\n'"_Message du lundi. S'il manque une semaine, c'est le contrôle lui-même qui ne tourne plus._"
           else
             echo "Rien à signaler et nous ne sommes pas lundi : aucune notification."
             exit 0
