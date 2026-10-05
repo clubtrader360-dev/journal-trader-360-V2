@@ -94,6 +94,11 @@ jobs:
           # code de sortie de `c`, qui réussit sur une entrée vide.
           EXP=$(tr -d '\r' < /tmp/entetes | sed -n 's/^[Gg]ithub-[Aa]uthentication-[Tt]oken-[Ee]xpiration: *//p' | head -1)
 
+          # Les portées, quand il s'agit d'un jeton CLASSIQUE : l'en-tête les liste.
+          # Un jeton fin ne rend pas cet en-tête. C'est donc aussi la façon de savoir
+          # LEQUEL des deux on a sous la main, information décisive pour corriger.
+          PORTEES=$(tr -d '\r' < /tmp/entetes | sed -n 's/^[Xx]-[Oo][Aa]uth-[Ss]copes: *//p' | head -1)
+
           CODE_USER=$(APPEL "https://api.github.com/user")
           PORTEUR=$(sed -n 's/.*"login" *: *"\([^"]*\)".*/\1/p' /tmp/corps | head -1)
 
@@ -104,6 +109,11 @@ jobs:
           echo "   GET /user            → HTTP $CODE_USER  ${PORTEUR:+(porteur : $PORTEUR)}"
           echo "   GET /repos/$CIBLE → HTTP $CODE_DEPOT"
           echo "   échéance             → ${EXP:-non communiquée}"
+          if [ -n "$PORTEES" ]; then
+            echo "   nature               → jeton CLASSIQUE, portées : $PORTEES"
+          else
+            echo "   nature               → jeton FIN (aucune portée OAuth annoncée)"
+          fi
           echo "expire=${EXP:-non communiquée}" >> "$GITHUB_OUTPUT"
 
           if [ "$CODE_RACINE" != "200" ]; then
@@ -111,7 +121,11 @@ jobs:
             exit 1
           fi
           if [ "$CODE_DEPOT" != "200" ]; then
-            echo "::error::Le jeton ne voit PAS $CIBLE (HTTP $CODE_DEPOT). GitHub rend 404 plutôt que 403 pour ne pas révéler l'existence d'un dépôt : la cause est presque toujours une portée mal choisie à la création — dépôt non sélectionné, ou jeton créé sous un autre compte. L'archivage échouera à chaque brief."
+            if [ -n "$PORTEES" ]; then
+              echo "::error::Le jeton ne voit PAS $CIBLE (HTTP $CODE_DEPOT). C'est un jeton CLASSIQUE, portées « $PORTEES » : pour un dépôt privé il lui faut la portée « repo ». L'archivage échouera à chaque brief."
+            else
+              echo "::error::Le jeton ne voit PAS $CIBLE (HTTP $CODE_DEPOT). C'est un jeton FIN : le dépôt n'est pas dans la liste des dépôts qu'il couvre. GitHub rend 404 plutôt que 403 pour ne pas révéler l'existence d'un dépôt. L'archivage échouera à chaque brief."
+            fi
             exit 1
           fi
 
