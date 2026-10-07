@@ -1,13 +1,13 @@
 ---
 slug: liquidite
 nom: Liquidité
-publie_le: 2026-09-17
+publie_le: 2026-10-07
 source: brief quotidien, archive automatique
 schema: assets/culture/liquidite.png
 ---
 
-La liquidité désigne, sur un graphique, les zones où se concentrent les ordres en attente : stops de vente logés sous un creux récent, stops d'achat logés au-dessus d'un sommet récent.
-Ce sont des poches de volume potentiel que le prix a tendance à venir chercher avant de repartir dans une autre direction.
-Un trader qui repère une zone de liquidité cherche à comprendre où le marché pourrait aller puiser des ordres avant un mouvement plus large, plutôt que de raisonner uniquement en support ou en résistance classique.
-Cette lecture aide aussi à donner du sens à certains mouvements brusques et apparemment gratuits : une mèche qui va chercher un creux ou un sommet avant de s'inverser correspond souvent à ce phénomène.
-On la retrouve fréquemment évoquée sous le nom de « zone de liquidité » dans les analyses techniques, sur les forums ou en formation.
+La liquidité, c'est l'accumulation d'ordres en attente à des niveaux précis, typiquement juste au-dessus d'un sommet récent ou juste sous un creux récent.
+Plus cette zone concentre d'ordres, plus elle devient épaisse et capable d'absorber un gros volume sans que le prix ne s'effondre ou n'explose immédiatement.
+Les traders qui suivent les flux d'ordres observent ces zones parce que le prix est souvent attiré vers elles avant de repartir dans l'autre sens, le temps que les ordres en attente soient exécutés.
+Repérer une poche de liquidité aide à comprendre pourquoi un cours vient parfois chercher un niveau qui semblait déjà dépassé, plutôt que de poursuivre sa route en ligne droite.
+C'est un concept qu'on retrouve aussi bien sur les actions que sur le forex ou les matières premières.
