@@ -368,10 +368,34 @@ jobs:
           # `${x:-0}` plus bas — soit une affirmation fausse et confiante là où la
           # vérité est « on ne sait pas ».
           sent=$(echo "$body" | grep -oE '"sent":[0-9]+' | head -1 | cut -d: -f2)
-          sent=${sent:-?}
           failed=$(echo "$body" | grep -oE '"failed":[0-9]+' | head -1 | cut -d: -f2)
-          failed=${failed:-?}
           dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | head -1 | cut -d: -f2)
+
+          # ⚠️ REPLI POUR LE MODE BREVO. En campagne, la réponse ne porte NI « sent »
+          # NI « destinataires » : elle porte « recipients ». Les trois compteurs
+          # sortaient donc en « ? » alors que 88 personnes avaient reçu le brief, les
+          # 6 et 7 octobre. La notification disait « ? / ? » — honnête, puisqu'elle
+          # refuse d'affirmer un zéro faux, mais aveugle au mode réellement utilisé.
+          #
+          # ⛔ LE MOTIF RESTE `"sent":[0-9]+`, AVEC LES CHIFFRES. La réponse porte
+          # aussi `"sent":true`, un BOOLÉEN, pour la campagne prospects : un motif
+          # élargi à `"sent":\w+` rendrait « true » et l'afficherait comme un nombre
+          # d'envois. Vérifié sur le corps réel du 7 octobre.
+          #
+          # Le repli est SORTI du pipeline, comme les autres dans ce fichier : testé en
+          # queue, `a | b | c || repli` ne regarde que le code de sortie de `c`.
+          if [ -z "$sent" ]; then
+            sent=$(echo "$body" | grep -oE '"recipients":[0-9]+' | head -1 | cut -d: -f2)
+          fi
+          if [ -z "$dest" ]; then
+            dest=$(echo "$body" | grep -oE '"recipients":[0-9]+' | head -1 | cut -d: -f2)
+          fi
+
+          # Ce qui reste vide reste « ? » : en mode Brevo il n'y a pas de compteur
+          # d'échecs par destinataire, et « 0 échec » serait une affirmation qu'on ne
+          # peut pas soutenir.
+          sent=${sent:-?}
+          failed=${failed:-?}
           dest=${dest:-?}
           echo "✅ $sent envoyé(s) · $failed échec(s) · $dest destinataire(s)"
 
