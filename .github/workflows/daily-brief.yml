@@ -368,10 +368,34 @@ jobs:
           # `${x:-0}` plus bas — soit une affirmation fausse et confiante là où la
           # vérité est « on ne sait pas ».
           sent=$(echo "$body" | grep -oE '"sent":[0-9]+' | head -1 | cut -d: -f2)
-          sent=${sent:-?}
           failed=$(echo "$body" | grep -oE '"failed":[0-9]+' | head -1 | cut -d: -f2)
-          failed=${failed:-?}
           dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | head -1 | cut -d: -f2)
+
+          # ⚠️ REPLI POUR LE MODE BREVO. En campagne, la réponse ne porte NI « sent »
+          # NI « destinataires » : elle porte « recipients ». Les trois compteurs
+          # sortaient donc en « ? » alors que 88 personnes avaient reçu le brief, les
+          # 6 et 7 octobre. La notification disait « ? / ? » — honnête, puisqu'elle
+          # refuse d'affirmer un zéro faux, mais aveugle au mode réellement utilisé.
+          #
+          # ⛔ LE MOTIF RESTE `"sent":[0-9]+`, AVEC LES CHIFFRES. La réponse porte
+          # aussi `"sent":true`, un BOOLÉEN, pour la campagne prospects : un motif
+          # élargi à `"sent":\w+` rendrait « true » et l'afficherait comme un nombre
+          # d'envois. Vérifié sur le corps réel du 7 octobre.
+          #
+          # Le repli est SORTI du pipeline, comme les autres dans ce fichier : testé en
+          # queue, `a | b | c || repli` ne regarde que le code de sortie de `c`.
+          if [ -z "$sent" ]; then
+            sent=$(echo "$body" | grep -oE '"recipients":[0-9]+' | head -1 | cut -d: -f2)
+          fi
+          if [ -z "$dest" ]; then
+            dest=$(echo "$body" | grep -oE '"recipients":[0-9]+' | head -1 | cut -d: -f2)
+          fi
+
+          # Ce qui reste vide reste « ? » : en mode Brevo il n'y a pas de compteur
+          # d'échecs par destinataire, et « 0 échec » serait une affirmation qu'on ne
+          # peut pas soutenir.
+          sent=${sent:-?}
+          failed=${failed:-?}
           dest=${dest:-?}
           echo "✅ $sent envoyé(s) · $failed échec(s) · $dest destinataire(s)"
 
@@ -480,6 +504,31 @@ jobs:
             if git clone --depth=1 --quiet --branch "$SITE_BRANCHE" \
                  "https://x-access-token:${SITE_TOKEN}@github.com/${SITE_DEPOT}.git" /tmp/site; then
 
+              # ⚠️ LES DÉPENDANCES, INSTALLÉES ICI ET NULLE PART AILLEURS.
+              # `api/cron/daily-brief.js` importe `@supabase/supabase-js`, et sa chaîne
+              # d'import traverse `sheets-client.js` qui tire `googleapis`. Or ce
+              # workflow n'installait QUE la CLI Claude : au premier passage réel, le
+              # 6 puis le 7 octobre, l'archivage du site a échoué sur
+              # « Cannot find package '@supabase/supabase-js' ».
+              #
+              # ⚠️ POURQUOI AUCUNE RÉPÉTITION NE L'AVAIT VU : elles tournaient en
+              # local, où `node_modules` existe. Le contrôle C de
+              # verifier-archive-brief.mjs comparait fidèlement les deux chemins — et
+              # les deux marchaient, chez moi. « Ça marche en local » n'est pas une
+              # mesure de la CI.
+              #
+              # L'installation est DANS cette étape, et pas en étape séparée plus haut :
+              # une étape autonome qui échoue ferait tomber le job AVANT l'envoi. Ici,
+              # `continue-on-error` couvre tout, donc rien ne peut retenir le brief.
+              if ! npm ci --no-audit --no-fund --silent 2>/tmp/npm.log; then
+                echo "::warning::npm ci a échoué :"; tail -5 /tmp/npm.log
+                note ko "site: dépendances non installées"
+                cd "$GITHUB_WORKSPACE"
+                RC=1
+              else
+                RC=0
+              fi
+
               # ══ RECONSTRUIRE LE COURRIEL RÉELLEMENT ENVOYÉ ═══════════════════
               # ⚠️ /tmp/brief.html N'EST PAS LE COURRIEL. C'est le CORPS seul, extrait
               # de la sortie du modèle au `<div class="brief-marche">`. L'enveloppe —
@@ -498,7 +547,7 @@ jobs:
               # gabarit finirait par diverger de celle qui part aux élèves.
               # `firstName: null` rend « Bonjour, » plutôt qu'un prénom ; la routine
               # d'archivage retire cette ligne dans les deux cas.
-              if ! node -e "
+              if [ $RC -eq 0 ] && ! node -e "
                 Promise.all([import('./api/cron/daily-brief.js'), import('node:fs')])
                   .then(([m, fs]) => {
                     let h = fs.readFileSync('/tmp/brief.html', 'utf8');

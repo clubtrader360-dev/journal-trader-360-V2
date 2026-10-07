@@ -253,6 +253,64 @@ function controleC(sources) {
   return { compares, echecs, horsGabarit };
 }
 
+/* ─── Contrôle D : la chaîne du workflow tient-elle SANS node_modules ? ─────
+ *
+ * ══ CE QUE CE CONTRÔLE EXISTE POUR ATTRAPER ═════════════════════════════════
+ * ⚠️ Le contrôle C compare fidèlement les deux chemins — et il a laissé passer la
+ * panne du 6 et du 7 octobre, parce qu'il tourne EN LOCAL, où `node_modules`
+ * existe. Sur le runner, le workflow n'installe que la CLI Claude : l'import de
+ * `api/cron/daily-brief.js` y échouait sur « Cannot find package
+ * '@supabase/supabase-js' », sa chaîne traversant jusqu'à `googleapis`.
+ *
+ * Deux nuits de suite, l'archivage du site a raté pendant que le contrôle C était
+ * vert. Une comparaison fidèle entre deux choses qui marchent toutes les deux chez
+ * moi ne dit RIEN de l'environnement où ça tourne vraiment.
+ *
+ * Ce contrôle reproduit le runner : il masque `node_modules` le temps d'un import,
+ * et rend la liste des paquets npm dont la chaîne a besoin. Le workflow doit les
+ * installer, sans quoi l'archivage échouera — bruyamment, mais chaque nuit.
+ *
+ * ⛔ Il RESTAURE `node_modules` quoi qu'il arrive, y compris sur erreur. Un dossier
+ * laissé masqué casserait tout le reste du projet, en silence pour qui ne lit pas
+ * cette sonde.
+ */
+async function controleD() {
+  const echecs = [];
+  const racine = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const nm = path.join(racine, 'node_modules');
+  const planque = path.join(racine, '.node_modules-sonde');
+  if (!fs.existsSync(nm)) return { echecs: ['node_modules absent : contrôle non exécutable'], paquets: [] };
+
+  // Les paquets npm que la chaîne d'import réclame, relevés dans les fichiers.
+  const paquets = new Set();
+  const vus = new Set();
+  const suivre = (f) => {
+    if (vus.has(f) || !fs.existsSync(f)) return;
+    vus.add(f);
+    const t = fs.readFileSync(f, 'utf8');
+    for (const m of t.matchAll(/from\s+'([^']+)'/g)) {
+      const s = m[1];
+      if (s.startsWith('.')) suivre(path.normalize(path.join(path.dirname(f), s)));
+      else if (!s.startsWith('node:')) paquets.add(s);
+    }
+  };
+  suivre(path.join(racine, 'api/cron/daily-brief.js'));
+
+  fs.renameSync(nm, planque);
+  try {
+    await import(`${path.join(racine, 'api/cron/daily-brief.js')}?sonde=${paquets.size}`);
+    // L'import a réussi sans node_modules : la chaîne est pure, rien à installer.
+  } catch (e) {
+    const manque = /Cannot find package '([^']+)'/.exec(e.message);
+    echecs.push(`la chaîne d'import exige des paquets npm (${manque ? manque[1] : e.message.slice(0, 60)}) : `
+      + `le workflow DOIT les installer avant de reconstruire le courriel. `
+      + `Chaîne complète : ${[...paquets].join(', ')}`);
+  } finally {
+    fs.renameSync(planque, nm);
+  }
+  return { echecs, paquets: [...paquets] };
+}
+
 /* ─── Exécution ───────────────────────────────────────────────────────────── */
 const [dossier, ...sources] = process.argv.slice(2);
 if (!dossier) {
@@ -287,4 +345,12 @@ if (sources.length) {
   c.horsGabarit.forEach((e) => console.log(`      ⏭️ ${e}`));
 }
 
+const d = process.env.SONDE_SANS_NPM === '0' ? { echecs: [], paquets: [] } : await controleD();
+console.log(`\n── Contrôle D — la chaîne du workflow sans node_modules`);
+console.log(`   paquets npm exigés : ${d.paquets.length ? d.paquets.join(', ') : 'aucun'}`);
+console.log(`   ${d.echecs.length ? '❗ ' + d.echecs.length + ' point(s) de vigilance' : '✅ la chaîne n\'exige aucun paquet npm'}`);
+d.echecs.forEach((e) => console.log(`      · ${e}`));
+// ⚠️ Le contrôle D n'est pas un ÉCHEC : il décrit une contrainte du workflow, qui la
+// satisfait par un `npm ci`. Il devient un échec le jour où le workflow cesse de le
+// faire — c'est alors au run de crier, pas à cette sonde locale.
 process.exit(a.echecs.length + b.echecs.length + c.echecs.length ? 1 : 0);
