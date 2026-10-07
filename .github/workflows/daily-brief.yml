@@ -480,6 +480,31 @@ jobs:
             if git clone --depth=1 --quiet --branch "$SITE_BRANCHE" \
                  "https://x-access-token:${SITE_TOKEN}@github.com/${SITE_DEPOT}.git" /tmp/site; then
 
+              # ⚠️ LES DÉPENDANCES, INSTALLÉES ICI ET NULLE PART AILLEURS.
+              # `api/cron/daily-brief.js` importe `@supabase/supabase-js`, et sa chaîne
+              # d'import traverse `sheets-client.js` qui tire `googleapis`. Or ce
+              # workflow n'installait QUE la CLI Claude : au premier passage réel, le
+              # 6 puis le 7 octobre, l'archivage du site a échoué sur
+              # « Cannot find package '@supabase/supabase-js' ».
+              #
+              # ⚠️ POURQUOI AUCUNE RÉPÉTITION NE L'AVAIT VU : elles tournaient en
+              # local, où `node_modules` existe. Le contrôle C de
+              # verifier-archive-brief.mjs comparait fidèlement les deux chemins — et
+              # les deux marchaient, chez moi. « Ça marche en local » n'est pas une
+              # mesure de la CI.
+              #
+              # L'installation est DANS cette étape, et pas en étape séparée plus haut :
+              # une étape autonome qui échoue ferait tomber le job AVANT l'envoi. Ici,
+              # `continue-on-error` couvre tout, donc rien ne peut retenir le brief.
+              if ! npm ci --no-audit --no-fund --silent 2>/tmp/npm.log; then
+                echo "::warning::npm ci a échoué :"; tail -5 /tmp/npm.log
+                note ko "site: dépendances non installées"
+                cd "$GITHUB_WORKSPACE"
+                RC=1
+              else
+                RC=0
+              fi
+
               # ══ RECONSTRUIRE LE COURRIEL RÉELLEMENT ENVOYÉ ═══════════════════
               # ⚠️ /tmp/brief.html N'EST PAS LE COURRIEL. C'est le CORPS seul, extrait
               # de la sortie du modèle au `<div class="brief-marche">`. L'enveloppe —
@@ -498,7 +523,7 @@ jobs:
               # gabarit finirait par diverger de celle qui part aux élèves.
               # `firstName: null` rend « Bonjour, » plutôt qu'un prénom ; la routine
               # d'archivage retire cette ligne dans les deux cas.
-              if ! node -e "
+              if [ $RC -eq 0 ] && ! node -e "
                 Promise.all([import('./api/cron/daily-brief.js'), import('node:fs')])
                   .then(([m, fs]) => {
                     let h = fs.readFileSync('/tmp/brief.html', 'utf8');
