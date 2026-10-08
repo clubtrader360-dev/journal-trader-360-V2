@@ -14,6 +14,22 @@
  * Toutes les sorties descendent donc de `assets/marque/t360-monogramme.svg`.
  * Changer la marque, c'est remplacer ce SVG et relancer ce script.
  *
+ * ── ⚠️ DEUX USAGES, DEUX FONDS, ET C'EST VOULU ────────────────────────────────
+ *
+ *     favicon.svg            l'onglet du navigateur        TRANSPARENT
+ *     favicon.ico            ce que Google demande         fond #050506
+ *     apple-touch-icon.png   écran d'accueil iOS           fond #050506
+ *     icon-192.png           écran d'accueil Android       fond #050506
+ *
+ * Le vecteur a porté le fond noir, et Nadir l'a écarté après avoir vu le rendu dans
+ * l'onglet. ⛔ NE LE REMETS PAS, et ne cherche pas à « harmoniser » les quatre : la
+ * divergence est la décision.
+ *
+ * Ce qui reste vrai et reste la raison de ce découpage : Chrome réclame
+ * `/favicon.svg` et ne touche jamais à l'ICO, mesuré en journalisant ce qu'un
+ * navigateur demande sur un profil neuf. L'onglet se règle donc dans le vecteur, et
+ * le fond des trois autres fichiers ne le rattrape pas.
+ *
  * ── CE QUI DIFFÈRE DU GÉNÉRATEUR DU SITE, ET POURQUOI ───────────────────────────
  *
  * Le dépôt du site fabrique les mêmes fichiers dans `outils/icones.mjs`, avec les
@@ -28,8 +44,8 @@
  *
  * La conséquence est géométrique, pas esthétique. `sharp` compose : il rend la
  * marque sur un calque transparent, puis la colle au centre d'un carré opaque.
- * `resvg` ne compose pas, alors le carré, le fond et la marge sont décrits dans un
- * SVG enveloppe que l'on rend d'un seul coup. Le résultat est le même cadrage :
+ * `resvg` ne compose pas, alors le carré, le fond et la marge des matriciels sont
+ * décrits dans un SVG enveloppe que l'on rend d'un seul coup. Le résultat est le même cadrage :
  * un `<svg>` imbriqué avec `preserveAspectRatio` par défaut (`xMidYMid meet`) EST
  * le `fit: 'contain'` + `gravity: 'center'` de sharp, à ceci près qu'il est exact
  * au lieu d'être arrondi au pixel avant collage.
@@ -53,12 +69,15 @@ const SOURCE = path.join(RACINE, 'assets/marque/t360-monogramme.svg');
 const OR = '#d4af37';
 
 /**
- * Fond des icônes. Opaque, décidé par Nadir.
+ * Fond des icônes MATRICIELLES. Opaque, décidé par Nadir.
  *
- * ⚠️ IL N'EST PAS DÉCORATIF. La marque est en or sur un tracé fin : posée sans
- * fond, elle est rendue sur le fond de l'onglet, blanc dans un thème clair, et
- * l'or sur blanc tombe sous le seuil de lisibilité. Le fond noir rend le contraste
- * indépendant du thème du navigateur.
+ * ⚠️ IL N'EST PAS DÉCORATIF, et il ne s'applique PAS au vecteur. Les masques
+ * arrondis d'iOS et d'Android composent toujours l'icône d'accueil sur un fond
+ * qu'ils choisissent, et aplatissent la transparence sur du blanc, où l'or tombe
+ * à environ 2,1:1. Les trois fichiers matriciels portent donc le fond de la marque.
+ *
+ * ⛔ `favicon.svg` N'EN PORTE PAS, et c'est une décision, pas un oubli. Voir plus
+ * bas, au moment où il est écrit.
  */
 const FOND = '#050506';
 
@@ -72,27 +91,61 @@ const FOND = '#050506';
 const MARGE = 0.10;
 
 /**
- * La marque, en or, cadrée dans un carré de côté `cote` sur le fond opaque.
+ * La marque en or, placée dans une boîte carrée de côté `cote`.
  *
- * Rend un SVG, pas une image : c'est ce document qui sert à la fois de sortie
- * vectorielle (`favicon.svg`) et d'entrée du rastériseur. Les deux ne peuvent donc
- * pas montrer un cadrage différent.
+ * `preserveAspectRatio` vaut `xMidYMid meet` par défaut : la marque est mise à
+ * l'échelle sans déformation et centrée. C'est ce qui empêche un tracé de 459 sur
+ * 446 d'être étiré pour remplir un carré.
+ *
+ * `marge` vaut la proportion de côté laissée libre autour. Elle est de 10 % pour
+ * les matriciels, qui passent sous des masques arrondis, et de zéro pour le
+ * vecteur, qui n'y passe pas.
  */
-function enveloppe(cote) {
-  const marque = readFileSync(SOURCE, 'utf8')
+function marqueCadree(cote, marge) {
+  return readFileSync(SOURCE, 'utf8')
     .replaceAll('currentColor', OR)
     // Le `<svg>` imbriqué est placé par x/y/width/height. Une largeur ou une
     // hauteur héritée de la source entrerait en conflit avec ce placement.
     .replace(/<svg\b[^>]*>/, (racine) =>
       racine
         .replace(/\s(?:width|height|x|y)="[^"]*"/g, '')
-        .replace(/<svg/, `<svg x="${MARGE * cote}" y="${MARGE * cote}"`
-          + ` width="${cote * (1 - 2 * MARGE)}" height="${cote * (1 - 2 * MARGE)}"`));
+        .replace(/<svg/, `<svg x="${marge * cote}" y="${marge * cote}"`
+          + ` width="${cote * (1 - 2 * marge)}" height="${cote * (1 - 2 * marge)}"`))
+    .trim();
+}
 
+/**
+ * L'enveloppe des fichiers MATRICIELS : carrée, fond opaque, marge de 10 %.
+ *
+ * Rend un SVG, pas une image : c'est ce document qui entre dans le rastériseur,
+ * aux quatre tailles, de sorte qu'aucune d'elles ne puisse montrer un cadrage
+ * différent d'une autre.
+ */
+function enveloppe(cote) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${cote}" height="${cote}"`
     + ` viewBox="0 0 ${cote} ${cote}" role="img" aria-label="Trader 360">\n`
     + `<rect width="${cote}" height="${cote}" fill="${FOND}"/>\n`
-    + `${marque.trim()}\n</svg>\n`;
+    + `${marqueCadree(cote, MARGE)}\n</svg>\n`;
+}
+
+/**
+ * L'enveloppe du VECTEUR servi dans l'onglet : carrée, transparente, sans marge.
+ *
+ * ⚠️ LA TRANSPARENCE EST UNE DÉCISION DE NADIR, PAS UN OUBLI. Ce fichier a porté
+ * le fond `#050506` ; Nadir a vu le rendu et a écarté la pastille noire dans
+ * l'onglet. ⛔ NE LE REMETS PAS, et n'ajoute pas de `prefers-color-scheme` pour
+ * rattraper le fond clair : elle a été proposée et écartée.
+ *
+ * ⚠️ LE RISQUE EST CONNU ET ACCEPTÉ. Sur un onglet clair, l'or tombe à environ
+ * 2,1:1 contre 9,69:1 sur le fond de la marque. C'est le prix de la décision.
+ *
+ * ⚠️ LE CARRÉ RESTE, ET IL N'ÉTAIT PAS LÀ POUR LE FOND : un SVG non carré est
+ * étiré par certains navigateurs au lieu d'être mis à l'échelle.
+ */
+function vecteur(cote) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${cote}" height="${cote}"`
+    + ` viewBox="0 0 ${cote} ${cote}" role="img" aria-label="Trader 360">\n`
+    + `${marqueCadree(cote, 0)}\n</svg>\n`;
 }
 
 /** Rend l'enveloppe en PNG, à la taille demandée. */
@@ -149,22 +202,38 @@ const dire = (nom, ok, detail) => {
 };
 
 console.log(`\n  source : ${path.relative(RACINE, SOURCE)}  ·  or ${OR}`
-  + `  ·  fond ${FOND} opaque  ·  marge ${MARGE * 100} %\n`);
+  + `  ·  matriciels : fond ${FOND} opaque, marge ${MARGE * 100} %`
+  + `  ·  vecteur : transparent, sans marge\n`);
 
 /* ── LE VECTEUR ──────────────────────────────────────────────────────────────
-   Chrome et Firefox préfèrent un favicon SVG quand il est déclaré : il doit donc
-   porter le fond noir lui aussi. ⚠️ Un SVG transparent ici annulerait tout le lot
-   dans les deux navigateurs les plus utilisés, sans que l'ICO soit en cause et
-   sans la moindre erreur. Le fond est décrit dans le même `enveloppe()` que celui
-   des PNG, pour qu'un cadrage ne puisse pas diverger de l'autre.
+   Chrome et Firefox préfèrent un favicon SVG quand il est déclaré : c'est donc CE
+   fichier que montre l'onglet, et les matriciels ne le corrigent pas. Mesuré en
+   journalisant ce qu'un navigateur demande sur un profil neuf, page jamais
+   visitée : `GET /favicon.svg`, et rien d'autre.
+   C'est pour cela que la transparence se règle ici, et que le fond des trois
+   autres fichiers ne la rattrape pas. Les deux usages sont servis par des fichiers
+   différents, volontairement.
    Côté 48 : la valeur ne contraint pas le rendu d'un vecteur, elle ne fixe que le
-   rapport entre la marge et le côté, qui est le même à toutes les tailles. */
+   rapport de forme, qui est le même à toutes les tailles. */
 {
   const cible = path.join(RACINE, 'favicon.svg');
-  const svg = enveloppe(48);
+  const svg = vecteur(48);
   writeFileSync(cible, svg);
-  console.log(`  ${'favicon.svg'.padEnd(22)} vectoriel, carré      `
+  const relu = readFileSync(cible, 'utf8');
+  console.log(`  ${'favicon.svg'.padEnd(22)} vectoriel, carré, transparent  `
     + `${(Buffer.byteLength(svg) / 1024).toFixed(1)} Ko   onglet Chrome et Firefox`);
+  /* ⚠️ Contrôle écrit en NÉGATIF, parce que c'est l'absence de fond qui est voulue.
+     Un `<rect>` réintroduit un jour par mégarde passerait inaperçu sans lui : le
+     fichier resterait valide, l'onglet afficherait simplement une pastille noire
+     que personne n'a demandée. */
+  dire('  favicon.svg : ⛔ AUCUN fond, pas de <rect>', !/<rect\b/.test(relu),
+    `${(relu.match(/<rect\b/g) || []).length} <rect>`);
+  dire('  favicon.svg : ⛔ aucun fond déguisé, pas de <circle>, <polygon> ni <ellipse>',
+    !/<(?:circle|polygon|ellipse)\b/.test(relu));
+  dire('  favicon.svg : ⛔ aucune opacité partielle',
+    !/\b(?:fill-opacity|opacity)=/.test(relu));
+  const vb = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(relu);
+  dire('  favicon.svg : carré', vb && vb[1] === vb[2], vb ? `viewBox 0 0 ${vb[1]} ${vb[2]}` : 'aucun');
 }
 
 /* ── LES PNG ─────────────────────────────────────────────────────────────────
@@ -224,7 +293,8 @@ dire('⛔ aucun octet orphelin après la dernière image',
   `${relu.length} o`);
 
 console.log(fautes === 0
-  ? '\n  Les quatre fichiers descendent de la même source, sont carrés, opaques,\n'
+  ? '\n  Les quatre fichiers descendent de la même source et sont carrés. Les trois\n'
+    + '  matriciels sont opaques sur le fond de la marque, le vecteur est transparent,\n'
     + '  et l\'ICO relu déclare trois images qui tombent chacune sur un PNG.'
   : `\n  ⛔ ${fautes} écart(s).`);
 process.exit(fautes === 0 ? 0 : 1);

@@ -39,8 +39,10 @@
     <!-- Les quatre icônes descendent toutes de assets/marque/t360-monogramme.svg, par
          `node outils/icones.mjs`. ⛔ Ne pas les remplacer à la main : elles se
          désaccorderaient de la marque sans qu'aucune erreur ne le signale.
-         Le fond #050506 est cuit dedans. Il n'est pas décoratif : le monogramme doré
-         seul tombe à 2,10:1 sur un onglet clair, contre 9,69:1 sur ce fond. -->
+         ⚠️ Deux fonds différents, et c'est voulu : favicon.svg est TRANSPARENT, c'est
+         lui que montre l'onglet et Nadir a écarté la pastille noire. Les trois
+         matriciels portent le fond #050506, parce que les masques d'iOS et d'Android
+         aplatissent la transparence sur du blanc, où l'or tombe à 2,1:1. -->
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
