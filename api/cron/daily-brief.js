@@ -82,19 +82,46 @@ export const BREVO_FIRSTNAME_TAG = '{{ contact.PRENOM|default:"Trader" }}';
 // PAS de |default ici, à la différence de l'accroche : pré-remplir un formulaire avec
 // "Trader" en guise de prénom injecterait une fausse donnée. Un tag vide laisse
 // simplement le champ vide, ce qui est le comportement voulu.
-const PREFILL_PARAMS =
-  'email={{ contact.EMAIL|urlencode }}' +
-  '&amp;prenom={{ contact.PRENOM|urlencode }}' +
-  '&amp;nom={{ contact.NOM|urlencode }}';
+/**
+ * L'adresse du questionnaire de candidature.
+ *
+ * ── ⚠️ ELLE A CHANGÉ LE 8 OCTOBRE 2026, ET L'ANCIENNE ALLAIT MOURIR ─────────
+ * Elle pointait vers https://www.trader360.fr/sondages/inscription/… , un sondage
+ * LearnyBox. Cette adresse répond encore aujourd'hui pour une seule raison : le
+ * domaine www.trader360.fr sert toujours l'ancien site. À la bascule vers le
+ * nouveau, elle rendra 404. Le brief part chaque matin à 88 personnes : le lien
+ * serait mort pour tout le monde le même jour.
+ *
+ * ⛔ UNE SEULE ADRESSE, CONSOMMÉE PAR LES DEUX CAMPAGNES. Elle était écrite deux
+ * fois, ici et en dur dans le bouton de parrainage, sans que l'une alimente
+ * l'autre. Deux adresses à tenir d'accord, c'est une qui dérive, et c'est
+ * exactement ce qui s'était produit : seule celle-ci portait le nom d'une
+ * constante, l'autre se recopiait.
+ */
+const URL_QUESTIONNAIRE = 'https://www.trader360.fr/candidater/';
 
-const UTM_PROSPECTS = 'utm_source=brief&amp;utm_medium=email&amp;utm_campaign=prospects';
-
-// URL prospect complète : base + pré-remplissage + UTM.
-function prospectUrl(base, utmContent) {
-  return `${base}?${PREFILL_PARAMS}&amp;${UTM_PROSPECTS}&amp;utm_content=${utmContent}`;
+/**
+ * Construit le lien avec son suivi. ⚠️ `&amp;` et non `&` : ces chaînes partent
+ * dans un attribut `href` HTML, où l'esperluette doit être échappée.
+ *
+ * ── ⛔ LE PRÉ-REMPLISSAGE A ÉTÉ RETIRÉ, ET C'EST DÉLIBÉRÉ ───────────────────
+ * La campagne prospects ajoutait `email`, `prenom` et `nom`, renseignés par les
+ * balises de fusion Brevo. C'était utile vers le sondage LearnyBox, qui les lisait.
+ *
+ * ⚠️ /candidater/ NE LES LIT PAS. Vérifié dans le dépôt du site : la page ne
+ * préremplit aucun champ depuis l'adresse, et l'endpoint n'extrait que les cinq
+ * paramètres `utm_*`. Les conserver aurait fait voyager un nom, un prénom et une
+ * adresse électronique dans une URL, donc dans l'historique du navigateur, dans
+ * les journaux et dans l'en-tête `Referer`, SANS AUCUNE CONTREPARTIE.
+ *
+ * ⛔ C'est le seul changement qui dépasse la lettre de la demande, et il est
+ * assumé : repointer l'adresse en gardant le pré-remplissage aurait introduit une
+ * fuite de données personnelles qui n'existe pas aujourd'hui.
+ */
+function lienCandidature(campagne, utmContent) {
+  const utm = `utm_source=brief&amp;utm_medium=email&amp;utm_campaign=${campagne}`;
+  return `${URL_QUESTIONNAIRE}?${utm}` + (utmContent ? `&amp;utm_content=${utmContent}` : '');
 }
-
-const URL_QUESTIONNAIRE = 'https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/';
 
 // ---- Campagne PROSPECTS — toujours secondaire, toujours isolée ----
 // Ne lève JAMAIS : toute erreur est capturée et retournée dans le rapport. Les membres
@@ -312,16 +339,16 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
                lien Calendly : proposer la vidéo ici ouvrirait une seconde porte vers un
                tunnel qui n'en a qu'une, et court-circuiterait l'étape de qualification.
                Le texte annonce la suite du parcours, ce qui donne une raison de cliquer. -->
-          <a href="${prospectUrl(URL_QUESTIONNAIRE, 'questionnaire')}"
+          <a href="${lienCandidature('prospects', 'questionnaire')}"
              style="display:inline-block; background:${PALETTE.goldBright}; color:${PALETTE.navy}; padding:14px 30px; border-radius:10px; text-decoration:none; font-weight:600; font-size:14px; letter-spacing:0.04em;">Répondre au questionnaire →</a>
         </td></tr>
       </table>` : `
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
         <tr><td style="background:${PALETTE.bgAccent}; border:1px solid ${PALETTE.navy}; border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
-            Si tu connais quelqu'un d'intéressé, partage-lui le lien du questionnaire — il devra indiquer ton nom dans l'une des questions, on saura que ça vient de toi.
+            Si tu connais quelqu'un d'intéressé, partage-lui le questionnaire. Il indiquera ton nom à la question « comment as-tu connu Trader 360 », et on saura que ça vient de toi.
           </p>
-          <a href="https://www.trader360.fr/sondages/inscription/quel-est-ton-profil-de-depart-dans-le-trading/?utm_source=brief&amp;utm_medium=email&amp;utm_campaign=ambassadeur"
+          <a href="${lienCandidature('ambassadeur')}"
              style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Partager le questionnaire →</a>
         </td></tr>
       </table>`}
