@@ -200,7 +200,7 @@ async function appelerWebhook(grille, { user_id, backfill } = {}) {
 }
 
 // ── 3. Webhook, backfill, destinataires, endpoint coach : origine puis colonnes déplacées ──
-const attenduBackfill = { Alice: 'score', Bruno: 'Non inscrit au journal', 'Chloé': 'score', Emma: 'score', Farid: 'Pas rempli' };
+const attenduBackfill = { Alice: 'score', Bruno: 'no', 'Chloé': 'score', Emma: 'score', Farid: 'vide' };
 let destinatairesOrigine = null;
 for (const [nom, titres, lettreJournal] of [['disposition actuelle', ORIGINE, 'X'], ['3 colonnes déplacées', DEPLACEE, 'AO']]) {
   const cols = resolveColumns(titres, TOUS);
@@ -229,7 +229,7 @@ for (const [nom, titres, lettreJournal] of [['disposition actuelle', ORIGINE, 'X
     r.res.corps.ok === true && e.length === 6 && e.every((x) => x.titre === 'journal' && x.range.startsWith(`'${SHEET_NAME}'!${lettreJournal}`)),
     `scored=${r.res.corps.scored} pas_rempli=${r.res.corps.pas_rempli} non_inscrit=${r.res.corps.non_inscrit} skipped=${r.res.corps.skipped}`);
   verifier(`${nom} : backfill → bonne valeur pour chaque membre`,
-    Object.entries(attenduBackfill).every(([p, v]) => lu[p] === v) && lu.David === 'Non inscrit au journal', JSON.stringify(lu));
+    Object.entries(attenduBackfill).every(([p, v]) => lu[p] === v) && lu.David === 'no', JSON.stringify(lu));
 
   // Destinataires du brief.
   const { client } = faireSheets(construireGrille(titres));

@@ -8,8 +8,10 @@
 // tableur Manu (historiquement la col X — elle est retrouvée par son TITRE, cf
 // api/_lib/parcours-colonnes.js, Manu peut la déplacer) :
 //   - "<score>" (ex "72.4")    → élève inscrit + journal rempli les 3 derniers jours
-//   - "Pas rempli"             → élève inscrit + journal PAS rempli les 3 derniers jours
-//   - "Non inscrit au journal" → email tableur absent de public.users
+//   - "vide" → élève inscrit + journal PAS rempli les 3 derniers jours (ex-"Pas rempli")
+//   - "no"   → email tableur absent de public.users (ex-"Non inscrit au journal")
+//              Textes courts : décision Manu du 09/10/2026. Le script Apps Script du tableur
+//              reconnaît les deux formes ; ?action=backfill-full convertit l'existant.
 //                                (via ?action=backfill-full uniquement — le webhook unitaire
 //                                 est déclenché par un user_id qui existe forcément)
 // N'écrit QUE dans la colonne « Journal ». Ne throw jamais (retourne 500 { ok:false } en cas d'erreur).
@@ -27,6 +29,10 @@ import { getServiceClient, readJson } from '../tradovate/_lib/auth.js';
 import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
 import { computeT360Score } from '../_lib/t360-score.js';
 import { readParcours, cellA1, TITRES, FIRST_MEMBER_ROW } from '../_lib/parcours-colonnes.js';
+
+// États écrits dans la colonne « Journal » quand il n'y a pas de note.
+const JOURNAL_VIDE = 'vide'; // inscrit, journal pas rempli sur la fenêtre
+const JOURNAL_NO = 'no';     // pas inscrit au journal
 
 // Colonnes lues (prénom, nom, mails) et écrite (journal), retrouvées par leur titre en ligne 3.
 // Lecture de l'onglet entier, plage ouverte : rowNum = FIRST_MEMBER_ROW + index, les lignes
@@ -67,7 +73,7 @@ function rowEmails(row, cols) {
 }
 
 // Valeur col X pour un élève EXISTANT (uuid connu) : "<score>" si journal rempli sur [today-3j, today],
-// sinon "Pas rempli". Partagé entre le webhook unitaire et le backfill.
+// sinon JOURNAL_VIDE. Partagé entre le webhook unitaire et le backfill.
 async function computeUserColX(sb, uuid) {
   const today = parisTodayStr();
   const cutoff = minusDaysStr(today, ACTIVE_WINDOW_DAYS);
@@ -86,7 +92,7 @@ async function computeUserColX(sb, uuid) {
     .lte('entry_date', today);
   if (jErr) throw jErr;
 
-  return (journalCount && journalCount > 0) ? globalScore.toFixed(1) : 'Pas rempli';
+  return (journalCount && journalCount > 0) ? globalScore.toFixed(1) : JOURNAL_VIDE;
 }
 
 export default async function handler(req, res) {
@@ -128,7 +134,7 @@ export default async function handler(req, res) {
     }
     const email = String(appUser.email).trim().toLowerCase();
 
-    // 4-7. Valeur col X : "<score>" si journal rempli <3j (dates futures exclues), sinon "Pas rempli".
+    // 4-7. Valeur col X : "<score>" si journal rempli <3j (dates futures exclues), sinon "vide".
     const valueToWrite = await computeUserColX(sb, user_id);
 
     // 8. Matching dans le tableur (« Mail LearnyBox » ou « 2ème mail » == email).
@@ -223,9 +229,9 @@ async function handleBackfillFull(res) {
     let value;
     if (uuid) {
       value = await computeUserColX(sb, uuid);
-      if (value === 'Pas rempli') pas_rempli++; else scored++;
+      if (value === JOURNAL_VIDE) pas_rempli++; else scored++;
     } else {
-      value = 'Non inscrit au journal';
+      value = JOURNAL_NO;
       non_inscrit++;
     }
     updates.push({ range: cellA1(cols[TITRES.JOURNAL], rowNum), values: [[value]] });
