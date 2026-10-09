@@ -1,26 +1,22 @@
 // ========================================
 // #20 — Destinataires du brief matinal depuis le TABLEUR Manu (source de vérité).
-// Onglet "👥 Parcours Membre", lignes membres à partir de la 4 (range ouvert, cf READ_RANGE).
-//   - col D (statut) : exclut 🔴 Inactif ; garde le reste (🟢 T360, 🟠 À surveiller,
-//                      🟠 Peu impliqués, Moyen…).
-//   - email : col T (Mail LB) prioritaire, fallback col U (Mails perso, multi-valeurs).
+// Onglet "👥 Parcours Membre", lignes membres à partir de la 4 (onglet lu en entier).
+//   - « Statut » : exclut 🔴 Inactif ; garde le reste (🟢 T360, 🟠 À surveiller,
+//                  🟠 Peu impliqués, Moyen…).
+//   - email : « Mail LearnyBox » prioritaire, fallback « 2ème mail » (multi-valeurs).
 //   - dedup (email lowercase) + validation regex.
+// Les colonnes sont retrouvées par leur TITRE en ligne 3 (api/_lib/parcours-colonnes.js) :
+// Manu peut les déplacer. Titre absent ou en double → erreur levée, aucune liste renvoyée
+// (mieux vaut pas de brief qu'un brief envoyé à une colonne prise pour des e-mails).
 // SA Google en scope 'spreadsheets' déjà en place (cf api/coach/_lib/sheets-client.js).
 // ========================================
 
 import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
+import { readParcours, TITRES } from './parcours-colonnes.js';
 
-const SHEET_NAME = '👥 Parcours Membre';
-// Range OUVERT en fin (pas de borne de ligne) : Google renvoie jusqu'à la dernière ligne
-// renseignée de l'onglet. La borne figée à 77 rendait invisibles les membres ajoutés
-// au-delà (4 personnes début septembre 2026, dont 2 élèves actifs). Sans risque : les
-// lignes sans email valide sont déjà écartées par pickEmail().
-const READ_RANGE = `'${SHEET_NAME}'!A4:U`;
-const COL_PRENOM = 1;    // B
-const COL_NOM = 2;       // C
-const COL_STATUT = 3;    // D
-const COL_MAIL_LB = 19;  // T (prioritaire)
-const COL_MAIL_PERSO = 20; // U (fallback, multi-valeurs)
+// Onglet lu en entier, plage ouverte : les membres ajoutés en bas restent visibles, les
+// lignes sans email valide sont écartées par pickEmail().
+const TITRES_REQUIS = [TITRES.PRENOM, TITRES.NOM, TITRES.STATUT, TITRES.MAIL_LB, TITRES.MAIL_PERSO];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ---- Coachs : ajoutés EN DUR, volontairement hors tableur ----
@@ -35,11 +31,12 @@ const COACH_RECIPIENTS = [
   { email: 'emmanuel.galiano@gmail.com', prenom: 'Emmanuel', nom: 'Galiano',   statut: 'Coach', name: 'Emmanuel Galiano' },
 ];
 
-// Email retenu pour une ligne : T valide en priorité, sinon 1re valeur valide de U.
-function pickEmail(row) {
-  const t = String(row[COL_MAIL_LB] || '').trim().toLowerCase();
+// Email retenu pour une ligne : « Mail LearnyBox » valide en priorité, sinon 1re valeur
+// valide de « 2ème mail ». `cols` = index résolus par titre.
+function pickEmail(row, cols) {
+  const t = String(row[cols[TITRES.MAIL_LB]] || '').trim().toLowerCase();
   if (EMAIL_RE.test(t)) return t;
-  const u = String(row[COL_MAIL_PERSO] || '').trim().toLowerCase();
+  const u = String(row[cols[TITRES.MAIL_PERSO]] || '').trim().toLowerCase();
   for (const e of u.split(/[,;\s]+/)) { if (EMAIL_RE.test(e)) return e; }
   return null;
 }
@@ -48,34 +45,35 @@ function pickEmail(row) {
 export async function getBriefRecipients() {
   const sheets = getSheetsClient();
   const spreadsheetId = getSheetId();
-  const resp = await sheets.spreadsheets.values.get({
-    spreadsheetId, range: READ_RANGE,
-    valueRenderOption: 'FORMATTED_VALUE', dateTimeRenderOption: 'FORMATTED_STRING',
-  });
-  const values = resp.data.values || [];
+  const parcours = await readParcours(sheets, spreadsheetId, TITRES_REQUIS);
+  if (!parcours.ok) {
+    console.error(`[TABLEUR-RECIPIENTS] ⛔ ${parcours.error}`);
+    throw new Error(parcours.error);
+  }
+  const { cols, rows: values } = parcours;
 
   const stats = { rows: values.length, inactifs: 0, no_valid_email: 0, duplicates: 0, kept: 0, coaches: 0, total: 0 };
   const seen = new Set();
   const recipients = [];
 
   for (const row of values) {
-    const statut = String(row[COL_STATUT] || '').trim();
+    const statut = String(row[cols[TITRES.STATUT]] || '').trim();
     if (/inactif/i.test(statut)) { stats.inactifs++; continue; } // exclut 🔴 Inactif
 
-    const email = pickEmail(row);
+    const email = pickEmail(row, cols);
     if (!email) { stats.no_valid_email++; continue; }
 
     const key = email.toLowerCase();
     if (seen.has(key)) { stats.duplicates++; continue; }
     seen.add(key);
 
-    const prenom = String(row[COL_PRENOM] || '').trim();
-    const nom = String(row[COL_NOM] || '').trim();
+    const prenom = String(row[cols[TITRES.PRENOM]] || '').trim();
+    const nom = String(row[cols[TITRES.NOM]] || '').trim();
     recipients.push({ email, prenom, nom, statut, name: `${prenom} ${nom}`.trim() || prenom || null });
     stats.kept++;
   }
 
-  // Coachs concaténés APRÈS le tableur, donc jamais soumis au filtre de statut (col D) :
+  // Coachs concaténés APRÈS le tableur, donc jamais soumis au filtre de statut :
   // ils ne viennent pas du tableur et n'ont pas de statut à filtrer.
   // Dédup case-insensitive contre `seen`, qui contient déjà les emails élèves : un coach
   // présent par ailleurs dans le tableur reste servi UNE seule fois (sa ligne tableur

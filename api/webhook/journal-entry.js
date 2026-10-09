@@ -4,13 +4,17 @@
 // Header d'auth : X-Webhook-Secret == process.env.SUPABASE_WEBHOOK_SECRET (timingSafeEqual).
 //
 // À chaque changement de journal d'un élève : recalcule son T360 Score, vérifie s'il a rempli
-// son journal dans les 3 derniers jours (Paris), et écrit dans la col X du tableur Manu :
+// son journal dans les 3 derniers jours (Paris), et écrit dans la colonne « Journal » du
+// tableur Manu (historiquement la col X — elle est retrouvée par son TITRE, cf
+// api/_lib/parcours-colonnes.js, Manu peut la déplacer) :
 //   - "<score>" (ex "72.4")    → élève inscrit + journal rempli les 3 derniers jours
 //   - "Pas rempli"             → élève inscrit + journal PAS rempli les 3 derniers jours
 //   - "Non inscrit au journal" → email tableur absent de public.users
 //                                (via ?action=backfill-full uniquement — le webhook unitaire
 //                                 est déclenché par un user_id qui existe forcément)
-// N'écrit QUE dans la col X. Ne throw jamais (retourne 500 { ok:false } en cas d'erreur).
+// N'écrit QUE dans la colonne « Journal ». Ne throw jamais (retourne 500 { ok:false } en cas d'erreur).
+// Garde-fou : un titre de colonne absent ou en double en ligne 3 → AUCUNE écriture, erreur
+// loggée, et réponse 200 { ok:false } pour que Supabase ne rejoue pas le webhook en boucle.
 //
 // Deux modes :
 //   - POST (webhook Supabase, défaut)        → traite l'élève du payload, écrit sa seule cellule X.
@@ -22,19 +26,12 @@ import crypto from 'crypto';
 import { getServiceClient, readJson } from '../tradovate/_lib/auth.js';
 import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
 import { computeT360Score } from '../_lib/t360-score.js';
+import { readParcours, cellA1, TITRES, FIRST_MEMBER_ROW } from '../_lib/parcours-colonnes.js';
 
-const SHEET_NAME = '👥 Parcours Membre';
-// Lignes MEMBRES à partir de la 4, range OUVERT en fin, jusqu'à col U (mails perso).
-// La borne figée à 77 empêchait le matching des membres ajoutés au-delà : leur colonne X
-// n'était jamais écrite, ni par le webhook ni par le backfill, sans la moindre erreur.
-// Sans risque : rowNum = FIRST_MEMBER_ROW + index, donc indépendant de la taille du range,
-// et les lignes sans email sont déjà écartées (rowEmails vide → skipped).
-const READ_RANGE = `'${SHEET_NAME}'!A4:U`;
-const COL_PRENOM = 1;   // B
-const COL_NOM = 2;      // C
-const COL_MAIL_LB = 19; // T (clé de matching principale)
-const COL_MAIL_PERSO = 20; // U
-const FIRST_MEMBER_ROW = 4;
+// Colonnes lues (prénom, nom, mails) et écrite (journal), retrouvées par leur titre en ligne 3.
+// Lecture de l'onglet entier, plage ouverte : rowNum = FIRST_MEMBER_ROW + index, les lignes
+// sans email sont écartées (rowEmails vide → skipped).
+const TITRES_REQUIS = [TITRES.PRENOM, TITRES.NOM, TITRES.MAIL_LB, TITRES.MAIL_PERSO, TITRES.JOURNAL];
 const ACTIVE_WINDOW_DAYS = 3;
 
 // Le backfill peut prendre 30-60s (compute par élève). Vercel Hobby = 10s par défaut → on relève.
@@ -58,12 +55,13 @@ function minusDaysStr(dateStr, days) {
   return d.toISOString().slice(0, 10);
 }
 
-// Emails candidats d'une ligne tableur : col T (LB, prioritaire) puis col U (perso, multi-valeurs).
-function rowEmails(row) {
+// Emails candidats d'une ligne tableur : « Mail LearnyBox » (prioritaire) puis « 2ème mail »
+// (perso, multi-valeurs). `cols` = index résolus par titre.
+function rowEmails(row, cols) {
   const out = [];
-  const tv = String(row[COL_MAIL_LB] || '').trim().toLowerCase();
+  const tv = String(row[cols[TITRES.MAIL_LB]] || '').trim().toLowerCase();
   if (tv) out.push(tv);
-  const uv = String(row[COL_MAIL_PERSO] || '').trim().toLowerCase();
+  const uv = String(row[cols[TITRES.MAIL_PERSO]] || '').trim().toLowerCase();
   if (uv) uv.split(/[,;\s]+/).forEach((e) => { if (e) out.push(e); });
   return out;
 }
@@ -133,20 +131,22 @@ export default async function handler(req, res) {
     // 4-7. Valeur col X : "<score>" si journal rempli <3j (dates futures exclues), sinon "Pas rempli".
     const valueToWrite = await computeUserColX(sb, user_id);
 
-    // 8. Matching dans le tableur (col T ou U == email).
+    // 8. Matching dans le tableur (« Mail LearnyBox » ou « 2ème mail » == email).
     const sheets = getSheetsClient();
     const spreadsheetId = getSheetId();
-    const readResp = await sheets.spreadsheets.values.get({
-      spreadsheetId, range: READ_RANGE,
-      valueRenderOption: 'FORMATTED_VALUE', dateTimeRenderOption: 'FORMATTED_STRING',
-    });
-    const values = readResp.data.values || [];
+    const parcours = await readParcours(sheets, spreadsheetId, TITRES_REQUIS);
+    if (!parcours.ok) {
+      // 200 et non 5xx : l'erreur ne se corrige pas en rejouant, seulement en réparant la ligne 3.
+      console.error(`[WEBHOOK-COL-X] ⛔ AUCUNE écriture — ${parcours.error} (user=${user_id} email=${email})`);
+      return res.status(200).json({ ok: false, matched: false, written: false, error: parcours.error });
+    }
+    const { cols, rows: values } = parcours;
 
     let matchIdx = -1, matchedMulti = 0;
     for (let i = 0; i < values.length; i++) {
       const row = values[i] || [];
-      const tv = String(row[COL_MAIL_LB] || '').trim().toLowerCase();
-      const uv = String(row[COL_MAIL_PERSO] || '').trim().toLowerCase();
+      const tv = String(row[cols[TITRES.MAIL_LB]] || '').trim().toLowerCase();
+      const uv = String(row[cols[TITRES.MAIL_PERSO]] || '').trim().toLowerCase();
       const hit = (tv && tv === email) || (uv && (uv === email || uv.split(/[,;\s]+/).includes(email)));
       if (hit) { matchedMulti++; if (matchIdx === -1) matchIdx = i; }
     }
@@ -160,13 +160,13 @@ export default async function handler(req, res) {
 
     const rowNum = FIRST_MEMBER_ROW + matchIdx;
     const matchedRow = values[matchIdx] || [];
-    const prenom = matchedRow[COL_PRENOM] || '';
-    const nom = matchedRow[COL_NOM] || '';
+    const prenom = matchedRow[cols[TITRES.PRENOM]] || '';
+    const nom = matchedRow[cols[TITRES.NOM]] || '';
 
-    // 9. Écriture col X (UNIQUEMENT).
+    // 9. Écriture colonne « Journal » (UNIQUEMENT), lettre calculée depuis son titre.
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${SHEET_NAME}'!X${rowNum}`,
+      range: cellA1(cols[TITRES.JOURNAL], rowNum),
       valueInputOption: 'RAW',
       requestBody: { values: [[valueToWrite]] },
     });
@@ -200,11 +200,12 @@ async function handleBackfillFull(res) {
   // Lecture du tableur (1 requête).
   const sheets = getSheetsClient();
   const spreadsheetId = getSheetId();
-  const readResp = await sheets.spreadsheets.values.get({
-    spreadsheetId, range: READ_RANGE,
-    valueRenderOption: 'FORMATTED_VALUE', dateTimeRenderOption: 'FORMATTED_STRING',
-  });
-  const values = readResp.data.values || [];
+  const parcours = await readParcours(sheets, spreadsheetId, TITRES_REQUIS);
+  if (!parcours.ok) {
+    console.error(`[WEBHOOK-COL-X][backfill-full] ⛔ AUCUNE écriture — ${parcours.error}`);
+    return res.status(200).json({ ok: false, written: 0, error: parcours.error });
+  }
+  const { cols, rows: values } = parcours;
 
   let scored = 0, pas_rempli = 0, non_inscrit = 0, skipped = 0;
   const updates = [];
@@ -212,7 +213,7 @@ async function handleBackfillFull(res) {
   for (let i = 0; i < values.length; i++) {
     const row = values[i] || [];
     const rowNum = FIRST_MEMBER_ROW + i;
-    const emails = rowEmails(row);
+    const emails = rowEmails(row, cols);
     if (emails.length === 0) { skipped++; continue; } // ligne sans email → ne rien écrire
 
     // Premier email de la ligne qui matche un user Supabase (T prioritaire, cf rowEmails).
@@ -227,7 +228,7 @@ async function handleBackfillFull(res) {
       value = 'Non inscrit au journal';
       non_inscrit++;
     }
-    updates.push({ range: `'${SHEET_NAME}'!X${rowNum}`, values: [[value]] });
+    updates.push({ range: cellA1(cols[TITRES.JOURNAL], rowNum), values: [[value]] });
   }
 
   // 1 SEUL appel d'écriture pour toutes les cellules X (économie quota Google Sheets).
