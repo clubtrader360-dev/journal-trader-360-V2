@@ -48,6 +48,23 @@
 -- la création de la table, des fonctions et le remplissage : soit le lot entier
 -- passe, soit la base reste exactement comme avant.
 
+-- ============================================================================
+-- ⚠️ ETAT REEL DE LA BASE AU 10/10/2026, A LIRE AVANT D'EXECUTER
+-- ============================================================================
+-- La PARTIE ADDITIVE de ce fichier a deja ete appliquee en production par Nadir :
+--
+--     public.acces_membre        102 lignes, 102 formation, 98 journal
+--     public.a_acces_journal()   public.a_acces_formation()
+--     acces_membre_select        la politique de lecture de la table des droits
+--
+-- ⚠️ CE FICHIER EST DONC REJOUABLE, ET IL DOIT LE RESTER. `create table if not
+-- exists`, `create or replace function`, `on conflict do nothing` et le
+-- `drop policy if exists` plus bas couvrent chacun leur cas. Rejoue, il ne
+-- reinsere rien et ne casse rien.
+--
+-- ⛔ LES 61 POLITIQUES DES TABLES DE JOURNAL N'ONT PAS BOUGE : `trades` en porte
+-- toujours huit, verifie. La partie risquee est entierement devant nous.
+
 begin;
 
 -- ============================================================================
@@ -115,6 +132,11 @@ alter table public.acces_membre enable row level security;
 
 -- Chacun lit ses propres droits : l'interface en a besoin pour savoir quels
 -- boutons montrer. Le coach lit tout le monde.
+-- ⚠️ `drop ... if exists` D'ABORD : Postgres n'a pas de `create policy if not
+-- exists`, et la partie additive de ce fichier a DEJA ete appliquee en production
+-- le 10/10/2026. Sans cette ligne, rejouer le fichier echouerait ici, donc avant
+-- la partie risquee, en laissant croire que rien n'a ete fait.
+drop policy if exists acces_membre_select on public.acces_membre;
 create policy acces_membre_select on public.acces_membre
   for select using ((auth.uid() = user_id) or is_coach());
 
@@ -341,6 +363,38 @@ begin
            and substring(pg_get_expr(p.polqual, p.polrelid)
                          from '^\(\(auth\.uid\(\) = user_id\) OR (.+)\)$') is not null
       ) s;
+
+    -- ── ⛔ E. UNE EXCEPTION, ET UNE SEULE : `replay_views` ──────────────────
+    --
+    -- ⚠️ PRÉSERVER UNE EXPRESSION N'EST PAS PLUS NEUTRE QUE LA GÉNÉRALISER.
+    -- C'est une décision, et elle se prend expression par expression. Sur les
+    -- douze tables, « préserver » est juste onze fois. Ici, cela ouvrirait la
+    -- porte que toute cette migration pose.
+    --
+    -- La branche d'origine est `can_view_replays()`, et les deux branches sont
+    -- reliées par OU : il suffirait qu'elle rende vrai pour que la ligne soit
+    -- lisible, QUEL QUE SOIT le droit journal. Or elle rend vrai pour tout compte
+    -- `active` ou `approved`, élèves compris. ⛔ Le droit journal n'aurait eu
+    -- AUCUN effet sur cette table, la migration se serait exécutée, les 46
+    -- politiques posées et le contrôle de couverture au vert.
+    --
+    -- ⚠️ CE REMPLACEMENT EST UNE CORRECTION ASSUMÉE, PAS UN EFFET DE BORD.
+    -- `can_view_replays()` est une politique de CATALOGUE appliquée par erreur à
+    -- une table de VUES INDIVIDUELLES. Mesuré le 10/10/2026, et c'est le seul
+    -- autre usage de la fonction sur TOUT le schéma :
+    --
+    --     replays        catalogue, vu par tous   replays_select        correct
+    --     replay_views   vues de chacun           replay_views_select   copie fautive
+    --
+    -- Aujourd'hui, n'importe quel élève actif lit la progression de visionnage de
+    -- tous les autres : 121 lignes, 20 élèves. Tâche #47.
+    --
+    -- ⛔ NE TOUCHE PAS À `replays`, le catalogue : sa politique est correcte, tous
+    -- les élèves doivent voir la liste des replays. Elle n'est pas dans CIBLES.
+    if cible = 'replay_views' then
+      raise notice '⚠️  replay_views : branche large REMPLACEE, % -> is_coach()', coalesce(large, '(aucune)');
+      large := 'is_coach()';
+    end if;
 
     if surface is null then
       raise notice '⚠️  % : aucune politique eleve, rien a faire', cible;

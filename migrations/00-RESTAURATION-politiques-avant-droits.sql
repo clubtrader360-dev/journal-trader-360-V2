@@ -65,6 +65,24 @@ create policy payouts_insert_strict on public.payouts as permissive for insert t
 create policy payouts_select on public.payouts as permissive for select to authenticated using (((auth.uid() = user_id) OR is_coach()));
 create policy payouts_update_strict on public.payouts as permissive for update to authenticated using ((auth.uid() = user_id)) with check ((auth.uid() = user_id));
 create policy replay_views_insert on public.replay_views as permissive for insert to authenticated with check ((auth.uid() = user_id));
+-- ⚠️ ATTENTION, CETTE LIGNE-CI REOUVRE UNE FUITE, ET C'EST VOULU D'ETRE DIT.
+-- ⛔ `can_view_replays()` N'EST PAS UNE FONCTION DE COACH : elle rend vrai pour
+-- tout compte de `public.users` dont le `status` vaut `active` ou `approved`,
+-- donc pour les eleves aussi. Sur `replay_views`, cela veut dire que n'importe
+-- quel eleve actif lit la progression de visionnage de TOUS les autres :
+-- 121 lignes, 20 eleves, mesure le 10/10/2026. Tache #47.
+--
+-- C'etait une politique de CATALOGUE recopiee par erreur sur une table de VUES
+-- INDIVIDUELLES. Sur `replays`, le catalogue, la meme expression est correcte et
+-- n'est pas touchee.
+--
+-- La migration `01-acces-membre.sql` remplace donc cette branche par `is_coach()`,
+-- et ce remplacement est une CORRECTION ASSUMEE, pas un effet de bord.
+-- ⚠️ REVENIR EN ARRIERE AVEC CETTE LIGNE REOUVRE DONC LA FUITE. Si tu restaures,
+-- sache-le, et remets la correction des que possible.
+--
+-- ⛔ SEULE CETTE NOTE A ETE AJOUTEE A CE FICHIER. Aucune des 61 politiques n'a ete
+-- modifiee : c'est un releve date, pas un fichier de travail.
 create policy replay_views_select on public.replay_views as permissive for select to authenticated using (((auth.uid() = user_id) OR can_view_replays()));
 create policy replay_views_update on public.replay_views as permissive for update to authenticated using ((auth.uid() = user_id)) with check ((auth.uid() = user_id));
 create policy trades_delete_strict on public.trades as permissive for delete to authenticated using ((auth.uid() = user_id));
