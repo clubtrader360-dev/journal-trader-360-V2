@@ -30,6 +30,27 @@
 -- remplissage initial doit couvrir les 102, et que son compte est contrôlé.
 
 -- ============================================================================
+-- ⚠️ 0. UNE SEULE TRANSACTION, ET CE N'EST PAS UNE PRÉCAUTION DE STYLE
+-- ============================================================================
+-- Ce fichier SUPPRIME 61 politiques avant d'en recréer 46. ⛔ Entre les deux, les
+-- tables n'ont aucune politique, donc PERSONNE n'y accède : avec RLS actif et
+-- aucune politique, tout est refusé. Un échec à cet instant laisserait 102 élèves
+-- dehors, et la seule trace des 61 définitions serait le fichier de restauration.
+--
+-- ⚠️ POSTGRES SAIT ANNULER DU DDL, mais seulement si on le lui demande. Hors
+-- transaction explicite, chaque instruction est validée seule : une erreur au
+-- milieu ne défait rien de ce qui précède. Le `begin` ci-dessous et le `commit`
+-- final ne sont donc pas décoratifs, ⛔ NE LES RETIRE PAS, et ne découpe pas ce
+-- fichier en morceaux exécutés séparément.
+--
+-- ⚠️ Le bloc `do $$` est de toute façon atomique à lui seul, puisqu'une exception
+-- y annule tout son contenu. Ce qu'ajoute la transaction, c'est de couvrir AUSSI
+-- la création de la table, des fonctions et le remplissage : soit le lot entier
+-- passe, soit la base reste exactement comme avant.
+
+begin;
+
+-- ============================================================================
 -- 1. LA TABLE
 -- ============================================================================
 create table if not exists public.acces_membre (
@@ -205,20 +226,61 @@ on conflict (user_id) do nothing;
 -- pas de politique DELETE aujourd'hui : elles n'en auront pas davantage. Ajouter
 -- une permission en passant serait un effet de bord, pas une migration.
 
+-- ── ⛔ D. UNE QUATRIÈME GÉNÉRALISATION, TROUVÉE EN CHERCHANT LA TROISIÈME ────
+--
+-- La version précédente imposait `or is_coach()` à TOUTES les politiques de
+-- lecture. Relevé du 10/10/2026, expression par expression, sur les 61 :
+--
+--     is_coach()            7 tables   account_costs, accounts, checklist_validations,
+--                                      gamification_state, journal_entries, payouts, trades
+--     can_view_replays()    1 table    replay_views
+--     AUCUNE branche large  4 tables   daily_fees, tradovate_credentials,
+--                                      tradovate_sync_state, user_motivation
+--
+-- ⛔ DEUX DÉFAUTS, PAS UN SEUL.
+--   1. Sur `replay_views`, `is_coach()` REMPLAÇAIT `can_view_replays()`. Ce sont
+--      deux fonctions différentes : `can_view_replays()` rend vrai pour TOUT compte
+--      de `public.users` dont le `status` est actif ou approuvé, donc pour les
+--      élèves aussi, pas seulement pour les coachs. Lue, pas supposée.
+--   2. Sur les QUATRE tables sans branche large, `or is_coach()` ÉLARGISSAIT :
+--      il aurait donné aux coachs une lecture qu'ils n'ont pas aujourd'hui, dont
+--      celle de `tradovate_credentials`. Une migration qui ouvre un accès en
+--      passant est pire qu'une qui en ferme un : personne ne s'en plaint.
+--
+-- ⚠️ Aucun contrôle n'aurait échoué dans les deux cas. Les tables restaient
+-- lisibles par leur propriétaire et par les coachs, donc tout passait au vert.
+--
+-- LA BRANCHE LARGE EST DONC RELEVÉE DANS LE CATALOGUE, TABLE PAR TABLE, au même
+-- moment que la surface, et réécrite telle quelle. ⛔ Et si une expression ne
+-- correspond à aucune des deux formes connues, le bloc ÉCHOUE au lieu de
+-- deviner : refuser l'inconnu vaut mieux que le généraliser.
+
 do $$
 declare
   cible      text;
+  commande   "char";
+  nom        text;
   -- ⚠️ `"char"` ENTRE GUILLEMETS, ET PAS `char`. `pg_policy.polcmd` est du type
   -- interne `"char"`, un seul octet, distinct de `character`. Une premiere version
   -- declarait `char[]` : la requete echouait avec
   -- « CASE/WHEN could not convert type character[] to "char"[] ».
   -- ⛔ Elle aurait fait exploser la migration a l application. Trouvee en eprouvant
   -- la partie risquee EN LECTURE SEULE avant d ecrire quoi que ce soit.
-  commande   "char";
-  nom        text;
   surface    "char"[];
+  large      text;
+  lecture    text;
+  inconnues  int;
   supprimees int := 0;
   creees     int := 0;
+  -- ⚠️ `user_preferences` N'EST PAS DANS CETTE LISTE, ET CE N'EST PAS UN OUBLI.
+  -- Elle porte `theme` et `accent_color`. L'y inclure ferait perdre son mode clair
+  -- ou sombre a un eleve qui n'a que la formation, et ⛔ RIEN NE LE SIGNALERAIT :
+  -- la page s'afficherait simplement dans l'autre theme. C'est la SEULE table hors
+  -- liste portant une colonne `user_id`, verifie sur le schema entier le 10/10/2026.
+  -- ⛔ NE L'AJOUTE PAS POUR « HARMONISER ».
+  --
+  -- `nutrition_logs` n'y est pas non plus : pas de colonne `user_id`, une seule
+  -- politique `is_coach()`. Ce n'est pas une table d'eleve.
   CIBLES constant text[] := array[
     'trades', 'journal_entries', 'accounts', 'account_costs', 'daily_fees',
     'payouts', 'checklist_validations', 'gamification_state', 'user_motivation',
@@ -226,8 +288,31 @@ declare
   ];
 begin
   foreach cible in array CIBLES loop
-    -- ⚠️ LA SURFACE EST RELEVÉE AVANT TOUTE SUPPRESSION. Une politique `ALL`
-    -- compte pour les quatre commandes, puisque c'est ce qu'elle autorise.
+    -- ⛔ GARDE-FOU D'ABORD. Toute expression dont la forme n'est pas reconnue fait
+    -- echouer la migration entiere. On ne devine pas une autorisation.
+    select count(*) into inconnues
+      from pg_policy p
+      join pg_class c on c.oid = p.polrelid
+      join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relname = cible
+       and coalesce(pg_get_expr(p.polqual, p.polrelid), '') <> 'is_coach()'
+       and (
+         (p.polcmd in ('r','*')
+          and pg_get_expr(p.polqual, p.polrelid) !~ '^\(auth\.uid\(\) = user_id\)$'
+          and pg_get_expr(p.polqual, p.polrelid) !~ '^\(\(auth\.uid\(\) = user_id\) OR (.+)\)$')
+         or (p.polcmd in ('a','w','d')
+             and coalesce(pg_get_expr(p.polqual, p.polrelid), '(auth.uid() = user_id)')
+                 !~ '^\(auth\.uid\(\) = user_id\)$')
+         or (p.polcmd in ('a','w','d','*')
+             and coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '(auth.uid() = user_id)')
+                 !~ '^\(auth\.uid\(\) = user_id\)$')
+       );
+    if inconnues > 0 then
+      raise exception '⛔ % : % politique(s) de forme inconnue. Relis-les avant d appliquer.',
+        cible, inconnues;
+    end if;
+
+    -- La surface des commandes autorisees aux eleves. `ALL` compte pour quatre.
     select array_agg(distinct c2)
       into surface
       from (
@@ -238,8 +323,23 @@ begin
           join pg_class c on c.oid = p.polrelid
           join pg_namespace n on n.oid = c.relnamespace
          where n.nspname = 'public' and c.relname = cible
-           -- ⛔ Les politiques purement coach ne décrivent pas la surface ÉLÈVE.
            and coalesce(pg_get_expr(p.polqual, p.polrelid), '') <> 'is_coach()'
+      ) s;
+
+    -- La branche large PROPRE A LA TABLE, telle qu'elle existe aujourd'hui.
+    select string_agg(distinct b, ' or ')
+      into large
+      from (
+        select substring(pg_get_expr(p.polqual, p.polrelid)
+                         from '^\(\(auth\.uid\(\) = user_id\) OR (.+)\)$') as b
+          from pg_policy p
+          join pg_class c on c.oid = p.polrelid
+          join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public' and c.relname = cible
+           and p.polcmd in ('r','*')
+           and coalesce(pg_get_expr(p.polqual, p.polrelid), '') <> 'is_coach()'
+           and substring(pg_get_expr(p.polqual, p.polrelid)
+                         from '^\(\(auth\.uid\(\) = user_id\) OR (.+)\)$') is not null
       ) s;
 
     if surface is null then
@@ -247,7 +347,12 @@ begin
       continue;
     end if;
 
-    -- Suppression de tout ce qui existait, coach excepté.
+    -- ⚠️ L'ECRITURE N'A DE BRANCHE LARGE SUR AUCUNE TABLE, verifie : les 61
+    -- politiques d'ecriture portent toutes `(auth.uid() = user_id)` seul. Le
+    -- garde-fou plus haut echouerait si ce n'etait plus vrai.
+    lecture := format('((auth.uid() = user_id) and a_acces_journal())%s',
+                      case when large is null then '' else ' or ' || large end);
+
     for nom in
       select p.polname
         from pg_policy p
@@ -260,36 +365,31 @@ begin
       supprimees := supprimees + 1;
     end loop;
 
-    -- Recréation, une politique par commande, avec le droit.
     foreach commande in array surface loop
       if commande = 'r' then
-        execute format(
-          'create policy %I on public.%I for select to authenticated '
-          'using (((auth.uid() = user_id) and a_acces_journal()) or is_coach())',
-          cible || '_droit_journal_select', cible);
+        execute format('create policy %I on public.%I for select to authenticated using (%s)',
+                       cible || '_droit_journal_select', cible, lecture);
       elsif commande = 'a' then
-        execute format(
-          'create policy %I on public.%I for insert to authenticated '
-          'with check ((auth.uid() = user_id) and a_acces_journal())',
-          cible || '_droit_journal_insert', cible);
+        execute format('create policy %I on public.%I for insert to authenticated '
+                       'with check ((auth.uid() = user_id) and a_acces_journal())',
+                       cible || '_droit_journal_insert', cible);
       elsif commande = 'w' then
-        -- ⚠️ `using` ET `with check` : le premier contrôle la ligne AVANT, le
-        -- second la ligne APRÈS. Sans le second, on réattribuerait sa ligne.
-        execute format(
-          'create policy %I on public.%I for update to authenticated '
-          'using ((auth.uid() = user_id) and a_acces_journal()) '
-          'with check ((auth.uid() = user_id) and a_acces_journal())',
-          cible || '_droit_journal_update', cible);
+        -- ⚠️ `using` ET `with check` : le premier controle la ligne AVANT, le
+        -- second la ligne APRES. Sans le second, on reattribuerait sa ligne.
+        execute format('create policy %I on public.%I for update to authenticated '
+                       'using ((auth.uid() = user_id) and a_acces_journal()) '
+                       'with check ((auth.uid() = user_id) and a_acces_journal())',
+                       cible || '_droit_journal_update', cible);
       elsif commande = 'd' then
-        execute format(
-          'create policy %I on public.%I for delete to authenticated '
-          'using ((auth.uid() = user_id) and a_acces_journal())',
-          cible || '_droit_journal_delete', cible);
+        execute format('create policy %I on public.%I for delete to authenticated '
+                       'using ((auth.uid() = user_id) and a_acces_journal())',
+                       cible || '_droit_journal_delete', cible);
       end if;
       creees := creees + 1;
     end loop;
 
-    raise notice '%  surface %  ->  politiques posees', cible, surface;
+    raise notice '%  surface %  branche large %  ->  posee',
+      cible, surface, coalesce(large, '(aucune)');
   end loop;
 
   raise notice '== % politique(s) supprimee(s), % creee(s) ==', supprimees, creees;
@@ -328,3 +428,12 @@ end $$;
 -- ⚠️ `nutrition_logs` n'est pas dans cette liste, et c'est volontaire : elle n'a
 -- pas de colonne `user_id` et sa seule politique est `is_coach()`. Il n'y a rien
 -- à fermer, et l'y mettre ferait apparaître une fausse faille à chaque contrôle.
+
+-- ============================================================================
+-- ⚠️ FIN DE LA TRANSACTION
+-- ============================================================================
+-- ⛔ Avant de valider, LIS LES `notice` du bloc : 61 supprimées, 46 créées, et la
+-- branche large attendue table par table. Si un nombre diffère, `rollback;` au
+-- lieu de `commit;` et la base reste intacte.
+
+commit;
