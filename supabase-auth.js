@@ -5,6 +5,20 @@
 (() => {
     console.log('[LOAD] Chargement supabase-auth.js...');
 
+    // ⛔ `setProperty(..., 'important')` ET PAS `style.display = 'none'`.
+    // `index.html` porte, dans `@media (max-width: 1023.98px)` :
+    //     #mainApp.flex, #coachApp.flex { display: block !important; }
+    // Un style en ligne SANS `!important` perd contre une regle d auteur qui en porte
+    // un. Sous 1024 pixels, le masquage etait donc INOPERANT et les deux interfaces
+    // restaient affichees l une sous l autre apres connexion.
+    // ⚠️ RIEN NE LE SIGNALAIT : `el.style.display` rendait bien « none » sur un
+    // element parfaitement visible. Seul `getComputedStyle` le montrait.
+    // Mesure du 10/10/2026, style calcule, les deux roles :
+    //     1440 px   un seul conteneur visible, correct
+    //      390 px   mainApp ET coachApp visibles, pour un coach COMME pour un eleve
+    // ⛔ La regle CSS d `index.html` n est PAS touchee : elle gouverne la disposition
+    // mobile de l application entiere. On corrige le masquage, pas la disposition.
+
     // Récupérer le client depuis window.supabaseClient (pas window.supabase)
     const supabase = window.supabaseClient; // Référence locale, pas redéclaration
     
@@ -92,7 +106,7 @@
             
             // ✅ NETTOYAGE COMPLET de l'interface Coach
             if (coachApp) {
-                coachApp.style.display = 'none';
+                coachApp.style.setProperty('display', 'none', 'important');
                 coachApp.style.visibility = 'hidden';
                 coachApp.style.opacity = '0';
             }
@@ -239,7 +253,7 @@
             // ✅ NETTOYAGE COMPLET : Réinitialiser l'état de coachApp
             if (coachApp) {
                 // Forcer la visibilité et réinitialiser le style
-                coachApp.style.display = 'none';  // D'abord cacher
+                coachApp.style.setProperty('display', 'none', 'important');  // D'abord cacher
                 coachApp.style.visibility = 'visible';
                 coachApp.style.opacity = '1';
                 
@@ -254,7 +268,7 @@
             
             if (authScreen) authScreen.style.display = 'none';
             if (mainApp) {
-                mainApp.style.display = 'none';  // Masquer l'interface élève
+                mainApp.style.setProperty('display', 'none', 'important');  // Masquer l'interface élève
                 mainApp.style.visibility = 'hidden';  // Forcer masquage complet
             }
             if (coachApp) coachApp.style.display = 'flex';  // Afficher l'interface COACH
@@ -500,8 +514,8 @@
         // 🛟 Garantie absolue : si on plante n'importe où, on remet la home en place.
         const ensureHomeVisibleOnFailure = () => {
             if (authScreen) authScreen.style.display = 'flex';
-            if (mainApp) mainApp.style.display = 'none';
-            if (coachApp) coachApp.style.display = 'none';
+            if (mainApp) mainApp.style.setProperty('display', 'none', 'important');
+            if (coachApp) coachApp.style.setProperty('display', 'none', 'important');
         };
 
         try {
@@ -576,7 +590,7 @@
             // Étape critique : on bascule l'UI. On encapsule pour pouvoir rollback.
             try {
                 if (renderRole === 'coach') {
-                    if (mainApp) mainApp.style.display = 'none';
+                    if (mainApp) mainApp.style.setProperty('display', 'none', 'important');
                     if (coachApp) {
                         coachApp.style.display = 'flex';
                         coachApp.style.visibility = 'visible';
@@ -596,7 +610,7 @@
                         }
                     } catch (e) { console.warn('[AUTH] loadCoachRegistrations a échoué:', e); }
                 } else {
-                    if (coachApp) coachApp.style.display = 'none';
+                    if (coachApp) coachApp.style.setProperty('display', 'none', 'important');
                     if (mainApp) {
                         mainApp.style.display = 'flex';
                         mainApp.style.visibility = 'visible';
