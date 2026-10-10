@@ -650,6 +650,14 @@
                 });
             } catch (_) {}
         }
+        // ⚠️ UN SEUL POINT D'ACCROCHE pour les deux droits, et il est ici. Les
+        // quatre endroits qui dévoilent `#mainApp` plus haut auraient dû être
+        // touchés un par un, et l'un d'eux aurait fini par être oublié sans que
+        // rien ne le signale. `onAuthStateChange` passe à chaque ouverture de
+        // session, quel que soit le chemin emprunté.
+        if (session && window.Acces && typeof window.Acces.orienter === 'function') {
+            window.Acces.orienter().catch((e) => console.error('[ACCES] orientation :', e));
+        }
         // SIGNED_IN, TOKEN_REFRESHED : rien à faire, la lib gère le token automatiquement
     });
 

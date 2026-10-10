@@ -48,3 +48,7 @@ audit-*.md
 # laissés sur place. Ce ne sont ni des sources ni des livrables, et ils ont déjà été
 # commités par erreur deux fois par un `git add -A`.
 _transfert-*/
+
+# Captures de sondes : 63 Mo pour 40 fichiers, regenerables par
+# `node outils/formation-eprouver.mjs`. Un depot n est pas un album.
+captures/
