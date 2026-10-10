@@ -109,102 +109,222 @@ create policy acces_membre_select on public.acces_membre
 -- de la même façon, et c'est le genre d'économie qui se paie cher.
 
 -- ============================================================================
--- 4. LE REMPLISSAGE INITIAL : LES 102 COMPTES GARDENT TOUT
+-- 4. LE REMPLISSAGE INITIAL
 -- ============================================================================
 -- ⛔ LE POINT IRRATTRAPABLE. Les comptes existants ont aujourd'hui les deux
 -- accès. Créer le modèle sans les leur accorder les priverait tous du journal.
 --
--- `on conflict do nothing` : la migration est rejouable sans écraser un droit
--- déjà réglé à la main entre-temps.
+-- ⚠️ LES RÉVOCATIONS SONT RESPECTÉES. Arbitrage de Nadir du 10/10/2026 : les
+-- comptes dont `public.users.status` vaut `revoked` gardent le journal FERMÉ.
+-- Une révocation est une décision de coach ; la défaire par effet de bord d'une
+-- migration serait exactement l'erreur silencieuse qu'on traque. Ils gardent en
+-- revanche l'accès formation, qui n'a jamais été révoqué.
 --
--- ⚠️ CE QUE CETTE LIGNE FAIT AUSSI, ET QUI MÉRITE TON ARBITRAGE : elle rend le
--- journal à 4 comptes dont `public.users.status` vaut `revoked`. Ce sont des
--- révocations décidées par un coach, et les ressusciter n'est peut-être pas
--- voulu. Le lot dit « les deux droits à vrai pour TOUS les comptes existants »,
--- donc c'est écrit ainsi. ⚠️ La variante qui respecte les révocations est juste
--- en dessous, en commentaire : choisis, ne laisse pas le hasard choisir.
+-- ⛔ IL N'Y A PLUS DE VARIANTE EN COMMENTAIRE. Une insertion commentée qui traîne
+-- finit par être décommentée un jour de fatigue. Celle-ci est la seule.
+--
+-- ⚠️ `coalesce(..., 'active')` : les 14 comptes sans ligne dans `public.users` ne
+-- sont pas révoqués, ils sont simplement absents de cette table. Sans ce
+-- `coalesce`, leur `status` vaudrait NULL, la comparaison rendrait NULL, et
+-- `journal_actif` deviendrait NULL puis refusé par le `not null`. Ces quatorze
+-- personnes perdraient le journal, et c'est le défaut que tout ce fichier évite.
+--
+-- `on conflict do nothing` : rejouable sans écraser un droit réglé à la main.
 
 insert into public.acces_membre (user_id, formation_actif, journal_actif)
-select au.id, true, true
+select au.id,
+       true,
+       coalesce((select pu.status from public.users pu where pu.uuid = au.id), 'active') <> 'revoked'
   from auth.users au
 on conflict (user_id) do nothing;
 
--- -- VARIANTE, à n'utiliser QU'À LA PLACE de l'insertion ci-dessus :
--- -- le journal n'est pas rendu aux comptes révoqués.
--- insert into public.acces_membre (user_id, formation_actif, journal_actif)
--- select au.id,
---        true,
---        coalesce((select pu.status from public.users pu where pu.uuid = au.id), 'active') <> 'revoked'
---   from auth.users au
--- on conflict (user_id) do nothing;
-
 -- ============================================================================
--- 5. ⚠️ LE CONTRÔLE QUI TRANCHE, À LIRE APRÈS APPLICATION
+-- 5. ⚠️ LE CONTRÔLE QUI TRANCHE, À LIRE APRÈS LE POINT 4
 -- ============================================================================
--- Les trois nombres doivent être 102, 102, 102. ⛔ Si `sans_droits` n'est pas
--- zéro, N'APPLIQUE PAS LA SUITE : des comptes perdraient le journal.
+-- Attendu, relevé le 10/10/2026 : 102 comptes, 102 lignes, 102 avec formation,
+-- 98 avec journal, 4 sans journal (les révoqués), 0 sans droits du tout.
+-- ⛔ Si `sans_droits` n'est pas zéro, N'APPLIQUE PAS LA SUITE.
 --
---   select (select count(*) from auth.users)                                   as comptes,
---          (select count(*) from public.acces_membre)                          as lignes_droits,
---          (select count(*) from public.acces_membre
---             where formation_actif and journal_actif)                         as les_deux_droits,
+--   select (select count(*) from auth.users)                                as comptes,
+--          (select count(*) from public.acces_membre)                       as lignes,
+--          (select count(*) from public.acces_membre where formation_actif) as formation,
+--          (select count(*) from public.acces_membre where journal_actif)   as journal,
 --          (select count(*) from auth.users au
 --            where not exists (select 1 from public.acces_membre a
---                               where a.user_id = au.id))                      as sans_droits;
+--                               where a.user_id = au.id))                   as sans_droits;
 
 -- ============================================================================
 -- 6. LES DONNÉES DU JOURNAL EXIGENT LE DROIT JOURNAL
 -- ============================================================================
 -- ⚠️ C'EST ICI QUE LA PROTECTION EXISTE VRAIMENT. Masquer un bouton n'en est pas
--- une : qui connaît l'adresse entre quand même, et rien ne lève d'erreur. Les
--- politiques sont la seule barrière.
+-- une : qui connaît l'adresse entre quand même, et rien ne lève d'erreur.
 --
--- Chaque politique de LECTURE des tables de journal est remplacée par la même,
--- augmentée de `and a_acces_journal()`. ⛔ La branche `is_coach()` n'est PAS
--- touchée : un coach lit le journal de ses élèves, c'est son métier.
+-- ── ⛔ TROIS DÉFAUTS DE LA VERSION PRÉCÉDENTE, ET CE QUI LES REMPLACE ────────
 --
--- ⚠️ L'ÉCRITURE EST FERMÉE AUSSI. Sans cela, une personne privée du droit
--- pourrait encore écrire dans son propre journal sans jamais le relire, ce qui
--- est une incohérence silencieuse.
+-- A. UNE POLITIQUE `ALL` COUVRE DÉJÀ LE SELECT. Ajouter une politique SELECT à
+--    côté ne restreint rien : les politiques permissives se combinent par OU. La
+--    version précédente aurait pu s'exécuter entièrement en laissant la lecture
+--    ouverte, sans qu'aucun contrôle n'échoue.
 --
--- ⛔ AUCUNE DONNÉE N'EST SUPPRIMÉE, NI MAINTENANT NI PLUS TARD. Un droit éteint
--- ferme la porte, il ne vide pas la pièce. Qui revient six mois plus tard
--- retrouve tout.
+--    ⚠️ Relevé du 10/10/2026 sur LE SCHÉMA ENTIER, pas sur une liste de noms :
+--    quatre politiques `ALL` existent, et elles ne posent pas toutes le problème.
+--
+--      tradovate_credentials_self_modify   (auth.uid() = user_id)   ⛔ OUVRE la lecture
+--      tradovate_sync_state_self           (auth.uid() = user_id)   ⛔ OUVRE la lecture
+--      nutrition_logs_coach_all            is_coach()               coach seul, inoffensive
+--      replays_write                       can_manage_replays()     hors périmètre élève
+--
+--    ⚠️ `nutrition_logs` N'A MÊME PAS DE COLONNE `user_id`, vérifié. Elle n'est
+--    pas une table d'élève : seul un coach y accède, et il n'y a rien à fermer.
+--    Le défaut annoncé pour trois tables n'en concerne donc que DEUX.
+--
+--    Ce que je propose, et c'est ce qu'écrit le bloc ci-dessous : REMPLACER les
+--    deux `ALL` par des politiques PAR COMMANDE portant le droit. Une politique
+--    par commande se relit, se compte et se contrôle ; une `ALL` cache dans un
+--    seul objet quatre autorisations dont une seule nous intéresse.
+--
+-- B. L'ÉCRITURE EST FERMÉE POUR DE VRAI, CETTE FOIS. La version précédente
+--    affirmait la fermer et ne créait que des politiques `for select`.
+--    ⚠️ C'est le motif du 8 octobre à l'identique : un commentaire qui dit ce que
+--    le code ne fait pas, et qui passe la relecture parce qu'on lit le
+--    commentaire. Le raisonnement était juste, c'est le code qui manquait : sans
+--    cela, une personne privée du droit écrirait encore dans un journal qu'elle
+--    ne peut plus relire.
+--
+-- C. LES ANCIENNES POLITIQUES SONT SUPPRIMÉES, ET LEURS NOMS NE SONT PAS ÉCRITS
+--    EN DUR. Six tables portent deux jeux hérités. ⚠️ Le bloc les relève DANS LE
+--    CATALOGUE AU MOMENT DE S'EXÉCUTER : une liste recopiée serait périmée si une
+--    politique était ajoutée entre-temps, et une suppression nommée au jugé sur
+--    une base vivante est précisément ce qu'il ne faut pas exécuter à l'aveugle.
+--
+-- ⛔ AUCUNE DONNÉE N'EST SUPPRIMÉE. Un droit éteint ferme la porte, il ne vide
+-- pas la pièce. Arbitrage de Nadir : on masque entièrement, pas de lecture seule.
+--
+-- ⚠️ LA SURFACE D'AUTORISATION EST PRÉSERVÉE À L'IDENTIQUE. On ne recrée que les
+-- commandes qui existaient déjà. `checklist_validations` et `replay_views` n'ont
+-- pas de politique DELETE aujourd'hui : elles n'en auront pas davantage. Ajouter
+-- une permission en passant serait un effet de bord, pas une migration.
 
 do $$
 declare
-  t text;
-begin
-  -- Les tables dont le contenu EST le journal de l'élève.
-  foreach t in array array[
+  cible      text;
+  -- ⚠️ `"char"` ENTRE GUILLEMETS, ET PAS `char`. `pg_policy.polcmd` est du type
+  -- interne `"char"`, un seul octet, distinct de `character`. Une premiere version
+  -- declarait `char[]` : la requete echouait avec
+  -- « CASE/WHEN could not convert type character[] to "char"[] ».
+  -- ⛔ Elle aurait fait exploser la migration a l application. Trouvee en eprouvant
+  -- la partie risquee EN LECTURE SEULE avant d ecrire quoi que ce soit.
+  commande   "char";
+  nom        text;
+  surface    "char"[];
+  supprimees int := 0;
+  creees     int := 0;
+  CIBLES constant text[] := array[
     'trades', 'journal_entries', 'accounts', 'account_costs', 'daily_fees',
     'payouts', 'checklist_validations', 'gamification_state', 'user_motivation',
-    'nutrition_logs', 'replay_views', 'tradovate_credentials', 'tradovate_sync_state'
-  ] loop
-    execute format(
-      'create policy %I on public.%I for select using '
-      '(((auth.uid() = user_id) and a_acces_journal()) or is_coach())',
-      t || '_select_droit_journal', t);
+    'replay_views', 'tradovate_credentials', 'tradovate_sync_state'
+  ];
+begin
+  foreach cible in array CIBLES loop
+    -- ⚠️ LA SURFACE EST RELEVÉE AVANT TOUTE SUPPRESSION. Une politique `ALL`
+    -- compte pour les quatre commandes, puisque c'est ce qu'elle autorise.
+    select array_agg(distinct c2)
+      into surface
+      from (
+        select unnest(case when p.polcmd = '*'
+                           then array['r','a','w','d']::"char"[]
+                           else array[p.polcmd] end) as c2
+          from pg_policy p
+          join pg_class c on c.oid = p.polrelid
+          join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public' and c.relname = cible
+           -- ⛔ Les politiques purement coach ne décrivent pas la surface ÉLÈVE.
+           and coalesce(pg_get_expr(p.polqual, p.polrelid), '') <> 'is_coach()'
+      ) s;
+
+    if surface is null then
+      raise notice '⚠️  % : aucune politique eleve, rien a faire', cible;
+      continue;
+    end if;
+
+    -- Suppression de tout ce qui existait, coach excepté.
+    for nom in
+      select p.polname
+        from pg_policy p
+        join pg_class c on c.oid = p.polrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public' and c.relname = cible
+         and coalesce(pg_get_expr(p.polqual, p.polrelid), '') <> 'is_coach()'
+    loop
+      execute format('drop policy %I on public.%I', nom, cible);
+      supprimees := supprimees + 1;
+    end loop;
+
+    -- Recréation, une politique par commande, avec le droit.
+    foreach commande in array surface loop
+      if commande = 'r' then
+        execute format(
+          'create policy %I on public.%I for select to authenticated '
+          'using (((auth.uid() = user_id) and a_acces_journal()) or is_coach())',
+          cible || '_droit_journal_select', cible);
+      elsif commande = 'a' then
+        execute format(
+          'create policy %I on public.%I for insert to authenticated '
+          'with check ((auth.uid() = user_id) and a_acces_journal())',
+          cible || '_droit_journal_insert', cible);
+      elsif commande = 'w' then
+        -- ⚠️ `using` ET `with check` : le premier contrôle la ligne AVANT, le
+        -- second la ligne APRÈS. Sans le second, on réattribuerait sa ligne.
+        execute format(
+          'create policy %I on public.%I for update to authenticated '
+          'using ((auth.uid() = user_id) and a_acces_journal()) '
+          'with check ((auth.uid() = user_id) and a_acces_journal())',
+          cible || '_droit_journal_update', cible);
+      elsif commande = 'd' then
+        execute format(
+          'create policy %I on public.%I for delete to authenticated '
+          'using ((auth.uid() = user_id) and a_acces_journal())',
+          cible || '_droit_journal_delete', cible);
+      end if;
+      creees := creees + 1;
+    end loop;
+
+    raise notice '%  surface %  ->  politiques posees', cible, surface;
   end loop;
+
+  raise notice '== % politique(s) supprimee(s), % creee(s) ==', supprimees, creees;
 end $$;
 
--- ⚠️ LES ANCIENNES POLITIQUES DE LECTURE RESTENT EN PLACE ET DOIVENT ÊTRE
--- SUPPRIMÉES, SINON CE LOT NE SERT À RIEN. Plusieurs politiques `select` sur une
--- même table se COMBINENT PAR OU : il suffit qu'une seule autorise pour que la
--- ligne soit lisible. ⛔ Ajouter la nouvelle sans retirer les anciennes laisse
--- donc la porte grande ouverte, et tous les contrôles passeraient au vert.
+-- ============================================================================
+-- 7. ⚠️ LE CONTRÔLE DE COUVERTURE, AVEC SON TÉMOIN
+-- ============================================================================
+-- ⛔ Il ne suffit pas que les nouvelles politiques existent : il faut qu'il n'en
+-- reste AUCUNE autre qui ouvre la lecture sans le droit. Cette requête liste
+-- toute politique de lecture d'une table de journal dont l'expression ne mentionne
+-- pas `a_acces_journal`. Attendu : AUCUNE LIGNE, sauf le témoin.
 --
--- Les noms exacts à supprimer se relèvent AVANT, parce qu'ils diffèrent d'une
--- table à l'autre (certaines portent deux jeux hérités) :
+-- ⚠️ LE TÉMOIN EST OBLIGATOIRE. `replays` est volontairement HORS périmètre :
+-- c'est du contenu partagé, pas le journal de quelqu'un. Elle DOIT apparaître
+-- dans le résultat. Si elle n'apparaît pas, c'est que la requête dit oui à tout
+-- et qu'un « aucune ligne » ne prouverait rien.
 --
---   select c.relname, p.polname
+--   select c.relname, p.polname, pg_get_expr(p.polqual, p.polrelid) as expr,
+--          case when c.relname = 'replays' then '← TEMOIN, doit apparaitre'
+--               else '⛔ FAILLE' end as verdict
 --     from pg_policy p
 --     join pg_class c on c.oid = p.polrelid
 --     join pg_namespace n on n.oid = c.relnamespace
---    where n.nspname = 'public' and p.polcmd = 'r'
---      and p.polname not like '%_droit_journal'
+--    where n.nspname = 'public'
+--      and p.polcmd in ('r', '*')
+--      and c.relname in (
+--        'trades', 'journal_entries', 'accounts', 'account_costs', 'daily_fees',
+--        'payouts', 'checklist_validations', 'gamification_state', 'user_motivation',
+--        'replay_views', 'tradovate_credentials', 'tradovate_sync_state',
+--        'replays')
+--      and coalesce(pg_get_expr(p.polqual, p.polrelid), '') not like '%a_acces_journal%'
+--      and coalesce(pg_get_expr(p.polqual, p.polrelid), '') <> 'is_coach()'
 --    order by 1, 2;
 --
--- ⛔ Je ne les écris pas en dur ici : une suppression de politique nommée au
--- jugé, sur une base vivante, est exactement le genre d'instruction qu'il ne faut
--- pas exécuter sans avoir lu la liste réelle le jour même.
+-- ⚠️ `nutrition_logs` n'est pas dans cette liste, et c'est volontaire : elle n'a
+-- pas de colonne `user_id` et sa seule politique est `is_coach()`. Il n'y a rien
+-- à fermer, et l'y mettre ferait apparaître une fausse faille à chaque contrôle.

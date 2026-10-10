@@ -149,6 +149,20 @@ console.log('\n  ══ STRUCTURE ══');
   dire('un seul module de démonstration', r.avecLecons === 1, `${r.avecLecons} module(s) avec leçons`);
   dire('un moyen de reprendre est proposé', r.reprise);
 
+  // ⚠️ Arbitrage du 10/10 : le coach a son entree « Formation » lui aussi, et
+  // ⛔ SANS `data-droit`, parce qu'il n'a pas de ligne dans `acces_membre`.
+  const coach = await p.evaluate(() => {
+    const e = document.querySelector('#coachAppSidebar .formation-acces');
+    return { present: !!e, sansDroit: !!(e && !e.hasAttribute('data-droit')) };
+  });
+  dire('le coach a une entrée « Formation »', coach.present);
+  dire('⛔ elle ne porte pas `data-droit`, sinon elle serait masquée pour lui', coach.sansDroit);
+
+  // Tache #27, libelle arrete.
+  const sousTitre = await p.evaluate(() =>
+    document.body.innerHTML.includes('Espace membre Trader 360'));
+  dire('le sous-titre de connexion est « Espace membre Trader 360 »', sousTitre);
+
   // Navigation jusqu'à une leçon, par les vrais chemins de l'interface.
   await p.evaluate(() => window.Formation.ouvrirModule('01'));
   await new Promise((r2) => setTimeout(r2, 200));

@@ -92,20 +92,55 @@
     });
   }
 
+  /**
+   * ⛔ `setProperty(..., 'important')` ET PAS `style.display = ...`.
+   * `index.html` porte `#mainApp.flex, #coachApp.flex { display: block !important }`.
+   * Un style en ligne ordinaire PERD contre `!important` : l'interface resterait
+   * affichee alors que l'attribut `style` dirait « none », et ⛔ RIEN NE LE
+   * SIGNALERAIT. C'est la meme classe de defaut que `[hidden]` neutralise par une
+   * classe d'auteur, rencontree deux fois sur ces deux depots.
+   */
   const montrer = (id, oui) => {
     const el = document.getElementById(id);
-    if (el) el.style.display = oui ? 'flex' : 'none';
+    if (el) el.style.setProperty('display', oui ? 'flex' : 'none', 'important');
   };
+
+  /** D'ou l'on venait avant d'entrer dans la formation : 'coach' ou 'journal'. */
+  let _origine = 'journal';
 
   /**
    * Fait entrer dans un espace. ⛔ Ne vérifie rien : la vérification a eu lieu
    * avant, et surtout elle a lieu en base. Cette fonction n'est qu'un aiguillage.
    */
   function entrer(espace) {
+    const coach = document.getElementById('coachApp');
+    // ⚠️ On retient d'ou l'on vient AVANT de masquer : le bouton de retour de la
+    // formation ne mene pas au meme endroit pour un coach et pour un eleve.
+    _origine = (coach && getComputedStyle(coach).display !== 'none') ? 'coach' : 'journal';
     montrer('choixEspace', false);
+    montrer('authScreen', false);
+    // ⛔ `#coachApp` AUSSI : la formation vit dans `#mainApp`, et l'interface coach
+    // resterait posee par-dessus. Oubli attrape en capturant la formation et en
+    // voyant « Performance par Heure (tous eleves) » a la place.
+    montrer('coachApp', false);
     montrer('mainApp', true);
     appliquer();
+    majRetour();
     if (window.showSection) window.showSection(espace === 'formation' ? 'formation' : 'dashboard');
+  }
+
+  /** Le bouton de retour de la formation, selon d'ou l'on vient. */
+  function majRetour() {
+    const versJournal = document.querySelector('.formation-retour-journal');
+    const versCoach = document.querySelector('.formation-retour-coach');
+    if (versJournal) versJournal.hidden = _origine === 'coach' || !aJournal();
+    if (versCoach) versCoach.hidden = _origine !== 'coach';
+  }
+
+  /** Ramene le coach a son espace. ⛔ Ne touche pas aux droits : il n'en a pas. */
+  function retourCoach() {
+    montrer('mainApp', false);
+    montrer('coachApp', true);
   }
 
   /**
@@ -113,12 +148,16 @@
    *
    * ⚠️ LE COACH N'EST PAS CONCERNÉ. Son interface est `#coachApp`, distincte, et
    * ce lot ne la touche pas : si elle est déjà à l'écran, on ne la déloge pas.
-   * ⚠️ Ce que devient la barre latérale du coach est un arbitrage à rendre à
-   * Nadir, pas une décision à prendre ici. Voir le rapport.
+   * ⚠️ Il a en revanche son entrée « Formation » depuis le 10/10/2026, arbitrage de
+   * Nadir : il relit les leçons telles qu'un élève les voit. Elle appelle
+   * `entrer('formation')` directement, sans passer par ici.
    */
   async function orienter() {
+    // ⚠️ STYLE CALCULE, pas attribut : la regle `!important` d'`index.html` peut
+    // imposer `block` alors que l'attribut `style` dit « none ». Lire l'attribut,
+    // c'est deloger l'interface coach en croyant qu'elle etait deja masquee.
     const coach = document.getElementById('coachApp');
-    if (coach && coach.style.display && coach.style.display !== 'none') return;
+    if (coach && getComputedStyle(coach).display !== 'none') return;
 
     await charger();
     const d = _droits;
@@ -151,11 +190,15 @@
     appliquer();
   }
 
+  const aJournal = () => !!(_droits && _droits.journal);
+
   window.Acces = {
     charger,
     appliquer,
     orienter,
     entrer,
+    retourCoach,
+    majRetour,
     droits: () => _droits,
     aFormation: () => !!(_droits && _droits.formation),
     aJournal: () => !!(_droits && _droits.journal),

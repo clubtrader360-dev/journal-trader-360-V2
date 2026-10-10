@@ -3185,8 +3185,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <!-- Tache #27. ⚠️ Cette page ouvre desormais DEUX espaces : la formation et le
                          journal. « Journal de Trading Professionnel » n en decrivait qu un, et
                          aurait laisse croire a qui n a que la formation qu il s est trompe de porte.
-                         ⚠️ Formulation a confirmer par Nadir : c est du texte public. -->
-                    <div style="color: #666; font-size: 0.875rem; margin-top: 15px;">Formation et journal de trading</div>
+                         Libelle arrete par Nadir le 10/10/2026. Tache #27 close. -->
+                    <div style="color: #666; font-size: 0.875rem; margin-top: 15px;">Espace membre Trader 360</div>
             </div>
             
             <div id="loginForm" role="region" aria-label="Connexion">
@@ -3273,6 +3273,19 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                       style="width: 170px; margin: 0 auto;"></span>
                 <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
                 <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
+                <!-- ⚠️ LE COACH VOIT « FORMATION » LUI AUSSI. Arbitrage de Nadir du
+                     10/10/2026 : il relit les lecons telles qu un eleve les voit.
+                     ⛔ PAS DE `data-droit` ICI, et c est volontaire : un coach n a pas de
+                     ligne dans `acces_membre`, et poser l attribut masquerait l entree
+                     pour tout le monde cote coach.
+                     ⚠️ SES NOTES RESTENT LES SIENNES sans rien faire de special :
+                     `formation_notes` est clavetee sur `auth.uid()`, donc il ecrit sur sa
+                     propre ligne, jamais sur celle d un eleve. -->
+                <div class="sidebar-item formation-acces" data-section="formation"
+                     onclick="Acces.entrer('formation')" role="button" tabindex="0"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
+                    <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
+                </div>
                 <!-- #33 commit 3 — entrée mode personnalisation du dashboard coach -->
                 <button type="button" onclick="window.enterCoachDashboardEdit && window.enterCoachDashboardEdit()"
                         class="dash-btn dash-btn-ghost" style="margin-top:12px; font-size:12px; width:100%; justify-content:center;">
@@ -4189,6 +4202,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <button type="button" class="formation-btn-fantome formation-retour-journal"
                         data-droit="journal" hidden onclick="showSection('dashboard')">
                     <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>Revenir au journal
+                </button>
+                <!-- ⚠️ Un coach ne revient pas au journal d un eleve, il revient a SON
+                     espace. Les deux boutons sont exclusifs, `Acces.majRetour()` tranche
+                     selon l interface d ou l on venait. -->
+                <button type="button" class="formation-btn-fantome formation-retour-coach"
+                        hidden onclick="Acces.retourCoach()">
+                    <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>Revenir a l espace coach
                 </button>
                 <div id="formationContenu"></div>
             </div>
