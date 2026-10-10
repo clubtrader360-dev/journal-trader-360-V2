@@ -3,12 +3,13 @@
 // Supabase Database Webhook sur public.journal_entries (INSERT/UPDATE/DELETE).
 // Header d'auth : X-Webhook-Secret == process.env.SUPABASE_WEBHOOK_SECRET (timingSafeEqual).
 //
-// À chaque changement de journal d'un élève : recalcule son T360 Score, vérifie s'il a rempli
-// son journal dans les 3 derniers jours (Paris), et écrit dans la colonne « Journal » du
+// À chaque changement de journal d'un élève : recalcule son T360 Score et l'écrit dans la colonne « Journal » du
 // tableur Manu (historiquement la col X — elle est retrouvée par son TITRE, cf
 // api/_lib/parcours-colonnes.js, Manu peut la déplacer) :
-//   - "<score>" (ex "72.4")    → élève inscrit + journal rempli les 3 derniers jours
-//   - "vide" → élève inscrit + journal PAS rempli les 3 derniers jours (ex-"Pas rempli")
+//   - "<score>" (ex "72.4")    → élève inscrit qui a déjà rempli son journal, QUEL QUE SOIT L'ÂGE
+//                                de sa dernière saisie (règle Manu du 10/10/2026 : l'ancienne
+//                                fenêtre de 3 jours effaçait la note des élèves moins assidus)
+//   - "vide" → élève inscrit qui n'a jamais rien saisi dans son journal (ex-"Pas rempli")
 //   - "no"   → email tableur absent de public.users (ex-"Non inscrit au journal")
 //              Textes courts : décision Manu du 09/10/2026. Le script Apps Script du tableur
 //              reconnaît les deux formes ; ?action=backfill-full convertit l'existant.
@@ -38,7 +39,6 @@ const JOURNAL_NO = 'no';     // pas inscrit au journal
 // Lecture de l'onglet entier, plage ouverte : rowNum = FIRST_MEMBER_ROW + index, les lignes
 // sans email sont écartées (rowEmails vide → skipped).
 const TITRES_REQUIS = [TITRES.PRENOM, TITRES.NOM, TITRES.MAIL_LB, TITRES.MAIL_PERSO, TITRES.JOURNAL];
-const ACTIVE_WINDOW_DAYS = 3;
 
 // Le backfill peut prendre 30-60s (compute par élève). Vercel Hobby = 10s par défaut → on relève.
 export const config = { maxDuration: 60 };
@@ -55,11 +55,6 @@ function parisTodayStr() {
   // 'sv-SE' → 'YYYY-MM-DD'
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
 }
-function minusDaysStr(dateStr, days) {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
 
 // Emails candidats d'une ligne tableur : « Mail LearnyBox » (prioritaire) puis « 2ème mail »
 // (perso, multi-valeurs). `cols` = index résolus par titre.
@@ -72,23 +67,22 @@ function rowEmails(row, cols) {
   return out;
 }
 
-// Valeur col X pour un élève EXISTANT (uuid connu) : "<score>" si journal rempli sur [today-3j, today],
-// sinon JOURNAL_VIDE. Partagé entre le webhook unitaire et le backfill.
+// Valeur col X pour un élève EXISTANT (uuid connu) : "<score>" dès qu'il a au moins une saisie
+// de journal, quel que soit son âge ; sinon JOURNAL_VIDE. Partagé entre le webhook unitaire et le backfill.
 async function computeUserColX(sb, uuid) {
   const today = parisTodayStr();
-  const cutoff = minusDaysStr(today, ACTIVE_WINDOW_DAYS);
   const [{ data: trades }, { data: accounts }] = await Promise.all([
     sb.from('trades').select('pnl, account_id, trade_date').eq('user_id', uuid).limit(10000),
     sb.from('accounts').select('id, active').eq('user_id', uuid),
   ]);
   const { globalScore } = computeT360Score(trades || [], accounts || []);
 
-  // Journal rempli dans les 3 derniers jours (Paris), en excluant les dates futures (saisies erronées).
+  // Au moins une saisie de journal, sans limite d'ancienneté ; seules les dates futures
+  // (saisies erronées) restent exclues.
   const { count: journalCount, error: jErr } = await sb
     .from('journal_entries')
     .select('user_id', { count: 'exact', head: true })
     .eq('user_id', uuid)
-    .gte('entry_date', cutoff)
     .lte('entry_date', today);
   if (jErr) throw jErr;
 
@@ -134,7 +128,7 @@ export default async function handler(req, res) {
     }
     const email = String(appUser.email).trim().toLowerCase();
 
-    // 4-7. Valeur col X : "<score>" si journal rempli <3j (dates futures exclues), sinon "vide".
+    // 4-7. Valeur col X : "<score>" dès qu'une saisie de journal existe (dates futures exclues), sinon "vide".
     const valueToWrite = await computeUserColX(sb, user_id);
 
     // 8. Matching dans le tableur (« Mail LearnyBox » ou « 2ème mail » == email).

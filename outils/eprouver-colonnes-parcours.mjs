@@ -154,7 +154,9 @@ function faireSupabase() {
       return { data: [], error: null };
     };
     const b = {
-      select: () => b, limit: () => b, gte: () => b, lte: () => b,
+      select: () => b, limit: () => b, lte: () => b,
+      // Plus de borne basse sur la date : la fenêtre de 3 jours a été supprimée (10/10/2026).
+      gte: () => { throw new Error('fenêtre de dates réintroduite (gte) : la note doit s\'afficher quel que soit son âge'); },
       eq: (k, v) => { q.filtres[k] = v; return b; },
       single: async () => resultat(),
       then: (ok, ko) => Promise.resolve(resultat()).then(ok, ko),
