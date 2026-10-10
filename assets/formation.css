@@ -184,7 +184,7 @@
    ce défaut ailleurs ; la règle ci-dessous le ferme pour les éléments pilotés par
    les droits, sans toucher au reste de la feuille.
    ========================================================================== */
-[data-droit][hidden], #choixAucunDroit[hidden] { display: none !important; }
+[data-droit][hidden], #choixAucunDroit[hidden], #choixErreur[hidden] { display: none !important; }
 
 .choix-portes { display: flex; flex-direction: column; gap: 12px; }
 .choix-portes > button { width: 100%; text-align: center; }

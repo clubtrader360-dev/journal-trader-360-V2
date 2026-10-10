@@ -4,7 +4,7 @@
  * ⚠️ FICHIER DE DONNÉES, PAS DE LOGIQUE. Il est séparé pour que Nadir puisse
  * verser les titres et les descriptions depuis LearnyBox sans toucher au code.
  *
- * ── ⛔ POURQUOI AUCUNE VIDÉO N'EST ENCORE DÉCLARÉE ─────────────────────────────
+ * ── ⛔ POURQUOI UNE SEULE VIDÉO EST DÉCLARÉE, ET PAS LES 63 AUTRES ────────────
  *
  * Les 64 vidéos de la formation sont sur Vimeo. Relevé du 09/10/2026, sur la
  * totalité du compte (357 vidéos, quatre pages, couverture vérifiée) :
@@ -16,13 +16,14 @@
  * (`/videos/{id}/privacy/domains`) que l'outillage disponible n'expose pas. On
  * sait donc que la restriction EXISTE, on ne sait pas ce qu'elle autorise.
  *
- * ⛔ TANT QUE CETTE LISTE N'EST PAS CONNUE ET VALIDÉE PAR NADIR, aucune vidéo
- * n'est posée ici. Une vidéo dont l'intégration n'est pas restreinte au bon
+ * ⛔ TANT QUE CETTE LISTE N'EST PAS CONNUE ET VALIDÉE PAR NADIR, LES 63 AUTRES
+ * NE SONT PAS POSÉES. Une vidéo dont l'intégration n'est pas restreinte au bon
  * domaine est lisible par quiconque lit le code de la page, et c'est
  * irrattrapable : une vidéo diffusée ne se reprend pas.
  *
- * Les leçons portent donc `video: null`. L'emplacement s'affiche, le lecteur
- * attend. La structure se teste sans les vidéos, c'est tout l'objet de ce lot.
+ * ⚠️ UNE SEULE est posée, et seulement pour trancher la question du domaine :
+ * voir le commentaire qui l'accompagne plus bas. Toutes les autres leçons portent
+ * `video: null`, leur emplacement s'affiche et le lecteur attend.
  *
  * ── ⚠️ CE QUI EST MESURÉ, ET CE QUI EST UNE DÉCISION DE NADIR ─────────────────
  *
@@ -65,6 +66,28 @@
     description: '',
     video: null,
   }));
+
+  /**
+   * ⚠️ UNE SEULE VIDÉO, POUR TRANCHER. Demande de Nadir du 10/10/2026.
+   *
+   * `1229950174`, première leçon du MODULE 1, relevée en `view: unlisted` et
+   * `embed: whitelist`. ⛔ Les 63 autres ne sont PAS posées : si le domaine
+   * manque dans la liste blanche, il faudra toutes les reprendre, et autant ne
+   * les avoir posées qu'une fois.
+   *
+   * ⛔ LE RAISONNEMENT « LES REPLAYS MARCHENT DONC LE DOMAINE EST AUTORISÉ » NE
+   * TIENT PAS, et il faut le dire ici parce qu'il est tentant. La liste des
+   * domaines se règle VIDÉO PAR VIDÉO, pas une fois pour le compte. Les replays
+   * sont déposés depuis le journal ; les 64 vidéos de formation ont vécu
+   * intégrées dans LearnyBox, et leur liste contient probablement
+   * `trader360.learnybox.com` ou l'ancien `trader360.fr`, pas
+   * `journaltrader360.fr`.
+   *
+   * ⚠️ Et le piège dans l'autre sens : 99 replays sont en intégration PUBLIQUE,
+   * donc ils jouent partout sans aucune liste. Les prendre pour preuve
+   * conclurait à tort que le domaine est autorisé.
+   */
+  LECONS_MODULE_01[0].video = '1229950174';
 
   const MODULES = [
     { numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: LECONS_MODULE_01 },

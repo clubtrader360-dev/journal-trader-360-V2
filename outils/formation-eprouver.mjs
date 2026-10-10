@@ -113,6 +113,11 @@ async function preparer(page, lignesProgression = [], droits = { formation: true
     if (a) a.style.display = 'none';
     const m = document.getElementById('mainApp');
     if (m) m.style.display = 'flex';
+    // ⚠️ `restoreSession()` pose `window.currentUser` une fois le role connu, et
+    // c'est le signal qu'`Acces.orienter()` attend depuis le 10/10/2026. Sans lui,
+    // l'orientation s'abstient au bout de six secondes, ⛔ et la sonde mesurerait
+    // une abstention en croyant mesurer un refus.
+    window.currentUser = { role: 'student', uuid: 'eleve-double-0000' };
   }, lignesProgression, droits);
 
   await page.evaluate(() => window.Formation && window.Formation.ouvrir());

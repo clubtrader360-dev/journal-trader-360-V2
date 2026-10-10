@@ -146,29 +146,75 @@
   /**
    * Oriente après l'ouverture d'une session.
    *
-   * ⚠️ LE COACH N'EST PAS CONCERNÉ. Son interface est `#coachApp`, distincte, et
-   * ce lot ne la touche pas : si elle est déjà à l'écran, on ne la déloge pas.
-   * ⚠️ Il a en revanche son entrée « Formation » depuis le 10/10/2026, arbitrage de
-   * Nadir : il relit les leçons telles qu'un élève les voit. Elle appelle
-   * `entrer('formation')` directement, sans passer par ici.
+   * ── ⛔ POURQUOI CETTE FONCTION ATTEND, ET POURQUOI ELLE LIT LE RÔLE ─────────
+   *
+   * La première version décidait tout de suite et regardait si `#coachApp` était
+   * visible pour savoir si elle avait affaire à un coach. ⛔ LES DEUX ÉTAIENT
+   * FAUX, et le second à cause du premier.
+   *
+   * `onAuthStateChange` passe dès que la session est connue. `restoreSession()`,
+   * elle, interroge encore `public.users` et ne pose l'interface qu'ensuite. Au
+   * moment où cette fonction s'exécutait, AUCUNE des deux interfaces n'était
+   * affichée : le test « le coach est-il à l'écran » rendait donc toujours non,
+   * et un coach se voyait proposer le choix entre deux espaces d'élève.
+   *
+   * ⚠️ MESURÉ le 10/10/2026, les deux chemins en concurrence, à 1440 px :
+   *
+   *     coach  : choixEspace visible ET coachApp visible   deux écrans empilés
+   *     élève  : choixEspace visible ET mainApp visible    deux écrans empilés
+   *
+   * Dans les deux cas, l'écran de choix se posait par-dessus une interface déjà
+   * en place. ⛔ Aucune erreur, aucun message : juste un écran de trop.
+   *
+   * La correction tient en deux points. On ATTEND que `restoreSession()` ait posé
+   * `window.currentUser`, qui est le signal que le rôle est connu et l'interface
+   * choisie. Et on lit le RÔLE, à la même source que `restoreSession()` et que
+   * `is_coach()`, au lieu de deviner depuis l'écran.
    */
+  async function attendreSession(msMax = 6000) {
+    const debut = Date.now();
+    while (!window.currentUser && Date.now() - debut < msMax) {
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    return window.currentUser || null;
+  }
+
   async function orienter() {
-    // ⚠️ STYLE CALCULE, pas attribut : la regle `!important` d'`index.html` peut
-    // imposer `block` alors que l'attribut `style` dit « none ». Lire l'attribut,
-    // c'est deloger l'interface coach en croyant qu'elle etait deja masquee.
-    const coach = document.getElementById('coachApp');
-    if (coach && getComputedStyle(coach).display !== 'none') return;
+    const u = await attendreSession();
+
+    // ⛔ UN COACH N'EST PAS ORIENTÉ. Son interface est `#coachApp`, `restoreSession`
+    // l'a déjà posée, et son entrée « Formation » vit dans sa propre barre
+    // latérale. Lui proposer un choix entre deux espaces d'élève n'a pas de sens.
+    if (u && ['coach', 'admin'].includes(u.role)) {
+      await charger();
+      appliquer();
+      return;
+    }
+
+    // ⚠️ Pas de `currentUser` après six secondes : `restoreSession` a échoué ou
+    // n'a pas rendu la main. ⛔ On ne pose RIEN par-dessus ce qui est à l'écran :
+    // écraser une interface qu'on n'a pas comprise est pire que de s'abstenir.
+    if (!u) {
+      console.error('[ACCES] ⛔ session non restaurée après 6 s, orientation abandonnée');
+      return;
+    }
 
     await charger();
     const d = _droits;
-    const aucun = !d.formation && !d.journal;
 
-    // ⛔ Jamais de page blanche : le cas « aucun droit » a son message et une
-    // adresse pour écrire. C'est la situation qu'on ne teste jamais et qui arrive.
+    // ⚠️ TROIS CAS, ET ILS NE SE RESSEMBLENT QUE DE LOIN. Une lecture qui rend
+    // zéro ligne dit « pas de droits ». Une lecture en ERREUR ne dit rien du tout,
+    // et annoncer « tu n'as aucun droit » à quelqu'un dont la requête a échoué
+    // serait un mensonge poli.
+    const erreur = d.connu === false && d.motif === 'erreur';
+    const aucun = !erreur && !d.formation && !d.journal;
+
     const bloc = document.getElementById('choixAucunDroit');
+    const blocErreur = document.getElementById('choixErreur');
     if (bloc) bloc.hidden = !aucun;
+    if (blocErreur) blocErreur.hidden = !erreur;
 
-    if (aucun) {
+    if (aucun || erreur) {
       montrer('authScreen', false);
       montrer('mainApp', false);
       montrer('choixEspace', true);
@@ -179,7 +225,6 @@
     // ⚠️ Un seul droit : on entre directement. Faire choisir entre une porte et
     // un mur serait une question dont on connaît déjà la réponse.
     if (d.formation !== d.journal) {
-      montrer('authScreen', false);
       entrer(d.formation ? 'formation' : 'journal');
       return;
     }

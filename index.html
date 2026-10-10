@@ -3969,6 +3969,18 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <i class="fas fa-chart-line mr-2" aria-hidden="true"></i>Journal
                 </button>
             </div>
+            <!-- ⚠️ DEUX MESSAGES DISTINCTS, ET LA DISTINCTION EST LE POINT.
+                 « Aucun droit » est une reponse ; « nous n avons pas pu lire tes droits »
+                 en est une autre. Les confondre, c est annoncer a quelqu un qu il n a rien
+                 alors que c est la requete qui a echoue. -->
+            <div id="choixErreur" class="choix-aucun" hidden>
+                <p><strong>Nous n avons pas pu verifier tes acces.</strong></p>
+                <p>Ce n est pas un refus : la verification elle-meme a echoue. Reessaie, et
+                   si cela persiste ecris-nous a
+                   <a href="mailto:clubtrader360@gmail.com">clubtrader360@gmail.com</a>.</p>
+                <button type="button" class="formation-btn-or" onclick="location.reload()">Reessayer</button>
+                <button type="button" class="formation-btn-fantome" onclick="window.logout && window.logout()">Se deconnecter</button>
+            </div>
             <div id="choixAucunDroit" class="choix-aucun" hidden>
                 <p><strong>Ton compte n ouvre encore aucun des deux espaces.</strong></p>
                 <p>Si tu penses que c est une erreur, ecris-nous a
