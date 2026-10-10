@@ -10,7 +10,8 @@
 //                                de sa dernière saisie (règle Manu du 10/10/2026 : l'ancienne
 //                                fenêtre de 3 jours effaçait la note des élèves moins assidus)
 //   - "vide" → élève inscrit qui n'a jamais rien saisi dans son journal (ex-"Pas rempli")
-//   - "no"   → email tableur absent de public.users (ex-"Non inscrit au journal")
+//   - "NO"   → email tableur absent de public.users (ex-"no", ex-"Non inscrit au journal") ;
+//              en majuscules depuis le 10/10/2026, fond rouge clair posé côté tableur
 //              Textes courts : décision Manu du 09/10/2026. Le script Apps Script du tableur
 //              reconnaît les deux formes ; ?action=backfill-full convertit l'existant.
 //                                (via ?action=backfill-full uniquement — le webhook unitaire
@@ -33,7 +34,7 @@ import { readParcours, cellA1, TITRES, FIRST_MEMBER_ROW } from '../_lib/parcours
 
 // États écrits dans la colonne « Journal » quand il n'y a pas de note.
 const JOURNAL_VIDE = 'vide'; // inscrit, journal pas rempli sur la fenêtre
-const JOURNAL_NO = 'no';     // pas inscrit au journal
+const JOURNAL_NO = 'NO';     // pas inscrit au journal
 
 // Colonnes lues (prénom, nom, mails) et écrite (journal), retrouvées par leur titre en ligne 3.
 // Lecture de l'onglet entier, plage ouverte : rowNum = FIRST_MEMBER_ROW + index, les lignes
