@@ -20,6 +20,14 @@
     // ===== FONCTION CHARGEMENT INSCRIPTIONS =====
     async function loadCoachRegistrationsFromSupabase() {
         console.log(' Chargement inscriptions depuis Supabase...');
+
+        // ⚠️ Les demandes d acces au journal se chargent avec les inscriptions, au
+        // MEME moment : un coach qui ouvre cet ecran doit voir les deux listes. Un
+        // chargement separe finirait par etre oublie dans un des chemins.
+        if (window.DemandesJournal) {
+            window.DemandesJournal.charger().catch((e) =>
+                console.error('[COACH] demandes journal :', e && e.message));
+        }
         
         try {
             // Récupérer TOUS les utilisateurs

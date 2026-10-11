@@ -595,6 +595,71 @@ console.log('\n  ══ LA CITATION PAR DEFAUT ══');
   await p2.close();
 }
 
+/* ══ 6 quater. LE CLAVIER ══════════════════════════════════════════════════
+   ⛔ Une fenetre qu on ne peut pas fermer au clavier bloque qui n utilise pas la
+   souris. On eprouve les trois choses : echappement, piege de focus, retour. */
+console.log('\n  ══ LE PARCOURS AU CLAVIER ══');
+{
+  const p = await nav.newPage();
+  await p.setViewport({ width: 1440, height: 900 });
+  await preparer(p, { parcoursVu: null });
+  await new Promise((r) => setTimeout(r, 300));
+  const r = await p.evaluate(async () => {
+    const d = document.getElementById('formationFenetre');
+    const ouverte = () => getComputedStyle(d).display !== 'none';
+    const out = { ouverteAuDepart: ouverte() };
+    out.focusDedans = d.contains(document.activeElement);
+    out.focusSurLeBouton = document.activeElement
+      && document.activeElement.id === 'formationFenetreFermer';
+    return out;
+  });
+  dire('la fenetre s ouvre', r.ouverteAuDepart);
+  dire('⚠️ le focus ENTRE dans la fenetre', r.focusDedans);
+  dire('  et se pose sur le bouton de fermeture', r.focusSurLeBouton);
+
+  // Le piege : plusieurs tabulations ne doivent jamais sortir de la fenetre.
+  let dehors = 0;
+  for (let i = 0; i < 8; i += 1) {
+    await p.keyboard.press('Tab');
+    const sorti = await p.evaluate(() =>
+      !document.getElementById('formationFenetre').contains(document.activeElement));
+    if (sorti) dehors += 1;
+  }
+  dire('⛔ huit tabulations ne sortent jamais de la fenetre', dehors === 0, `${dehors} sortie(s)`);
+  for (let i = 0; i < 3; i += 1) await p.keyboard.down('Shift');
+  await p.keyboard.press('Tab');
+  await p.keyboard.up('Shift');
+  const arriere = await p.evaluate(() =>
+    !document.getElementById('formationFenetre').contains(document.activeElement));
+  dire('⛔ ni en arriere', !arriere);
+
+  // ⚠️ On pose le focus AILLEURS avant d ouvrir, pour verifier qu il y revient.
+  await p.evaluate(async () => {
+    await window.Formation.fermerFenetre();
+    const b = document.querySelector('#mainAppSidebar .formation-acces');
+    // ⚠️ `hidden` RETIRE D ABORD. `focus()` sur un element masque ne fait RIEN,
+    // silencieusement : la sonde croyait poser le focus, il restait sur BODY, et
+    // elle accusait le retour du focus d un defaut qui etait le sien. Un eleve
+    // ayant le droit formation voit cette entree, donc c est l etat reel.
+    b.hidden = false;
+    b.setAttribute('tabindex', '0');
+    b.focus();
+    window.__avant = document.activeElement;
+    window.Formation.ouvrir();
+  });
+  await new Promise((r2) => setTimeout(r2, 400));
+  await p.keyboard.press('Escape');
+  await new Promise((r2) => setTimeout(r2, 250));
+  const apres = await p.evaluate(() => ({
+    fermee: getComputedStyle(document.getElementById('formationFenetre')).display === 'none',
+    focusRevenu: document.activeElement === window.__avant,
+    ou: document.activeElement ? (document.activeElement.className || document.activeElement.tagName) : '(aucun)',
+  }));
+  dire('⚠️ la touche d echappement ferme', apres.fermee);
+  dire('⚠️ et le focus revient ou il etait', apres.focusRevenu, String(apres.ou).slice(0, 40));
+  await p.close();
+}
+
 /* ══ 7. CAPTURES, DEUX MODES, QUATRE TAILLES ═══════════════════════════════ */
 console.log('\n  ══ CAPTURES ══');
 {

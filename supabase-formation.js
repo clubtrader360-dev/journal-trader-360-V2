@@ -645,11 +645,42 @@
     if (error) console.error('[FORMATION] ⚠️ fenetre NON marquee comme vue :', error.message);
   }
 
+  /**
+   * ── ⚠️ LE CLAVIER, ET POURQUOI CE N EST PAS UN DETAIL ────────────────────
+   *
+   * ⛔ UNE FENETRE QU ON NE PEUT PAS FERMER AU CLAVIER BLOQUE QUI N UTILISE PAS
+   * LA SOURIS. Trois choses sont donc necessaires, et aucune n est optionnelle :
+   *   1. La touche d echappement ferme.
+   *   2. Le focus ENTRE dans la fenetre et n en SORT PAS tant qu elle est
+   *      ouverte. Sans cela, la tabulation emmene derriere la fenetre, sur un
+   *      contenu qu on ne voit pas et qui reagit quand meme.
+   *   3. Il REVIENT la ou il etait a la fermeture, sinon on repart du haut de la
+   *      page a chaque passage.
+   */
+  let _focusAvant = null;
+
+  function auClavier(e) {
+    const d = $('formationFenetre');
+    if (!d || d.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); fermerFenetre(); return; }
+    if (e.key !== 'Tab') return;
+    const cibles = d.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!cibles.length) return;
+    const premier = cibles[0];
+    const dernier = cibles[cibles.length - 1];
+    // ⚠️ Le piege se referme aux DEUX bouts : avant du dernier vers le premier,
+    // arriere du premier vers le dernier.
+    if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
+    else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+  }
+
   function ouvrirFenetre(r) {
     const d = $('formationFenetre');
     if (!d) return;
+    _focusAvant = document.activeElement;
     $('formationFenetreCorps').innerHTML = parcours(r);
     d.hidden = false;
+    document.addEventListener('keydown', auClavier, true);
     const b = $('formationFenetreFermer');
     if (b) b.focus();
   }
@@ -657,6 +688,13 @@
   async function fermerFenetre() {
     const d = $('formationFenetre');
     if (d) d.hidden = true;
+    document.removeEventListener('keydown', auClavier, true);
+    // ⚠️ Le focus revient ou il etait, et seulement s il est encore dans le
+    // document : un element rendu a nouveau entre-temps n existe plus.
+    if (_focusAvant && document.contains(_focusAvant) && _focusAvant.focus) {
+      _focusAvant.focus();
+    }
+    _focusAvant = null;
     await marquerVue(D().SUITE.filter((l) => estVue(l.id)).length);
   }
 

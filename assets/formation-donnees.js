@@ -51,6 +51,27 @@
 (function () {
   'use strict';
 
+  /**
+   * ── ⚠️ LE GABARIT A REMPLIR, POUR NADIR ─────────────────────────────────
+   *
+   * Une leçon est un objet. `id` et `titre` sont obligatoires, `description` et
+   * `video` facultatifs. Pour verser une description, il suffit d'ajouter la
+   * ligne : rien d'autre ne bouge, et une leçon sans description affiche son
+   * titre et rien d'autre, proprement.
+   *
+   *   { id: 'm01-l3', titre: 'Développer sa discipline', description: 'Le texte ici.' },
+   *
+   * ⚠️ LES GUILLEMETS. Le texte est entre apostrophes droites. S'il CONTIENT une
+   * apostrophe, prendre des guillemets doubles à la place :
+   *
+   *   { id: 'm01-l4', titre: "Gérer le stress", description: "Ce qu'on ressent avant." },
+   *
+   * ⛔ Et une virgule à la fin de chaque ligne, y compris la dernière. C'est la
+   * seule faute de frappe qui casse le fichier entier.
+   *
+   * ⛔ `id` NE CHANGE JAMAIS : c'est la clé des notes et de la progression en base.
+   */
+
   /** Les sept leçons du module 01, titres relevés dans le dossier Vimeo MODULE 1. */
   const LECONS_MODULE_01 = [
     { id: 'm01-l0', titre: 'Introduction : se préparer mentalement et comprendre les bases du trading' },
@@ -61,10 +82,14 @@
     { id: 'm01-l5', titre: 'Créer ta routine mentale' },
     { id: 'm01-l6', titre: 'Entrer dans la zone' },
   ].map((l) => ({
-    ...l,
-    // ⛔ Vides tant que la confidentialité Vimeo n'est pas tranchée.
+    // ⚠️ LES VALEURS ÉCRITES CI-DESSUS GAGNENT, les défauts ne font que combler.
+    // ⛔ La version précédente écrasait `description` et `video` APRÈS l'étalement :
+    // Nadir aurait pu coller un texte dans une leçon et ne rien voir s'afficher,
+    // sans la moindre erreur. Il aurait fallu comprendre la structure pour y
+    // arriver, ce qui est exactement ce que ce fichier doit éviter de demander.
     description: '',
     video: null,
+    ...l,
   }));
 
   /**

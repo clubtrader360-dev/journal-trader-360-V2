@@ -2258,6 +2258,7 @@
 <script src="/supabase-replays-student.js?v=20260523"></script>
 <!-- Espace formation : les donnees d abord, la logique ensuite. -->
 <script src="/supabase-acces.js"></script>
+<script src="/supabase-demandes-journal.js"></script>
 <script src="/assets/formation-donnees.js"></script>
 <script src="/supabase-formation.js"></script>
 <script src="/supabase-tradovate.js"></script>
@@ -3771,6 +3772,20 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="section-header">
                     <h1>Gestion des Inscriptions</h1>
                     <p class="text-gray-600">Valider, suspendre ou supprimer des accès élèves</p>
+                </div>
+
+                <!-- ⛔ SANS CETTE LISTE, LA DEMANDE TOMBAIT DANS LE VIDE. Un eleve
+                     cliquait « Demander l acces au journal », la date s ecrivait en base,
+                     et AUCUN ecran ne la montrait jamais a un coach : `journal_demande_le`
+                     n apparaissait nulle part dans `supabase-coach.js`. Le bouton marchait
+                     parfaitement et la fonctionnalite etait inexistante.
+                     ⚠️ Posee AVANT les inscriptions : quelqu un qui attend un acces est
+                     deja eleve, il ne doit pas passer apres les nouvelles arrivees. -->
+                <div class="trader-card mb-6" style="padding: 24px;">
+                    <h2 class="text-xl font-bold mb-4">🔑 Demandes d accès au journal</h2>
+                    <div id="coachDemandesJournal">
+                        <p class="text-gray-500 text-center py-4">Chargement...</p>
+                    </div>
                 </div>
 
                 <div class="trader-card mb-6" style="padding: 24px;">
