@@ -894,14 +894,27 @@
     // et non vide puis rempli, ce qui ferait croire a une note perdue.
     const note = await chargerNote(c.id);
 
-    let groupePose;
+    /**
+     * ⛔ UNE SENTINELLE, PAS `undefined`, ET C EST UNE CORRECTION MESUREE.
+     * La version precedente ecrivait `let groupePose;`, donc `undefined`. Or les
+     * chapitres du PREMIER groupe n ont pas de champ `groupe`, donc `undefined`
+     * aussi : la comparaison etait fausse des le premier tour et l intertitre
+     * « Module 07 » n etait jamais pose. ⚠️ Mesure : le module 07 affichait UN
+     * intertitre (« Module 7 bis ») au lieu de DEUX, et une liste de treize
+     * chapitres dont les neuf premiers flottaient sans titre de section.
+     * La maquette s en sortait parce qu elle ecrivait `group: null` ;
+     * ⛔ dependre de la difference entre `null` et `undefined` est precisement
+     * le genre d accord tacite qui se casse au premier changement de source.
+     */
+    const AUCUN_GROUPE = Symbol('aucun');
+    let groupePose = AUCUN_GROUPE;
     const liste = m.lecons.map((ch, k) => {
       let g = '';
-      if (ch.groupe !== groupePose) {
+      if ((ch.groupe || null) !== groupePose) {
         if (m.lecons.some((l) => l.groupe)) {
           g = `<div class="chap-group">${ch.groupe ? `Module ${txt(ch.groupe)}` : `Module ${txt(m.numero)}`}</div>`;
         }
-        groupePose = ch.groupe;
+        groupePose = ch.groupe || null;
       }
       const dn = estVue(ch.id);
       return `${g}<button type="button" class="chap ${dn ? 'done' : ''}" data-chap="${k}" ${k === ci ? 'aria-current="true"' : ''}>

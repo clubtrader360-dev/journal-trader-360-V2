@@ -73,99 +73,194 @@
    */
 
   /** Les sept leçons du module 01, titres relevés dans le dossier Vimeo MODULE 1. */
-  const LECONS_MODULE_01 = [
-    { id: 'm01-l0', titre: 'Introduction : se préparer mentalement et comprendre les bases du trading' },
-    { id: 'm01-l1', titre: "Adopter l'état d'esprit du Trader 360" },
-    { id: 'm01-l2', titre: 'Définir ses objectifs de trading et de vie' },
-    { id: 'm01-l3', titre: 'Développer sa discipline' },
-    { id: 'm01-l4', titre: "Gérer le stress et l'impatience" },
-    { id: 'm01-l5', titre: 'Créer ta routine mentale' },
-    { id: 'm01-l6', titre: 'Entrer dans la zone' },
-  ].map((l) => ({
-    // ⚠️ LES VALEURS ÉCRITES CI-DESSUS GAGNENT, les défauts ne font que combler.
-    // ⛔ La version précédente écrasait `description` et `video` APRÈS l'étalement :
-    // Nadir aurait pu coller un texte dans une leçon et ne rien voir s'afficher,
-    // sans la moindre erreur. Il aurait fallu comprendre la structure pour y
-    // arriver, ce qui est exactement ce que ce fichier doit éviter de demander.
-    description: '',
-    video: null,
-    ...l,
-  }));
-
   /**
-   * ⚠️ UNE SEULE VIDÉO, POUR TRANCHER. Demande de Nadir du 10/10/2026.
+   * ── ⚠️ LES CHAPITRES, PRODUITS PAR L OUTIL, PAS ECRITS A LA MAIN ──────────
    *
-   * `1229950174`, première leçon du MODULE 1, relevée en `view: unlisted` et
-   * `embed: whitelist`. ⛔ Les 63 autres ne sont PAS posées : si le domaine
-   * manque dans la liste blanche, il faudra toutes les reprendre, et autant ne
-   * les avoir posées qu'une fois.
+   * Ce bloc est la sortie VERBATIM de
+   * `node outils/formation-import-vimeo.mjs`, qui lit `formation-vimeo-releve.json`
+   * (releve du 09/10/2026, 64 videos, toutes en `embed: whitelist`). ⛔ Il n a
+   * pas ete retranscrit : une retranscription a la main de soixante-trois titres
+   * introduit une faute que personne ne retrouve.
+   * ⚠️ Pour le refaire apres un changement cote Vimeo :
+   *     node outils/formation-import-vimeo.mjs --vimeo     (avec un jeton)
    *
-   * ⛔ LE RAISONNEMENT « LES REPLAYS MARCHENT DONC LE DOMAINE EST AUTORISÉ » NE
-   * TIENT PAS, et il faut le dire ici parce qu'il est tentant. La liste des
-   * domaines se règle VIDÉO PAR VIDÉO, pas une fois pour le compte. Les replays
-   * sont déposés depuis le journal ; les 64 vidéos de formation ont vécu
-   * intégrées dans LearnyBox, et leur liste contient probablement
-   * `trader360.learnybox.com` ou l'ancien `trader360.fr`, pas
-   * `journaltrader360.fr`.
+   * ── ⛔ CE SONT DES TITRES DE TRAVAIL ──────────────────────────────────────
    *
-   * ⚠️ Et le piège dans l'autre sens : 99 replays sont en intégration PUBLIQUE,
-   * donc ils jouent partout sans aucune liste. Les prendre pour preuve
-   * conclurait à tort que le domaine est autorisé.
+   * Ils viennent des noms de fichiers Vimeo, nettoyes de leur numerotation
+   * interne (`1.5 - Creer ta routine` devient `Creer ta routine`). ⚠️ Ce ne sont
+   * PAS des titres valides. Nadir les corrige ICI, directement, sans toucher a
+   * une ligne de code : seul le texte entre guillemets change.
+   *
+   * ── ⚠️ QUATRE CHAPITRES N ONT AUCUNE NUMEROTATION ─────────────────────────
+   *
+   * `TradingView complement` (module 04) et les trois du module 09. Leur place
+   * vient donc de l ordre ALPHABETIQUE, qui n a aucune raison d etre le bon
+   * ordre pedagogique. ⛔ A relire avant de montrer l espace a un eleve : il
+   * suffit de deplacer les blocs, les identifiants `m09-l0`, `m09-l1`... se
+   * renumerotent a la main dans la foulee.
+   *
+   * ── ⛔ `video: null` PARTOUT ──────────────────────────────────────────────
+   *
+   * Les identifiants Vimeo servent a lire titres et durees, rien de plus. Ce
+   * fichier est servi a TOUT navigateur qui charge la page, connecte ou non :
+   * y deposer soixante-trois identifiants les rendrait lisibles par n importe
+   * qui, et la liste des domaines d integration n est pas confirmee. Ils restent
+   * dans `formation-vimeo-releve.json`.
+   *
+   * ⚠️ UNE VIDEO DU COMPTE N EST RANGEE NULLE PART : « Bienvenue a Trader 360 »
+   * (12 min), seule dans le dossier `Formation`. Ce n est le chapitre d aucun
+   * module. ⛔ L outil la signale et ne la range pas tout seul.
    */
-  LECONS_MODULE_01[0].video = '1229950174';
-
-  /**
-   * ── ⚠️ LA STRUCTURE COMPLETE, ET D OU VIENNENT SES NOMBRES ────────────────
-   *
-   * ⛔ CE FICHIER EST LA SOURCE UNIQUE DES MODULES. La maquette validee en
-   * portait une seconde, avec ses propres titres et ses propres comptes. ⚠️ Deux
-   * listes de modules divergent toujours : celle qu on ne regarde pas devient
-   * fausse, et personne ne s en apercoit avant qu un eleve lise un titre qui
-   * n existe plus. C est donc la maquette qui s adapte a ce fichier.
-   *
-   * ── LES NOMBRES DE CHAPITRES SONT MESURES, PAS SUPPOSES ───────────────────
-   *
-   * Relevé Vimeo du 09/10/2026, `formation-vimeo-releve.json`, recompté le
-   * 11/10/2026 :
-   *
-   *     MODULE 1   7      MODULE 5  12      MODULE 8   3
-   *     MODULE 2  10      MODULE 6   5      MODULE 9   3
-   *     MODULE 3   5      MODULE 7   9      (dossier « Formation »  1)
-   *     MODULE 4   5      MODULE 7BIS 4
-   *                                          soit 63 + 1 isolee
-   *
-   * La maquette annonce exactement ces nombres : ils ne sont pas inventes.
-   * ⛔ SAUF LE MODULE 10, auquel elle attribue 2 chapitres alors qu AUCUN
-   * dossier Vimeo ne lui correspond. Il reste donc VIDE ici, et il apparait
-   * verrouille tant que les neuf premiers ne sont pas traverses, comme dans la
-   * maquette. ⚠️ A Nadir de dire ce qu il contient.
-   *
-   * ── ⚠️ CE QUI EST PROVISOIRE, ET SE VOIT COMME TEL ────────────────────────
-   *
-   * ⛔ Les titres des chapitres des modules 02 a 09 sont des EMPLACEMENTS. Le
-   * rapprochement dossier Vimeo / module n est pas tranche (voir
-   * `formation-rapprochement-modules.md`), donc on ne sait pas encore QUELLE
-   * video porte quel titre. Seul le module 01 a ses sept vrais titres.
-   * ⛔ `video: null` PARTOUT SAUF UNE : la question des domaines Vimeo n est pas
-   * reglee, et `index.html` ne pose aucun lecteur. L emplacement dit que la
-   * video arrive.
-   * ⛔ `description: null` : aucune description inventee. Celles des MODULES
-   * viennent de la maquette validee et sont marquees comme telles ci-dessous ;
-   * celles des chapitres n existent pas encore et s affichent « En attente de
-   * description ».
-   */
-  const chapitres = (num, n, depart = 0, groupe = null) => Array.from(
-    { length: n },
-    (_, i) => ({
-      id: `m${num}-l${depart + i}`,
-      // ⚠️ Provisoire, et ecrit pour que cela se voie.
-      titre: `Chapitre ${depart + i + 1}`,
-      groupe,
-      video: null,
-      description: null,
-      provisoire: true,
-    }),
-  );
+  const CHAPITRES = {
+  '01': [
+    { id: 'm01-l0', titre: "Introduction : se préparer mentalement et comprendre les bases du trading",
+      video: null, description: null, provisoire: true, minutes: 6 },
+    { id: 'm01-l1', titre: "Adopter l’état d’esprit du Trader 360",
+      video: null, description: null, provisoire: true, minutes: 9 },
+    { id: 'm01-l2', titre: "Définir ses objectifs de trading et de vie",
+      video: null, description: null, provisoire: true, minutes: 11 },
+    { id: 'm01-l3', titre: "Développer sa discipline",
+      video: null, description: null, provisoire: true, minutes: 16 },
+    { id: 'm01-l4', titre: "Gérer le stress et l'impatience",
+      video: null, description: null, provisoire: true, minutes: 16 },
+    { id: 'm01-l5', titre: "Créer ta routine mentale se préparer mentalement",
+      video: null, description: null, provisoire: true, minutes: 10 },
+    { id: 'm01-l6', titre: "Entrer dans la zone",
+      video: null, description: null, provisoire: true, minutes: 12 },
+  ],
+  '02': [
+    { id: 'm02-l0', titre: "Comprendre le trading introduction",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm02-l1', titre: "Trading contre investissement",
+      video: null, description: null, provisoire: true, minutes: 12 },
+    { id: 'm02-l2', titre: "Comprendre comment trader sans risquer ton capital grâce aux prop firms",
+      video: null, description: null, provisoire: true, minutes: 13 },
+    { id: 'm02-l3', titre: "Distinguer l’analyse technique et l’analyse fondamentale",
+      video: null, description: null, provisoire: true, minutes: 8 },
+    { id: 'm02-l4', titre: "Configurer Investing",
+      video: null, description: null, provisoire: true, minutes: 3 },
+    { id: 'm02-l5', titre: "Lire un graphique et comprendre le mouvement des prix",
+      video: null, description: null, provisoire: true, minutes: 11 },
+    { id: 'm02-l6', titre: "Interpréter les bougies japonaises et choisir les bonnes unités de temps",
+      video: null, description: null, provisoire: true, minutes: 12 },
+    { id: 'm02-l7', titre: "Détecter la tendance avec la théorie de Dow",
+      video: null, description: null, provisoire: true, minutes: 6 },
+    { id: 'm02-l8', titre: "Identifier les résistances, les supports et les niveaux psychologiques clés",
+      video: null, description: null, provisoire: true, minutes: 8 },
+    { id: 'm02-l9', titre: "Utiliser la clôture de la veille et connaître les horaires clés du marché",
+      video: null, description: null, provisoire: true, minutes: 13 },
+  ],
+  '03': [
+    { id: 'm03-l0', titre: "Maîtriser tes indicateurs (et rien de plus!)",
+      video: null, description: null, provisoire: true, minutes: 3 },
+    { id: 'm03-l1', titre: "Comprendre les points pivots maîtriser tes indicateurs",
+      video: null, description: null, provisoire: true, minutes: 6 },
+    { id: 'm03-l2', titre: "Les bandes de Bollinger, MM20, MM100",
+      video: null, description: null, provisoire: true, minutes: 8 },
+    { id: 'm03-l3', titre: "Le VWAP",
+      video: null, description: null, provisoire: true, minutes: 6 },
+    { id: 'm03-l4', titre: "Comprendre le POC et le Market Profile",
+      video: null, description: null, provisoire: true, minutes: 7 },
+  ],
+  '04': [
+    { id: 'm04-l0', titre: "Prendre en main ta plateforme de trading",
+      video: null, description: null, provisoire: true, minutes: 2 },
+    { id: 'm04-l1', titre: "Identifier la différence entre une plateforme de trading et un broker",
+      video: null, description: null, provisoire: true, minutes: 11 },
+    { id: 'm04-l2', titre: "Installer TradingView",
+      video: null, description: null, provisoire: true, minutes: 20 },
+    { id: 'm04-l3', titre: "Rejoindre le groupe Discord",
+      video: null, description: null, provisoire: true, minutes: 12 },
+    { id: 'm04-l4', titre: "TradingView complément",
+      video: null, description: null, provisoire: true, minutes: 50 },
+  ],
+  '05': [
+    { id: 'm05-l0', titre: "Introduction : appliquer la méthode Trader 360",
+      video: null, description: null, provisoire: true, minutes: 3 },
+    { id: 'm05-l1', titre: "Préparation mentale avant chaque séance",
+      video: null, description: null, provisoire: true, minutes: 16 },
+    { id: 'm05-l2', titre: "Comprendre l'importance du plan de trading",
+      video: null, description: null, provisoire: true, minutes: 9 },
+    { id: 'm05-l3', titre: "Identifier les zones",
+      video: null, description: null, provisoire: true, minutes: 6 },
+    { id: 'm05-l4', titre: "Identifier les zones (sur ta plateforme)",
+      video: null, description: null, provisoire: true, minutes: 16 },
+    { id: 'm05-l5', titre: "Définir un stop loss, un take profit et calculer un risk ratio",
+      video: null, description: null, provisoire: true, minutes: 21 },
+    { id: 'm05-l6', titre: "Appliquer les règles de money management et maîtriser les bases mathématiques du trading",
+      video: null, description: null, provisoire: true, minutes: 8 },
+    { id: 'm05-l7', titre: "Identifier les critères d'entrée et positionner correctement ses niveaux",
+      video: null, description: null, provisoire: true, minutes: 5 },
+    { id: 'm05-l8', titre: "Étudier des cas concrets d'entrées et de sorties de positions",
+      video: null, description: null, provisoire: true, minutes: 9 },
+    { id: 'm05-l9', titre: "Tenir un journal de trading et l’utiliser comme outil de progression",
+      video: null, description: null, provisoire: true, minutes: 6 },
+    { id: 'm05-l10', titre: "Présentation du journal de trading Trader 360",
+      video: null, description: null, provisoire: true, minutes: 17 },
+    { id: 'm05-l11', titre: "Se focaliser sur le processus plutôt que sur les résultats",
+      video: null, description: null, provisoire: true, minutes: 6 },
+  ],
+  '06': [
+    { id: 'm06-l0', titre: "Renforcer ta psychologie de trader",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm06-l1', titre: "Adopter un état d’esprit professionnel et responsable",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm06-l2', titre: "Gérer efficacement le stress, les émotions et la cupidité",
+      video: null, description: null, provisoire: true, minutes: 8 },
+    { id: 'm06-l3', titre: "Accepter les aléas du trading et évaluer objectivement ton niveau pour progresser",
+      video: null, description: null, provisoire: true, minutes: 7 },
+    { id: 'm06-l4', titre: "Renforcer ta discipline",
+      video: null, description: null, provisoire: true, minutes: 8 },
+  ],
+  '07': [
+    // MODULE 7
+    { id: 'm07-l0', titre: "Gérer l'après-challenge et construire sa rentabilité",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm07-l1', titre: "Découvrir le fonctionnement des prop firms",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm07-l2', titre: "Analyser les règles spécifiques et éviter les pièges de chaque prop firm",
+      video: null, description: null, provisoire: true, minutes: 16 },
+    { id: 'm07-l3', titre: "Installer et configurer la plateforme de la prop firm choisie",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm07-l4', titre: "Installer TopstepX",
+      video: null, description: null, provisoire: true, minutes: 11 },
+    { id: 'm07-l5', titre: "Installer Tradovate",
+      video: null, description: null, provisoire: true, minutes: 26 },
+    { id: 'm07-l6', titre: "S'entraîner en démo et renforcer sa préparation mentale avant le challenge",
+      video: null, description: null, provisoire: true, minutes: 8 },
+    { id: 'm07-l7', titre: "Suivre une stratégie réussir son challenge en moins de 2 jours",
+      video: null, description: null, provisoire: true, minutes: 16 },
+    { id: 'm07-l8', titre: "Consolider son mindset après la réussite du challenge",
+      video: null, description: null, provisoire: true, minutes: 9 },
+    // MODULE 7BIS
+    { id: 'm07-l9', titre: "Structurer son activité de trader après le challenge",
+      video: null, description: null, provisoire: true, groupe: '7 bis', minutes: 2 },
+    { id: 'm07-l10', titre: "Comprendre le fonctionnement du payout et construire son matelas de sécurité",
+      video: null, description: null, provisoire: true, groupe: '7 bis', minutes: 10 },
+    { id: 'm07-l11', titre: "Appliquer un scaling plan pour faire croître son capital",
+      video: null, description: null, provisoire: true, groupe: '7 bis', minutes: 10 },
+    { id: 'm07-l12', titre: "Passer en live avec discipline et professionnalisme",
+      video: null, description: null, provisoire: true, groupe: '7 bis', minutes: 5 },
+  ],
+  '08': [
+    { id: 'm08-l0', titre: "Comprendre la fiscalité du trader prop firm",
+      video: null, description: null, provisoire: true, minutes: 5 },
+    { id: 'm08-l1', titre: "Démarrer légalement structure & fiscalité",
+      video: null, description: null, provisoire: true, minutes: 4 },
+    { id: 'm08-l2', titre: "Structurer son activité",
+      video: null, description: null, provisoire: true, minutes: 6 },
+  ],
+  '09': [
+    { id: 'm09-l0', titre: "Anti-perte de confiance",
+      video: null, description: null, provisoire: true, minutes: 12 },
+    { id: 'm09-l1', titre: "Programme membre & système de recommandation",
+      video: null, description: null, provisoire: true, minutes: 7 },
+    { id: 'm09-l2', titre: "Tuto \"Imbalance\"",
+      video: null, description: null, provisoire: true, minutes: 28 },
+  ],
+  // ⛔ Module 10 : aucun dossier Vimeo. Il n a pas de chapitre.
+  '10': [],
+  };
 
   /**
    * ⚠️ LES DESCRIPTIONS DE MODULE VIENNENT DE LA MAQUETTE QUE NADIR A VALIDEE.
@@ -185,25 +280,26 @@
     '10': 'La validation du parcours, une fois les neuf modules précédents traversés.',
   };
 
+  /**
+   * ⛔ LES TITRES ET DESCRIPTIONS DE MODULE NE SONT PAS TOUCHES ICI, et c est
+   * voulu : ils viennent du site `trader360.fr`. L outil d import n emet que les
+   * CHAPITRES, jamais les modules, pour que ce soit vrai par construction et non
+   * par vigilance.
+   */
   const MODULES = [
-    { numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: LECONS_MODULE_01 },
-    { numero: '02', titre: 'Comprendre le trading', lecons: chapitres('02', 10) },
-    { numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: chapitres('03', 5) },
-    { numero: '04', titre: 'Prendre en main ta plateforme de trading', lecons: chapitres('04', 5) },
-    { numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: chapitres('05', 12) },
-    { numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: chapitres('06', 5) },
-    // ⚠️ Le module 07 porte DEUX groupes : le dossier `MODULE 7` (9 videos) et
-    // `MODULE 7BIS` (4). La maquette les affiche sous deux intertitres, et c est
-    // la seule raison d etre du champ `groupe`.
-    {
-      numero: '07',
-      titre: "Gérer l'après-challenge et structurer son activité",
-      lecons: [...chapitres('07', 9), ...chapitres('07', 4, 9, '7 bis')],
-    },
-    { numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: chapitres('08', 3) },
-    { numero: '09', titre: 'Pour aller plus loin', lecons: chapitres('09', 3) },
-    // ⛔ VIDE, et verrouille : aucun dossier Vimeo ne lui correspond.
-    { numero: '10', titre: 'Certification Trader 360', lecons: [], certification: true },
+    { numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: CHAPITRES['01'] },
+    { numero: '02', titre: 'Comprendre le trading', lecons: CHAPITRES['02'] },
+    { numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: CHAPITRES['03'] },
+    { numero: '04', titre: 'Prendre en main ta plateforme de trading', lecons: CHAPITRES['04'] },
+    { numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: CHAPITRES['05'] },
+    { numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: CHAPITRES['06'] },
+    { numero: '07', titre: "Gérer l'après-challenge et structurer son activité", lecons: CHAPITRES['07'] },
+    { numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: CHAPITRES['08'] },
+    { numero: '09', titre: 'Pour aller plus loin', lecons: CHAPITRES['09'] },
+    // ⛔ VERROUILLE tant que les neuf autres ne sont pas traverses, et SANS
+    // chapitre : aucun dossier Vimeo ne lui correspond, et on ne lui en invente
+    // pas. La certification est une condition, pas une lecon.
+    { numero: '10', titre: 'Certification Trader 360', lecons: CHAPITRES['10'], certification: true },
   ];
   MODULES.forEach((m) => { m.description = DESCRIPTIONS[m.numero] || null; });
 

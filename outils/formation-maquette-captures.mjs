@@ -309,6 +309,28 @@ const ECRANS = [
     },
   },
   {
+    // ⚠️ Le module 07 est le seul a tirer de DEUX dossiers Vimeo : il doit
+    // montrer deux intertitres, « Module 07 » puis « Module 7 bis ».
+    cle: 'module07', libelle: 'Module 07 : treize chapitres, deux groupes',
+    maq: async (p) => { await p.evaluate(() => document.querySelector('[data-mod="6"]').click()); },
+    res: async (p) => { await p.evaluate(() => document.querySelector('#formationApp [data-mod="6"]').click()); },
+  },
+  {
+    // ⛔ Le module 10 n a aucun dossier Vimeo : il reste verrouille et sans
+    // chapitre. On capture donc le SOMMAIRE, ou sa carte se lit telle quelle.
+    cle: 'module10', libelle: 'Module 10 : la certification, verrouillee et sans chapitre',
+    maq: async (p) => {
+      await p.evaluate(() => document.querySelector('[data-go="modules"]').click());
+      await new Promise((r) => setTimeout(r, 400));
+      await p.evaluate(() => document.querySelector('[data-mod="9"]').click());
+    },
+    res: async (p) => {
+      await p.evaluate(() => document.querySelector('#formationApp [data-go="modules"]').click());
+      await new Promise((r) => setTimeout(r, 400));
+      await p.evaluate(() => document.querySelector('#formationApp [data-mod="9"]').click());
+    },
+  },
+  {
     cle: 'notes', libelle: 'Mes notes',
     maq: async (p) => { await p.evaluate(() => document.querySelector('[data-go="notes"]').click()); },
     res: async (p) => { await p.evaluate(() => document.querySelector('#formationApp [data-go="notes"]').click()); },
@@ -333,6 +355,65 @@ for (const largeur of [390, 1440]) {
     dire(`${e.libelle} / ${largeur}px`, true, f);
     await m.ctx.close(); await r.ctx.close();
   }
+}
+
+titre('les dix modules et leurs CHAPITRES REELS (controles 1, 2 et 3 du lot 10)');
+{
+  /**
+   * ⚠️ LE COMPTE ATTENDU EST ECRIT AVANT LA LECTURE, et c est la regle du
+   * depot : un compteur qu on interprete apres coup ne mesure rien.
+   * Source : le releve Vimeo du 09/10/2026, dossier par dossier.
+   */
+  const ATTENDU = { '01': 7, '02': 10, '03': 5, '04': 5, '05': 12,
+    '06': 5, '07': 13, '08': 3, '09': 3, '10': 0 };
+  const { ctx, p } = await ouvrirResultat({ largeur: 1440 });
+  const vues = [];
+  for (let i = 0; i < 10; i += 1) {
+    const m = await p.evaluate(async (idx) => {
+      const b = document.querySelector(`#formationApp [data-mod="${idx}"]`);
+      const verrou = b.classList.contains('locked');
+      b.click();
+      await new Promise((r) => setTimeout(r, 420));
+      const chaps = Array.from(document.querySelectorAll('#formationApp .chap'));
+      const groupes = Array.from(document.querySelectorAll('#formationApp .chap-group'))
+        .map((g) => g.textContent.trim());
+      const entete = (document.querySelector('#formationApp .mhead .eyebrow') || {}).textContent || '';
+      const titreMod = (document.querySelector('#formationApp .mhead h1') || {}).textContent || '';
+      const toast = (document.getElementById('toast') || {}).textContent || '';
+      return {
+        verrou,
+        rendus: chaps.length,
+        titres: chaps.map((c) => (c.querySelector('.t') || {}).textContent || ''),
+        generiques: chaps.filter((c) => /^Chapitre \d+$/.test(
+          ((c.querySelector('.t') || {}).textContent || '').trim())).length,
+        groupes, entete: entete.trim(), titreMod: titreMod.trim(), toast: toast.trim(),
+      };
+    }, i);
+    vues.push(m);
+    // ⚠️ On revient au sommaire entre deux modules, sinon le module verrouille
+    // laisse la vue precedente et la mesure suivante porterait sur elle.
+    await p.evaluate(() => window.Formation.aller('modules'));
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  let total = 0;
+  for (const [k, n] of Object.entries(ATTENDU)) {
+    const i = Number(k) - 1;
+    const v = vues[i];
+    total += n;
+    if (n === 0) {
+      dire(`module ${k} : ⛔ AUCUN chapitre invente, il reste la certification`,
+        v.rendus === 0 && v.verrou, `${v.rendus} chapitre(s) rendu(s), verrouille : ${v.verrou}`
+        + (v.toast ? `, message « ${v.toast.slice(0, 48)} »` : ''));
+      continue;
+    }
+    dire(`module ${k} : ${n} chapitres`, v.rendus === n, `${v.rendus} rendus`);
+    dire(`module ${k} : ⛔ aucun « Chapitre N » generique`, v.generiques === 0,
+      v.generiques ? `${v.generiques} generique(s)` : `ex. « ${(v.titres[0] || '').slice(0, 52)} »`);
+  }
+  dire('⛔ le total affiche est 63, pas 65', total === 63, `${total}`);
+  dire('le module 07 montre ses DEUX groupes', vues[6].groupes.length === 2,
+    vues[6].groupes.join(' / ') || 'aucun intertitre');
+  await ctx.close();
 }
 
 titre('les donnees viennent de la base, pas de localStorage (controle 3)');

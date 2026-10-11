@@ -43,17 +43,24 @@ import { readFileSync } from 'node:fs';
  *     '07': ['MODULE 7', 'MODULE 7BIS'],
  */
 const CORRESPONDANCE = {
-  '01': null,
-  '02': null,
-  '03': null,
-  '04': null,
-  '05': null,
-  '06': null,
-  '07': null,
-  '08': null,
-  '09': null,
+  '01': ['MODULE 1'],
+  '02': ['MODULE 2'],
+  '03': ['MODULE 3'],
+  '04': ['MODULE 4'],
+  '05': ['MODULE 5'],
+  '06': ['MODULE 6'],
+  // ⚠️ Le module 07 porte DEUX dossiers, dans cet ordre : le dossier principal
+  // puis `7BIS`. Leurs titres portent une numerotation distincte (`7.0` a `7.6`
+  // puis `7 bis` a `7 bis.3`), donc le tri alphabetique les garde separes et
+  // dans le bon ordre a l interieur de chacun.
+  '07': ['MODULE 7', 'MODULE 7BIS'],
+  '08': ['MODULE 8'],
+  '09': ['MODULE 9'],
+  // ⛔ LE MODULE 10 N A AUCUN DOSSIER VIMEO, et on ne lui en invente pas. C est
+  // la certification : elle n a pas de chapitre, elle a une condition.
   '10': null,
 };
+
 
 /**
  * ⚠️ UN TABLEAU, PAS UN OBJET, ET C EST UNE CORRECTION.
@@ -129,8 +136,15 @@ async function lireDossiers() {
 // caracteres. Ils sont ici fonctionnels, un titre Vimeo pouvant porter l un ou
 // l autre, mais le depot n en veut aucun en clair : `\u2013` et `\u2014` font
 // le meme travail et se relisent sans ambiguite.
+// ⚠️ `bis` PEUT SUIVRE LA PARTIE POINTEE, et c est une correction du 12/10/2026.
+// La version precedente n acceptait `bis` qu immediatement apres le premier
+// nombre (« 7 bis.1 - ... » passait). Elle echouait donc sur
+// « 5.3 bis - Identifier les zones (sur ta plateforme) », qui gardait sa
+// numerotation dans le titre affiche. ⛔ Un seul titre sur soixante-quatre :
+// exactement le genre d ecart qu on ne voit pas en relisant en diagonale.
 const titreDeTravail = (nom) =>
-  String(nom).replace(/^\s*\d+(?:\s*bis)?(?:\.\d+)*\s*[-\u2013\u2014:]\s*/i, '').trim() || String(nom).trim();
+  String(nom).replace(/^\s*\d+(?:\s*bis)?(?:\.\d+)*(?:\s*bis)?\s*[-\u2013\u2014:]\s*/i, '').trim()
+  || String(nom).trim();
 
 /** Un identifiant de lecon stable. ⛔ Il ne changera JAMAIS : c'est la cle des notes. */
 const idLecon = (mod, rang) => `m${mod}-l${rang}`;
@@ -169,40 +183,79 @@ if (!remplis.length) {
 }
 
 /* ══ LA PRODUCTION ═════════════════════════════════════════════════════════ */
+/**
+ * ── ⛔ IL N EMET QUE LES CHAPITRES, JAMAIS LES MODULES ─────────────────────
+ *
+ * Une premiere version produisait des lignes
+ * `{ numero: '01', titre: '...', lecons: [...] }`. ⚠️ Coller cela ECRASERAIT le
+ * titre et la description du module, qui viennent du site `trader360.fr` et que
+ * personne ne doit toucher. Le bloc produit est donc une table
+ * `CHAPITRES['01'] = [...]`, que `formation-donnees.js` branche sur des modules
+ * dont les titres restent ou ils sont. ⛔ Le controle « titres de module
+ * inchanges » devient vrai PAR CONSTRUCTION, pas par vigilance.
+ *
+ * ── ⛔ ET AUCUN IDENTIFIANT DE VIDEO ───────────────────────────────────────
+ *
+ * `video: null` partout. Les identifiants servent ici a lire les TITRES et les
+ * DUREES, rien de plus. ⚠️ `assets/formation-donnees.js` est servi a tout
+ * navigateur qui charge la page, connecte ou non : y deposer soixante-trois
+ * identifiants Vimeo les rendrait lisibles par n importe qui, et la liste des
+ * domaines d integration n est pas confirmee. Les identifiants restent dans
+ * `formation-vimeo-releve.json`, ou ils attendent cette confirmation.
+ */
 const lignes = [];
 let total = 0;
 const utilises = new Set();
-for (const [num, titreSite] of TITRES_SITE) {
+const sansNumero = [];
+for (const [num] of TITRES_SITE) {
   const sources = CORRESPONDANCE[num];
   if (!sources || !sources.length) {
-    lignes.push(`  // ⚠️ Module ${num} : aucun dossier Vimeo associe. Lecons a venir.`);
-    lignes.push(`  { numero: '${num}', titre: ${JSON.stringify(titreSite)}, lecons: [] },`);
+    lignes.push(`  // ⛔ Module ${num} : aucun dossier Vimeo. Il n a pas de chapitre.`);
+    lignes.push(`  '${num}': [],`);
     continue;
   }
-  const videos = sources.flatMap((d) => {
+  lignes.push(`  '${num}': [`);
+  let rang = 0;
+  sources.forEach((d, iSource) => {
     if (!dossiers[d]) { console.error(`  ⛔ dossier inconnu dans CORRESPONDANCE : ${d}`); process.exit(1); }
     utilises.add(d);
-    return dossiers[d].slice().sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+    // ⚠️ Le GROUPE n est pose que lorsqu un module tire de PLUSIEURS dossiers :
+    // c est ce qui fait apparaitre l intertitre « Module 7 bis » dans la liste
+    // des chapitres, comme la maquette le prevoit.
+    const groupe = sources.length > 1 && iSource > 0 ? '7 bis' : null;
+    if (sources.length > 1) lignes.push(`    // ${d}`);
+    dossiers[d].slice().sort((a, b) => a.nom.localeCompare(b.nom, 'fr')).forEach((v) => {
+      const min = Math.round(v.duree / 60);
+      if (!/^\s*\d/.test(v.nom)) sansNumero.push(`${d} : ${v.nom}`);
+      lignes.push(`    { id: 'm${num}-l${rang}', titre: ${JSON.stringify(titreDeTravail(v.nom))},`);
+      lignes.push(`      video: null, description: null, provisoire: true,`
+        + `${groupe ? ` groupe: '${groupe}',` : ''} minutes: ${min} },`);
+      rang += 1;
+      total += 1;
+    });
   });
-  lignes.push(`  { numero: '${num}', titre: ${JSON.stringify(titreSite)}, lecons: [`);
-  videos.forEach((v, i) => {
-    const m = Math.floor(v.duree / 60);
-    lignes.push(`    { id: '${idLecon(num, i)}', titre: ${JSON.stringify(titreDeTravail(v.nom))},`
-      + ` video: '${v.id}' },  // ${m} min`);
-    total += 1;
-  });
-  lignes.push('  ] },');
+  lignes.push('  ],');
 }
 
 const orphelins = Object.keys(dossiers).filter((d) => !utilises.has(d));
-console.log('  ── A COLLER DANS assets/formation-donnees.js, DANS `MODULES` ──\n');
+console.log('  ── A COLLER DANS assets/formation-donnees.js, DANS `CHAPITRES` ──\n');
 console.log(lignes.join('\n'));
-console.log(`\n  ${total} lecons produites sur ${toutes.length} videos relevees.`);
+console.log(`\n  ${total} chapitres produits sur ${toutes.length} videos relevees.`);
 if (orphelins.length) {
-  console.log(`\n  ⚠️ DOSSIERS NON UTILISES, et l outil ne les range pas tout seul :`);
-  for (const d of orphelins) console.log(`     ${d.padEnd(16)} ${dossiers[d].length} videos`);
+  console.log('\n  ⚠️ DOSSIERS NON UTILISES, et l outil ne les range pas tout seul :');
+  for (const d of orphelins) {
+    console.log(`     ${d.padEnd(16)} ${dossiers[d].length} video(s) : `
+      + dossiers[d].map((v) => v.nom).join(', ').slice(0, 70));
+  }
+}
+if (sansNumero.length) {
+  console.log(`\n  ⚠️ ${sansNumero.length} video(s) SANS NUMEROTATION dans leur titre. Leur place`);
+  console.log('     dans le module vient donc de l ordre ALPHABETIQUE, qui n a aucune raison');
+  console.log('     d etre le bon ordre pedagogique. ⛔ A relire :');
+  for (const s of sansNumero) console.log(`     ${s.slice(0, 74)}`);
 }
 console.log('\n  ⚠️ LES TITRES SONT DES TITRES DE TRAVAIL, nettoyes de leur numerotation');
-console.log('     interne. ⛔ Ce ne sont pas des titres valides : relis-les avant de coller.');
-console.log('  ⚠️ Et les `description` sont absentes : elles viennent de LearnyBox, aucune');
-console.log('     video Vimeo n en porte, verifie.');
+console.log('     interne. ⛔ Ce ne sont pas des titres valides : Nadir les corrige');
+console.log('     directement dans `assets/formation-donnees.js`, sans toucher au code.');
+console.log('  ⛔ `video: null` partout : aucun identifiant Vimeo n entre dans un fichier');
+console.log('     servi au navigateur tant que la liste des domaines n est pas confirmee.');

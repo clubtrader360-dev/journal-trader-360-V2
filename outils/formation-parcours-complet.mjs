@@ -12,15 +12,15 @@
  * Le parcours suivi, dans l'ordre reel :
  *
  *    1. il arrive, il n'a QUE la formation
- *    2. la fenetre de parcours l'accueille
- *    3. il la ferme
- *    4. il ouvre une lecon
- *    5. il prend une note
- *    6. il coche « vu »
- *    7. il revient le lendemain
- *    8. il demande le journal
- *    9. un coach accorde
- *   10. il revient : il a les deux espaces
+ *    2. il ouvre un chapitre, prend une note, le marque termine
+ *    3. il revient le lendemain, dans un navigateur neuf
+ *    4. il demande le journal
+ *    5. un coach voit la demande et accorde
+ *    6. il revient : il a les deux espaces
+ *
+ * ⚠️ REECRIT AU LOT 10 : les etapes qui visaient la fenetre de parcours et le
+ * sommaire en liste ont disparu avec eux. ⛔ Une sonde qu on ne met pas a jour
+ * avec l interface finit par eprouver un produit qui n existe plus, en vert.
  *
  * ⚠️ L'ETAT EST PORTE ENTRE LES ETAPES, comme en vrai : ce que l'etape 5 ecrit,
  * l'etape 7 le relit. Un double qui repartirait de zero a chaque etape ne
@@ -136,117 +136,130 @@ async function rapatrier(p) {
   Object.assign(BASE, b);
 }
 
-/* ══ 1 a 3 : il arrive, la fenetre l accueille, il la ferme ════════════════ */
+/* ══ 1 : il arrive, il n a QUE la formation ════════════════════════════════ */
+/**
+ * ⚠️ REECRIT AU LOT 10. Les etapes 1 a 7 visaient la fenetre de parcours et le
+ * sommaire en liste, qui n existent plus : l espace est desormais celui de la
+ * maquette validee. ⛔ Le PARCOURS SUIVI est le meme, c est l interface qui a
+ * change. Une sonde qu on ne met pas a jour avec l interface finit par eprouver
+ * un produit qui n existe plus, et elle le fait en vert.
+ */
 titre('il arrive, il n a QUE la formation');
 {
   const { ctx, p } = await ouvrirPage();
   await p.evaluate(() => window.Acces.orienter());
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 900));
   const r = await p.evaluate(() => {
     const vu = (id) => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none'; };
+    const txtVisible = (racine) => {
+      let out = '';
+      const marche = (el) => {
+        if (el.nodeType === 3) { out += el.nodeValue; return; }
+        if (el.nodeType !== 1) return;
+        const c = getComputedStyle(el);
+        if (c.display === 'none' || c.visibility === 'hidden') return;
+        el.childNodes.forEach(marche);
+      };
+      marche(racine);
+      return out;
+    };
     return {
-      choix: vu('choixEspace'), app: vu('mainApp'), chemin: location.pathname,
-      fenetre: getComputedStyle(document.getElementById('formationFenetre')).display !== 'none',
-      phrase: (document.querySelector('#formationFenetre .formation-parcours-phrase') || {}).textContent || '',
-      // ⛔ AUCUNE MENTION DU JOURNAL nulle part : ni bouton, ni retour, ni allusion.
-      // ⚠️ VISIBLES SEULEMENT. Une premiere version listait toute mention
-      // textuelle, masquee comprise : elle signalait « Revenir au journal » sur
-      // un bouton parfaitement cache. ⛔ Un element masque n est pas une mention,
-      // et la sonde accusait le code d un defaut qui etait le sien.
-      mentionsJournal: [...document.querySelectorAll('#formation *')]
-        .filter((e) => !!e.offsetParent && !e.hidden)
-        .filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && /journal/i.test(n.textContent)))
-        .map((e) => e.textContent.trim().slice(0, 50)),
-      retourJournalVisible: (() => {
-        const b = document.querySelector('.formation-retour-journal');
-        return !!b && !b.hidden && !!b.offsetParent;
-      })(),
+      choix: vu('choixEspace'), journal: vu('mainApp'), formation: vu('formationApp'),
+      xp: (document.getElementById('chipXp') || {}).textContent || '',
+      niveau: (document.getElementById('chipLvl') || {}).textContent || '',
+      titre: (document.querySelector('#formationApp .hero h1') || {}).textContent || '',
+      cartes: document.querySelectorAll('#formationApp .mod').length,
+      barres: document.querySelectorAll('#formationApp .sidebar-item').length,
+      mentionsJournal: (txtVisible(document.getElementById('formationApp')).match(/journal/gi) || []).length,
     };
   });
-  dire('il entre directement, sans ecran de choix', !r.choix && r.app);
-  dire('la destination est /formation', r.chemin === '/formation', r.chemin);
-  dire('la fenetre de parcours l accueille', r.fenetre);
-  dire('  avec la phrase de depart', /commences/i.test(r.phrase), r.phrase.trim());
-  dire('⛔ aucune mention du journal dans la formation',
-    r.mentionsJournal.length === 0 && !r.retourJournalVisible, r.mentionsJournal.join(' | '));
-  await p.screenshot({ path: `${SORTIE}/01-arrivee.png` });
-
-  titre('il ferme la fenetre');
-  await p.keyboard.press('Escape');
-  await new Promise((r2) => setTimeout(r2, 400));
-  const f = await p.evaluate(() => ({
-    fermee: getComputedStyle(document.getElementById('formationFenetre')).display === 'none',
-    ecrit: window.__ecritures.filter((e) => e.table === 'formation_parcours_vu').length,
-  }));
-  dire('la fenetre se ferme a l echappement', f.fermee);
-  dire('⚠️ et l etat part EN BASE, pas en stockage local', f.ecrit === 1, `${f.ecrit} ecriture(s)`);
+  dire('⛔ pas d ecran de choix : un seul droit, on entre directement', !r.choix);
+  dire('l espace formation est ouvert, le journal est masque', r.formation && !r.journal);
+  dire('⛔ aucune barre laterale du journal dans l espace', r.barres === 0, `${r.barres}`);
+  dire('⛔ un eleve formation seule ne lit aucune mention du journal',
+    r.mentionsJournal === 0, `${r.mentionsJournal} occurrence(s) visible(s)`);
+  dire('il part de zero : 0 XP, premier niveau', /^0\s*XP$/.test(r.xp.trim()) && /Découvrir/.test(r.niveau),
+    `${r.xp.trim()} / ${r.niveau}`);
+  dire('les dix cartes de module sont la', r.cartes === 10, `${r.cartes}`);
+  console.log(`         accueil : « ${r.titre.replace(/\s+/g, ' ').trim()} »`);
+  await p.screenshot({ path: `${SORTIE}/01-arrivee.png`, fullPage: true });
   await rapatrier(p);
   await ctx.close();
 }
 
-/* ══ 4 a 6 : il ouvre une lecon, prend une note, coche vu ══════════════════ */
-titre('il ouvre une lecon, prend une note, la marque vue');
+/* ══ 2 : il ouvre un chapitre, prend une note, le marque termine ═══════════ */
+titre('il ouvre un chapitre, prend une note, le marque termine');
 {
   const { ctx, p } = await ouvrirPage();
   await p.evaluate(() => window.Acces.orienter());
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 900));
   const r = await p.evaluate(async () => {
-    // ⚠️ On passe par les VRAIS chemins de l interface : le sommaire, la carte du
-    // module, la ligne de lecon. ⛔ Appeler ouvrirLecon() directement sauterait
-    // precisement le cablage qu on veut eprouver.
-    const fen = document.getElementById('formationFenetre');
-    if (getComputedStyle(fen).display !== 'none') await window.Formation.fermerFenetre();
-    document.querySelector('#formation .formation-carte:not(.formation-carte-vide)').click();
-    await new Promise((res) => setTimeout(res, 250));
-    const lignes = document.querySelectorAll('#formation .formation-lecon-ligne');
-    const nbLecons = lignes.length;
-    lignes[0].click();
-    await new Promise((res) => setTimeout(res, 300));
-    const zone = document.getElementById('formationNote');
-    zone.value = 'Ma premiere note de cours.';
-    zone.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('#formationApp [data-mod="0"]').click();
+    await new Promise((res) => setTimeout(res, 500));
+    const titreChap = (document.querySelector('#formationApp .lesson-head h2') || {}).textContent || '';
+    const chapitres = document.querySelectorAll('#formationApp .chap').length;
+    const description = (document.querySelector('#formationApp .card p') || {}).textContent || '';
+    const z = document.getElementById('formationNote');
+    z.value = 'ma premiere note de formation';
+    z.dispatchEvent(new Event('input', { bubbles: true }));
+    z.dispatchEvent(new Event('blur', { bubbles: true }));
     await new Promise((res) => setTimeout(res, 1600));
-    const repere = (document.getElementById('formationNoteEtat') || {}).textContent || '';
-    document.getElementById('formationVue').click();
-    await new Promise((res) => setTimeout(res, 300));
+    const etat = (document.getElementById('savedMsg') || {}).textContent || '';
+    document.querySelector('#formationApp [data-complete]').click();
+    await new Promise((res) => setTimeout(res, 700));
     return {
-      nbLecons, repere,
-      titreLecon: (document.querySelector('#formationContenu .formation-titre') || {}).textContent || '',
-      ecritures: window.__ecritures.map((e) => e.table),
+      titreChap: titreChap.trim(), chapitres, description: description.trim(), etat: etat.trim(),
+      xp: (document.getElementById('chipXp') || {}).textContent || '',
+      ecrites: window.__ecritures.map((e) => e.table),
+      progression: window.__base.progression.length,
+      vue: (window.__base.progression[0] || {}).vue,
+      notes: window.__base.notes.length,
     };
   });
-  dire('le sommaire mene au module', r.nbLecons === 7, `${r.nbLecons} lecons`);
-  dire('le module mene a la lecon', /Introduction/.test(r.titreLecon), r.titreLecon.trim().slice(0, 40));
-  dire('⚠️ le repere dit que la note est enregistree', /Enregistr/i.test(r.repere), `« ${r.repere} »`);
-  dire('la note part dans formation_notes', r.ecritures.includes('formation_notes'));
-  dire('la case « vu » part dans formation_progression', r.ecritures.includes('formation_progression'));
-  await p.screenshot({ path: `${SORTIE}/02-lecon-note.png` });
+  dire('le module 01 montre ses SEPT chapitres reels', r.chapitres === 7, `${r.chapitres}`);
+  dire('⛔ le titre du chapitre n est pas « Chapitre 1 »', !/^Chapitre \d+$/.test(r.titreChap),
+    `« ${r.titreChap.slice(0, 54)} »`);
+  dire('⛔ aucune description inventee', /En attente de description/.test(r.description),
+    `« ${r.description.slice(0, 40)} »`);
+  dire('la note est enregistree, et le dit', /Enregistré/.test(r.etat), `« ${r.etat} »`);
+  dire('la note part en base', r.notes === 1, `${r.notes} ligne(s) dans formation_notes`);
+  dire('le chapitre est marque vu en base', r.progression === 1 && r.vue === true,
+    `${r.progression} ligne(s), vue=${r.vue}`);
+  dire('l experience suit : 100 XP', /100\s*XP/.test(r.xp), r.xp.trim());
+  dire('⛔ aucune table hors formation_notes / formation_progression',
+    r.ecrites.every((x) => ['formation_notes', 'formation_progression'].includes(x)),
+    [...new Set(r.ecrites)].join(', '));
+  await p.screenshot({ path: `${SORTIE}/02-chapitre-note.png`, fullPage: true });
   await rapatrier(p);
   await ctx.close();
 }
 
-/* ══ 7 : il revient le lendemain ═══════════════════════════════════════════ */
+/* ══ 3 : il revient le lendemain, dans un navigateur neuf ══════════════════ */
 titre('il revient le lendemain, dans un navigateur neuf');
 {
-  // ⚠️ On recule la date du dernier affichage pour que l intervalle de 20 h soit
-  // franchi : c est le seul moyen de jouer « le lendemain » en une seconde.
-  if (BASE.parcoursVu) BASE.parcoursVu.vue_le = new Date(Date.now() - 30 * 3600000).toISOString();
   const { ctx, p } = await ouvrirPage();
   await p.evaluate(() => window.Acces.orienter());
-  await new Promise((r) => setTimeout(r, 700));
+  await new Promise((r) => setTimeout(r, 900));
   const r = await p.evaluate(() => ({
     note: (window.__base.notes[0] || {}).texte || '',
-    reprise: (document.querySelector('#formation .formation-reprise-ou') || {}).textContent || '',
-    compteur: (document.querySelector('#formation .formation-compteur') || {}).textContent || '',
-    fenetre: getComputedStyle(document.getElementById('formationFenetre')).display !== 'none',
+    // ⛔ Le stockage local ne porte RIEN de la formation : tout revient de la base.
+    clesLocales: Object.keys(localStorage).filter((k) => /formation|t360/i.test(k)).length,
+    chapitres: ((document.querySelector('#formationApp .stat .v') || {}).textContent || '').replace(/\s+/g, ''),
+    xp: (document.getElementById('chipXp') || {}).textContent || '',
+    reprise: (document.querySelector('#formationApp .resume-meta') || {}).textContent || '',
+    badges: document.querySelectorAll('#formationApp .badge:not(.off)').length,
   }));
-  dire('sa note est toujours la', /premiere note/.test(r.note), r.note.slice(0, 30));
-  dire('le sommaire compte sa lecon vue', /1 leçon sur 7/.test(r.compteur.replace(/\s+/g, ' ')), r.compteur.replace(/\s+/g, ' ').trim().slice(0, 40));
-  dire('⚠️ la fenetre revient, car il a progresse ET 20 h ont passe', r.fenetre);
-  console.log(`         reprise : « ${r.reprise.replace(/\s+/g, ' ').trim()} »`);
+  dire('sa note est toujours la', /premiere note/.test(r.note), r.note.slice(0, 32));
+  dire('⛔ et elle ne vient pas du stockage local', r.clesLocales === 0,
+    `${r.clesLocales} cle(s) de formation`);
+  dire('le tableau de bord compte son chapitre', /^1\/63$/.test(r.chapitres), r.chapitres);
+  dire('son experience a suivi', /100\s*XP/.test(r.xp), r.xp.trim());
+  dire('un badge est gagne : « Première séance »', r.badges === 1, `${r.badges} badge(s) allume(s)`);
+  console.log(`         reprise : « ${r.reprise.replace(/\s+/g, ' ').trim().slice(0, 78)} »`);
   await rapatrier(p);
   await ctx.close();
 }
+
 
 /* ══ 8 : il demande le journal ═════════════════════════════════════════════ */
 titre('il demande le journal');
@@ -341,6 +354,6 @@ titre('il revient : il a les deux espaces');
 
 await nav.close();
 console.log(fautes === 0
-  ? '\n  Le parcours tient de bout en bout, dix etapes, sans accroc.'
+  ? '\n  Le parcours tient de bout en bout, six etapes, sans accroc.'
   : `\n  ⛔ ${fautes} accroc(s) sur le parcours.`);
 process.exit(fautes === 0 ? 0 : 1);
