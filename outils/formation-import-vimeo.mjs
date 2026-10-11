@@ -125,8 +125,12 @@ async function lireDossiers() {
  * Nettoie la numerotation interne des titres Vimeo. ⚠️ `1.5 - Creer ta routine`
  * devient `Creer ta routine` : le numero est deja porte par la position.
  */
+// ⚠️ Les tirets cadratin et demi-cadratin sont ecrits en ECHAPPEMENT, pas en
+// caracteres. Ils sont ici fonctionnels, un titre Vimeo pouvant porter l un ou
+// l autre, mais le depot n en veut aucun en clair : `\u2013` et `\u2014` font
+// le meme travail et se relisent sans ambiguite.
 const titreDeTravail = (nom) =>
-  String(nom).replace(/^\s*\d+(?:\s*bis)?(?:\.\d+)*\s*[-–—:]\s*/i, '').trim() || String(nom).trim();
+  String(nom).replace(/^\s*\d+(?:\s*bis)?(?:\.\d+)*\s*[-\u2013\u2014:]\s*/i, '').trim() || String(nom).trim();
 
 /** Un identifiant de lecon stable. ⛔ Il ne changera JAMAIS : c'est la cle des notes. */
 const idLecon = (mod, rang) => `m${mod}-l${rang}`;
