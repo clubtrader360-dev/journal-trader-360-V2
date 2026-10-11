@@ -315,7 +315,11 @@ for (const [f, j, attendu] of [
       choixVisible: !!(choix && choix.style.display !== 'none'),
       appVisible: document.getElementById('mainApp').style.display !== 'none',
       boutonFormation: vu(document.querySelector('#choixEspace [data-droit="formation"]')),
-      boutonJournal: vu(document.querySelector('#choixEspace [data-droit="journal"]')),
+      // ⚠️ Depuis le lot 2, le bouton Journal NE SE MASQUE PLUS : il a quatre
+      // etats et change de libelle. ⛔ `data-droit="journal"` a ete retire de lui
+      // volontairement, la porte fermee etant la demande d acces elle-meme.
+      boutonJournal: vu(document.querySelector('#choixEspace [data-journal-bouton]')),
+      libelleJournal: (document.querySelector('#choixEspace [data-journal-bouton]') || {}).textContent || '',
       message: vu(document.getElementById('choixAucunDroit')),
       entreeFormation: vu(document.querySelector('#mainAppSidebar [data-droit="formation"]')),
       section: location.pathname,
@@ -329,6 +333,7 @@ for (const [f, j, attendu] of [
   dire('  ⛔ jamais un écran blanc', !r.ecranBlanc);
   if (f && j) {
     dire('  les deux boutons sont proposés', r.boutonFormation && r.boutonJournal);
+    dire('  le bouton Journal porte son libellé d accès', /Journal de trading/.test(r.libelleJournal), r.libelleJournal.trim());
     dire('  on n entre pas sans avoir choisi', !r.appVisible);
   } else if (f !== j) {
     dire('  on entre directement, sans choix', r.appVisible && !r.choixVisible);
@@ -338,7 +343,10 @@ for (const [f, j, attendu] of [
       r.entreeFormation === f, String(r.entreeFormation));
   } else {
     dire('  un message explique et invite à écrire', r.message);
-    dire('  ⛔ aucune porte n est montrée', !r.boutonFormation && !r.boutonJournal);
+    // ⚠️ Le bouton Journal RESTE visible : sans droit, il porte « Demander
+    // l acces au journal », et c est par lui qu un eleve l obtient.
+    dire('  ⛔ aucune porte de FORMATION n est montrée', !r.boutonFormation);
+    dire('  le bouton Journal invite à demander', /Demander/.test(r.libelleJournal), r.libelleJournal.trim());
     dire('  ⛔ l application reste fermée', !r.appVisible);
   }
   await p2.close();

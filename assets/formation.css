@@ -32,8 +32,13 @@
 .formation-fil-actif { color: var(--text-strong); font-weight: 600; }
 
 /* ── En-tête et marque ────────────────────────────────────────────────────── */
+/* ⛔ Sur une SURFACE, pas sur la photographie : mesure du 11/10/2026, ce bandeau
+   avait 100 % de son fond sous 4,5 en mode clair. Une image fait varier le
+   contraste d un endroit a l autre, aucune couleur de texte n y tient partout. */
 .formation-marque {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  display: inline-flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  padding: 8px 14px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-pill);
 }
 .formation-marque img { height: 36px; width: auto; }
 .formation-marque span {
@@ -69,7 +74,7 @@
   max-width: 100%; text-align: left; white-space: normal;
 }
 .formation-btn-or {
-  background: var(--accent); color: var(--text-on-brand); border: 1px solid var(--accent);
+  background: var(--accent); color: var(--primary); border: 1px solid var(--accent);
 }
 .formation-btn-or:hover { background: var(--accent-hover); }
 .formation-btn-fantome {
@@ -112,7 +117,7 @@
   font-size: 12px; font-weight: 700;
   background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
 }
-.formation-lecon-vue { background: var(--accent); color: var(--text-on-brand); border-color: var(--accent); }
+.formation-lecon-vue { background: var(--accent); color: var(--primary); border-color: var(--accent); }
 .formation-lecon-titre { flex: 1 1 auto; line-height: 1.35; }
 .formation-lecon-badge { flex: 0 0 auto; font-size: 12px; color: var(--text-muted); }
 
@@ -184,7 +189,15 @@
    ce défaut ailleurs ; la règle ci-dessous le ferme pour les éléments pilotés par
    les droits, sans toucher au reste de la feuille.
    ========================================================================== */
-[data-droit][hidden], #choixAucunDroit[hidden], #choixErreur[hidden] { display: none !important; }
+/* ⛔ LA REGLE PORTE SUR TOUT `[hidden]` DE CES DEUX ZONES, et c est une
+   correction du 11/10/2026. Elle ne visait que `[data-droit]`, et le bouton
+   « Revenir a l espace coach » n en porte pas : sa classe
+   `.formation-btn-fantome` pose `display: inline-block`, qui bat la regle sans
+   specificite du navigateur. ⚠️ Il s affichait donc a un eleve, alors que son
+   attribut `hidden` etait bien present. C est la quatrieme fois que ce defaut
+   apparait sur ces deux depots : une classe d auteur qui neutralise `[hidden]`. */
+#formation [hidden], #choixEspace [hidden],
+[data-droit][hidden] { display: none !important; }
 
 .choix-portes { display: flex; flex-direction: column; gap: 12px; }
 .choix-portes > button { width: 100%; text-align: center; }
@@ -194,3 +207,130 @@
 
 /* Le retour vers le journal, en haut de l'espace formation. */
 .formation-retour-journal { margin-bottom: 16px; }
+
+/* Le message du quatrieme etat : il explique, il ne refuse pas en silence. */
+.choix-message-retire {
+  margin: 12px 0 0; padding: 12px 14px; line-height: 1.55; font-size: 14px;
+  color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.choix-message-retire[hidden] { display: none !important; }
+
+/* ============================================================================
+   SOMMAIRE ENRICHI : citation, reprise, parcours, notes
+   ⛔ AUCUNE VALEUR DE COULEUR PROPRE : que des jetons du journal.
+   ⚠️ Et aucun reglage d apparence n est lu ici : arbitrage de Nadir, l espace
+   formation porte un reglage fixe. Voir le rapport.
+   ========================================================================== */
+.formation-citation {
+  position: relative; padding: 18px 20px; margin-bottom: 20px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.formation-citation i { color: var(--accent); font-size: 14px; }
+.formation-citation blockquote {
+  margin: 0; font-style: italic; line-height: 1.55; color: var(--text-strong);
+}
+.formation-citation figcaption { font-size: 13px; color: var(--text-muted); }
+
+.formation-reprise-ou { margin: 14px 0 10px; color: var(--text); line-height: 1.5; }
+.formation-reprise-ou strong { color: var(--text-strong); }
+.formation-mention { color: var(--text-muted); font-style: italic; }
+/* ⛔ PAS EN COULEUR D ACCENT. L or sur la surface creme du mode clair donne
+   environ 2:1, mesure : 100 % des points de ce lien passaient sous le seuil. Ce
+   n est pas la photographie qui est en cause, c est le couple de couleurs.
+   Le lien se signale par son soulignement, jamais par la seule couleur. */
+.formation-lien {
+  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--text); text-decoration: underline; text-underline-offset: 2px;
+}
+.formation-lien:hover { color: var(--text-strong); }
+
+/* ── Le parcours : un chemin qui MONTE ─────────────────────────────────────
+   ⚠️ Vertical, donc il tient en 390 pixels sans point de rupture. Un trace
+   horizontal a dix etapes y deborderait. */
+.formation-parcours { margin: 0 0 24px; }
+.formation-parcours-phrase {
+  margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-strong);
+}
+.formation-rail {
+  list-style: none; margin: 0; padding: 0 0 0 34px; position: relative;
+  display: flex; flex-direction: column; gap: 10px;
+}
+/* Le rail entier, toujours dessine : ⛔ un parcours a zero pour cent ne doit pas
+   ressembler a une erreur d affichage, et c est ce que voit chaque nouvel eleve. */
+.formation-rail::before,
+.formation-rail::after {
+  content: ''; position: absolute; left: 12px; width: 4px; border-radius: 2px;
+}
+.formation-rail::before { top: 6px; bottom: 6px; background: var(--surface-2); border: 1px solid var(--border); }
+/* Rempli depuis le BAS : le chemin monte. */
+.formation-rail::after {
+  bottom: 6px; height: calc(var(--rempli, 0%) * 0.88); background: var(--accent);
+  transition: height .45s var(--ease, ease);
+}
+/* ⚠️ `prefers-reduced-motion` : le trace s affiche, il ne s anime pas. C est une
+   question d accessibilite, pas de preference esthetique. */
+@media (prefers-reduced-motion: reduce) {
+  .formation-rail::after, .formation-barre-remplie { transition: none; }
+}
+body[data-animations="off"] .formation-rail::after,
+body[data-animations="off"] .formation-barre-remplie { transition: none; }
+
+.formation-jalon { position: relative; display: flex; align-items: center; gap: 12px; min-height: 30px; }
+.formation-jalon-pastille {
+  position: absolute; left: -34px; width: 28px; height: 28px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; z-index: 1;
+  background: var(--surface); color: var(--text-muted); border: 1px solid var(--border);
+}
+.formation-jalon-fait .formation-jalon-pastille { background: var(--accent); color: var(--primary); border-color: var(--accent); }
+.formation-jalon-ici .formation-jalon-pastille { border-color: var(--accent); color: var(--accent); }
+.formation-jalon-titre { font-size: 14px; line-height: 1.35; color: var(--text); }
+.formation-jalon-ici .formation-jalon-titre { color: var(--text-strong); font-weight: 600; }
+
+/* ── La vue des notes ───────────────────────────────────────────────────── */
+.formation-filtre {
+  width: 100%; padding: 11px 14px; margin: 0 0 16px; font: inherit; font-size: 15px;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.formation-notes-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.formation-note-carte { padding: 16px; }
+/* L extrait ne deborde pas : trois lignes, et on ouvre la lecon pour la suite. */
+.formation-note-extrait {
+  margin: 8px 0 12px; line-height: 1.55; color: var(--text); white-space: pre-wrap;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+@media (max-width: 480px) {
+  .formation-rail { padding-left: 32px; }
+  .formation-jalon-pastille { left: -32px; width: 26px; height: 26px; }
+  .formation-filtre { font-size: 16px; } /* ⛔ Sous 16px, iOS zoome au focus. */
+}
+
+
+/* ============================================================================
+   ⛔ DEUX DEFAUTS DE CONTRASTE, MESURES ET CORRIGES LE 11/10/2026
+   ----------------------------------------------------------------------------
+   1. `--text-on-brand` (#fef3c7, creme) SUR `--accent` (l or) donne 1,26:1.
+      ⚠️ Le nom du jeton laisse croire qu il est fait pour cela ; il ne l est pas.
+      La convention du journal est visible dans `.btn-note` :
+          .btn-note { background: var(--accent); color: var(--primary); }
+      C est donc `--primary` qui va sur l or, et c est ce qui est pose ci-dessus.
+
+   2. Un texte pose directement sur la PHOTOGRAPHIE de fond. En mode sombre, le
+      lien « Toutes mes notes » en couleur d accent tombait a 2,06:1 sur une zone
+      claire de l image. ⚠️ Une image de fond fait varier le contraste d un
+      endroit a l autre : aucune couleur de texte ne tient sur toutes ses zones.
+      ⛔ La regle est donc : AUCUN TEXTE DIRECTEMENT SUR L IMAGE. L en-tete et le
+      parcours reposent sur une surface, comme tout le reste du journal.
+   ========================================================================== */
+.formation-entete, .formation-parcours {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+}
+.formation-parcours { margin-bottom: 24px; }
+@media (max-width: 480px) {
+  .formation-entete, .formation-parcours { padding: 14px 15px; }
+}

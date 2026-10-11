@@ -3964,10 +3964,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         onclick="Acces.entrer('formation')">
                     <i class="fas fa-graduation-cap mr-2" aria-hidden="true"></i>Formation
                 </button>
-                <button type="button" class="formation-btn-fantome" data-droit="journal" hidden
-                        onclick="Acces.entrer('journal')">
-                    <i class="fas fa-chart-line mr-2" aria-hidden="true"></i>Journal
-                </button>
+                <!-- ⚠️ QUATRE ETATS, pas deux. ⛔ Plus de `data-droit="journal"` ici : cet
+                     attribut MASQUAIT le bouton quand le droit etait absent, et c est
+                     l inverse de ce qu il faut. La porte fermee EST la demande : c est par
+                     elle qu un eleve obtient le journal. Libelle et comportement viennent
+                     de `Acces.rendreBoutonJournal()` et `Acces.cliquerJournal()`. -->
+                <button type="button" class="formation-btn-fantome" data-journal-bouton hidden
+                        onclick="Acces.cliquerJournal()">Journal de trading</button>
+                <!-- ⛔ Pas un bouton grise, pas un refus muet : on explique. -->
+                <p id="journalMessageRetire" class="choix-message-retire" hidden></p>
             </div>
             <!-- ⚠️ DEUX MESSAGES DISTINCTS, ET LA DISTINCTION EST LE POINT.
                  « Aucun droit » est une reponse ; « nous n avons pas pu lire tes droits »

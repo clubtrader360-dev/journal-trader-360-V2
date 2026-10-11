@@ -145,28 +145,119 @@
 
   // ===== RENDU : SOMMAIRE ===================================================
 
+  /** Minutes et secondes lisibles. ⛔ Jamais des secondes brutes a l ecran. */
+  function duree(s) {
+    const n = Math.max(0, Math.floor(Number(s) || 0));
+    const m = Math.floor(n / 60);
+    return m >= 1 ? `${m} min` : `${n} s`;
+  }
+
+  /**
+   * ── ⚠️ LA REPRISE PRECISE, ET LE CAS « JAMAIS COMMENCE » ─────────────────
+   *
+   * Rend le module, la lecon et la position, ou `null` si l eleve n a RIEN
+   * ouvert. ⛔ Un « reprendre a 0 min » sur une formation jamais commencee est
+   * faux et decourageant : dans ce cas on invite a commencer, on ne reprend pas.
+   *
+   * ⚠️ « Rien ouvert » se mesure sur la PROGRESSION ENREGISTREE, pas sur la
+   * structure : une lecon vue sans position, ou une position sans vue, comptent
+   * toutes les deux comme un debut.
+   */
+  function reprisePrecise() {
+    let meilleure = null;
+    for (const l of D().SUITE) {
+      const p = _progression[l.id];
+      if (!p) continue;
+      if (!p.vue && !(p.progress_seconds > 0)) continue;
+      const quand = p.last_watched_at ? Date.parse(p.last_watched_at) : 0;
+      if (!meilleure || quand >= meilleure.quand) meilleure = { lecon: l, p, quand };
+    }
+    if (!meilleure) return null;
+    const m = D().module(meilleure.lecon.module);
+    const rang = m ? m.lecons.findIndex((x) => x.id === meilleure.lecon.id) + 1 : 0;
+    return {
+      lecon: meilleure.lecon,
+      module: meilleure.lecon.module,
+      rang,
+      secondes: meilleure.p.progress_seconds || 0,
+    };
+  }
+
+  /**
+   * ── ⚠️ LE POURCENTAGE : POURQUOI IL NE S AFFICHE PAS ENCORE ──────────────
+   *
+   * ⛔ LE PIEGE EST REEL. Seul le module 01 porte ses lecons. Un pourcentage
+   * calcule sur cette structure partielle dirait « 0 sur 7 » et laisserait croire
+   * que la formation fait sept lecons. Elle en fera soixante-quatre. Le jour ou
+   * les autres modules seront remplis, la progression de chacun s effondrerait
+   * sans explication, et ⛔ RIEN NE LE SIGNALERAIT.
+   *
+   * ⚠️ DEUX SORTIES ETAIENT POSSIBLES, ET LA PREMIERE EST FERMEE AUJOURD HUI.
+   * Compter toutes les lecons PREVUES supposerait de savoir combien chaque module
+   * en portera, donc de poser la correspondance entre les dix modules du site et
+   * les onze dossiers Vimeo. ⛔ Cette correspondance n est pas arbitree : le
+   * module 10 n a aucun dossier, et le `7BIS` aucun module. L ecrire ici serait
+   * inventer ce que le lot interdit d inventer.
+   *
+   * La seconde sortie est donc retenue : TANT QUE LA STRUCTURE EST INCOMPLETE, le
+   * pourcentage ne s affiche pas, et la mention dit pourquoi. Le compte de lecons
+   * reste affiche, lui, parce qu il est vrai.
+   *
+   * ⚠️ `structureComplete()` bascule toute seule le jour ou les dix modules
+   * porteront des lecons : aucune intervention, aucun oubli possible.
+   */
+  function structureComplete() {
+    return D().MODULES.every((m) => m.lecons.length > 0);
+  }
+
   function rendreSommaire() {
     _vue = 'sommaire';
     const mods = D().MODULES;
     const total = D().total();
     const faites = D().SUITE.filter((l) => estVue(l.id)).length;
-    const r = reprise();
+    const r = reprisePrecise();
+    const complete = structureComplete();
+    const pct = total ? Math.round((faites / total) * 100) : 0;
+    const modulesFaits = mods.filter((m) => m.lecons.length > 0
+      && m.lecons.every((l) => estVue(l.id))).length;
 
     $('formationFilAriane').innerHTML = '<span class="formation-fil-actif">Sommaire</span>';
     $('formationContenu').innerHTML = `
+      ${citation()}
+
       <div class="formation-entete">
-        <div class="formation-progression-globale">
-          <div class="formation-barre" role="progressbar" aria-valuemin="0" aria-valuemax="${total}"
-               aria-valuenow="${faites}" aria-label="Progression dans la formation">
-            <div class="formation-barre-remplie" style="width:${total ? (faites / total) * 100 : 0}%"></div>
-          </div>
-          <p class="formation-compteur">${faites} leçon${faites > 1 ? 's' : ''} sur ${total}</p>
+        <div class="formation-barre" role="progressbar" aria-valuemin="0" aria-valuemax="${total}"
+             aria-valuenow="${faites}" aria-label="Progression dans la formation">
+          <div class="formation-barre-remplie" style="width:${total ? (faites / total) * 100 : 0}%"></div>
         </div>
-        ${r ? `<button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${r.id}')">
-                 Reprendre : ${txt(r.titre)}
-               </button>`
-            : '<p class="formation-compteur">Toutes les leçons disponibles sont vues.</p>'}
+        <p class="formation-compteur">
+          ${faites} leçon${faites > 1 ? 's' : ''} sur ${total}
+          ${complete
+            ? ` · <strong>${pct} %</strong>`
+            : ' · <span class="formation-mention">le pourcentage s\'affichera quand les dix modules seront remplis</span>'}
+        </p>
+
+        ${r
+          ? `<p class="formation-reprise-ou">Tu en es à
+               <strong>Module ${txt(r.module)} · leçon ${r.rang} · à ${duree(r.secondes)}</strong></p>
+             <button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${r.lecon.id}')">
+               Reprendre : ${txt(r.lecon.titre)}
+             </button>`
+          : `<p class="formation-reprise-ou">Tu n'as pas encore commencé.</p>
+             ${D().SUITE.length
+               ? `<button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${D().SUITE[0].id}')">
+                    Commencer : ${txt(D().SUITE[0].titre)}
+                  </button>`
+               : ''}`}
+
+        <p class="formation-compteur">
+          ${modulesFaits} module${modulesFaits > 1 ? 's' : ''} terminé${modulesFaits > 1 ? 's' : ''}
+          · <button type="button" class="formation-lien" onclick="Formation.ouvrirNotes()">Toutes mes notes</button>
+        </p>
       </div>
+
+      ${parcours(r)}
+
       <div class="formation-grille">
         ${mods.map((m) => {
           const a = avancement(m);
@@ -186,6 +277,139 @@
           </article>`;
         }).join('')}
       </div>`;
+  }
+
+  /**
+   * ── ⚠️ LA CITATION VIENT DE LA MEME SOURCE QUE CELLE DU JOURNAL ──────────
+   *
+   * `#mantraContainer` du journal lit `localStorage.userMantra` et
+   * `localStorage.userMantraAuthor`, posees par `saveMantra()`. On relit LES
+   * MEMES CLES. ⛔ Aucune seconde source : deux systemes de citation dans la meme
+   * application divergeraient, et celui qu on ne regarde pas deviendrait faux.
+   *
+   * ⚠️ C EST DONC LA CITATION DE L ELEVE, celle qu il a choisie dans son journal,
+   * et non une autre. Cela se defend : la formation est son espace, pas une
+   * vitrine. ⛔ Mais c est un choix, et il revient a Nadir de le confirmer.
+   *
+   * ⚠️ ET UN CONSTAT QUI N EST PAS DE MON RESSORT : cette source est
+   * `localStorage` SEUL. La citation d un eleve ne le suit donc pas d un appareil
+   * a l autre, et un eleve qui n a que la formation n en aura jamais aucune, ne
+   * passant pas par le journal pour la saisir. Rapporte, pas corrige : changer la
+   * source toucherait le journal, hors perimetre de ce lot.
+   */
+  function citation() {
+    let texte = '';
+    let auteur = '';
+    try {
+      texte = localStorage.getItem('userMantra') || '';
+      auteur = localStorage.getItem('userMantraAuthor') || '';
+    } catch { texte = ''; }
+    if (!texte) return '';
+    return `
+      <figure class="trader-card formation-citation">
+        <i class="fas fa-quote-left" aria-hidden="true"></i>
+        <blockquote>${txt(texte)}</blockquote>
+        ${auteur ? `<figcaption>${txt(auteur)}</figcaption>` : ''}
+      </figure>`;
+  }
+
+  /**
+   * ── ⚠️ LE PARCOURS : UN CHEMIN QUI MONTE, PAS UNE BARRE ──────────────────
+   *
+   * Dix jalons, du bas vers le haut, et le trace rempli jusqu ou l eleve en est.
+   *
+   * ⚠️ IL MONTE, DONC IL EST VERTICAL, ET C EST AUSSI CE QUI LE REND MOBILE.
+   * Un trace horizontal a dix etapes ne tient pas en 390 pixels : il deborderait
+   * ou deviendrait illisible. Vertical, il tient a toutes les largeurs sans
+   * point de rupture a maintenir, et il monte vraiment.
+   *
+   * ⛔ CE NE SONT PAS LES SEPT ETAPES DU SITE VITRINE. `trader360.fr` porte une
+   * section « Sept etapes pour reussir », qui est un discours commercial. Ici ce
+   * sont LES DIX MODULES. Les melanger donnerait un parcours qui ne ressemble a
+   * aucun des deux.
+   *
+   * ⚠️ LE TRACE VIDE NE DOIT PAS RESSEMBLER A UNE ERREUR D AFFICHAGE, et c est
+   * pourtant ce que verra CHAQUE NOUVEL ELEVE, puisque « formation sans journal »
+   * est le cas normal a l arrivee. Le rail est donc toujours dessine en entier,
+   * avec ses dix jalons visibles, et seul le remplissage varie.
+   */
+  function parcours(r) {
+    const mods = D().MODULES;
+    const atteint = r ? mods.findIndex((m) => m.numero === r.module) : -1;
+    const faitsParModule = mods.map((m) => m.lecons.length > 0
+      && m.lecons.every((l) => estVue(l.id)));
+    const dernierFait = faitsParModule.lastIndexOf(true);
+    const courant = Math.max(atteint, dernierFait, 0);
+    const rempli = mods.length > 1 ? (courant / (mods.length - 1)) * 100 : 0;
+    const phrase = r || dernierFait >= 0
+      ? (D().PHRASES[mods[courant].numero] || '')
+      : D().PHRASES.depart;
+
+    return `
+      <section class="formation-parcours" aria-label="Ton parcours">
+        <p class="formation-parcours-phrase">${txt(phrase)}</p>
+        <ol class="formation-rail" style="--rempli:${rempli}%">
+          ${mods.slice().reverse().map((m, i) => {
+            const idx = mods.length - 1 - i;
+            const fait = faitsParModule[idx];
+            const ici = idx === courant && (r || dernierFait >= 0);
+            return `
+            <li class="formation-jalon${fait ? ' formation-jalon-fait' : ''}${ici ? ' formation-jalon-ici' : ''}">
+              <span class="formation-jalon-pastille" aria-hidden="true">${fait ? '✓' : m.numero}</span>
+              <span class="formation-jalon-titre">${txt(m.titre)}</span>
+            </li>`;
+          }).join('')}
+        </ol>
+      </section>`;
+  }
+
+  /**
+   * ── ⚠️ TOUTES LES NOTES AU MEME ENDROIT ──────────────────────────────────
+   *
+   * ⛔ PAS UN MENU DEROULANT, et c est delibere. Soixante-quatre notes dans un
+   * menu est inutilisable : on ne lit rien, on ne cherche rien, et l extrait
+   * disparait des qu on referme. Le besoin reel est de RETROUVER une note, de
+   * savoir d ou elle vient et d y sauter. Une liste filtrable sert les trois ; un
+   * menu n en sert aucun.
+   *
+   * ⛔ LECTURE SEULE ICI. Modifier une note hors de son contexte, sans la lecon
+   * ni la video sous les yeux, est un bon moyen de la vider par erreur. Le bouton
+   * mene a la lecon, ou la note s edite normalement. ⚠️ C est une proposition :
+   * si Nadir veut l edition en place, elle s ajoute sans rien defaire.
+   */
+  function rendreNotes(filtre) {
+    _vue = 'notes';
+    const q = (filtre || '').trim().toLowerCase();
+    const avec = D().SUITE
+      .map((l) => ({ l, texte: (_notes[l.id] || '').trim() }))
+      .filter((x) => x.texte)
+      .filter((x) => !q || x.texte.toLowerCase().includes(q) || x.l.titre.toLowerCase().includes(q));
+
+    $('formationFilAriane').innerHTML =
+      `<button type="button" class="formation-fil-lien" onclick="Formation.ouvrirSommaire()">Sommaire</button>
+       <span class="formation-fil-sep" aria-hidden="true">/</span>
+       <span class="formation-fil-actif">Mes notes</span>`;
+
+    $('formationContenu').innerHTML = `
+      <h2 class="formation-titre">Mes notes</h2>
+      <p class="formation-compteur">${avec.length} note${avec.length > 1 ? 's' : ''}${q ? ' trouvée' + (avec.length > 1 ? 's' : '') : ''}</p>
+      <input type="search" id="formationNotesFiltre" class="formation-filtre"
+             placeholder="Chercher dans mes notes" aria-label="Chercher dans mes notes"
+             value="${txt(q)}" oninput="Formation.filtrerNotes(this.value)">
+      ${avec.length === 0
+        ? `<p class="formation-mention">${q ? 'Aucune note ne correspond.' : 'Tu n\'as encore écrit aucune note.'}</p>`
+        : `<ul class="formation-notes-liste">
+             ${avec.map(({ l, texte }) => `
+               <li class="trader-card formation-note-carte">
+                 <div class="formation-carte-numero">Module ${txt(l.module)} · ${txt(l.titre)}</div>
+                 <p class="formation-note-extrait">${txt(texte)}</p>
+                 <button type="button" class="formation-btn-fantome"
+                         onclick="Formation.ouvrirLecon('${l.id}')">Ouvrir la leçon</button>
+               </li>`).join('')}
+           </ul>`}`;
+
+    const f = $('formationNotesFiltre');
+    if (f && q) { f.focus(); f.setSelectionRange(q.length, q.length); }
   }
 
   // ===== RENDU : MODULE =====================================================
@@ -375,6 +599,8 @@
     ouvrirSommaire() { detacherLecteur(); rendreSommaire(); },
     ouvrirModule(n) { detacherLecteur(); rendreModule(n); },
     ouvrirLecon(id) { detacherLecteur(); rendreLecon(id); },
+    ouvrirNotes() { detacherLecteur(); rendreNotes(''); },
+    filtrerNotes(q) { rendreNotes(q); },
     async basculerVue(id, vue) { await ecrireProgression(id, { vue }); },
     // Exposés pour la sonde : ⛔ ne pas les appeler depuis l'interface.
     _etat: () => ({ vue: _vue, module: _moduleCourant, lecon: _leconCourante }),

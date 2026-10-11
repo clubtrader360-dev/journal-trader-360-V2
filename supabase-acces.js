@@ -52,7 +52,7 @@
 
     const { data, error } = await supabase
       .from('acces_membre')
-      .select('formation_actif, journal_actif')
+      .select('formation_actif, journal_actif, journal_demande_le, journal_retire_le')
       .eq('user_id', uid)
       .maybeSingle();
 
@@ -75,6 +75,8 @@
     _droits = {
       formation: !!(data && data.formation_actif),
       journal: !!(data && data.journal_actif),
+      demandeLe: (data && data.journal_demande_le) || null,
+      retireLe: (data && data.journal_retire_le) || null,
       connu: true,
       motif: data ? 'lu en base' : 'aucune ligne',
     };
@@ -90,6 +92,8 @@
     document.querySelectorAll('[data-droit="journal"]').forEach((el) => {
       el.hidden = !d.journal;
     });
+    // ⚠️ Le bouton a quatre etats : il ne se masque pas, il change de libelle.
+    rendreBoutonJournal();
   }
 
   /**
@@ -237,11 +241,91 @@
 
   const aJournal = () => !!(_droits && _droits.journal);
 
+  /**
+   * ── ⚠️ LE BOUTON « JOURNAL » A QUATRE ÉTATS, PAS DEUX ─────────────────────
+   *
+   * ⛔ CECI REMPLACE LA RÈGLE « ne montre jamais une porte fermée ». Ici la porte
+   * fermée EST la demande : c'est par elle qu'un élève obtient le journal. Ce
+   * qu'il ne faut pas, c'est une porte qui ne dit rien quand on la pousse.
+   *
+   * ⚠️ `retire` PRIME sur `demande` : qui a perdu le droit puis redemande reste
+   * dans le cas « retiré », parce que c'est le message qui le concerne.
+   */
+  function etatJournal() {
+    const d = _droits || {};
+    if (d.journal) return 'actif';
+    if (d.retireLe) return 'retire';
+    if (d.demandeLe) return 'attente';
+    return 'jamais';
+  }
+
+  const LIBELLES = {
+    actif: 'Journal de trading',
+    jamais: "Demander l acces au journal",
+    attente: 'Demande envoyee',
+    // ⚠️ Le quatrieme n est PAS un bouton grise : il reste cliquable et EXPLIQUE.
+    // Arbitrage de Nadir. ⛔ Pas de refus muet.
+    retire: 'Journal de trading',
+  };
+
+  /**
+   * ⚠️ TEXTE QUI PARLE AU NOM DE NADIR, repris tel quel. ⛔ Ne le reformule pas.
+   */
+  const MESSAGE_RETIRE = "Tu n'es plus abonné aux outils. Recontacte les coachs "
+    + "pour l'accompagnement.";
+
+  function rendreBoutonJournal() {
+    const etat = etatJournal();
+    document.querySelectorAll('[data-journal-bouton]').forEach((b) => {
+      b.textContent = LIBELLES[etat];
+      b.dataset.etatJournal = etat;
+      // ⛔ `disabled` SEULEMENT en attente : c est le seul etat ou cliquer ne
+      // mene nulle part et n apprend rien. Les trois autres font quelque chose.
+      b.disabled = etat === 'attente';
+      b.hidden = false;
+    });
+    const msg = document.getElementById('journalMessageRetire');
+    if (msg) { msg.textContent = MESSAGE_RETIRE; msg.hidden = true; }
+  }
+
+  /** Le clic, selon l etat. ⛔ Ne touche NI `public.users.status` NI la formation. */
+  async function cliquerJournal() {
+    const etat = etatJournal();
+    if (etat === 'actif') return entrer('journal');
+    if (etat === 'attente') return;
+    if (etat === 'retire') {
+      const msg = document.getElementById('journalMessageRetire');
+      if (msg) msg.hidden = false;
+      return;
+    }
+    // ── « jamais demandé » : on pose la demande, et RIEN d autre ────────────
+    const { data } = await supabase.auth.getUser();
+    const uid = data?.user?.id;
+    if (!uid) return;
+    // ⚠️ UNE SEULE COLONNE EST ÉCRITE, et le `grant update (journal_demande_le)`
+    // de la migration 03 fait que c est la seule qui PUISSE l etre. L interface
+    // ne se protege pas elle-meme : la barriere est dans le grant.
+    const { error } = await supabase.from('acces_membre')
+      .update({ journal_demande_le: new Date().toISOString() })
+      .eq('user_id', uid);
+    if (error) {
+      console.error('[ACCES] ⚠️ demande NON enregistree :', error.message);
+      return;
+    }
+    _droits.demandeLe = new Date().toISOString();
+    rendreBoutonJournal();
+  }
+
+
   window.Acces = {
     charger,
     appliquer,
     orienter,
     entrer,
+    etatJournal,
+    rendreBoutonJournal,
+    cliquerJournal,
+    MESSAGE_RETIRE,
     retourCoach,
     majRetour,
     droits: () => _droits,

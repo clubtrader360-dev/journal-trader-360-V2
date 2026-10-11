@@ -103,10 +103,36 @@
   ];
 
   /** Toutes les leçons, à plat, dans l'ordre de lecture. Sert à « leçon suivante ». */
+  /**
+   * ── ⚠️ LES DIX PHRASES DU PARCOURS, UNE PAR MODULE ───────────────────────
+   *
+   * ⛔ CE SONT DES PROPOSITIONS. Elles parlent au nom de Nadir, il les corrigera.
+   *
+   * ⚠️ ELLES DOIVENT RESTER CONFORMES. Trader 360 est une formation au trading :
+   * ⛔ aucune ne promet un gain, un revenu, une réussite ni un financement.
+   * « Tu approches de la méthode » est juste ; « bientôt ton premier payout » ne
+   * l'est pas. Le site entier tient cette ligne, l'espace membre ne la casse pas.
+   * Chacune nomme ce que le module APPREND, jamais ce qu'il rapporterait.
+   */
+  const PHRASES = {
+    depart: 'Tu commences. La première leçon t\'attend.',
+    '01': 'Tu poses les fondations : sans mental, aucune méthode ne tient.',
+    '02': 'Tu apprends à lire le marché avant de vouloir le devancer.',
+    '03': 'Tu réduis le bruit : quelques indicateurs, bien compris.',
+    '04': 'Tu prends les commandes et tu apprivoises ta plateforme.',
+    '05': 'Tu approches de la méthode Trader 360, le coeur de la formation.',
+    '06': 'Tu travailles la part la plus difficile : toi.',
+    '07': 'Tu abordes les règles des prop firms et la façon de les tenir.',
+    '08': 'Tu mets ton activité au clair du côté administratif.',
+    '09': 'Tu approfondis, au-delà du programme principal.',
+    '10': 'Tu arrives à la certification Trader 360.',
+  };
+
   const SUITE = MODULES.flatMap((m) => m.lecons.map((l) => ({ ...l, module: m.numero })));
 
   window.FormationDonnees = {
     MODULES,
+    PHRASES,
     SUITE,
     module: (numero) => MODULES.find((m) => m.numero === numero) || null,
     lecon: (id) => SUITE.find((l) => l.id === id) || null,
