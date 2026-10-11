@@ -30,7 +30,7 @@
             integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- #35 : préchargement du logo pour le canvas de partage Instagram (évite le délai au 1er render).
          C'est le PNG DORÉ qui est préchargé, pas le SVG source : le canvas dessine un
          PNG, parce qu'un SVG sans largeur ni hauteur intrinsèques est rendu par
@@ -4033,6 +4033,67 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     </div>
 
     <!-- Main App -->
+    <!-- ══ L ESPACE FORMATION ════════════════════════════════════════════════
+         ⚠️ COQUILLE REPRISE DE LA MAQUETTE VALIDEE,
+         `_maquette-espace-formation/espace-formation-trader360.html`.
+         ⛔ Ce n est PAS une section de `#mainApp` : c est un espace de premier
+         niveau, frere de `#mainApp` et `#coachApp`. Il n herite donc d aucune
+         barre laterale du journal. Retour de Nadir : « si je suis sur l espace
+         formation, je suis sur l espace formation ».
+         ⚠️ Le contenu de `<main>` est rendu par `supabase-formation.js`, qui
+         transpose les deux vues de la maquette sur les donnees REELLES.
+         ⚠️ `#t360lg` : l identifiant du degrade du logo est prefixe. La maquette
+         l appelait `lg`, et un `id` aussi court dans un document de 11 000 lignes
+         finit par heurter autre chose, sans erreur, en changeant une couleur. -->
+    <div id="formationApp" class="formation-app" style="display: none;">
+      <header class="top">
+        <div class="top-in">
+          <a class="logo" href="#accueil" aria-label="Trader 360, accueil de l espace formation"
+             onclick="event.preventDefault();Formation.aller('accueil')">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="t360lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs><path d="M20 2.5 35.2 11.25v17.5L20 37.5 4.8 28.75v-17.5Z" fill="none" stroke="url(#t360lg)" stroke-width="2.2"/><path d="M12.5 14h15M20 14v15" stroke="url(#t360lg)" stroke-width="3" stroke-linecap="round"/></svg>
+            <span class="sep"></span><b>TRADER<span class="gold-text">360</span></b>
+          </a>
+          <nav class="nav" aria-label="Sections">
+            <button type="button" data-go="accueil" aria-current="true">Mon parcours</button>
+            <button type="button" data-go="modules">Les modules</button>
+            <button type="button" data-go="notes">Mes notes</button>
+            <button type="button" data-go="badges">Mes badges</button>
+          </nav>
+          <div class="top-right">
+            <div class="xp-chip" title="Experience accumulee">
+              <span class="xpt mono" id="chipXp">0 XP</span><span class="lvl" id="chipLvl">Decouvrir</span>
+            </div>
+            <!-- ⚠️ UN SEUL CHEMIN DE RETOUR, et il est discret.
+                 ⛔ Masque quand le droit journal n est pas actif : un eleve
+                 « formation seule » ne doit voir AUCUNE mention du journal, et
+                 c est le cas normal d un nouvel eleve. `data-droit` le tient,
+                 `majRetour()` tranche ensuite entre les deux destinations. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-retour-journal"
+                    data-droit="journal" hidden onclick="Acces.retourJournal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+              <span>Revenir au journal</span>
+            </button>
+            <!-- ⚠️ Un coach ne revient pas au journal d un eleve, il revient a SON
+                 espace. Les deux boutons sont exclusifs. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-retour-coach"
+                    hidden onclick="Acces.retourCoach()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+              <span>Revenir a l espace coach</span>
+            </button>
+          </div>
+        </div>
+      </header>
+      <main id="formation" role="main"></main>
+      <!-- ⚠️ Toast, confettis et fenetres de celebration vivent DANS
+           `#formationApp` : tout le style de la maquette est prefixe par cet
+           identifiant, donc un element pose sur `document.body` sortirait de la
+           portee et s afficherait sans aucun style. -->
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <canvas id="confetti" aria-hidden="true"></canvas>
+    </div>
+
     <div id="mainApp" style="display: none;" class="flex">
         <button type="button" class="sidebar-toggle" aria-label="Ouvrir le menu" aria-controls="mainAppSidebar" aria-expanded="false" onclick="toggleSidebar()">
             <i class="fas fa-bars" aria-hidden="true"></i>
@@ -4050,9 +4111,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                      une section du journal parmi les autres.
                      ⛔ Il n'apparaît que pour un élève connecté, comme tout `#mainApp`,
                      qui reste masqué tant que `supabase-auth.js` n'a pas de session. -->
+                <!-- ⛔ `Acces.entrer` ET PAS `showSection`. La formation n'est plus une
+                     section de `#mainApp` : c'est un espace de premier niveau, et
+                     `showSection` ne la connait plus. Un `showSection('formation')`
+                     resté ici n'aurait rien affiché, sans lever d'erreur. -->
                 <div class="sidebar-item formation-acces" data-section="formation" data-droit="formation"
-                     onclick="showSection('formation')" role="button" tabindex="0" hidden
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showSection('formation')}">
+                     onclick="Acces.entrer('formation')" role="button" tabindex="0" hidden
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
                     <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
                 </div>
             </div>
@@ -4242,43 +4307,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                  Le contenu est rendu par `supabase-formation.js` : le sommaire, un
                  module et une leçon partagent ce même conteneur.
                  ================================================================= -->
-            <div id="formation" class="section hidden">
-                <div class="formation-marque">
-                    <img src="/assets/marque/t360-monogramme-or.png" alt="" width="36" height="35">
-                    <span>Espace membre</span>
-                </div>
-                <!-- ⚠️ LA FENETRE DE PARCOURS. Elle accueille a la premiere visite, puis
-                     quand la progression a change, jamais deux fois dans la meme journee.
-                     ⛔ Son etat vit en base, pas en stockage local : sinon elle reviendrait
-                     sur chaque appareil, et l eleve apprendrait a la fermer sans la lire.
-                     ⚠️ `hidden` est tenu par la regle `#formation [hidden]` de
-                     formation.css : sans elle, la classe d auteur l afficherait quand meme. -->
-                <div id="formationFenetre" class="formation-fenetre" role="dialog" aria-modal="true"
-                     aria-labelledby="formationFenetreTitre" hidden>
-                    <div class="formation-fenetre-carte">
-                        <h2 id="formationFenetreTitre" class="formation-titre">Ton parcours</h2>
-                        <div id="formationFenetreCorps"></div>
-                        <button type="button" id="formationFenetreFermer" class="formation-btn-or"
-                                onclick="Formation.fermerFenetre()">Continuer</button>
-                    </div>
-                </div>
-                <nav class="formation-fil" id="formationFilAriane" aria-label="Fil d'Ariane"></nav>
-                <!-- Le chemin inverse. ⛔ Masque si le droit journal n est pas actif : on ne
-                     montre pas une porte fermee. La vraie serrure reste dans les politiques. -->
-                <button type="button" class="formation-btn-fantome formation-retour-journal"
-                        data-droit="journal" hidden onclick="showSection('dashboard')">
-                    <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>Revenir au journal
-                </button>
-                <!-- ⚠️ Un coach ne revient pas au journal d un eleve, il revient a SON
-                     espace. Les deux boutons sont exclusifs, `Acces.majRetour()` tranche
-                     selon l interface d ou l on venait. -->
-                <button type="button" class="formation-btn-fantome formation-retour-coach"
-                        hidden onclick="Acces.retourCoach()">
-                    <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>Revenir a l espace coach
-                </button>
-                <div id="formationContenu"></div>
-            </div>
-
             <div id="dashboard" class="section">
                 <!-- Citation/Mantra personnalisable -->
                 <div id="mantraContainer" class="trader-card p-6 mb-6">
@@ -10082,6 +10110,19 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         async function showSection(sectionName) {
             console.log('[UI] showSection() appelé avec:', sectionName);
 
+            // ── ⛔ LA FORMATION N'EST PLUS UNE SECTION DE CE CONTENEUR ──────────
+            // Elle a son propre espace de premier niveau, `#formationApp`. Sans ce
+            // renvoi, `showSection('formation')` TROUVAIT quand même sa cible
+            // (`<main id="formation">` existe toujours), poussait l'adresse
+            // `/formation`, appelait `Formation.ouvrir()`... et laissait `#mainApp`
+            // affiché par-dessus. ⚠️ L'élève aurait vu son journal, sans contenu et
+            // sans la moindre erreur en console.
+            if (sectionName === 'formation') {
+                if (window.Acces) return window.Acces.entrer('formation');
+                console.error('[UI] ⛔ supabase-acces.js non chargé : espace formation inatteignable');
+                return;
+            }
+
             const target = document.getElementById(sectionName);
             if (!target) {
                 console.warn('[UI] Section inconnue:', sectionName);
@@ -10109,15 +10150,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 navItem.setAttribute('aria-current', 'page');
             }
             
-            if (sectionName === 'formation') {
-                // ⚠️ Rendu à CHAQUE ouverture, pas une fois pour toutes : la
-                // progression et les notes viennent de Supabase et peuvent avoir
-                // changé depuis un autre appareil. Un rendu unique montrerait un état
-                // périmé sans qu'aucune erreur ne le signale.
-                console.log('[UI] Section Espace membre - Chargement de la formation...');
-                if (window.Formation) await window.Formation.ouvrir();
-                else console.error('[UI] ⛔ supabase-formation.js non chargé');
-            } else if (sectionName === 'dashboard') {
+            // ⛔ LA BRANCHE `formation` A ETE RETIREE D ICI, et ce n est pas un
+            // oubli : le renvoi en tete de cette fonction sort avant d y arriver,
+            // puisque la formation n est plus une section de `#mainApp`. Une
+            // branche morte qui appelle `Formation.ouvrir()` donnerait a croire
+            // que ce chemin fonctionne encore.
+            if (sectionName === 'dashboard') {
                 console.log('[UI] Section Dashboard - Mise à jour...');
                 updateDashboard();
                 updateBanner(); // Mise à jour des barres visuelles

@@ -1,392 +1,379 @@
 /* ============================================================================
-   ESPACE FORMATION
-   ----------------------------------------------------------------------------
-   ⛔ AUCUNE VALEUR DE COULEUR, D'ESPACEMENT OU DE TYPOGRAPHIE N'EST ÉCRITE ICI.
-   Tout vient des jetons déjà définis dans `index.html` : --surface, --border,
-   --text, --text-muted, --accent, --radius-*, --shadow-*.
+   ESPACE FORMATION : LE STYLE DE LA MAQUETTE VALIDEE
+   ============================================================================
 
-   ⚠️ POURQUOI C'EST UNE RÈGLE ET PAS UNE PRÉFÉRENCE. Le journal a un mode clair
-   ET un mode sombre ; le site vitrine n'a que le sombre. Une couleur copiée du
-   site serait donc illisible pour un élève en mode clair, et ⛔ RIEN NE LE
-   SIGNALERAIT tant que personne ne bascule. En ne nommant que des jetons, les
-   deux modes suivent sans qu'on ait à les écrire deux fois.
+   ── D OU VIENT CE FICHIER ─────────────────────────────────────────────────
 
-   ⚠️ MOBILE DÈS LE DÉPART. Un élève regarde une leçon depuis son téléphone. La
-   grille, la vidéo et les notes tiennent en 390 pixels, et c'est la largeur de
-   référence, pas un rattrapage.
+   Il est la transposition du bloc `<style>` de
+   `_maquette-espace-formation/espace-formation-trader360.html`, la maquette que
+   Nadir a validee. ⛔ CE N EST PAS UNE REECRITURE : chaque regle vient de la
+   maquette, et la seule transformation appliquee est le PREFIXAGE.
+   ⚠️ Si la maquette evolue, c est elle qu on retransforme, pas ce fichier qu on
+   retouche a la main : deux sources de style divergent toujours.
+
+   ── ⛔ POURQUOI TOUT EST PREFIXE PAR `#formationApp` ──────────────────────
+
+   La maquette est un document autonome : ses selecteurs sont nus (`body`,
+   `main`, `.btn`, `.card`, `.grid`, `.bar`, `.stat`, `.pill`, `.badge`,
+   `footer`). Mesure du 11/10/2026 dans `index.html` :
+
+       .btn    69 usages        .card   86 usages        .modal  111 usages
+       .bar    30 usages        .grid   23 usages        .stat    12 usages
+       .badge   9 usages        .hero    3 usages        .ring     4 usages
+
+   ⛔ Injectees nues, ces regles auraient repeint le journal ENTIER. Et personne
+   ne l aurait vu venir depuis l espace formation : le defaut serait apparu dans
+   le journal, c est-a-dire ailleurs que la ou on travaillait.
+
+   ⚠️ LE PREFIXAGE A ETE VERIFIE PAR LE PARSEUR CSS DU NAVIGATEUR, pas par une
+   expression reguliere. Ma premiere sonde decoupait le texte a la main et
+   rendait « 0 selecteur nu » : son temoin a montre qu elle etait AVEUGLE. La
+   seconde rendait « 0 regles analysees », ce qui n est pas « tout est scope »
+   mais « rien n a ete mesure » : depuis l imbrication CSS, toute `CSSStyleRule`
+   de Chrome porte un `cssRules` vide, et la sonde recursait dans le vide. La
+   troisieme, celle qui compte, lit `cssRules[].selectorText` :
+
+       171 regles analysees   0 selecteur non prefixe
+       temoin : deux selecteurs nus ajoutes expres sont bien vus
+
+   ── ⚠️ CE QUE CE STYLE N A PAS, ET C EST VOULU ────────────────────────────
+
+   ⛔ IL N A PAS DE MODE CLAIR. La maquette porte `color-scheme: dark` et la
+   palette de `trader360.fr` : noir profond et or. Nadir a tranche en la validant
+   (« on part plutot sur le style du site, ca fait beaucoup mieux »). L espace
+   formation est donc sombre dans les deux themes du journal, et le journal garde
+   ses deux modes intacts. ⚠️ C est un changement par rapport a la consigne
+   precedente, qui demandait les deux modes ici aussi.
    ========================================================================== */
 
-#formation { padding-bottom: 32px; }
-
-/* ── Fil d'Ariane ─────────────────────────────────────────────────────────── */
-.formation-fil {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  margin-bottom: 20px; font-size: 14px;
-}
-.formation-fil-lien {
-  background: none; border: none; padding: 0; cursor: pointer;
-  color: var(--text-muted); text-decoration: underline; font: inherit;
-}
-.formation-fil-lien:hover { color: var(--accent); }
-.formation-fil-sep { color: var(--text-disabled); }
-.formation-fil-actif { color: var(--text-strong); font-weight: 600; }
-
-/* ── En-tête et marque ────────────────────────────────────────────────────── */
-/* ⛔ Sur une SURFACE, pas sur la photographie : mesure du 11/10/2026, ce bandeau
-   avait 100 % de son fond sous 4,5 en mode clair. Une image fait varier le
-   contraste d un endroit a l autre, aucune couleur de texte n y tient partout. */
-.formation-marque {
-  display: inline-flex; align-items: center; gap: 12px; margin-bottom: 16px;
-  padding: 8px 14px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius-pill);
-}
-.formation-marque img { height: 36px; width: auto; }
-.formation-marque span {
-  font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--text-muted);
-}
-.formation-titre {
-  margin: 4px 0 14px; font-size: 24px; line-height: 1.25; color: var(--text-strong);
-}
-.formation-entete { margin-bottom: 24px; }
-
-/* ── Barre de progression ─────────────────────────────────────────────────── */
-.formation-barre {
-  height: 10px; border-radius: var(--radius-pill);
-  background: var(--surface-2); border: 1px solid var(--border);
-  overflow: hidden;
-}
-.formation-barre-fine { height: 6px; margin-top: 12px; }
-.formation-barre-remplie {
-  height: 100%; background: var(--accent);
-  transition: width var(--t, .2s) var(--ease, ease);
-}
-.formation-compteur { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
-.formation-progression-globale { margin-bottom: 16px; }
-
-/* ── Boutons ──────────────────────────────────────────────────────────────── */
-.formation-btn-or, .formation-btn-fantome {
-  display: inline-block; padding: 11px 18px; border-radius: var(--radius);
-  font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
-  transition: background-color .18s ease, border-color .18s ease;
-  /* ⚠️ Une étiquette de leçon peut être longue : elle se replie au lieu de
-     déborder du bouton, ce qui casserait la mise en page à 390 pixels. */
-  max-width: 100%; text-align: left; white-space: normal;
-}
-.formation-btn-or {
-  background: var(--accent); color: var(--primary); border: 1px solid var(--accent);
-}
-.formation-btn-or:hover { background: var(--accent-hover); }
-.formation-btn-fantome {
-  background: transparent; color: var(--text); border: 1px solid var(--border-strong);
-}
-.formation-btn-fantome:hover { border-color: var(--accent); color: var(--accent); }
-
-/* ── Grille des modules ───────────────────────────────────────────────────── */
-.formation-grille {
-  display: grid; gap: 16px;
-  /* `auto-fill` plutôt qu'un nombre de colonnes : une seule règle sert le
-     téléphone et l'écran large, sans point de rupture à maintenir. */
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-.formation-carte { padding: 18px; cursor: pointer; }
-.formation-carte:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.formation-carte-vide { cursor: default; opacity: .62; }
-.formation-carte-vide:hover { box-shadow: var(--shadow-sm); border-color: var(--border); }
-.formation-carte-numero {
-  font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--text-muted); margin-bottom: 6px;
-}
-.formation-carte-titre { margin: 0; font-size: 17px; line-height: 1.3; color: var(--text-strong); }
-.formation-carte-compteur { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
-.formation-carte-vide-texte { margin: 10px 0 0; font-size: 13px; color: var(--text-muted); font-style: italic; }
-
-/* ── Liste des leçons ─────────────────────────────────────────────────────── */
-.formation-liste { list-style: none; margin: 0; padding: 0; }
-.formation-liste li + li { margin-top: 8px; }
-.formation-lecon-ligne {
-  display: flex; align-items: center; gap: 14px; width: 100%;
-  padding: 14px 16px; text-align: left; cursor: pointer; font: inherit;
-  background: var(--surface); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius);
-}
-.formation-lecon-ligne:hover { border-color: var(--accent); }
-.formation-lecon-etat {
-  flex: 0 0 auto; width: 26px; height: 26px; border-radius: var(--radius-pill);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700;
-  background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
-}
-.formation-lecon-vue { background: var(--accent); color: var(--primary); border-color: var(--accent); }
-.formation-lecon-titre { flex: 1 1 auto; line-height: 1.35; }
-.formation-lecon-badge { flex: 0 0 auto; font-size: 12px; color: var(--text-muted); }
-
-/* ── La leçon ─────────────────────────────────────────────────────────────── */
-.formation-description {
-  margin: 0 0 18px; padding: 16px; line-height: 1.65;
-  color: var(--text); background: var(--surface-2);
-  border: 1px solid var(--border); border-radius: var(--radius);
-}
-.formation-video {
-  position: relative; width: 100%; aspect-ratio: 16 / 9;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-}
-.formation-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.formation-video-attente {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 8px;
-  padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px;
-}
-.formation-video-attente p { margin: 0; max-width: 46ch; }
-
-.formation-vue-ligne {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
-  margin: 16px 0 24px;
-}
-.formation-case { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text); }
-.formation-case input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
-
-/* ── Les notes ────────────────────────────────────────────────────────────── */
-.formation-notes { margin-bottom: 24px; }
-.formation-notes-entete {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-  margin-bottom: 8px;
-}
-.formation-notes-entete h3 { margin: 0; font-size: 16px; color: var(--text-strong); }
-.formation-note-etat { font-size: 13px; color: var(--text-muted); }
-/* ⚠️ Le repère d'enregistrement ne se signale pas par la seule couleur : il porte
-   aussi un texte, lu par les lecteurs d'écran grâce à `aria-live`. */
-.formation-note-etat[data-etat="ok"] { color: var(--success); }
-.formation-note-etat[data-etat="faute"] { color: var(--danger); }
-.formation-notes textarea {
-  width: 100%; padding: 14px; line-height: 1.6; resize: vertical;
-  font-family: inherit; font-size: 15px;
-  color: var(--text); background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius);
-}
-.formation-notes textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.formation-suite { display: flex; flex-wrap: wrap; gap: 12px; }
-
-/* ── Téléphone ────────────────────────────────────────────────────────────── */
-@media (max-width: 480px) {
-  .formation-titre { font-size: 20px; }
-  .formation-grille { grid-template-columns: 1fr; }
-  .formation-lecon-ligne { padding: 12px 13px; gap: 11px; }
-  .formation-description { padding: 13px; }
-  .formation-notes textarea { font-size: 16px; } /* ⛔ Sous 16px, iOS zoome au focus. */
-  .formation-suite > * { width: 100%; text-align: center; }
-}
-
-/* ============================================================================
-   L'ÉCRAN DE CHOIX, ET LES PORTES SELON LES DROITS
-   ----------------------------------------------------------------------------
-   ⚠️ `[hidden]` EST UNE RÈGLE DU NAVIGATEUR SANS AUCUNE SPÉCIFICITÉ. N'importe
-   quelle règle d'auteur posant `display` sur une classe l'emporte, et l'attribut
-   devient décoratif. ⛔ RIEN NE LE SIGNALE : l'attribut est bien dans le HTML, le
-   script est juste, et la porte fermée reste visible. Ce dépôt a déjà rencontré
-   ce défaut ailleurs ; la règle ci-dessous le ferme pour les éléments pilotés par
-   les droits, sans toucher au reste de la feuille.
-   ========================================================================== */
-/* ⛔ LA REGLE PORTE SUR TOUT `[hidden]` DE CES DEUX ZONES, et c est une
-   correction du 11/10/2026. Elle ne visait que `[data-droit]`, et le bouton
-   « Revenir a l espace coach » n en porte pas : sa classe
-   `.formation-btn-fantome` pose `display: inline-block`, qui bat la regle sans
-   specificite du navigateur. ⚠️ Il s affichait donc a un eleve, alors que son
-   attribut `hidden` etait bien present. C est la quatrieme fois que ce defaut
-   apparait sur ces deux depots : une classe d auteur qui neutralise `[hidden]`. */
-#formation [hidden], #choixEspace [hidden],
+/* ⛔ LA GARDE DE MASQUAGE, SEPTIEME OCCURRENCE SUR CE DEPOT.
+   `[hidden]` est une regle du navigateur SANS specificite : la moindre classe
+   d auteur qui pose un `display` la neutralise, sans lever d erreur. La maquette
+   porte d ailleurs elle-meme cette garde en tete de son document.
+   ⚠️ Elle couvre les trois espaces ENTIERS, en-tetes comprises : une regle
+   ecrite pour un selecteur ne couvre pas les autres, et c est la CLASSE du
+   defaut qu il faut traiter. Toute verification lit `getComputedStyle`, jamais
+   l attribut. */
+#formationApp [hidden], #formation [hidden], #choixEspace [hidden],
 [data-droit][hidden] { display: none !important; }
 
-.choix-portes { display: flex; flex-direction: column; gap: 12px; }
-.choix-portes > button { width: 100%; text-align: center; }
-.choix-aucun { text-align: center; }
-.choix-aucun p { margin: 0 0 12px; line-height: 1.6; }
-.choix-aucun a { text-decoration: underline; }
+/* ⚠️ Le conteneur lui-meme : son `display` est pose EN LIGNE avec `!important`
+   par `Acces.montrer()`. Ce depot porte
+   `#mainApp.flex, #coachApp.flex { display: block !important }` dans
+   `@media (max-width: 1023.98px)`, et un style en ligne ordinaire perd contre un
+   `!important`. */
+#formationApp { min-height: 100vh; min-height: 100dvh; }
 
-/* Le retour vers le journal, en haut de l'espace formation. */
-.formation-retour-journal { margin-bottom: 16px; }
+/* ⛔ DEUX ELEMENTS DU JOURNAL VIVENT HORS DE `#mainApp` et restaient affiches
+   par-dessus l espace formation : le pied de page legal et l horloge d aube.
+   ⚠️ Mesure du 11/10/2026 : `<footer class="app-footer">` 1440x61 et
+   `.aube-clock` 120x18, visibles au style calcule pendant que l espace etait
+   ouvert. La capture montrait une bande bleue sous la maquette.
+   ⛔ Le journal n est PAS touche : la regle ne mord que tant que
+   `Acces.entrer('formation')` pose le marqueur, et `masquerTout()` le retire.
+   ⚠️ Les liens legaux ne disparaissent pas pour autant : ils sont repris dans le
+   pied de page de l espace, parce qu ils sont une obligation, pas une
+   decoration. */
+body[data-espace="formation"] > .app-footer,
+body[data-espace="formation"] .aube-clock { display: none !important; }
 
-/* Le message du quatrieme etat : il explique, il ne refuse pas en silence. */
-.choix-message-retire {
-  margin: 12px 0 0; padding: 12px 14px; line-height: 1.55; font-size: 14px;
-  color: var(--text); background: var(--surface-2);
-  border: 1px solid var(--border); border-radius: var(--radius);
+/* Le chemin de retour vit dans la barre du haut, a cote de la pastille d XP.
+   ⛔ UN SEUL, et masque quand le droit journal n est pas actif : un eleve
+   « formation seule » ne doit voir aucune mention du journal. */
+#formationApp .formation-retour { padding: 9px 16px; font-size: 13.5px; }
+@media (max-width: 760px) {
+  #formationApp .formation-retour span { position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #formationApp .formation-retour { padding: 9px 11px; }
 }
-.choix-message-retire[hidden] { display: none !important; }
-
-/* ============================================================================
-   SOMMAIRE ENRICHI : citation, reprise, parcours, notes
-   ⛔ AUCUNE VALEUR DE COULEUR PROPRE : que des jetons du journal.
-   ⚠️ Et aucun reglage d apparence n est lu ici : arbitrage de Nadir, l espace
-   formation porte un reglage fixe. Voir le rapport.
-   ========================================================================== */
-.formation-citation {
-  position: relative; padding: 18px 20px; margin-bottom: 20px;
-  display: flex; flex-direction: column; gap: 6px;
-}
-.formation-citation i { color: var(--accent); font-size: 14px; }
-.formation-citation blockquote {
-  margin: 0; font-style: italic; line-height: 1.55; color: var(--text-strong);
-}
-.formation-citation figcaption { font-size: 13px; color: var(--text-muted); }
-
-.formation-reprise-ou { margin: 14px 0 10px; color: var(--text); line-height: 1.5; }
-.formation-reprise-ou strong { color: var(--text-strong); }
-.formation-mention { color: var(--text-muted); font-style: italic; }
-/* ⛔ PAS EN COULEUR D ACCENT. L or sur la surface creme du mode clair donne
-   environ 2:1, mesure : 100 % des points de ce lien passaient sous le seuil. Ce
-   n est pas la photographie qui est en cause, c est le couple de couleurs.
-   Le lien se signale par son soulignement, jamais par la seule couleur. */
-.formation-lien {
-  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
-  color: var(--text); text-decoration: underline; text-underline-offset: 2px;
-}
-.formation-lien:hover { color: var(--text-strong); }
-
-/* ── Le parcours : un chemin qui MONTE ─────────────────────────────────────
-   ⚠️ Vertical, donc il tient en 390 pixels sans point de rupture. Un trace
-   horizontal a dix etapes y deborderait. */
-.formation-parcours { margin: 0 0 24px; }
-.formation-parcours-phrase {
-  margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-strong);
-}
-.formation-rail {
-  list-style: none; margin: 0; padding: 0 0 0 34px; position: relative;
-  display: flex; flex-direction: column; gap: 10px;
-}
-/* Le rail entier, toujours dessine : ⛔ un parcours a zero pour cent ne doit pas
-   ressembler a une erreur d affichage, et c est ce que voit chaque nouvel eleve. */
-.formation-rail::before,
-.formation-rail::after {
-  content: ''; position: absolute; left: 12px; width: 4px; border-radius: 2px;
-}
-.formation-rail::before { top: 6px; bottom: 6px; background: var(--surface-2); border: 1px solid var(--border); }
-/* Rempli depuis le BAS : le chemin monte. */
-.formation-rail::after {
-  bottom: 6px; height: calc(var(--rempli, 0%) * 0.88); background: var(--accent);
-  transition: height .45s var(--ease, ease);
-}
-/* ⚠️ `prefers-reduced-motion` : le trace s affiche, il ne s anime pas. C est une
-   question d accessibilite, pas de preference esthetique. */
-@media (prefers-reduced-motion: reduce) {
-  .formation-rail::after, .formation-barre-remplie { transition: none; }
-}
-body[data-animations="off"] .formation-rail::after,
-body[data-animations="off"] .formation-barre-remplie { transition: none; }
-
-.formation-jalon { position: relative; display: flex; align-items: center; gap: 12px; min-height: 30px; }
-.formation-jalon-pastille {
-  position: absolute; left: -34px; width: 28px; height: 28px; border-radius: var(--radius-pill);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; z-index: 1;
-  background: var(--surface); color: var(--text-muted); border: 1px solid var(--border);
-}
-.formation-jalon-fait .formation-jalon-pastille { background: var(--accent); color: var(--primary); border-color: var(--accent); }
-.formation-jalon-ici .formation-jalon-pastille { border-color: var(--accent); color: var(--accent); }
-.formation-jalon-titre { font-size: 14px; line-height: 1.35; color: var(--text); }
-.formation-jalon-ici .formation-jalon-titre { color: var(--text-strong); font-weight: 600; }
-
-/* ── La vue des notes ───────────────────────────────────────────────────── */
-.formation-filtre {
-  width: 100%; padding: 11px 14px; margin: 0 0 16px; font: inherit; font-size: 15px;
-  color: var(--text); background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius);
-}
-.formation-notes-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.formation-note-carte { padding: 16px; }
-/* L extrait ne deborde pas : trois lignes, et on ouvre la lecon pour la suite. */
-.formation-note-extrait {
-  margin: 8px 0 12px; line-height: 1.55; color: var(--text); white-space: pre-wrap;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-@media (max-width: 480px) {
-  .formation-rail { padding-left: 32px; }
-  .formation-jalon-pastille { left: -32px; width: 26px; height: 26px; }
-  .formation-filtre { font-size: 16px; } /* ⛔ Sous 16px, iOS zoome au focus. */
-}
-
 
 /* ============================================================================
-   ⛔ DEUX DEFAUTS DE CONTRASTE, MESURES ET CORRIGES LE 11/10/2026
-   ----------------------------------------------------------------------------
-   1. `--text-on-brand` (#fef3c7, creme) SUR `--accent` (l or) donne 1,26:1.
-      ⚠️ Le nom du jeton laisse croire qu il est fait pour cela ; il ne l est pas.
-      La convention du journal est visible dans `.btn-note` :
-          .btn-note { background: var(--accent); color: var(--primary); }
-      C est donc `--primary` qui va sur l or, et c est ce qui est pose ci-dessus.
+   ⛔ LA REMISE A ZERO, ET POURQUOI ELLE EST INDISPENSABLE
+   ============================================================================
+   Le prefixage protege le JOURNAL de la maquette. ⚠️ Il ne protege pas la
+   maquette DU JOURNAL, et c est l autre moitie du probleme. Mesure du
+   11/10/2026 : 48 regles du journal atteignent des elements de l espace
+   formation. Trois faisaient deja des degats visibles :
 
-   2. Un texte pose directement sur la PHOTOGRAPHIE de fond. En mode sombre, le
-      lien « Toutes mes notes » en couleur d accent tombait a 2,06:1 sur une zone
-      claire de l image. ⚠️ Une image de fond fait varier le contraste d un
-      endroit a l autre : aucune couleur de texte ne tient sur toutes ses zones.
-      ⛔ La regle est donc : AUCUN TEXTE DIRECTEMENT SUR L IMAGE. L en-tete et le
-      parcours reposent sur une surface, comme tout le reste du journal.
+     .logo { flex-direction: column }   le logo s empilait sur deux lignes
+     .bar  { width: 40px; height: 24px } les barres de progression etaient
+                                         reduites a un timbre-poste
+     h1,h2,h3 { color: var(--text-strong) }
+
+   ⛔ LA TROISIEME EST LA PLUS GRAVE, ET ELLE NE SE VOYAIT PAS. `--text-strong`
+   est une variable DU JOURNAL : elle vaut #ffffff en mode sombre, et #020617 en
+   mode CLAIR. L espace formation etant noir dans les deux cas, un eleve dont le
+   journal est en mode clair aurait lu des titres quasi noirs sur fond noir.
+   ⚠️ Aucune erreur, aucune alerte : juste des titres illisibles, pour une partie
+   des eleves seulement.
+
+   ── ⚠️ POURQUOI `all: revert` ET PAS UNE LISTE DE CORRECTIFS ───────────────
+
+   Corriger `.logo`, puis `.bar`, puis les titres, c est traiter trois INSTANCES
+   et laisser la CLASSE du defaut en place : la quatrieme collision arriverait au
+   prochain nom de classe partage, et personne ne la verrait venir.
+   `all: revert` annule les declarations d auteur VENUES DU JOURNAL pour tout ce
+   qui vit dans cet espace, et la maquette repose ensuite les siennes.
+   ⚠️ `all` n affecte NI les variables personnalisees NI `direction` : la palette
+   `--gold`, `--ink`, `--surface` posee juste apres survit.
+   ⛔ CE BLOC DOIT RESTER AVANT LES REGLES DE LA MAQUETTE : a specificite egale,
+   c est la derniere regle qui gagne.
+   ⚠️ La parite est verifiee par comparaison des styles CALCULES entre la
+   maquette et le resultat, dans `outils/formation-maquette-captures.mjs`.
    ========================================================================== */
-.formation-entete, .formation-parcours {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-}
-.formation-parcours { margin-bottom: 24px; }
-@media (max-width: 480px) {
-  .formation-entete, .formation-parcours { padding: 14px 15px; }
+/* ⛔ LE SVG EST EXCLU, ET C EST UNE CORRECTION MESUREE.
+   `all: revert` annule aussi les ATTRIBUTS DE PRESENTATION d un SVG, qui sont
+   des declarations d auteur de priorite zero. L anneau de progression porte son
+   avancee dans `stroke-dasharray="352"` : la remise a zero le ramenait a `none`,
+   donc le cercle etait trace ENTIER et l anneau affichait cent pour cent quelle
+   que soit la progression. ⚠️ Mesure : `dasharray 352` est devenu `0`, et la
+   capture restait credible. */
+/* ⛔ `:where()` ET PAS `:not()` NU, ET C EST LA DEUXIEME CORRECTION.
+   Une premiere version ecrivait `#formationApp *:not(svg):not(svg *)`. Chaque
+   `:not()` ajoute la specificite de son argument : le selecteur passait de
+   (1,0,0) a (1,0,2) et GAGNAIT donc contre les regles de la maquette elle-meme,
+   comme `#formationApp a { color: inherit }` (1,0,1) ou
+   `#formationApp button { font: inherit }`. Mesure de la parite :
+
+     .logo    color      #f7f6f3  ->  rgb(158,158,255)   le bleu de lien du navigateur
+     .btn     fontFamily Inter     ->  Arial             la police par defaut des boutons
+     .mod     fontSize   16px      ->  13.3333px
+
+   ⚠️ `:where()` ne compte pas dans la specificite : le selecteur reste a
+   (1,0,0), il exclut bien les SVG, et toutes les regles de la maquette repassent
+   devant. ⛔ Ne retire pas le `:where()` en croyant simplifier. */
+#formationApp,
+#formationApp *:where(:not(svg, svg *)),
+#formationApp *:where(:not(svg, svg *))::before,
+#formationApp *:where(:not(svg, svg *))::after {
+  all: revert;
 }
 
-/* ── La fenetre de parcours ─────────────────────────────────────────────────
-   ⚠️ Elle recouvre l espace formation, pas la page entiere : la barre laterale
-   reste atteignable, donc l eleve n est jamais enferme. */
-.formation-fenetre {
-  position: fixed; inset: 0; z-index: 60;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px; background: rgba(0, 11, 37, 0.62);
-  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+/* ══ CI-DESSOUS : LA MAQUETTE, PREFIXEE, RIEN D AUTRE ═══════════════════════ */
+/* Layout : barre fixe + tableau de bord (progression, niveau, série) puis grille des 10 modules ; vue module = liste des chapitres + lecteur. Charte trader360.fr, noir profond et or. */
+#formationApp{
+  --bg:#050506; --surface:#111318; --surface-2:#161a20; --surface-3:#1b2028;
+  --ink:#f7f6f3; --ink-soft:#a6a6a1; --ink-mute:#7e7e77;
+  --gold:#e8b84b; --gold-2:#f3d585; --gold-deep:#b98a2e;
+  --gold-glow:rgba(232,184,75,.5); --gold-wash:rgba(232,184,75,.08); --gold-line:rgba(232,184,75,.35);
+  --line:#1e2128; --line-soft:#15171c;
+  --ok:#10b981; --ok-glow:#34d399; --ok-wash:rgba(16,185,129,.12);
+  --on-gold:#120e07;
+  --f-ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif;
+  --f-mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+  --r-card:18px; --r-pill:40px;
+  color-scheme:dark;
 }
-.formation-fenetre-carte {
-  width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
-  padding: 22px 24px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-/* ⛔ Dans la fenetre, le parcours ne porte pas une seconde surface : il est deja
-   sur celle de la carte, et deux cadres imbriques alourdissent sans rien dire. */
-.formation-fenetre-carte .formation-parcours {
-  background: none; border: none; padding: 0; margin-bottom: 18px;
-}
-.formation-fenetre-carte .formation-btn-or { width: 100%; text-align: center; }
-@media (max-width: 480px) {
-  .formation-fenetre { padding: 12px; }
-  .formation-fenetre-carte { padding: 16px 16px 18px; max-height: 92vh; }
-}
+#formationApp *,#formationApp{box-sizing:border-box}
 
-/* Le bouton d export, au-dessus du filtre. ⛔ Cote eleve uniquement. */
-.formation-export { margin-bottom: 12px; }
+#formationApp{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100%}
+#formationApp::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(900px 500px at 50% -120px,rgba(232,184,75,.10),transparent 70%)}
+#formationApp a{color:inherit}
+#formationApp button{font:inherit;color:inherit;cursor:pointer}
+#formationApp :focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+#formationApp .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+#formationApp .gold-text{background:linear-gradient(180deg,var(--gold-2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+#formationApp .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--gold)}
 
-/* Le compteur de demandes dans la navigation coach. */
-.coach-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; height: 20px; margin-left: 8px; padding: 0 6px;
-  font-size: 12px; font-weight: 700; border-radius: var(--radius-pill);
-  background: var(--accent); color: var(--primary);
-}
-/* ⛔ Meme famille que les quatre precedentes : une classe qui pose `display`
-   bat la regle sans specificite du navigateur, et l attribut devient decoratif. */
-#coachAppSidebar [hidden], #coachApp [hidden] { display: none !important; }
+/* Top bar */
+#formationApp .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(5,5,6,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+#formationApp .top-in{max-width:1200px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px}
+#formationApp .logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+#formationApp .logo svg{width:30px;height:30px}
+#formationApp .logo b{font-weight:600;letter-spacing:.18em;font-size:14px}
+#formationApp .logo .sep{width:1px;height:22px;background:var(--gold)}
+#formationApp .nav{display:flex;gap:22px;margin-left:8px}
+#formationApp .nav button{background:none;border:0;padding:6px 0;color:var(--ink-soft);font-size:15px}
+#formationApp .nav button[aria-current="true"]{color:var(--ink)}
+#formationApp .top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+#formationApp .xp-chip{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;border:1px solid var(--line);border-radius:var(--r-pill);background:rgba(255,255,255,.03);font-size:13px}
+#formationApp .xp-chip .lvl{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:var(--on-gold);font-weight:700;border-radius:var(--r-pill);padding:4px 12px;box-shadow:0 8px 30px -8px var(--gold-glow)}
 
-/* Le tableau de progression coach : il defile seul plutot que de pousser la page. */
-.coach-progression { width: 100%; border-collapse: collapse; font-size: 14px; }
-.coach-progression th, .coach-progression td {
-  padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border);
+#formationApp main{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 20px 80px}
+
+/* Buttons */
+#formationApp .btn{display:inline-flex;align-items:center;gap:10px;border-radius:var(--r-pill);padding:13px 24px;font-weight:600;font-size:15px;border:1px solid transparent;text-decoration:none;transition:transform .15s ease,box-shadow .2s ease}
+#formationApp .btn-gold{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:var(--on-gold);box-shadow:0 8px 30px -8px var(--gold-glow)}
+#formationApp .btn-gold:hover{transform:translateY(-1px);box-shadow:0 12px 36px -8px var(--gold-glow)}
+#formationApp .btn-ghost{background:rgba(255,255,255,.03);border-color:var(--line);color:var(--ink)}
+#formationApp .btn-ghost:hover{border-color:var(--gold-line)}
+#formationApp .btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+#formationApp .btn svg{width:16px;height:16px}
+
+/* Hero dashboard */
+#formationApp .hero{padding:56px 0 36px;display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center}
+#formationApp .hero h1{font-size:clamp(40px,6.4vw,76px);font-weight:800;letter-spacing:-.03em;line-height:.98;margin:14px 0 18px;text-wrap:balance}
+#formationApp .hero p.lead{color:var(--ink-soft);font-size:18px;max-width:52ch;margin:0 0 28px}
+#formationApp .hero-ctas{display:flex;flex-wrap:wrap;gap:12px}
+#formationApp .resume-meta{margin-top:14px;font-size:14px;color:var(--ink-mute)}
+#formationApp .resume-meta b{color:var(--ink-soft);font-weight:500}
+
+#formationApp .dash{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:26px;display:grid;gap:22px}
+#formationApp .ring-row{display:flex;align-items:center;gap:22px}
+#formationApp .ring{position:relative;width:132px;height:132px;flex-shrink:0}
+#formationApp .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+#formationApp .ring .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+#formationApp .ring .val strong{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
+#formationApp .ring .val span{display:block;font-size:11px;color:var(--ink-mute);letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+#formationApp .ring-side{display:grid;gap:6px;min-width:0}
+#formationApp .ring-side .big{font-size:22px;font-weight:700;letter-spacing:-.01em}
+#formationApp .ring-side .small{font-size:14px;color:var(--ink-soft)}
+#formationApp .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#formationApp .stat{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:14px;padding:12px 14px}
+#formationApp .stat .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
+#formationApp .stat .v{font-family:var(--f-mono);font-size:20px;font-weight:700;margin-top:2px}
+#formationApp .lvl-bar .head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-soft);margin-bottom:8px;gap:10px}
+#formationApp .lvl-bar .head b{color:var(--ink);font-weight:600}
+
+/* progress bar */
+#formationApp .bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;position:relative}
+#formationApp .bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--gold-deep),var(--gold),var(--gold-2));box-shadow:0 0 14px var(--gold-glow);width:0;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+#formationApp .bar.done i{background:linear-gradient(90deg,#0c8f65,var(--ok),var(--ok-glow));box-shadow:0 0 14px rgba(16,185,129,.45)}
+#formationApp .bar.thin{height:5px}
+
+/* Ladder (the 7 steps) */
+#formationApp .ladder{display:flex;gap:6px}
+#formationApp .ladder span{flex:1;height:4px;border-radius:2px;background:var(--surface-3)}
+#formationApp .ladder span.on{background:var(--gold)}
+#formationApp .ladder-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-mute);margin-top:6px}
+
+/* Week streak */
+#formationApp .weeks{display:flex;gap:6px;align-items:flex-end}
+#formationApp .weeks div{flex:1;display:grid;gap:5px;justify-items:center}
+#formationApp .weeks i{width:100%;height:26px;border-radius:7px;background:var(--surface-3);border:1px solid var(--line-soft)}
+#formationApp .weeks i.on{background:linear-gradient(180deg,var(--gold-2),var(--gold));border-color:transparent;box-shadow:0 6px 16px -8px var(--gold-glow)}
+#formationApp .weeks i.now{border-color:var(--gold-line)}
+#formationApp .weeks small{font-size:10px;color:var(--ink-mute);font-family:var(--f-mono)}
+
+/* Section headers */
+#formationApp .sec-head{display:flex;align-items:end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin:44px 0 22px}
+#formationApp .sec-head h2{font-size:clamp(30px,4.2vw,46px);font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:10px 0 0;text-wrap:balance}
+#formationApp .sec-head p{color:var(--ink-soft);margin:0;max-width:44ch;font-size:15px}
+
+/* Module grid */
+#formationApp .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+#formationApp .mod{position:relative;text-align:left;background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:22px;display:flex;flex-direction:column;gap:12px;min-height:236px;transition:border-color .2s,transform .2s,background .2s}
+#formationApp .mod:hover:not(.locked){border-color:var(--gold-line);transform:translateY(-2px);background:rgba(22,26,32,.9)}
+#formationApp .mod .num{font-family:var(--f-mono);font-size:12.5px;font-weight:700;letter-spacing:.14em;color:var(--gold)}
+#formationApp .mod h3{font-size:19px;font-weight:800;letter-spacing:-.015em;line-height:1.2;margin:0;text-wrap:balance}
+#formationApp .mod p{font-size:14px;color:var(--ink-soft);margin:0;line-height:1.5}
+#formationApp .mod .foot{margin-top:auto;display:grid;gap:10px}
+#formationApp .mod .meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-mute);gap:8px}
+#formationApp .mod.locked{cursor:not-allowed}
+#formationApp .mod.locked > *:not(.pill){opacity:.5}
+#formationApp .mod.current{border-color:var(--gold-line);box-shadow:0 0 0 1px var(--gold-wash),0 20px 60px -30px var(--gold-glow)}
+#formationApp .pill{position:absolute;top:18px;right:18px;font-size:11px;font-weight:600;letter-spacing:.06em;padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--line);color:var(--ink-soft);background:var(--surface-2);display:inline-flex;align-items:center;gap:6px}
+#formationApp .pill.go{color:var(--gold);border-color:var(--gold-line);background:var(--gold-wash)}
+#formationApp .pill.ok{color:var(--ok-glow);border-color:rgba(16,185,129,.35);background:var(--ok-wash)}
+#formationApp .pill svg{width:12px;height:12px}
+
+/* Badges */
+#formationApp .badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+#formationApp .badge{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:18px 14px;display:grid;justify-items:center;text-align:center;gap:10px}
+#formationApp .badge .medal{width:64px;height:64px}
+#formationApp .badge strong{font-size:14px;font-weight:700;line-height:1.25}
+#formationApp .badge span{font-size:12px;color:var(--ink-mute);line-height:1.4}
+#formationApp .badge.off .medal{filter:grayscale(1) brightness(.45)}
+#formationApp .badge.off strong{color:var(--ink-soft)}
+
+/* Notes overview */
+#formationApp .notes-wrap{display:grid;gap:22px}
+#formationApp .notes-mod h3{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+#formationApp .notes-mod h3 span{color:var(--ink-mute);letter-spacing:0;text-transform:none;font-weight:500;font-size:13px}
+#formationApp .notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+#formationApp .note-card{text-align:left;background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:18px;display:grid;gap:8px;transition:border-color .2s}
+#formationApp .note-card:hover{border-color:var(--gold-line)}
+#formationApp .note-card .h{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink-mute)}
+#formationApp .note-card .h b{color:var(--ink);font-weight:600;font-size:14.5px}
+#formationApp .note-card .h em{font-style:normal;color:var(--gold);white-space:nowrap}
+#formationApp .note-card p{margin:0;font-size:14.5px;color:var(--ink-soft);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+#formationApp .notes-empty{border:1px dashed var(--line);border-radius:var(--r-card);padding:28px;text-align:center;color:var(--ink-soft)}
+#formationApp .notes-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+#formationApp .notes-tools input{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-pill);color:var(--ink);padding:10px 16px;font:inherit;font-size:14px;min-width:0;width:260px;max-width:100%}
+#formationApp .notes-tools input:focus{outline:none;border-color:var(--gold-line)}
+
+/* Module view */
+#formationApp .crumbs{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-mute);padding:28px 0 0;flex-wrap:wrap}
+#formationApp .crumbs button{background:none;border:0;padding:0;color:var(--ink-soft)}
+#formationApp .crumbs button:hover{color:var(--ink)}
+#formationApp .mhead{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding:18px 0 26px;border-bottom:1px solid var(--line)}
+#formationApp .mhead h1{font-size:clamp(32px,5vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1;margin:12px 0 12px;text-wrap:balance}
+#formationApp .mhead p{margin:0;color:var(--ink-soft);max-width:60ch}
+#formationApp .mhead .mprog{min-width:220px;display:grid;gap:8px}
+#formationApp .mhead .mprog .head{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft)}
+#formationApp .mview{display:grid;grid-template-columns:340px 1fr;gap:24px;padding-top:26px;align-items:start}
+#formationApp .chap-list{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:8px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 80px);max-height:calc(100vh - 110px);overflow:auto}
+#formationApp .chap-group{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding:14px 12px 6px;font-weight:700}
+#formationApp .chap{width:100%;display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:center;text-align:left;background:none;border:1px solid transparent;border-radius:12px;padding:10px 12px}
+#formationApp .chap:hover{background:var(--surface-2)}
+#formationApp .chap[aria-current="true"]{background:var(--surface-2);border-color:var(--gold-line)}
+#formationApp .chap .dot{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;color:var(--ink-mute)}
+#formationApp .chap[aria-current="true"] .dot{border-color:var(--gold);color:var(--gold)}
+#formationApp .chap.done .dot{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+#formationApp .chap.done .dot svg{width:14px;height:14px}
+#formationApp .chap .t{font-size:14.5px;font-weight:500;line-height:1.3}
+#formationApp .chap .s{font-size:12px;color:var(--ink-mute)}
+
+#formationApp .player{display:grid;gap:18px;min-width:0}
+#formationApp .screen{position:relative;aspect-ratio:16/9;max-width:100%;border-radius:var(--r-card);overflow:hidden;border:1px solid var(--line);
+  background:
+   linear-gradient(180deg,rgba(5,5,6,.2),rgba(5,5,6,.85)),
+   repeating-linear-gradient(90deg,transparent 0 59px,rgba(255,255,255,.025) 59px 60px),
+   repeating-linear-gradient(0deg,transparent 0 59px,rgba(255,255,255,.025) 59px 60px),
+   radial-gradient(600px 300px at 70% 30%,rgba(232,184,75,.12),transparent 70%),
+   var(--surface)}
+#formationApp .screen canvas{position:absolute;inset:0;width:100%;height:100%}
+#formationApp .screen .over{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px}
+#formationApp .play{width:78px;height:78px;border-radius:50%;background:linear-gradient(180deg,var(--gold-2),var(--gold));display:grid;place-items:center;box-shadow:0 10px 40px -8px var(--gold-glow);margin:0 auto 14px}
+#formationApp .play svg{width:28px;height:28px;margin-left:4px}
+#formationApp .screen .over small{display:block;color:var(--ink-soft);font-size:13px}
+#formationApp .screen .tag{position:absolute;left:16px;bottom:14px;font-family:var(--f-mono);font-size:12px;color:var(--ink-soft);background:rgba(5,5,6,.7);border:1px solid var(--line);padding:4px 10px;border-radius:var(--r-pill)}
+#formationApp .lesson-head{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}
+#formationApp .lesson-head h2{font-size:clamp(24px,3vw,34px);font-weight:800;letter-spacing:-.025em;margin:6px 0 0;line-height:1.1}
+#formationApp .lesson-actions{display:flex;gap:10px;flex-wrap:wrap}
+#formationApp .card{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:20px}
+#formationApp .card h4{margin:0 0 10px;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700}
+#formationApp .notes textarea{width:100%;min-height:120px;resize:vertical;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:14px;font:inherit;font-size:15px;line-height:1.5}
+#formationApp .notes textarea:focus{outline:none;border-color:var(--gold-line)}
+#formationApp .notes .saved{font-size:12px;color:var(--ink-mute);margin-top:6px;min-height:18px}
+#formationApp .pager{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* Certificate */
+#formationApp .cert{border:1px solid var(--gold-line);border-radius:var(--r-card);padding:34px 28px;text-align:center;background:radial-gradient(500px 220px at 50% 0,rgba(232,184,75,.14),transparent 70%),var(--surface)}
+#formationApp .cert h3{font-size:clamp(26px,3.6vw,40px);font-weight:800;letter-spacing:-.03em;margin:10px 0 6px}
+#formationApp .cert p{color:var(--ink-soft);margin:0 auto;max-width:48ch}
+
+/* Toast + modal */
+#formationApp .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;z-index:50;background:var(--surface-2);border:1px solid var(--gold-line);border-radius:var(--r-pill);padding:10px 18px 10px 12px;display:flex;align-items:center;gap:10px;font-size:14px;box-shadow:0 20px 50px -20px #000;transition:all .35s cubic-bezier(.2,.8,.2,1);pointer-events:none;max-width:calc(100vw - 32px)}
+#formationApp .toast.show{opacity:1;transform:translate(-50%,0)}
+#formationApp .toast .xp{font-family:var(--f-mono);font-weight:700;color:var(--on-gold);background:linear-gradient(180deg,var(--gold-2),var(--gold));border-radius:var(--r-pill);padding:2px 10px;font-size:13px}
+#formationApp .modal-bg{position:fixed;inset:0;z-index:60;background:rgba(5,5,6,.8);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+#formationApp .modal{background:var(--surface);border:1px solid var(--gold-line);border-radius:22px;padding:34px 28px;max-width:440px;width:100%;text-align:center;box-shadow:0 30px 80px -20px var(--gold-glow)}
+#formationApp .modal .medal{width:96px;height:96px;margin:0 auto 10px}
+#formationApp .modal h3{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:8px 0 8px;line-height:1.05}
+#formationApp .modal p{color:var(--ink-soft);margin:0 0 22px}
+#formationApp .modal .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+#formationApp #confetti{position:fixed;inset:0;pointer-events:none;z-index:70}
+
+#formationApp footer{border-top:1px solid var(--line);margin-top:60px;padding:26px 0 0;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-mute)}
+#formationApp footer button{background:none;border:0;padding:0;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px;font-size:13px}
+#formationApp footer .acts{display:flex;gap:18px;flex-wrap:wrap}
+
+@media (max-width:900px){
+  #formationApp .hero{grid-template-columns:1fr;padding-top:36px}
+  #formationApp .mview{grid-template-columns:1fr}
+  #formationApp .chap-list{position:static;max-height:none}
+  #formationApp .mhead{grid-template-columns:1fr}
+  #formationApp .nav{display:none}
 }
-.coach-progression th { font-weight: 600; color: var(--text-muted); font-size: 13px; }
-.coach-progression-enveloppe { overflow-x: auto; }
-.coach-progression-barre {
-  height: 6px; width: 90px; border-radius: var(--radius-pill);
-  background: var(--surface-2); border: 1px solid var(--border); overflow: hidden;
+@media (max-width:520px){
+  #formationApp .xp-chip .xpt{display:none}
+  #formationApp .stat-row{grid-template-columns:repeat(3,1fr)}
+  #formationApp .stat{padding:10px}
+  #formationApp .stat .v{font-size:17px}
+  #formationApp .ring{width:110px;height:110px}
+  #formationApp .ring .val strong{font-size:28px}
+  #formationApp .dash{padding:20px}
 }
-.coach-progression-barre > div { height: 100%; background: var(--accent); }
-/* ⚠️ Un eleve disparu depuis six semaines est ce que le coach cherche : il se
-   signale, et pas seulement par la couleur, puisque le texte le dit aussi. */
-.coach-absent { color: var(--danger); font-weight: 600; }
+@media (prefers-reduced-motion:reduce){#formationApp *{transition:none!important;animation:none!important}}

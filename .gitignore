@@ -52,3 +52,13 @@ _transfert-*/
 # Captures de sondes : 63 Mo pour 40 fichiers, regenerables par
 # `node outils/formation-eprouver.mjs`. Un depot n est pas un album.
 captures/
+
+# ⛔ L APERCU DE L ESPACE MEMBRE NE REVIENT PAS DANS LE DEPOT.
+# Il avait ete commite (7ee8631) puis retire du suivi (ab7ca14), et Nadir a
+# demande sa suppression du disque au lot 2. Il est reapparu le 11/10/2026 a
+# 19h23, 13 minutes apres un commit, et ⚠️ AUCUN OUTIL DU DEPOT NE PORTE SON
+# NOM : on ne sait pas qui l a ecrit. Il fait 3 Mo, duplique le design system
+# entier et definit lui-meme `window.supabase`, ce qui l avait rendu capable de
+# « valider » un code casse. Ignore ici pour que sa reapparition ne puisse plus
+# ni polluer un controle ni partir dans un commit.
+apercu-espace-membre.html

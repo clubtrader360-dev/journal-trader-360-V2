@@ -88,19 +88,28 @@ boutons s'y trouvent. ⛔ Je n'ai pas pu mesurer s'il est **agréable** : s'il
 s'affiche vite, s'il ne clignote pas, si on comprend en une seconde ce qu'on doit
 cliquer. Connecte-toi et regarde.
 
-**La fenêtre de parcours, la première fois.** C'est elle qui accueille chaque
-nouvel élève. ⚠️ Mes captures la montrent à zéro pour cent, et elle m'a l'air
-juste, mais c'est toi qui sais si elle donne envie de commencer ou si elle fait
-« encore une fenêtre à fermer ».
+**L'accueil de l'espace formation.** ⚠️ Depuis le lot 9, il reprend la maquette
+que tu as validée : l'anneau de progression, le niveau, les dix cartes de module,
+les badges. ⛔ Il n'y a plus de fenêtre de parcours qui s'ouvre à l'arrivée, ni de
+chemin sinusoïdal : la maquette remplace tout cela.
 
-**Les dix phrases du parcours.** Elles parlent en ton nom, une par module. ⛔ Je
-les ai écrites conformes, sans aucune promesse de gain, mais je ne sais pas si
-elles te ressemblent. Elles sont dans `assets/formation-donnees.js`, bloc
-`PHRASES`.
+**Les dix phrases du parcours** ne sont plus affichées. Elles restent écrites dans
+`assets/formation-donnees.js`, bloc `PHRASES`, parce qu'elles sont conformes et
+qu'elles resserviront peut-être. ⚠️ Si tu n'en veux pas, dis-le et je les retire.
+
+**Les dix descriptions de module** viennent de la maquette, pas de moi. Elles sont
+maintenant dans `assets/formation-donnees.js`, bloc `DESCRIPTIONS`, en un seul
+endroit. ⛔ Les descriptions de CHAPITRE, elles, n'existent pas : chaque chapitre
+affiche « En attente de description » jusqu'à ce que tu les fournisses.
 
 **Le texte du rapport du dimanche, troisième variante.** Même remarque, et plus
 important encore : il part chaque semaine. Il est dans
 `api/cron/_lib/weekly-expert-system.js`, fonction `generateFormationReportHTML`.
+
+**Le mode clair.** ⚠️ L'espace formation est SOMBRE dans les deux thèmes du
+journal, parce que la maquette l'est et que tu l'as validée ainsi. Ton journal
+garde ses deux modes. ⛔ Si tu veux un espace formation clair, il faudra une
+seconde palette : dis-le, ce n'est pas un détail d'une ligne.
 
 **La lecture d'une leçon sur ton téléphone.** J'ai des captures à 390 pixels et
 elles tiennent. ⚠️ Mais lire une leçon, prendre une note au pouce et revenir au

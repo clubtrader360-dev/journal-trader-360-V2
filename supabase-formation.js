@@ -207,6 +207,16 @@
     // ⛔ Dit en clair : une écriture qui échoue en silence est le défaut dominant
     // de ce projet. L'élève doit pouvoir le signaler, et nous le retrouver.
     if (error) console.error('[FORMATION] ⚠️ progression NON enregistrée :', error.message);
+    /**
+     * ⛔ ELLE REND UN BOOLEEN, ET C EST UNE CORRECTION DU 11/10/2026.
+     * Elle ne rendait rien. `terminer()` fait `const ok = await
+     * ecrireProgression(...); if (!ok) return;` : `ok` valait donc TOUJOURS
+     * `undefined`, l eleve aurait lu « Non enregistré » a chaque chapitre
+     * termine, et l avancement n aurait jamais progresse a l ecran, ALORS QUE
+     * L ECRITURE REUSSISSAIT. ⚠️ Attrape en listant les appels dont la
+     * definition ne rend pas ce que l appelant lit.
+     */
+    return !error;
   }
 
   // ===== NOTES ==============================================================
@@ -226,7 +236,7 @@
   }
 
   function repere(etat) {
-    const el = $('formationNoteEtat');
+    const el = $('savedMsg');
     if (!el) return;
     const libelles = { repos: '', ecrit: 'Enregistrement…', ok: 'Enregistré', faute: "⚠️ Non enregistré" };
     el.textContent = libelles[etat] || '';
@@ -295,119 +305,17 @@
    * module 10 n a aucun dossier, et le `7BIS` aucun module. L ecrire ici serait
    * inventer ce que le lot interdit d inventer.
    *
-   * La seconde sortie est donc retenue : TANT QUE LA STRUCTURE EST INCOMPLETE, le
-   * pourcentage ne s affiche pas, et la mention dit pourquoi. Le compte de lecons
-   * reste affiche, lui, parce qu il est vrai.
+   * ── ⚠️ CE QUI A CHANGE AU LOT 9, ET IL FAUT LE DIRE ICI ─────────────────
    *
-   * ⚠️ `structureComplete()` bascule toute seule le jour ou les dix modules
-   * porteront des lecons : aucune intervention, aucun oubli possible.
-   */
-  function structureComplete() {
-    return D().MODULES.every((m) => m.lecons.length > 0);
-  }
-
-  function rendreSommaire() {
-    _vue = 'sommaire';
-    const mods = D().MODULES;
-    const total = D().total();
-    const faites = D().SUITE.filter((l) => estVue(l.id)).length;
-    const r = reprisePrecise();
-    const complete = structureComplete();
-    const pct = total ? Math.round((faites / total) * 100) : 0;
-    const modulesFaits = mods.filter((m) => m.lecons.length > 0
-      && m.lecons.every((l) => estVue(l.id))).length;
-
-    $('formationFilAriane').innerHTML = '<span class="formation-fil-actif">Sommaire</span>';
-    $('formationContenu').innerHTML = `
-      ${citation()}
-
-      <div class="formation-entete">
-        <div class="formation-barre" role="progressbar" aria-valuemin="0" aria-valuemax="${total}"
-             aria-valuenow="${faites}" aria-label="Progression dans la formation">
-          <div class="formation-barre-remplie" style="width:${total ? (faites / total) * 100 : 0}%"></div>
-        </div>
-        <p class="formation-compteur">
-          ${faites} leçon${faites > 1 ? 's' : ''} sur ${total}
-          ${complete
-            ? ` · <strong>${pct} %</strong>`
-            : ' · <span class="formation-mention">le pourcentage s\'affichera quand les dix modules seront remplis</span>'}
-        </p>
-
-        ${r
-          ? `<p class="formation-reprise-ou">Tu en es à
-               <strong>Module ${txt(r.module)} · leçon ${r.rang}${r.secondes > 0 ? ` · à ${duree(r.secondes)}` : ''}</strong></p>
-             <button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${r.lecon.id}')">
-               Reprendre : ${txt(r.lecon.titre)}
-             </button>`
-          : `<p class="formation-reprise-ou">Tu n'as pas encore commencé.</p>
-             ${D().SUITE.length
-               ? `<button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${D().SUITE[0].id}')">
-                    Commencer : ${txt(D().SUITE[0].titre)}
-                  </button>`
-               : ''}`}
-
-        <p class="formation-compteur">
-          ${modulesFaits} module${modulesFaits > 1 ? 's' : ''} terminé${modulesFaits > 1 ? 's' : ''}
-          · <button type="button" class="formation-lien" onclick="Formation.ouvrirNotes()">Toutes mes notes</button>
-        </p>
-      </div>
-
-      ${parcours(r)}
-
-      <div class="formation-grille">
-        ${mods.map((m) => {
-          const a = avancement(m);
-          const vide = a.total === 0;
-          return `
-          <article class="trader-card formation-carte${vide ? ' formation-carte-vide' : ''}"
-                   ${vide ? '' : `tabindex="0" role="button" onclick="Formation.ouvrirModule('${m.numero}')"
-                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Formation.ouvrirModule('${m.numero}')}"`}>
-            <div class="formation-carte-numero">Module ${txt(m.numero)}</div>
-            <h3 class="formation-carte-titre">${txt(m.titre)}</h3>
-            ${vide
-              ? '<p class="formation-carte-vide-texte">Leçons à venir</p>'
-              : `<div class="formation-barre formation-barre-fine">
-                   <div class="formation-barre-remplie" style="width:${(a.faites / a.total) * 100}%"></div>
-                 </div>
-                 <p class="formation-carte-compteur">${a.faites} / ${a.total} leçon${a.total > 1 ? 's' : ''}</p>`}
-          </article>`;
-        }).join('')}
-      </div>`;
-  }
-
-  /**
-   * ── ⚠️ LA CITATION VIENT DE LA MEME SOURCE QUE CELLE DU JOURNAL ──────────
-   *
-   * `#mantraContainer` du journal lit `localStorage.userMantra` et
-   * `localStorage.userMantraAuthor`, posees par `saveMantra()`. On relit LES
-   * MEMES CLES. ⛔ Aucune seconde source : deux systemes de citation dans la meme
-   * application divergeraient, et celui qu on ne regarde pas deviendrait faux.
-   *
-   * ⚠️ C EST DONC LA CITATION DE L ELEVE, celle qu il a choisie dans son journal,
-   * et non une autre. Cela se defend : la formation est son espace, pas une
-   * vitrine. ⛔ Mais c est un choix, et il revient a Nadir de le confirmer.
-   *
-   * ⚠️ ET UN CONSTAT QUI N EST PAS DE MON RESSORT : cette source est
-   * `localStorage` SEUL. La citation d un eleve ne le suit donc pas d un appareil
-   * a l autre, et un eleve qui n a que la formation n en aura jamais aucune, ne
-   * passant pas par le journal pour la saisir. Rapporte, pas corrige : changer la
-   * source toucherait le journal, hors perimetre de ce lot.
-   */
-  /**
-   * ── ⚠️ LA REPRISE DE L'EXISTANT, ET POURQUOI ELLE EST ICI ───────────────
-   *
-   * ⛔ AUCUNE REQUETE SQL NE PEUT RECUPERER LES CITATIONS : elles vivent dans le
-   * navigateur de chaque eleve, et la base ne les a jamais vues. La reprise se
-   * fait donc au premier chargement, ici, dans cet ordre :
-   *
-   *   1. la base gagne des qu'elle porte quelque chose
-   *   2. sinon, si `localStorage` en porte une, on la TELEVERSE une fois
-   *   3. sinon, citation par defaut
-   *
-   * ⛔ ET `localStorage` N'EST PAS EFFACE, meme apres televersement. Tant que
-   * tous les eleves ne se sont pas reconnectes, c'est la seule copie de celle de
-   * ceux qui ne sont pas revenus. ⚠️ On ne jette pas la seule copie d'une donnee
-   * parce qu'on vient d'en faire une autre.
+   * `assets/formation-donnees.js` porte desormais les SOIXANTE-TROIS chapitres,
+   * comptes sur le releve Vimeo. Le pourcentage est donc calcule sur un total
+   * reel, et `structureComplete()` n a plus de raison d exister : elle a ete
+   * retiree avec la mention « le pourcentage s affichera quand les dix modules
+   * seront remplis ».
+   * ⛔ CE QUI MANQUE N EST PLUS LE COMPTE, C EST LE RAPPROCHEMENT : on sait
+   * combien de chapitres chaque module porte, pas QUELLE video va dans lequel.
+   * Les titres des modules 02 a 09 sont donc des emplacements, et aucune video
+   * n est posee.
    */
   async function chargerCitation() {
     const u = await uid();
@@ -485,338 +393,7 @@
    * est le cas normal a l arrivee. Le rail est donc toujours dessine en entier,
    * avec ses dix jalons visibles, et seul le remplissage varie.
    */
-  function parcours(r) {
-    const mods = D().MODULES;
-    const atteint = r ? mods.findIndex((m) => m.numero === r.module) : -1;
-    const faitsParModule = mods.map((m) => m.lecons.length > 0
-      && m.lecons.every((l) => estVue(l.id)));
-    const dernierFait = faitsParModule.lastIndexOf(true);
-    const courant = Math.max(atteint, dernierFait, 0);
-    const rempli = mods.length > 1 ? (courant / (mods.length - 1)) * 100 : 0;
-    const phrase = r || dernierFait >= 0
-      ? (D().PHRASES[mods[courant].numero] || '')
-      : D().PHRASES.depart;
-
-    return `
-      <section class="formation-parcours" aria-label="Ton parcours">
-        <p class="formation-parcours-phrase">${txt(phrase)}</p>
-        <ol class="formation-rail" style="--rempli:${rempli}%">
-          ${mods.slice().reverse().map((m, i) => {
-            const idx = mods.length - 1 - i;
-            const fait = faitsParModule[idx];
-            const ici = idx === courant && (r || dernierFait >= 0);
-            return `
-            <li class="formation-jalon${fait ? ' formation-jalon-fait' : ''}${ici ? ' formation-jalon-ici' : ''}">
-              <span class="formation-jalon-pastille" aria-hidden="true">${fait ? '✓' : m.numero}</span>
-              <span class="formation-jalon-titre">${txt(m.titre)}</span>
-            </li>`;
-          }).join('')}
-        </ol>
-      </section>`;
-  }
-
-  /**
-   * ── ⚠️ TOUTES LES NOTES AU MEME ENDROIT ──────────────────────────────────
-   *
-   * ⛔ PAS UN MENU DEROULANT, et c est delibere. Soixante-quatre notes dans un
-   * menu est inutilisable : on ne lit rien, on ne cherche rien, et l extrait
-   * disparait des qu on referme. Le besoin reel est de RETROUVER une note, de
-   * savoir d ou elle vient et d y sauter. Une liste filtrable sert les trois ; un
-   * menu n en sert aucun.
-   *
-   * ⛔ LECTURE SEULE ICI. Modifier une note hors de son contexte, sans la lecon
-   * ni la video sous les yeux, est un bon moyen de la vider par erreur. Le bouton
-   * mene a la lecon, ou la note s edite normalement. ⚠️ C est une proposition :
-   * si Nadir veut l edition en place, elle s ajoute sans rien defaire.
-   */
-  function rendreNotes(filtre) {
-    _vue = 'notes';
-    const q = (filtre || '').trim().toLowerCase();
-    const avec = D().SUITE
-      .map((l) => ({ l, texte: (_notes[l.id] || '').trim() }))  // deja charge par ouvrirNotes()
-      .filter((x) => x.texte)
-      .filter((x) => !q || x.texte.toLowerCase().includes(q) || x.l.titre.toLowerCase().includes(q));
-
-    $('formationFilAriane').innerHTML =
-      `<button type="button" class="formation-fil-lien" onclick="Formation.ouvrirSommaire()">Sommaire</button>
-       <span class="formation-fil-sep" aria-hidden="true">/</span>
-       <span class="formation-fil-actif">Mes notes</span>`;
-
-    $('formationContenu').innerHTML = `
-      <h2 class="formation-titre">Mes notes</h2>
-      <p class="formation-compteur">${avec.length} note${avec.length > 1 ? 's' : ''}${q ? ' trouvée' + (avec.length > 1 ? 's' : '') : ''}</p>
-      ${avec.length ? `<button type="button" class="formation-btn-fantome formation-export"
-            onclick="Formation.exporterNotes()">Telecharger mes notes</button>` : ''}
-      <input type="search" id="formationNotesFiltre" class="formation-filtre"
-             placeholder="Chercher dans mes notes" aria-label="Chercher dans mes notes"
-             value="${txt(q)}" oninput="Formation.filtrerNotes(this.value)">
-      ${avec.length === 0
-        ? `<p class="formation-mention">${q ? 'Aucune note ne correspond.' : 'Tu n\'as encore écrit aucune note.'}</p>`
-        : `<ul class="formation-notes-liste">
-             ${avec.map(({ l, texte }) => `
-               <li class="trader-card formation-note-carte">
-                 <div class="formation-carte-numero">Module ${txt(l.module)} · ${txt(l.titre)}</div>
-                 <p class="formation-note-extrait">${txt(texte)}</p>
-                 <button type="button" class="formation-btn-fantome"
-                         onclick="Formation.ouvrirLecon('${l.id}')">Ouvrir la leçon</button>
-               </li>`).join('')}
-           </ul>`}`;
-
-    const f = $('formationNotesFiltre');
-    if (f && q) { f.focus(); f.setSelectionRange(q.length, q.length); }
-  }
-
-  // ===== RENDU : MODULE =====================================================
-
-  function rendreModule(numero) {
-    const m = D().module(numero);
-    if (!m) return rendreSommaire();
-    _vue = 'module';
-    _moduleCourant = numero;
-    const a = avancement(m);
-
-    $('formationFilAriane').innerHTML =
-      `<button type="button" class="formation-fil-lien" onclick="Formation.ouvrirSommaire()">Sommaire</button>
-       <span class="formation-fil-sep" aria-hidden="true">/</span>
-       <span class="formation-fil-actif">Module ${txt(numero)}</span>`;
-
-    $('formationContenu').innerHTML = `
-      <div class="formation-entete">
-        <div class="formation-carte-numero">Module ${txt(m.numero)}</div>
-        <h2 class="formation-titre">${txt(m.titre)}</h2>
-        <div class="formation-barre" role="progressbar" aria-valuemin="0" aria-valuemax="${a.total}"
-             aria-valuenow="${a.faites}" aria-label="Progression dans le module">
-          <div class="formation-barre-remplie" style="width:${a.total ? (a.faites / a.total) * 100 : 0}%"></div>
-        </div>
-        <p class="formation-compteur">${a.faites} / ${a.total} leçon${a.total > 1 ? 's' : ''}</p>
-      </div>
-      <ol class="formation-liste">
-        ${m.lecons.map((l, i) => `
-          <li>
-            <button type="button" class="formation-lecon-ligne" onclick="Formation.ouvrirLecon('${l.id}')">
-              <span class="formation-lecon-etat${estVue(l.id) ? ' formation-lecon-vue' : ''}" aria-hidden="true">
-                ${estVue(l.id) ? '✓' : i + 1}
-              </span>
-              <span class="formation-lecon-titre">${txt(l.titre)}</span>
-              <span class="formation-lecon-badge">${estVue(l.id) ? 'Vue' : ''}</span>
-            </button>
-          </li>`).join('')}
-      </ol>`;
-  }
-
-  // ===== RENDU : LEÇON ======================================================
-
-  function rendreLecon(id) {
-    const l = D().lecon(id);
-    if (!l) return rendreSommaire();
-    _vue = 'lecon';
-    _leconCourante = id;
-    const m = D().module(l.module);
-    const suivante = D().suivante(id);
-
-    $('formationFilAriane').innerHTML =
-      `<button type="button" class="formation-fil-lien" onclick="Formation.ouvrirSommaire()">Sommaire</button>
-       <span class="formation-fil-sep" aria-hidden="true">/</span>
-       <button type="button" class="formation-fil-lien" onclick="Formation.ouvrirModule('${l.module}')">Module ${txt(l.module)}</button>
-       <span class="formation-fil-sep" aria-hidden="true">/</span>
-       <span class="formation-fil-actif">${txt(l.titre)}</span>`;
-
-    /* ⚠️ L'ORDRE DES BLOCS N'EST PAS DÉCORATIF : titre, description, vidéo, notes.
-       On lit ce qu'on va voir avant de le voir, et on prend ses notes sous la
-       vidéo, pas ailleurs. */
-    $('formationContenu').innerHTML = `
-      <article class="formation-lecon">
-        <div class="formation-carte-numero">Module ${txt(l.module)} · ${txt(m ? m.titre : '')}</div>
-        <h2 class="formation-titre">${txt(l.titre)}</h2>
-
-        <div class="formation-description">
-          ${l.description
-            ? txt(l.description)
-            : '<em>La description de cette leçon sera versée depuis LearnyBox.</em>'}
-        </div>
-
-        <div class="formation-video" id="formationVideo">
-          ${l.video
-            ? `<iframe src="https://player.vimeo.com/video/${txt(l.video)}" title="${txt(l.titre)}"
-                 allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`
-            : `<div class="formation-video-attente">
-                 <p><strong>La vidéo n'est pas encore posée.</strong></p>
-                 <p>Elle attend la décision de Nadir sur la restriction d'intégration Vimeo.
-                    L'emplacement, la reprise de lecture et les notes fonctionnent sans elle.</p>
-               </div>`}
-        </div>
-
-        <div class="formation-vue-ligne">
-          <label class="formation-case">
-            <input type="checkbox" id="formationVue" ${estVue(id) ? 'checked' : ''}
-                   onchange="Formation.basculerVue('${id}', this.checked)">
-            <span>J'ai vu cette leçon</span>
-          </label>
-          <span class="formation-compteur">Tu coches toi-même : rien n'est déduit du temps de lecture.</span>
-        </div>
-
-        <section class="formation-notes">
-          <div class="formation-notes-entete">
-            <h3>Mes notes</h3>
-            <span id="formationNoteEtat" class="formation-note-etat" role="status" aria-live="polite"></span>
-          </div>
-          <textarea id="formationNote" data-mic-dictation="true" rows="8"
-            placeholder="Tes notes sur cette leçon. Elles s'enregistrent toutes seules."
-            aria-label="Notes personnelles sur cette leçon">${txt(_notes[id] || '')}</textarea>
-        </section>
-
-        <div class="formation-suite">
-          <button type="button" class="formation-btn-fantome" onclick="Formation.ouvrirModule('${l.module}')">
-            Retour au module
-          </button>
-          ${suivante
-            ? `<button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${suivante.id}')">
-                 Leçon suivante : ${txt(suivante.titre)}
-               </button>`
-            : ''}
-        </div>
-      </article>`;
-
-    brancherNotes(id);
-    brancherLecteur(id);
-    // ⚠️ La note arrive APRES le rendu, et on ne l'ecrase que si l'eleve n'a pas
-    // commence a taper entre-temps. ⛔ Sinon on effacerait ses premiers mots.
-    chargerNote(id).then((texte) => {
-      const z = $('formationNote');
-      if (z && z.value === '' && texte) z.value = texte;
-    });
-    // La dictée vocale existe déjà dans le journal ; on la rattache au DOM neuf.
-    if (window.MicDictation) window.MicDictation.scan($('formationContenu'));
-  }
-
-  // ===== LA FENETRE DE PARCOURS =============================================
-
-  /**
-   * ── ⚠️ QUAND LA FENETRE S OUVRE, ET POURQUOI PAS PLUS SOUVENT ───────────
-   *
-   *     aucune ligne en base                          PREMIERE VISITE  → oui
-   *     lecons vues > au dernier affichage
-   *       ET plus de 20 h depuis le dernier           progression      → oui
-   *     sinon                                                          → non
-   *
-   * ⛔ LA PREMIERE VISITE EST LE CAS QUI COMPTE, et c est celui qui manquait a
-   * la premiere redaction de cette regle. Un nouvel eleve n a AUCUNE
-   * progression, donc aucun changement, donc il n aurait jamais vu la fenetre.
-   * Or c est precisement lui qu elle doit accueillir : la formation sans journal
-   * est le point d entree de tout le monde.
-   *
-   * ⚠️ L INTERVALLE DE VINGT HEURES repond a l eleve qui ferme sans lire. Sans
-   * lui, la fenetre reviendrait a chaque visite de quelqu un qui avance d une
-   * lecon entre deux, c est-a-dire de l eleve assidu : on punirait celui qu on
-   * veut encourager. Vingt heures la laissent revenir le lendemain, jamais deux
-   * fois dans la meme journee.
-   *
-   * ⛔ L ETAT VIT EN BASE, pas en stockage local : un repere local repartirait a
-   * zero sur chaque appareil.
-   */
-  const INTERVALLE_MS = 20 * 60 * 60 * 1000;
-
-  async function etatParcours() {
-    const u = await uid();
-    if (!u) return null;
-    const { data, error } = await cli()
-      .from('formation_parcours_vu')
-      .select('lecons_vues_au_dernier_affichage, vue_le')
-      .eq('user_id', u)
-      .maybeSingle();
-    // ⚠️ Une erreur n est PAS une premiere visite : on ne sait pas, donc on
-    // n ouvre rien. ⛔ Ouvrir par defaut sur une panne ferait revenir la fenetre
-    // a chaque chargement, exactement ce qu on veut eviter.
-    if (error) { console.warn('[FORMATION] etat du parcours illisible :', error.message); return 'erreur'; }
-    return data || null;
-  }
-
-  function doitOuvrir(etat, faites) {
-    if (etat === 'erreur') return false;
-    if (!etat) return true;                       // première visite
-    if (faites <= etat.lecons_vues_au_dernier_affichage) return false;
-    const depuis = Date.now() - Date.parse(etat.vue_le);
-    return !(depuis >= 0 && depuis < INTERVALLE_MS);
-  }
-
-  async function marquerVue(faites) {
-    const u = await uid();
-    if (!u) return;
-    const { error } = await cli().from('formation_parcours_vu').upsert({
-      user_id: u,
-      lecons_vues_au_dernier_affichage: faites,
-      vue_le: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    if (error) console.error('[FORMATION] ⚠️ fenetre NON marquee comme vue :', error.message);
-  }
-
-  /**
-   * ── ⚠️ LE CLAVIER, ET POURQUOI CE N EST PAS UN DETAIL ────────────────────
-   *
-   * ⛔ UNE FENETRE QU ON NE PEUT PAS FERMER AU CLAVIER BLOQUE QUI N UTILISE PAS
-   * LA SOURIS. Trois choses sont donc necessaires, et aucune n est optionnelle :
-   *   1. La touche d echappement ferme.
-   *   2. Le focus ENTRE dans la fenetre et n en SORT PAS tant qu elle est
-   *      ouverte. Sans cela, la tabulation emmene derriere la fenetre, sur un
-   *      contenu qu on ne voit pas et qui reagit quand meme.
-   *   3. Il REVIENT la ou il etait a la fermeture, sinon on repart du haut de la
-   *      page a chaque passage.
-   */
-  let _focusAvant = null;
-
-  function auClavier(e) {
-    const d = $('formationFenetre');
-    if (!d || d.hidden) return;
-    if (e.key === 'Escape') { e.preventDefault(); fermerFenetre(); return; }
-    if (e.key !== 'Tab') return;
-    const cibles = d.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (!cibles.length) return;
-    const premier = cibles[0];
-    const dernier = cibles[cibles.length - 1];
-    // ⚠️ Le piege se referme aux DEUX bouts : avant du dernier vers le premier,
-    // arriere du premier vers le dernier.
-    if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
-    else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
-  }
-
-  function ouvrirFenetre(r) {
-    const d = $('formationFenetre');
-    if (!d) return;
-    _focusAvant = document.activeElement;
-    $('formationFenetreCorps').innerHTML = parcours(r);
-    d.hidden = false;
-    document.addEventListener('keydown', auClavier, true);
-    const b = $('formationFenetreFermer');
-    if (b) b.focus();
-  }
-
-  async function fermerFenetre() {
-    const d = $('formationFenetre');
-    if (d) d.hidden = true;
-    document.removeEventListener('keydown', auClavier, true);
-    // ⚠️ Le focus revient ou il etait, et seulement s il est encore dans le
-    // document : un element rendu a nouveau entre-temps n existe plus.
-    if (_focusAvant && document.contains(_focusAvant) && _focusAvant.focus) {
-      _focusAvant.focus();
-    }
-    _focusAvant = null;
-    await marquerVue(D().SUITE.filter((l) => estVue(l.id)).length);
-  }
-
-  // ===== L EXPORT DES NOTES =================================================
-
-  /**
-   * ── ⚠️ POURQUOI UN ELEVE DOIT POUVOIR SORTIR SES NOTES ──────────────────
-   *
-   * Ce qu'il ecrit pendant sa formation lui appartient, et il doit pouvoir le
-   * garder meme s'il s'en va. C'est aussi ce qui rend la zone de notes digne de
-   * confiance : on n'ecrit pas longuement dans un endroit dont on ne peut rien
-   * sortir.
-   *
-   * ⛔ AUCUN EXPORT COTE COACH. Les notes d'un eleve ne se telechargent pas.
-   * Cette fonction vit dans le module de l'eleve et lit ses propres lignes, que
-   * RLS borne a `auth.uid()`.
-   */
+  /** ⚠️ Le reglage du depot, lu comme dans les cinq autres modules qui animent. */
   async function exporterNotes() {
     await chargerToutesLesNotes();
     const lignes = [];
@@ -886,75 +463,766 @@
    * réécrit : même garde d'espacement, même `setCurrentTime`, même écriture à la
    * fermeture. `window.Vimeo` n'existe que lorsqu'une vidéo est réellement posée.
    */
-  function brancherLecteur(id) {
-    detacherLecteur();
-    const cadre = $('formationVideo') && $('formationVideo').querySelector('iframe');
-    if (!cadre || !window.Vimeo) return;
+  // ===========================================================================
+  // LA COUCHE D AFFICHAGE : CELLE DE LA MAQUETTE VALIDEE
+  // ===========================================================================
+  /**
+   * ── ⚠️ D OU VIENT CE QUI SUIT ─────────────────────────────────────────────
+   *
+   * C est la transposition des deux vues de
+   * `_maquette-espace-formation/espace-formation-trader360.html` :
+   * `renderHome()` et `renderModule()`. La structure, les classes, les libelles
+   * et les animations sont les siens. ⛔ Je ne les ai pas « ameliores ».
+   *
+   * ── ⛔ CE QUI A CHANGE, ET C EST TOUT LE TRAVAIL ───────────────────────────
+   *
+   * La maquette vit sur `localStorage` et sur une liste de modules qui lui est
+   * propre. Ici :
+   *
+   *     maquette                    source reelle
+   *     S.done[chap] = timestamp -> formation_progression (vue, last_watched_at)
+   *     S.notes[chap]            -> formation_notes
+   *     MODULES (sa propre liste) -> assets/formation-donnees.js, source UNIQUE
+   *     S.last                   -> deduit de `last_watched_at`
+   *
+   * ⛔ ET RIEN N EST ECRIT DANS `localStorage`. Un eleve qui change d appareil
+   * retrouve sa progression, ses notes, son experience et ses badges.
+   */
 
-    _lecteur = new window.Vimeo.Player(cadre);
-    _derniereEcriture = 0;
-    const depart = (_progression[id] || {}).progress_seconds || 0;
+  /* ══ L EXPERIENCE, LES NIVEAUX, LES BADGES, LA SERIE ══════════════════════
+   *
+   * ⛔ AUCUNE TABLE POUR TOUT CELA, ET C EST UNE DECISION.
+   *
+   * ⚠️ Une table d XP qui se desynchronise de la progression donne un eleve a
+   * 60 % qui affiche 300 XP et un badge qu il n a pas merite. Rien ne le
+   * signalerait, et il faudrait le recalculer a la main, eleve par eleve. Tout
+   * ce qui suit se DEDUIT donc de `formation_progression`, a chaque affichage.
+   * La seule source de verite reste la progression.
+   *
+   * ⚠️ Les baremes et les sept niveaux sont ceux de la maquette, au chiffre.
+   */
+  const XP_CHAP = 100;
+  const XP_MOD = 250;
+  const XP_CERT = 1000;
+  const NIVEAUX = [
+    { nom: 'Découvrir', xp: 0 }, { nom: 'Psychologie', xp: 800 },
+    { nom: 'Méthode', xp: 2000 }, { nom: 'Outils', xp: 3500 },
+    { nom: 'Discipline', xp: 5000 }, { nom: 'Financé', xp: 6500 },
+    { nom: 'Durer', xp: 8200 },
+  ];
 
-    _lecteur.ready().then(() => {
-      // ⛔ Seulement si la position est connue ET non nulle : appeler
-      // setCurrentTime(0) marcherait aussi, mais masquerait une donnée absente
-      // derrière un comportement identique à une reprise au début.
-      if (depart > 0) _lecteur.setCurrentTime(depart);
+  const mods = () => D().MODULES;
+  const totalChap = () => D().total();
+  const faitesDe = (m) => m.lecons.filter((l) => estVue(l.id)).length;
+  const pctDe = (m) => (m.lecons.length ? Math.round((faitesDe(m) / m.lecons.length) * 100) : 0);
+  const moduleFini = (m) => m.lecons.length > 0 && faitesDe(m) === m.lecons.length;
+  const estCert = (m) => !!m.certification;
+  /** La certification s ouvre quand les neuf autres modules sont traverses. */
+  const certOuverte = () => mods().filter((m) => !estCert(m)).every(moduleFini);
+  const nbFaites = () => D().SUITE.filter((l) => estVue(l.id)).length;
+
+  function xpTotal() {
+    let x = nbFaites() * XP_CHAP;
+    mods().forEach((m) => { if (moduleFini(m)) x += estCert(m) ? XP_CERT : XP_MOD; });
+    return x;
+  }
+  function niveauDe(x) {
+    let i = 0;
+    NIVEAUX.forEach((n, k) => { if (x >= n.xp) i = k; });
+    return i;
+  }
+
+  /** La date de visionnage d une lecon, ou null. ⚠️ Sert la serie de semaines. */
+  function quandVue(id) {
+    const p = _progression[id];
+    if (!p || !p.vue || !p.last_watched_at) return null;
+    const t = Date.parse(p.last_watched_at);
+    return Number.isFinite(t) ? t : null;
+  }
+  /** Semaine ISO, meme calcul que la maquette. */
+  function semaineIso(d) {
+    const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const j = x.getUTCDay() || 7;
+    x.setUTCDate(x.getUTCDate() + 4 - j);
+    const a = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+    return `${x.getUTCFullYear()}-${Math.ceil(((x - a) / 864e5 + 1) / 7)}`;
+  }
+  function clesSemaines(n) {
+    const out = [];
+    const d = new Date();
+    for (let i = n - 1; i >= 0; i -= 1) {
+      const x = new Date(d);
+      x.setDate(d.getDate() - i * 7);
+      out.push(semaineIso(x));
+    }
+    return out;
+  }
+  function semainesActives() {
+    const s = new Set();
+    Object.keys(_progression).forEach((id) => {
+      const t = quandVue(id);
+      if (t) s.add(semaineIso(new Date(t)));
     });
+    return s;
+  }
+  function serie() {
+    const act = semainesActives();
+    const cles = clesSemaines(52).reverse();
+    let n = 0;
+    for (let i = 0; i < cles.length; i += 1) {
+      if (act.has(cles[i])) n += 1;
+      else if (i === 0) continue;       // la semaine en cours peut etre vide
+      else break;
+    }
+    return n;
+  }
 
-    _lecteur.on('timeupdate', ({ seconds }) => {
-      const now = Date.now();
-      if (now - _derniereEcriture < ESPACEMENT_MS) return;
-      _derniereEcriture = now;
-      ecrireProgression(id, { progress_seconds: Math.floor(seconds) });
+  /**
+   * Les badges de la maquette, aux memes conditions. ⛔ Chacun se CALCULE : il
+   * n existe aucun endroit ou un badge pourrait etre pose a la main.
+   */
+  function badges() {
+    const liste = [
+      { id: 'first', t: 'Première séance', d: 'Ton premier chapitre terminé.',
+        ok: () => nbFaites() >= 1 },
+      ...mods().filter((m) => !estCert(m)).map((m) => ({
+        id: `m${m.numero}`, t: `Module ${m.numero} validé`, d: m.titre,
+        num: Number(m.numero), ok: () => moduleFini(m),
+      })),
+      { id: 'half', t: 'Mi-parcours', d: 'La moitié des chapitres terminés.',
+        ok: () => totalChap() > 0 && nbFaites() >= Math.ceil(totalChap() / 2) },
+      { id: 'weeks4', t: 'Quatre semaines tenues',
+        d: 'Au moins un chapitre par semaine, quatre semaines de suite.',
+        ok: () => serie() >= 4 },
+      { id: 'cert', t: 'Trader 360 certifié', d: 'Les dix modules traversés.',
+        ok: () => { const c = mods().find(estCert); return !!c && moduleFini(c); }, big: true },
+    ];
+    return liste;
+  }
+
+  /** Le prochain chapitre a ouvrir : [indexModule, indexChapitre] ou null. */
+  function prochain() {
+    const r = reprisePrecise();
+    if (r) {
+      const mi = mods().findIndex((m) => m.numero === r.module);
+      if (mi >= 0) {
+        const ci = mods()[mi].lecons.findIndex((l) => l.id === r.lecon.id);
+        if (ci >= 0 && !estVue(r.lecon.id)) return [mi, ci];
+      }
+    }
+    for (let mi = 0; mi < mods().length; mi += 1) {
+      const m = mods()[mi];
+      if (estCert(m) && !certOuverte()) continue;
+      const ci = m.lecons.findIndex((l) => !estVue(l.id));
+      if (ci > -1) return [mi, ci];
+    }
+    return null;
+  }
+
+  /* ══ ICONES ET MEDAILLES, reprises telles quelles de la maquette ══════════ */
+  const I = {
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="#120e07"><path d="M7 4.5v15l13-7.5z"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+  };
+  function medaille(b, taille) {
+    const n = b.num ? String(b.num).padStart(2, '0')
+      : (b.id === 'cert' ? '360' : b.id === 'first' ? '1' : b.id === 'half' ? '½' : '4');
+    const g = `g${b.id}${taille || ''}`;
+    return `<svg class="medal" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset=".55" stop-color="#e8b84b"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs>
+      <path d="M32 3 57 17.5v29L32 61 7 46.5v-29Z" fill="#111318" stroke="url(#${g})" stroke-width="2.5"/>
+      <path d="M32 11 50 21.5v21L32 53 14 42.5v-21Z" fill="url(#${g})" opacity=".14"/>
+      <text x="32" y="37.5" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="${n.length > 2 ? 13 : 16}" fill="url(#${g})">${n}</text></svg>`;
+  }
+
+  /* ══ RENDU ════════════════════════════════════════════════════════════════ */
+  const app = () => $('formation');
+  let _vueCourante = { nom: 'accueil' };
+
+  /** ⚠️ Le reglage du depot, lu comme dans les cinq autres modules qui animent. */
+  function motionOk() {
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      && document.body.dataset.animations !== 'off';
+  }
+
+  function majChip() {
+    const x = xpTotal();
+    const a = $('chipXp');
+    const b = $('chipLvl');
+    if (a) a.textContent = `${x.toLocaleString('fr-FR')} XP`;
+    if (b) b.textContent = NIVEAUX[niveauDe(x)].nom;
+  }
+
+  function animerBarres() {
+    const poser = () => app().querySelectorAll('.bar i[data-w]')
+      .forEach((b) => { b.style.width = `${b.dataset.w}%`; });
+    // ⛔ Sans animation, on pose la largeur TOUT DE SUITE. Deux trames
+    // d attente sur un rendu fige ne donnent rien a voir, et laisseraient les
+    // barres a zero le temps d un battement.
+    if (!motionOk()) { poser(); return; }
+    requestAnimationFrame(() => requestAnimationFrame(poser));
+  }
+
+  function majNav(id) {
+    document.querySelectorAll('#formationApp .nav button').forEach((b) => {
+      b.setAttribute('aria-current', b.dataset.go === id ? 'true' : 'false');
     });
   }
 
-  async function detacherLecteur() {
-    if (!_lecteur) return;
-    const id = _leconCourante;
-    try {
-      const s = await _lecteur.getCurrentTime();
-      if (id) await ecrireProgression(id, { progress_seconds: Math.floor(s) });
-      _lecteur.destroy();
-    } catch (e) { console.warn('[FORMATION] lecteur :', e && e.message); }
-    _lecteur = null;
+  function piedDePage() {
+    /**
+     * ⚠️ DEUX BOUTONS DE LA MAQUETTE NE SONT PAS REPRIS, ET C EST DELIBERE.
+     * Elle propose « Voir un exemple de progression » et « Réinitialiser ma
+     * progression ». Sur `localStorage` c est anodin ; sur `formation_progression`
+     * le premier ECRASERAIT la progression reelle d un eleve et le second la
+     * SUPPRIMERAIT. ⛔ Ni l un ni l autre n est une decision qui m appartient.
+     * L export des notes, lui, existe deja et ne detruit rien : il prend leur
+     * place. ⚠️ A Nadir de dire s il veut un vrai bouton de remise a zero.
+     */
+    return `<footer>
+      <span>Trader 360 · Le trading comporte un risque de perte en capital.</span>
+      <span class="acts">
+        <button type="button" data-export>Exporter mes notes</button>
+        <!-- ⛔ LES QUATRE LIENS LEGAUX SONT REPRIS ICI, a l identique du pied de
+             page du journal. Celui-ci est masque dans cet espace : sans ces
+             liens, l obligation posee au lot « pages legales » disparaitrait
+             d un espace entier, et rien ne l aurait signale. -->
+        <a href="/mentions-legales.html">Mentions légales</a>
+        <a href="/cgv.html">CGV</a>
+        <a href="/confidentialite.html">Confidentialité</a>
+        <a href="/cgu.html">CGU</a>
+      </span>
+    </footer>`;
   }
 
-  // ===== API ================================================================
+  function rendreAccueil(ancre) {
+    _vueCourante = { nom: 'accueil' };
+    const M = mods();
+    const total = totalChap();
+    const faites = nbFaites();
+    const pct = total ? Math.round((faites / total) * 100) : 0;
+    const x = xpTotal();
+    const li = niveauDe(x);
+    const niv = NIVEAUX[li];
+    const suiv = NIVEAUX[li + 1];
+    const pctNiv = suiv ? Math.round(((x - niv.xp) / (suiv.xp - niv.xp)) * 100) : 100;
+    const modsOk = M.filter(moduleFini).length;
+    const pr = prochain();
+    const st = serie();
+    const act = semainesActives();
+    const sem = clesSemaines(8);
+    const cette = semaineIso(new Date());
+    const C = 2 * Math.PI * 56;
 
+    let reprendre;
+    if (!faites) reprendre = `<button type="button" class="btn btn-gold" data-open="0,0">Commencer le module 01 ${I.arrow}</button>`;
+    else if (pr) reprendre = `<button type="button" class="btn btn-gold" data-open="${pr[0]},${pr[1]}">Reprendre ${I.arrow}</button>`;
+    else reprendre = `<button type="button" class="btn btn-gold" data-mod="${M.length - 1}">Voir mon certificat ${I.arrow}</button>`;
+    const metaReprise = pr
+      ? `<div class="resume-meta">Prochaine étape : <b>Module ${txt(M[pr[0]].numero)} · ${txt(M[pr[0]].lecons[pr[1]].titre)}</b></div>`
+      : '';
+    const salut = !faites ? "Ton parcours<br><span class='gold-text'>commence ici.</span>"
+      : pct === 100 ? "Parcours<br><span class='gold-text'>terminé.</span>"
+        : "Ton parcours<br><span class='gold-text'>avance.</span>";
+    const premierOuvert = M.findIndex((m) => !moduleFini(m) && !(estCert(m) && !certOuverte()));
+
+    app().innerHTML = `
+    <section class="hero" id="accueil">
+      <div>
+        <div class="eyebrow">Espace formation</div>
+        <h1>${salut}</h1>
+        <p class="lead">Dix modules, dans l'ordre réel de la progression d'un trader. Chaque chapitre terminé te rapporte de l'expérience et te rapproche de la certification.</p>
+        <div class="hero-ctas">${reprendre}<button type="button" class="btn btn-ghost" data-go="modules">Voir les ${M.length} modules</button></div>
+        ${metaReprise}
+      </div>
+      <aside class="dash" aria-label="Ma progression">
+        <div class="ring-row">
+          <div class="ring" role="img" aria-label="${pct} % du parcours terminé">
+            <svg viewBox="0 0 132 132"><defs><linearGradient id="rgFormation" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs>
+              <circle cx="66" cy="66" r="56" fill="none" stroke="#1b2028" stroke-width="10"/>
+              <circle id="ringArc" cx="66" cy="66" r="56" fill="none" stroke="url(#rgFormation)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"/></svg>
+            <div class="val"><div><strong class="mono">${pct}<small style="font-size:.5em">%</small></strong><span>du parcours</span></div></div>
+          </div>
+          <div class="ring-side">
+            <div class="eyebrow" style="font-size:11px">Niveau ${li + 1} / ${NIVEAUX.length}</div>
+            <div class="big">${txt(niv.nom)}</div>
+            <div class="small">${suiv
+              ? `<span class="mono">${(suiv.xp - x).toLocaleString('fr-FR')} XP</span> avant <b style="color:var(--ink);font-weight:600">${txt(suiv.nom)}</b>`
+              : 'Dernier niveau atteint'}</div>
+          </div>
+        </div>
+        <div class="lvl-bar">
+          <div class="head"><span>Expérience</span><b class="mono">${x.toLocaleString('fr-FR')}${suiv ? ` / ${suiv.xp.toLocaleString('fr-FR')}` : ''} XP</b></div>
+          <div class="bar"><i data-w="${pctNiv}"></i></div>
+          <div class="ladder" style="margin-top:12px" aria-hidden="true">${NIVEAUX.map((l, k) => `<span class="${k <= li ? 'on' : ''}"></span>`).join('')}</div>
+          <div class="ladder-labels" aria-hidden="true"><span>${txt(NIVEAUX[0].nom)}</span><span>${txt(NIVEAUX[NIVEAUX.length - 1].nom)}</span></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat"><div class="k">Chapitres</div><div class="v">${faites}<span style="color:var(--ink-mute);font-weight:400">/${total}</span></div></div>
+          <div class="stat"><div class="k">Modules</div><div class="v">${modsOk}<span style="color:var(--ink-mute);font-weight:400">/${M.length}</span></div></div>
+          <div class="stat"><div class="k">Série</div><div class="v">${st}<span style="color:var(--ink-mute);font-weight:400"> sem.</span></div></div>
+        </div>
+        <div>
+          <div class="lvl-bar"><div class="head"><span>Régularité · 8 semaines</span><span style="font-size:12px">un chapitre par semaine suffit</span></div></div>
+          <div class="weeks">${sem.map((k) => `<div><i class="${act.has(k) ? 'on' : ''} ${k === cette ? 'now' : ''}" title="Semaine ${k.split('-')[1]}"></i><small>${k === cette ? 'auj.' : `S${k.split('-')[1]}`}</small></div>`).join('')}</div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="modules">
+      <div class="sec-head">
+        <div><div class="eyebrow">Le parcours</div><h2>Dix modules, du premier graphique<br>à la certification.</h2></div>
+        <p>La psychologie vient avant la méthode. Suis l'ordre : chaque module prépare le suivant.</p>
+      </div>
+      <div class="grid">
+        ${M.map((m, i) => {
+          const verrou = estCert(m) && !certOuverte();
+          const fini = moduleFini(m);
+          const d = faitesDe(m);
+          const pp = pctDe(m);
+          // ⚠️ Un module SANS chapitre n est pas « a commencer » : il attend
+          // l import Vimeo. ⛔ Le dire, plutot que d afficher 0 / 0.
+          const vide = m.lecons.length === 0 && !verrou;
+          const pastille = verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
+            : vide ? '<span class="pill">Leçons à venir</span>'
+              : fini ? `<span class="pill ok">${I.check} Validé</span>`
+                : d ? '<span class="pill go">En cours</span>' : '<span class="pill">À commencer</span>';
+          const inerte = verrou || vide;
+          return `<button type="button" class="mod ${inerte ? 'locked' : ''} ${i === premierOuvert && d ? 'current' : ''}"
+            ${inerte ? 'aria-disabled="true"' : ''} data-mod="${i}">
+            ${pastille}
+            <div class="num">MODULE ${txt(m.numero)}</div>
+            <h3>${txt(m.titre)}</h3>
+            <p>${m.description ? txt(m.description) : '<em style="color:var(--ink-mute)">En attente de description.</em>'}</p>
+            <div class="foot">
+              <div class="meta"><span>${verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
+                : vide ? 'Chapitres à venir' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
+              <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}"></i></div>
+            </div>
+          </button>`;
+        }).join('')}
+      </div>
+    </section>
+
+    <section id="notes">
+      <div class="sec-head">
+        <div><div class="eyebrow">Carnet</div><h2>Mes notes.</h2></div>
+        <div class="notes-tools"><label for="noteSearch" style="position:absolute;left:-9999px">Rechercher dans mes notes</label><input id="noteSearch" type="search" placeholder="Rechercher dans mes notes…"></div>
+      </div>
+      <div class="notes-wrap" id="notesList">${notesHtml('')}</div>
+    </section>
+
+    <section id="badges">
+      <div class="sec-head">
+        <div><div class="eyebrow">Récompenses</div><h2>Mes badges.</h2></div>
+        <p>Chaque badge correspond à une étape réelle du parcours, jamais à un simple clic.</p>
+      </div>
+      <div class="badges">
+        ${badges().map((b) => `<div class="badge ${b.ok() ? '' : 'off'}">${medaille(b)}<strong>${txt(b.t)}</strong><span>${txt(b.d)}</span></div>`).join('')}
+      </div>
+    </section>
+    ${piedDePage()}`;
+
+    const ns = $('noteSearch');
+    if (ns) {
+      ns.addEventListener('input', () => { $('notesList').innerHTML = notesHtml(ns.value); });
+    }
+    animerBarres();
+    majChip();
+    const poserAnneau = () => { const a = $('ringArc'); if (a) a.style.strokeDashoffset = C * (1 - pct / 100); };
+    if (motionOk()) requestAnimationFrame(poserAnneau); else poserAnneau();
+    majNav(ancre || 'accueil');
+    if (ancre && ancre !== 'accueil') {
+      const el = $(ancre);
+      if (el) el.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
+    }
+  }
+
+  /**
+   * ⚠️ LA LISTE DES NOTES LIT LE TEXTE DEPUIS LA BASE.
+   * `_avecNote` ne porte que les identifiants ; le texte vient de
+   * `chargerToutesLesNotes()`, appele avant d afficher cette section. ⛔ Sans ce
+   * chargement, la liste serait vide alors que les notes existent, et rien ne le
+   * signalerait.
+   */
+  function notesHtml(q) {
+    const r = (q || '').trim().toLowerCase();
+    const combien = Object.values(_notes).filter((v) => v && v.trim()).length;
+    if (!combien) {
+      return `<div class="notes-empty">${_avecNote.size
+        ? 'Tes notes se chargent…'
+        : "Aucune note pour l'instant. Dans chaque chapitre, le bloc « Mes notes » se retrouve automatiquement ici, classé par module."}</div>`;
+    }
+    const blocs = mods().map((m, mi) => {
+      const items = m.lecons.map((l, ci) => ({ l, ci, v: (_notes[l.id] || '').trim() }))
+        .filter((x) => x.v && (!r || x.v.toLowerCase().includes(r)
+          || x.l.titre.toLowerCase().includes(r) || m.titre.toLowerCase().includes(r)));
+      if (!items.length) return '';
+      return `<div class="notes-mod"><h3>Module ${txt(m.numero)} <span>${txt(m.titre)}</span></h3><div class="notes-grid">${items.map((x) =>
+        `<button type="button" class="note-card" data-open="${mi},${x.ci}"><span class="h"><b>${txt(x.l.titre)}</b><em>Ouvrir →</em></span><p>${txt(x.v)}</p></button>`).join('')}</div></div>`;
+    }).join('');
+    return blocs || `<div class="notes-empty">Aucune note ne contient « ${txt(q)} ».</div>`;
+  }
+
+  async function rendreModule(mi, ci) {
+    const M = mods();
+    const m = M[mi];
+    if (!m) return;
+    if (estCert(m) && !certOuverte()) {
+      toast('🔒', `Termine les modules 01 à ${M[M.length - 2].numero} pour débloquer la certification.`);
+      return;
+    }
+    if (!m.lecons.length) {
+      toast('⏳', `Les chapitres du module ${m.numero} arrivent.`);
+      return;
+    }
+    if (ci == null) {
+      ci = m.lecons.findIndex((l) => !estVue(l.id));
+      if (ci < 0) ci = 0;
+    }
+    const c = m.lecons[ci];
+    _vueCourante = { nom: 'module', mi, ci };
+    _moduleCourant = m.numero;
+    _leconCourante = c.id;
+    const d = faitesDe(m);
+    const pp = pctDe(m);
+    const fini = estVue(c.id);
+
+    // ⚠️ La note du chapitre est lue AVANT le rendu : le champ s affiche rempli,
+    // et non vide puis rempli, ce qui ferait croire a une note perdue.
+    const note = await chargerNote(c.id);
+
+    let groupePose;
+    const liste = m.lecons.map((ch, k) => {
+      let g = '';
+      if (ch.groupe !== groupePose) {
+        if (m.lecons.some((l) => l.groupe)) {
+          g = `<div class="chap-group">${ch.groupe ? `Module ${txt(ch.groupe)}` : `Module ${txt(m.numero)}`}</div>`;
+        }
+        groupePose = ch.groupe;
+      }
+      const dn = estVue(ch.id);
+      return `${g}<button type="button" class="chap ${dn ? 'done' : ''}" data-chap="${k}" ${k === ci ? 'aria-current="true"' : ''}>
+        <span class="dot">${dn ? I.check : String(k + 1).padStart(2, '0')}</span>
+        <span><span class="t">${txt(ch.titre)}</span><br><span class="s">${dn ? `Terminé · +${XP_CHAP} XP` : `+${XP_CHAP} XP`}</span></span></button>`;
+    }).join('');
+
+    const prec = ci > 0 ? [mi, ci - 1] : (mi > 0 && M[mi - 1].lecons.length ? [mi - 1, M[mi - 1].lecons.length - 1] : null);
+    const modSuiv = M[mi + 1];
+    const suiv = ci < m.lecons.length - 1 ? [mi, ci + 1]
+      : (modSuiv && modSuiv.lecons.length && !(estCert(modSuiv) && !certOuverte()) ? [mi + 1, 0] : null);
+    const bCert = estCert(m) && moduleFini(m)
+      ? `<div class="cert">${medaille(badges()[badges().length - 1], 'c').replace('class="medal"', 'class="medal" style="width:96px;height:96px"')}<div class="eyebrow" style="margin-top:8px">Parcours validé</div><h3>Trader 360 certifié.</h3><p>Les dix modules sont traversés. La suite se joue en séance, avec le journal, le brief et la communauté.</p></div>`
+      : '';
+
+    app().innerHTML = `
+    <div class="crumbs"><button type="button" data-go="modules">Les modules</button><span>/</span><span>Module ${txt(m.numero)}</span></div>
+    <section class="mhead">
+      <div><div class="eyebrow">Module ${txt(m.numero)} · ${m.lecons.length} chapitres</div><h1>${txt(m.titre)}</h1><p>${m.description ? txt(m.description) : '<em style="color:var(--ink-mute)">En attente de description.</em>'}</p></div>
+      <div class="mprog"><div class="head"><span>${d} / ${m.lecons.length} terminés</span><b class="mono" style="color:var(--ink)">${pp} %</b></div><div class="bar ${pp === 100 ? 'done' : ''}"><i data-w="${pp}"></i></div></div>
+    </section>
+    <div class="mview">
+      <nav class="chap-list" aria-label="Chapitres du module">${liste}</nav>
+      <div class="player">
+        ${bCert}
+        <!-- ⛔ AUCUNE VIDEO POSEE. La question des domaines Vimeo n est pas
+             tranchee : tant qu elle ne l est pas, un lecteur integre afficherait
+             une erreur de lecture a l eleve. C est donc un EMPLACEMENT, au bon
+             format et au bon endroit, qui dit que la video arrive. -->
+        <div class="screen"><canvas id="chart"></canvas>
+          <div class="over"><div><div class="play">${I.play}</div><strong style="font-size:17px">${txt(c.titre)}</strong><small>La vidéo de ce chapitre s'affichera ici.</small></div></div>
+          <span class="tag">M${txt(m.numero)} · ${txt(c.titre)}</span>
+        </div>
+        <div class="lesson-head">
+          <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length}</div><h2>${txt(c.titre)}</h2></div>
+          <div class="lesson-actions">
+            ${fini
+              ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
+              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${XP_CHAP} XP</span></button>`}
+          </div>
+        </div>
+        <!-- ⛔ AUCUNE DESCRIPTION INVENTEE. Nadir les fournira ; d ici la, le
+             bloc se lit comme provisoire plutot que de rester vide. -->
+        <div class="card">
+          <h4>Ce chapitre</h4>
+          <p style="margin:0;color:var(--ink-mute);font-style:italic">${c.description
+            ? txt(c.description) : 'En attente de description.'}</p>
+        </div>
+        <div class="card notes">
+          <h4>Mes notes</h4>
+          <label for="formationNote" style="position:absolute;left:-9999px">Notes du chapitre</label>
+          <textarea id="formationNote" placeholder="Ce que je retiens de ce chapitre, ce que je veux appliquer en séance…">${txt(note || '')}</textarea>
+          <div class="saved" id="savedMsg"></div>
+        </div>
+        <div class="pager">
+          ${prec ? `<button type="button" class="btn btn-ghost" data-open="${prec[0]},${prec[1]}">${I.back} Précédent</button>` : '<span></span>'}
+          ${suiv ? `<button type="button" class="btn btn-ghost" data-open="${suiv[0]},${suiv[1]}">${suiv[0] !== mi ? `Module ${txt(M[suiv[0]].numero)}` : 'Suivant'} ${I.arrow}</button>` : ''}
+        </div>
+      </div>
+    </div>
+    ${piedDePage()}`;
+
+    animerBarres();
+    dessinerChart(mi * 31 + ci * 7 + 3);
+    majNav('modules');
+    majChip();
+    brancherNotes(c.id);
+    window.scrollTo({ top: 0 });
+  }
+
+  /**
+   * Decor du lecteur : des chandeliers generes, dessines une fois au canvas.
+   * ⚠️ CE N EST PAS UNE BOUCLE : un seul passage, pas de `requestAnimationFrame`.
+   * ⛔ Une boucle d animation qui continuerait en arriere-plan viderait la
+   * batterie d un telephone sans que personne ne le voie.
+   */
+  function dessinerChart(graine) {
+    const cv = $('chart');
+    if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    if (r.width < 10) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = r.width * dpr;
+    cv.height = r.height * dpr;
+    const g = cv.getContext('2d');
+    g.scale(dpr, dpr);
+    let s = graine;
+    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    const n = Math.floor(r.width / 14);
+    const w = r.width / n;
+    let p = r.height * 0.55;
+    for (let i = 0; i < n; i += 1) {
+      const o = p;
+      const cl = o + (rnd() - 0.5) * r.height * 0.09 - (i / n) * 1.2;
+      const h = Math.min(o, cl) - rnd() * r.height * 0.03;
+      const l = Math.max(o, cl) + rnd() * r.height * 0.03;
+      g.globalAlpha = 0.22;
+      g.strokeStyle = cl < o ? '#e8b84b' : '#7e7e77';
+      g.fillStyle = g.strokeStyle;
+      g.beginPath();
+      g.moveTo(i * w + w / 2, h);
+      g.lineTo(i * w + w / 2, l);
+      g.stroke();
+      g.fillRect(i * w + w * 0.22, Math.min(o, cl), w * 0.56, Math.max(1, Math.abs(cl - o)));
+      p = Math.max(r.height * 0.15, Math.min(r.height * 0.85, cl));
+    }
+    g.globalAlpha = 1;
+  }
+
+  /* ══ ACTIONS ══════════════════════════════════════════════════════════════ */
+  /**
+   * ⚠️ L ECRITURE VA EN BASE, ET L AFFICHAGE ATTEND SON RESULTAT.
+   * ⛔ Afficher d abord et ecrire ensuite donnerait un chapitre coche a l ecran
+   * et absent de la base : l eleve verrait sa progression disparaitre au
+   * rechargement, sans la moindre erreur entre-temps.
+   */
+  async function terminer() {
+    const { mi, ci } = _vueCourante;
+    const M = mods();
+    const m = M[mi];
+    const c = m.lecons[ci];
+    const niveauAvant = niveauDe(xpTotal());
+    const finiAvant = moduleFini(m);
+    const badgesAvant = badges().filter((b) => b.ok()).map((b) => b.id);
+
+    const ok = await ecrireProgression(c.id, { vue: true });
+    if (!ok) { toast('⚠️', "Non enregistré. Vérifie ta connexion et réessaie."); return; }
+
+    majChip();
+    const niveauApres = niveauDe(xpTotal());
+    const neufs = badges().filter((b) => b.ok() && !badgesAvant.includes(b.id));
+
+    if (!finiAvant && moduleFini(m)) {
+      await rendreModule(mi, ci);
+      const b = estCert(m) ? badges()[badges().length - 1] : badges().find((z) => z.id === `m${m.numero}`);
+      celebrer(b, estCert(m) ? 'Parcours certifié' : `Module ${m.numero} validé`,
+        `+${estCert(m) ? XP_CERT : XP_MOD} XP de bonus.`
+        + (niveauApres > niveauAvant ? ` Tu passes au niveau ${NIVEAUX[niveauApres].nom}.` : ''), mi);
+      return;
+    }
+    if (niveauApres > niveauAvant) {
+      await rendreModule(mi, ci);
+      celebrer({ id: 'lvl', num: niveauApres + 1 }, `Niveau ${NIVEAUX[niveauApres].nom}`,
+        'Tu as franchi une nouvelle étape du parcours.', mi);
+      return;
+    }
+    if (neufs.length) {
+      await rendreModule(mi, ci);
+      celebrer(neufs[0], neufs[0].t, neufs[0].d, mi);
+      return;
+    }
+    toast(`<span class="xp">+${XP_CHAP} XP</span>`, `${txt(c.titre)} terminé`);
+    const nx = m.lecons.findIndex((ch, k) => k > ci && !estVue(ch.id));
+    await rendreModule(mi, nx > -1 ? nx : ci);
+  }
+
+  async function annuler() {
+    const { mi, ci } = _vueCourante;
+    const c = mods()[mi].lecons[ci];
+    const ok = await ecrireProgression(c.id, { vue: false });
+    if (!ok) { toast('⚠️', 'Non enregistré.'); return; }
+    majChip();
+    await rendreModule(mi, ci);
+  }
+
+  let _minuteurToast = null;
+  function toast(icone, message) {
+    const t = $('toast');
+    if (!t) return;
+    t.innerHTML = `${icone}<span>${message}</span>`;
+    t.classList.add('show');
+    clearTimeout(_minuteurToast);
+    _minuteurToast = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  function celebrer(b, titre, texte, mi) {
+    if (!b) return;
+    const M = mods();
+    const suiv = M[mi + 1];
+    const peutSuivre = suiv && suiv.lecons.length && moduleFini(M[mi])
+      && !(estCert(suiv) && !certOuverte());
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="formationModalTitre">${medaille(b, 'm')}
+      <div class="eyebrow">Bravo</div><h3 id="formationModalTitre">${txt(titre)}</h3><p>${txt(texte)}</p>
+      <div class="row">${peutSuivre ? `<button type="button" class="btn btn-gold" data-next>Module ${txt(suiv.numero)} ${I.arrow}</button>` : ''}<button type="button" class="btn btn-ghost" data-close>Continuer</button></div></div>`;
+    // ⛔ DANS `#formationApp`, PAS SUR `document.body`. Tout le style de la
+    // maquette est prefixe par cet identifiant : posee sur le corps, la fenetre
+    // s afficherait sans aucun style, et rien ne l aurait signale.
+    $('formationApp').appendChild(bg);
+    const fermer = () => bg.remove();
+    bg.addEventListener('click', (e) => {
+      if (e.target === bg || e.target.closest('[data-close]')) fermer();
+      if (e.target.closest('[data-next]')) { fermer(); rendreModule(mi + 1, 0); }
+    });
+    const premier = bg.querySelector('button');
+    if (premier) premier.focus();
+    confettis();
+  }
+
+  /**
+   * ── ⚠️ LA SEULE BOUCLE D ANIMATION DE CET ESPACE ──────────────────────────
+   *
+   * ⛔ ELLE S ARRETE QUAND ON QUITTE L ECRAN. Son identifiant de trame est
+   * retenu, et `arreterAnimations()` l annule : au retour vers le journal, vers
+   * l espace coach, et quand l onglet passe en arriere-plan. Une boucle laissee
+   * en vie derriere une interface masquee vide la batterie d un telephone sans
+   * que personne ne le voie, et sans lever d erreur.
+   */
+  let _trameConfettis = 0;
+  function confettis() {
+    if (!motionOk()) return;
+    const cv = $('confetti');
+    if (!cv) return;
+    const g = cv.getContext('2d');
+    cv.width = window.innerWidth;
+    cv.height = window.innerHeight;
+    const cols = ['#f3d585', '#e8b84b', '#b98a2e', '#f7f6f3'];
+    const ps = Array.from({ length: 140 }, () => ({
+      x: window.innerWidth / 2, y: window.innerHeight * 0.42,
+      vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 13 - 4,
+      s: Math.random() * 6 + 3, r: Math.random() * 6,
+      vr: (Math.random() - 0.5) * 0.3, c: cols[Math.random() * 4 | 0],
+    }));
+    let f = 0;
+    const tick = () => {
+      g.clearRect(0, 0, cv.width, cv.height);
+      ps.forEach((p) => {
+        p.vy += 0.35; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        g.save(); g.translate(p.x, p.y); g.rotate(p.r);
+        g.fillStyle = p.c; g.globalAlpha = Math.max(0, 1 - f / 120);
+        g.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); g.restore();
+      });
+      f += 1;
+      if (f < 130) _trameConfettis = requestAnimationFrame(tick);
+      else { _trameConfettis = 0; g.clearRect(0, 0, cv.width, cv.height); }
+    };
+    cancelAnimationFrame(_trameConfettis);
+    _trameConfettis = requestAnimationFrame(tick);
+  }
+
+  function arreterAnimations() {
+    if (_trameConfettis) { cancelAnimationFrame(_trameConfettis); _trameConfettis = 0; }
+    const cv = $('confetti');
+    if (cv && cv.getContext) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    clearTimeout(_minuteurToast);
+    const t = $('toast');
+    if (t) t.classList.remove('show');
+  }
+  // ⚠️ L onglet qui passe en arriere-plan compte aussi comme « quitter l ecran ».
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) arreterAnimations();
+  });
+
+  function aller(id) {
+    if (_vueCourante.nom !== 'accueil') { rendreAccueil(id); return; }
+    const el = $(id);
+    if (el) el.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
+    majNav(id);
+  }
+
+  /* ══ LES CLICS, UNE SEULE DELEGATION, BORNEE A L ESPACE ═══════════════════ */
+  document.addEventListener('click', (e) => {
+    const racine = $('formationApp');
+    if (!racine || !racine.contains(e.target)) return;
+    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export]');
+    if (!t) return;
+    if (t.dataset.go) { aller(t.dataset.go); return; }
+    if (t.dataset.mod != null) { rendreModule(Number(t.dataset.mod), null); return; }
+    if (t.dataset.open) {
+      const [a, b] = t.dataset.open.split(',').map(Number);
+      rendreModule(a, b);
+      return;
+    }
+    if (t.dataset.chap != null) { rendreModule(_vueCourante.mi, Number(t.dataset.chap)); return; }
+    if (t.hasAttribute('data-complete')) { terminer(); return; }
+    if (t.hasAttribute('data-undo')) { annuler(); return; }
+    if (t.hasAttribute('data-export')) { exporterNotes(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const m = document.querySelector('#formationApp .modal-bg');
+    if (m) m.remove();
+  });
+  window.addEventListener('resize', () => {
+    if (_vueCourante.nom === 'module') dessinerChart(_vueCourante.mi * 31 + _vueCourante.ci * 7 + 3);
+  });
+
+  /* ══ L ENTREE DANS L ESPACE ═══════════════════════════════════════════════ */
   const Formation = {
+    /**
+     * ⚠️ Rendu a CHAQUE ouverture, pas une fois pour toutes : la progression et
+     * les notes viennent de Supabase et peuvent avoir change depuis un autre
+     * appareil. Un rendu unique montrerait un etat perime sans qu aucune erreur
+     * ne le signale.
+     */
     async ouvrir() {
       await charger();
-      rendreSommaire();
-      const faites = D().SUITE.filter((l) => estVue(l.id)).length;
-      const etat = await etatParcours();
-      if (doitOuvrir(etat, faites)) ouvrirFenetre(reprisePrecise());
-    },
-    fermerFenetre,
-    // Exposes pour la sonde. ⛔ Ne pas appeler depuis l interface.
-    _doitOuvrir: doitOuvrir,
-    _intervalleMs: INTERVALLE_MS,
-    ouvrirSommaire() { detacherLecteur(); rendreSommaire(); },
-    ouvrirModule(n) { detacherLecteur(); rendreModule(n); },
-    ouvrirLecon(id) { detacherLecteur(); rendreLecon(id); },
-    async ouvrirNotes() {
-      detacherLecteur();
-      // ⚠️ C est le SEUL endroit qui a besoin de tous les textes, et il les
-      // demande au moment ou on y va, pas a chaque ouverture de l espace.
+      // ⚠️ Le texte des notes est necessaire des l accueil : la section « Mes
+      // notes » y vit. ⛔ Sans cela elle serait vide alors que les notes
+      // existent en base.
       await chargerToutesLesNotes();
-      rendreNotes('');
+      rendreAccueil('accueil');
     },
-    filtrerNotes(q) { rendreNotes(q); },
+    aller,
+    ouvrirModule(numero) {
+      const i = mods().findIndex((m) => m.numero === String(numero));
+      if (i >= 0) rendreModule(i, null);
+    },
+    ouvrirLecon(id) {
+      const M = mods();
+      for (let mi = 0; mi < M.length; mi += 1) {
+        const ci = M[mi].lecons.findIndex((l) => l.id === id);
+        if (ci >= 0) { rendreModule(mi, ci); return; }
+      }
+    },
     exporterNotes,
-    async basculerVue(id, vue) { await ecrireProgression(id, { vue }); },
-    // Exposés pour la sonde : ⛔ ne pas les appeler depuis l'interface.
-    _etat: () => ({ vue: _vue, module: _moduleCourant, lecon: _leconCourante }),
-    _progression: () => _progression,
-    _espacementMs: ESPACEMENT_MS,
-    _brancherLecteur: brancherLecteur,
-    _detacherLecteur: detacherLecteur,
+    arreterAnimations,
+    // ⚠️ Exposes pour les sondes : elles doivent pouvoir lire le CALCUL, pas le
+    // deviner. ⛔ Aucun d eux n ECRIT quoi que ce soit.
+    _calcul: { xpTotal, niveauDe, badges, serie, NIVEAUX, XP_CHAP, XP_MOD, XP_CERT },
   };
-
   window.Formation = Formation;
 })();

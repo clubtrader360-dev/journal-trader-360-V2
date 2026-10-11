@@ -114,18 +114,98 @@
    */
   LECONS_MODULE_01[0].video = '1229950174';
 
+  /**
+   * ── ⚠️ LA STRUCTURE COMPLETE, ET D OU VIENNENT SES NOMBRES ────────────────
+   *
+   * ⛔ CE FICHIER EST LA SOURCE UNIQUE DES MODULES. La maquette validee en
+   * portait une seconde, avec ses propres titres et ses propres comptes. ⚠️ Deux
+   * listes de modules divergent toujours : celle qu on ne regarde pas devient
+   * fausse, et personne ne s en apercoit avant qu un eleve lise un titre qui
+   * n existe plus. C est donc la maquette qui s adapte a ce fichier.
+   *
+   * ── LES NOMBRES DE CHAPITRES SONT MESURES, PAS SUPPOSES ───────────────────
+   *
+   * Relevé Vimeo du 09/10/2026, `formation-vimeo-releve.json`, recompté le
+   * 11/10/2026 :
+   *
+   *     MODULE 1   7      MODULE 5  12      MODULE 8   3
+   *     MODULE 2  10      MODULE 6   5      MODULE 9   3
+   *     MODULE 3   5      MODULE 7   9      (dossier « Formation »  1)
+   *     MODULE 4   5      MODULE 7BIS 4
+   *                                          soit 63 + 1 isolee
+   *
+   * La maquette annonce exactement ces nombres : ils ne sont pas inventes.
+   * ⛔ SAUF LE MODULE 10, auquel elle attribue 2 chapitres alors qu AUCUN
+   * dossier Vimeo ne lui correspond. Il reste donc VIDE ici, et il apparait
+   * verrouille tant que les neuf premiers ne sont pas traverses, comme dans la
+   * maquette. ⚠️ A Nadir de dire ce qu il contient.
+   *
+   * ── ⚠️ CE QUI EST PROVISOIRE, ET SE VOIT COMME TEL ────────────────────────
+   *
+   * ⛔ Les titres des chapitres des modules 02 a 09 sont des EMPLACEMENTS. Le
+   * rapprochement dossier Vimeo / module n est pas tranche (voir
+   * `formation-rapprochement-modules.md`), donc on ne sait pas encore QUELLE
+   * video porte quel titre. Seul le module 01 a ses sept vrais titres.
+   * ⛔ `video: null` PARTOUT SAUF UNE : la question des domaines Vimeo n est pas
+   * reglee, et `index.html` ne pose aucun lecteur. L emplacement dit que la
+   * video arrive.
+   * ⛔ `description: null` : aucune description inventee. Celles des MODULES
+   * viennent de la maquette validee et sont marquees comme telles ci-dessous ;
+   * celles des chapitres n existent pas encore et s affichent « En attente de
+   * description ».
+   */
+  const chapitres = (num, n, depart = 0, groupe = null) => Array.from(
+    { length: n },
+    (_, i) => ({
+      id: `m${num}-l${depart + i}`,
+      // ⚠️ Provisoire, et ecrit pour que cela se voie.
+      titre: `Chapitre ${depart + i + 1}`,
+      groupe,
+      video: null,
+      description: null,
+      provisoire: true,
+    }),
+  );
+
+  /**
+   * ⚠️ LES DESCRIPTIONS DE MODULE VIENNENT DE LA MAQUETTE QUE NADIR A VALIDEE.
+   * ⛔ Je ne les ai pas ecrites et je ne les ai pas modifiees. Elles sont posees
+   * ici, dans la source unique, pour qu il les corrige a un seul endroit.
+   */
+  const DESCRIPTIONS = {
+    '01': 'Les objectifs, la discipline, la routine. Ce qui se met en place avant les graphiques.',
+    '02': "Ce qu'on échange, comment se lit un graphique, ce qui fait bouger un prix.",
+    '03': 'Quelques indicateurs bien compris valent mieux qu\'un graphique saturé.',
+    '04': 'Installer, configurer, savoir où tout se trouve avant la première séance.',
+    '05': 'Lire une séance, repérer les zones, calibrer son risque, décider sans improviser.',
+    '06': 'Ce qui déclenche les décisions impulsives, et comment tenir quand ça tangue.',
+    '07': 'Du challenge réussi au compte financé, puis à une activité qui tient.',
+    '08': "Le cadre administratif et fiscal d'une activité de trading.",
+    '09': "Les compléments qu'on ajoute quand une question revient souvent.",
+    '10': 'La validation du parcours, une fois les neuf modules précédents traversés.',
+  };
+
   const MODULES = [
     { numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: LECONS_MODULE_01 },
-    { numero: '02', titre: 'Comprendre le trading', lecons: [] },
-    { numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: [] },
-    { numero: '04', titre: 'Prendre en main ta plateforme de trading', lecons: [] },
-    { numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: [] },
-    { numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: [] },
-    { numero: '07', titre: "Gérer l'après-challenge et structurer son activité", lecons: [] },
-    { numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: [] },
-    { numero: '09', titre: 'Pour aller plus loin', lecons: [] },
-    { numero: '10', titre: 'Certification Trader 360', lecons: [] },
+    { numero: '02', titre: 'Comprendre le trading', lecons: chapitres('02', 10) },
+    { numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: chapitres('03', 5) },
+    { numero: '04', titre: 'Prendre en main ta plateforme de trading', lecons: chapitres('04', 5) },
+    { numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: chapitres('05', 12) },
+    { numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: chapitres('06', 5) },
+    // ⚠️ Le module 07 porte DEUX groupes : le dossier `MODULE 7` (9 videos) et
+    // `MODULE 7BIS` (4). La maquette les affiche sous deux intertitres, et c est
+    // la seule raison d etre du champ `groupe`.
+    {
+      numero: '07',
+      titre: "Gérer l'après-challenge et structurer son activité",
+      lecons: [...chapitres('07', 9), ...chapitres('07', 4, 9, '7 bis')],
+    },
+    { numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: chapitres('08', 3) },
+    { numero: '09', titre: 'Pour aller plus loin', lecons: chapitres('09', 3) },
+    // ⛔ VIDE, et verrouille : aucun dossier Vimeo ne lui correspond.
+    { numero: '10', titre: 'Certification Trader 360', lecons: [], certification: true },
   ];
+  MODULES.forEach((m) => { m.description = DESCRIPTIONS[m.numero] || null; });
 
   /** Toutes les leçons, à plat, dans l'ordre de lecture. Sert à « leçon suivante ». */
   /**

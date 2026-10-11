@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Espace Formation Trader 360</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout : barre fixe + tableau de bord (progression, niveau, série) puis grille des 10 modules ; vue module = liste des chapitres + lecteur. Charte trader360.fr, noir profond et or. */
+:root{
+  --bg:#050506; --surface:#111318; --surface-2:#161a20; --surface-3:#1b2028;
+  --ink:#f7f6f3; --ink-soft:#a6a6a1; --ink-mute:#7e7e77;
+  --gold:#e8b84b; --gold-2:#f3d585; --gold-deep:#b98a2e;
+  --gold-glow:rgba(232,184,75,.5); --gold-wash:rgba(232,184,75,.08); --gold-line:rgba(232,184,75,.35);
+  --line:#1e2128; --line-soft:#15171c;
+  --ok:#10b981; --ok-glow:#34d399; --ok-wash:rgba(16,185,129,.12);
+  --on-gold:#120e07;
+  --f-ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif;
+  --f-mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+  --r-card:18px; --r-pill:40px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100%}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(900px 500px at 50% -120px,rgba(232,184,75,.10),transparent 70%)}
+a{color:inherit}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.gold-text{background:linear-gradient(180deg,var(--gold-2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--gold)}
+
+/* Top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(5,5,6,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top-in{max-width:1200px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.logo svg{width:30px;height:30px}
+.logo b{font-weight:600;letter-spacing:.18em;font-size:14px}
+.logo .sep{width:1px;height:22px;background:var(--gold)}
+.nav{display:flex;gap:22px;margin-left:8px}
+.nav button{background:none;border:0;padding:6px 0;color:var(--ink-soft);font-size:15px}
+.nav button[aria-current="true"]{color:var(--ink)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.xp-chip{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;border:1px solid var(--line);border-radius:var(--r-pill);background:rgba(255,255,255,.03);font-size:13px}
+.xp-chip .lvl{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:var(--on-gold);font-weight:700;border-radius:var(--r-pill);padding:4px 12px;box-shadow:0 8px 30px -8px var(--gold-glow)}
+
+main{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 20px 80px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;border-radius:var(--r-pill);padding:13px 24px;font-weight:600;font-size:15px;border:1px solid transparent;text-decoration:none;transition:transform .15s ease,box-shadow .2s ease}
+.btn-gold{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:var(--on-gold);box-shadow:0 8px 30px -8px var(--gold-glow)}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 12px 36px -8px var(--gold-glow)}
+.btn-ghost{background:rgba(255,255,255,.03);border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--gold-line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+.btn svg{width:16px;height:16px}
+
+/* Hero dashboard */
+.hero{padding:56px 0 36px;display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center}
+.hero h1{font-size:clamp(40px,6.4vw,76px);font-weight:800;letter-spacing:-.03em;line-height:.98;margin:14px 0 18px;text-wrap:balance}
+.hero p.lead{color:var(--ink-soft);font-size:18px;max-width:52ch;margin:0 0 28px}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:12px}
+.resume-meta{margin-top:14px;font-size:14px;color:var(--ink-mute)}
+.resume-meta b{color:var(--ink-soft);font-weight:500}
+
+.dash{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:26px;display:grid;gap:22px}
+.ring-row{display:flex;align-items:center;gap:22px}
+.ring{position:relative;width:132px;height:132px;flex-shrink:0}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring .val strong{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.ring .val span{display:block;font-size:11px;color:var(--ink-mute);letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+.ring-side{display:grid;gap:6px;min-width:0}
+.ring-side .big{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.ring-side .small{font-size:14px;color:var(--ink-soft)}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:14px;padding:12px 14px}
+.stat .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
+.stat .v{font-family:var(--f-mono);font-size:20px;font-weight:700;margin-top:2px}
+.lvl-bar .head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-soft);margin-bottom:8px;gap:10px}
+.lvl-bar .head b{color:var(--ink);font-weight:600}
+
+/* progress bar */
+.bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;position:relative}
+.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--gold-deep),var(--gold),var(--gold-2));box-shadow:0 0 14px var(--gold-glow);width:0;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.bar.done i{background:linear-gradient(90deg,#0c8f65,var(--ok),var(--ok-glow));box-shadow:0 0 14px rgba(16,185,129,.45)}
+.bar.thin{height:5px}
+
+/* Ladder (the 7 steps) */
+.ladder{display:flex;gap:6px}
+.ladder span{flex:1;height:4px;border-radius:2px;background:var(--surface-3)}
+.ladder span.on{background:var(--gold)}
+.ladder-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-mute);margin-top:6px}
+
+/* Week streak */
+.weeks{display:flex;gap:6px;align-items:flex-end}
+.weeks div{flex:1;display:grid;gap:5px;justify-items:center}
+.weeks i{width:100%;height:26px;border-radius:7px;background:var(--surface-3);border:1px solid var(--line-soft)}
+.weeks i.on{background:linear-gradient(180deg,var(--gold-2),var(--gold));border-color:transparent;box-shadow:0 6px 16px -8px var(--gold-glow)}
+.weeks i.now{border-color:var(--gold-line)}
+.weeks small{font-size:10px;color:var(--ink-mute);font-family:var(--f-mono)}
+
+/* Section headers */
+.sec-head{display:flex;align-items:end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin:44px 0 22px}
+.sec-head h2{font-size:clamp(30px,4.2vw,46px);font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:10px 0 0;text-wrap:balance}
+.sec-head p{color:var(--ink-soft);margin:0;max-width:44ch;font-size:15px}
+
+/* Module grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.mod{position:relative;text-align:left;background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:22px;display:flex;flex-direction:column;gap:12px;min-height:236px;transition:border-color .2s,transform .2s,background .2s}
+.mod:hover:not(.locked){border-color:var(--gold-line);transform:translateY(-2px);background:rgba(22,26,32,.9)}
+.mod .num{font-family:var(--f-mono);font-size:12.5px;font-weight:700;letter-spacing:.14em;color:var(--gold)}
+.mod h3{font-size:19px;font-weight:800;letter-spacing:-.015em;line-height:1.2;margin:0;text-wrap:balance}
+.mod p{font-size:14px;color:var(--ink-soft);margin:0;line-height:1.5}
+.mod .foot{margin-top:auto;display:grid;gap:10px}
+.mod .meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-mute);gap:8px}
+.mod.locked{cursor:not-allowed}
+.mod.locked > *:not(.pill){opacity:.5}
+.mod.current{border-color:var(--gold-line);box-shadow:0 0 0 1px var(--gold-wash),0 20px 60px -30px var(--gold-glow)}
+.pill{position:absolute;top:18px;right:18px;font-size:11px;font-weight:600;letter-spacing:.06em;padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--line);color:var(--ink-soft);background:var(--surface-2);display:inline-flex;align-items:center;gap:6px}
+.pill.go{color:var(--gold);border-color:var(--gold-line);background:var(--gold-wash)}
+.pill.ok{color:var(--ok-glow);border-color:rgba(16,185,129,.35);background:var(--ok-wash)}
+.pill svg{width:12px;height:12px}
+
+/* Badges */
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.badge{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:18px 14px;display:grid;justify-items:center;text-align:center;gap:10px}
+.badge .medal{width:64px;height:64px}
+.badge strong{font-size:14px;font-weight:700;line-height:1.25}
+.badge span{font-size:12px;color:var(--ink-mute);line-height:1.4}
+.badge.off .medal{filter:grayscale(1) brightness(.45)}
+.badge.off strong{color:var(--ink-soft)}
+
+/* Notes overview */
+.notes-wrap{display:grid;gap:22px}
+.notes-mod h3{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.notes-mod h3 span{color:var(--ink-mute);letter-spacing:0;text-transform:none;font-weight:500;font-size:13px}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.note-card{text-align:left;background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:18px;display:grid;gap:8px;transition:border-color .2s}
+.note-card:hover{border-color:var(--gold-line)}
+.note-card .h{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink-mute)}
+.note-card .h b{color:var(--ink);font-weight:600;font-size:14.5px}
+.note-card .h em{font-style:normal;color:var(--gold);white-space:nowrap}
+.note-card p{margin:0;font-size:14.5px;color:var(--ink-soft);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.notes-empty{border:1px dashed var(--line);border-radius:var(--r-card);padding:28px;text-align:center;color:var(--ink-soft)}
+.notes-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.notes-tools input{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-pill);color:var(--ink);padding:10px 16px;font:inherit;font-size:14px;min-width:0;width:260px;max-width:100%}
+.notes-tools input:focus{outline:none;border-color:var(--gold-line)}
+
+/* Module view */
+.crumbs{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-mute);padding:28px 0 0;flex-wrap:wrap}
+.crumbs button{background:none;border:0;padding:0;color:var(--ink-soft)}
+.crumbs button:hover{color:var(--ink)}
+.mhead{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding:18px 0 26px;border-bottom:1px solid var(--line)}
+.mhead h1{font-size:clamp(32px,5vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1;margin:12px 0 12px;text-wrap:balance}
+.mhead p{margin:0;color:var(--ink-soft);max-width:60ch}
+.mhead .mprog{min-width:220px;display:grid;gap:8px}
+.mhead .mprog .head{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-soft)}
+.mview{display:grid;grid-template-columns:340px 1fr;gap:24px;padding-top:26px;align-items:start}
+.chap-list{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:8px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 80px);max-height:calc(100vh - 110px);overflow:auto}
+.chap-group{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding:14px 12px 6px;font-weight:700}
+.chap{width:100%;display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:center;text-align:left;background:none;border:1px solid transparent;border-radius:12px;padding:10px 12px}
+.chap:hover{background:var(--surface-2)}
+.chap[aria-current="true"]{background:var(--surface-2);border-color:var(--gold-line)}
+.chap .dot{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;color:var(--ink-mute)}
+.chap[aria-current="true"] .dot{border-color:var(--gold);color:var(--gold)}
+.chap.done .dot{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+.chap.done .dot svg{width:14px;height:14px}
+.chap .t{font-size:14.5px;font-weight:500;line-height:1.3}
+.chap .s{font-size:12px;color:var(--ink-mute)}
+
+.player{display:grid;gap:18px;min-width:0}
+.screen{position:relative;aspect-ratio:16/9;max-width:100%;border-radius:var(--r-card);overflow:hidden;border:1px solid var(--line);
+  background:
+   linear-gradient(180deg,rgba(5,5,6,.2),rgba(5,5,6,.85)),
+   repeating-linear-gradient(90deg,transparent 0 59px,rgba(255,255,255,.025) 59px 60px),
+   repeating-linear-gradient(0deg,transparent 0 59px,rgba(255,255,255,.025) 59px 60px),
+   radial-gradient(600px 300px at 70% 30%,rgba(232,184,75,.12),transparent 70%),
+   var(--surface)}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%}
+.screen .over{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px}
+.play{width:78px;height:78px;border-radius:50%;background:linear-gradient(180deg,var(--gold-2),var(--gold));display:grid;place-items:center;box-shadow:0 10px 40px -8px var(--gold-glow);margin:0 auto 14px}
+.play svg{width:28px;height:28px;margin-left:4px}
+.screen .over small{display:block;color:var(--ink-soft);font-size:13px}
+.screen .tag{position:absolute;left:16px;bottom:14px;font-family:var(--f-mono);font-size:12px;color:var(--ink-soft);background:rgba(5,5,6,.7);border:1px solid var(--line);padding:4px 10px;border-radius:var(--r-pill)}
+.lesson-head{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}
+.lesson-head h2{font-size:clamp(24px,3vw,34px);font-weight:800;letter-spacing:-.025em;margin:6px 0 0;line-height:1.1}
+.lesson-actions{display:flex;gap:10px;flex-wrap:wrap}
+.card{background:rgba(17,19,24,.8);border:1px solid var(--line);border-radius:var(--r-card);padding:20px}
+.card h4{margin:0 0 10px;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.notes textarea{width:100%;min-height:120px;resize:vertical;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:14px;font:inherit;font-size:15px;line-height:1.5}
+.notes textarea:focus{outline:none;border-color:var(--gold-line)}
+.notes .saved{font-size:12px;color:var(--ink-mute);margin-top:6px;min-height:18px}
+.pager{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* Certificate */
+.cert{border:1px solid var(--gold-line);border-radius:var(--r-card);padding:34px 28px;text-align:center;background:radial-gradient(500px 220px at 50% 0,rgba(232,184,75,.14),transparent 70%),var(--surface)}
+.cert h3{font-size:clamp(26px,3.6vw,40px);font-weight:800;letter-spacing:-.03em;margin:10px 0 6px}
+.cert p{color:var(--ink-soft);margin:0 auto;max-width:48ch}
+
+/* Toast + modal */
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;z-index:50;background:var(--surface-2);border:1px solid var(--gold-line);border-radius:var(--r-pill);padding:10px 18px 10px 12px;display:flex;align-items:center;gap:10px;font-size:14px;box-shadow:0 20px 50px -20px #000;transition:all .35s cubic-bezier(.2,.8,.2,1);pointer-events:none;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast .xp{font-family:var(--f-mono);font-weight:700;color:var(--on-gold);background:linear-gradient(180deg,var(--gold-2),var(--gold));border-radius:var(--r-pill);padding:2px 10px;font-size:13px}
+.modal-bg{position:fixed;inset:0;z-index:60;background:rgba(5,5,6,.8);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+.modal{background:var(--surface);border:1px solid var(--gold-line);border-radius:22px;padding:34px 28px;max-width:440px;width:100%;text-align:center;box-shadow:0 30px 80px -20px var(--gold-glow)}
+.modal .medal{width:96px;height:96px;margin:0 auto 10px}
+.modal h3{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:8px 0 8px;line-height:1.05}
+.modal p{color:var(--ink-soft);margin:0 0 22px}
+.modal .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:70}
+
+footer{border-top:1px solid var(--line);margin-top:60px;padding:26px 0 0;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-mute)}
+footer button{background:none;border:0;padding:0;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px;font-size:13px}
+footer .acts{display:flex;gap:18px;flex-wrap:wrap}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;padding-top:36px}
+  .mview{grid-template-columns:1fr}
+  .chap-list{position:static;max-height:none}
+  .mhead{grid-template-columns:1fr}
+  .nav{display:none}
+}
+@media (max-width:520px){
+  .xp-chip .xpt{display:none}
+  .stat-row{grid-template-columns:repeat(3,1fr)}
+  .stat{padding:10px}
+  .stat .v{font-size:17px}
+  .ring{width:110px;height:110px}
+  .ring .val strong{font-size:28px}
+  .dash{padding:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="logo" href="#accueil" aria-label="Trader 360, accueil de l'espace formation">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs><path d="M20 2.5 35.2 11.25v17.5L20 37.5 4.8 28.75v-17.5Z" fill="none" stroke="url(#lg)" stroke-width="2.2"/><path d="M12.5 14h15M20 14v15" stroke="url(#lg)" stroke-width="3" stroke-linecap="round"/></svg>
+      <span class="sep"></span><b>TRADER<span class="gold-text">360</span></b>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <button data-go="accueil" aria-current="true">Mon parcours</button>
+      <button data-go="modules">Les modules</button>
+      <button data-go="notes">Mes notes</button>
+      <button data-go="badges">Mes badges</button>
+    </nav>
+    <div class="top-right">
+      <div class="xp-chip" title="Expérience accumulée"><span class="xpt mono" id="chipXp">0 XP</span><span class="lvl" id="chipLvl">Découvrir</span></div>
+    </div>
+  </div>
+</header>
+
+<main id="app"></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+/* ============ Données du parcours ============ */
+/* Nombre de chapitres calé sur les dossiers Vimeo « Formation » (MODULE 1 → 9, 7BIS). Titres génériques à renommer. */
+const MODULES=[
+ {n:1,t:"Se préparer mentalement et comprendre les bases",d:"Les objectifs, la discipline, la routine. Ce qui se met en place avant les graphiques.",groups:[{c:7}]},
+ {n:2,t:"Comprendre le trading",d:"Ce qu'on échange, comment se lit un graphique, ce qui fait bouger un prix.",groups:[{c:10}]},
+ {n:3,t:"Maîtriser tes indicateurs, et rien de plus",d:"Quelques indicateurs bien compris valent mieux qu'un graphique saturé.",groups:[{c:5}]},
+ {n:4,t:"Prendre en main ta plateforme de trading",d:"Installer, configurer, savoir où tout se trouve avant la première séance.",groups:[{c:5}]},
+ {n:5,t:"Appliquer la méthode Trader 360",d:"Lire une séance, repérer les zones, calibrer son risque, décider sans improviser.",groups:[{c:12}]},
+ {n:6,t:"Renforcer ta psychologie de trader",d:"Ce qui déclenche les décisions impulsives, et comment tenir quand ça tangue.",groups:[{c:5}]},
+ {n:7,t:"Gérer l'après-challenge et structurer son activité",d:"Du challenge réussi au compte financé, puis à une activité qui tient.",groups:[{c:9},{c:4,label:"7 bis"}]},
+ {n:8,t:"Comprendre la fiscalité liée au trading",d:"Le cadre administratif et fiscal d'une activité de trading.",groups:[{c:3}]},
+ {n:9,t:"Pour aller plus loin",d:"Les compléments qu'on ajoute quand une question revient souvent.",groups:[{c:3}]},
+ {n:10,t:"Certification Trader 360",d:"La validation du parcours, une fois les neuf modules précédents traversés.",groups:[{c:2}],cert:true}
+];
+MODULES.forEach(m=>{
+  m.chapters=[];
+  m.groups.forEach((g,gi)=>{for(let i=1;i<=g.c;i++){m.chapters.push({id:`m${m.n}-${gi?"b":"a"}${i}`,t:(g.label?g.label+" · ":"")+"Chapitre "+i,group:g.label||null,idx:i})}});
+});
+const XP_CHAP=100, XP_MOD=250, XP_CERT=1000;
+/* Les 7 étapes du parcours servent de niveaux */
+const LEVELS=[
+ {name:"Découvrir",xp:0},{name:"Psychologie",xp:800},{name:"Méthode",xp:2000},{name:"Outils",xp:3500},
+ {name:"Discipline",xp:5000},{name:"Financé",xp:6500},{name:"Durer",xp:8200}
+];
+const TOTAL_CH=MODULES.reduce((s,m)=>s+m.chapters.length,0);
+
+/* ============ État (navigateur de l'élève) ============ */
+const KEY="t360-formation-v1";
+let S=load();
+function blank(){return {done:{},notes:{},last:null,modsDone:{}}}
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r&&r.done)return Object.assign(blank(),r)}catch(e){}return blank()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ============ Calculs ============ */
+const modDone=m=>m.chapters.filter(c=>S.done[c.id]).length;
+const modPct=m=>Math.round(modDone(m)/m.chapters.length*100);
+const isComplete=m=>modDone(m)===m.chapters.length;
+const certUnlocked=()=>MODULES.filter(m=>!m.cert).every(isComplete);
+function totalXp(){
+  let x=Object.keys(S.done).length*XP_CHAP;
+  MODULES.forEach(m=>{if(isComplete(m))x+=m.cert?XP_CERT:XP_MOD});
+  return x;
+}
+function levelOf(x){let i=0;LEVELS.forEach((l,k)=>{if(x>=l.xp)i=k});return i}
+function isoWeek(d){d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-day);const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));return d.getUTCFullYear()+"-"+Math.ceil(((d-y)/864e5+1)/7)}
+function weekKeys(n){const out=[];const d=new Date();for(let i=n-1;i>=0;i--){const x=new Date(d);x.setDate(d.getDate()-i*7);out.push(isoWeek(x))}return out}
+function activeWeeks(){const s=new Set();Object.values(S.done).forEach(ts=>s.add(isoWeek(new Date(ts))));return s}
+function streak(){
+  const act=activeWeeks();const keys=weekKeys(52).reverse();let n=0;
+  for(let i=0;i<keys.length;i++){ if(act.has(keys[i]))n++; else if(i===0) continue; else break; }
+  return n;
+}
+function nextUp(){
+  if(S.last){const [mi,ci]=S.last;const m=MODULES[mi];if(m&&!(m.cert&&!certUnlocked())){const c=m.chapters[ci];if(c&&!S.done[c.id])return [mi,ci]}}
+  for(let mi=0;mi<MODULES.length;mi++){const m=MODULES[mi];if(m.cert&&!certUnlocked())continue;const ci=m.chapters.findIndex(c=>!S.done[c.id]);if(ci>-1)return [mi,ci]}
+  return null;
+}
+
+/* ============ Badges ============ */
+const BADGES=[
+ {id:"first",t:"Première séance",d:"Ton premier chapitre terminé.",ok:()=>Object.keys(S.done).length>=1},
+ ...MODULES.filter(m=>!m.cert).map(m=>({id:"m"+m.n,t:"Module "+String(m.n).padStart(2,"0")+" validé",d:m.t,ok:()=>isComplete(m),num:m.n})),
+ {id:"half",t:"Mi-parcours",d:"La moitié des chapitres terminés.",ok:()=>Object.keys(S.done).length>=Math.ceil(TOTAL_CH/2)},
+ {id:"weeks4",t:"Quatre semaines tenues",d:"Au moins un chapitre par semaine, quatre semaines de suite.",ok:()=>streak()>=4},
+ {id:"cert",t:"Trader 360 certifié",d:"Les dix modules traversés.",ok:()=>isComplete(MODULES[9]),big:true}
+];
+function medal(b,size){
+  const n=b.num?String(b.num).padStart(2,"0"):(b.id==="cert"?"360":b.id==="first"?"1":b.id==="half"?"½":"4");
+  return `<svg class="medal" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="g${b.id}${size||""}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset=".55" stop-color="#e8b84b"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs>
+  <path d="M32 3 57 17.5v29L32 61 7 46.5v-29Z" fill="#111318" stroke="url(#g${b.id}${size||""})" stroke-width="2.5"/>
+  <path d="M32 11 50 21.5v21L32 53 14 42.5v-21Z" fill="url(#g${b.id}${size||""})" opacity=".14"/>
+  <text x="32" y="37.5" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="${n.length>2?13:16}" fill="url(#g${b.id}${size||""})">${n}</text></svg>`;
+}
+
+/* ============ Icônes ============ */
+const I={
+ check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+ play:'<svg viewBox="0 0 24 24" fill="#120e07"><path d="M7 4.5v15l13-7.5z"/></svg>',
+ arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+ back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>'
+};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pad=n=>String(n).padStart(2,"0");
+
+/* ============ Rendu ============ */
+const app=document.getElementById("app");
+let view={name:"home"};
+
+function updateChip(){
+  const x=totalXp();
+  document.getElementById("chipXp").textContent=x.toLocaleString("fr-FR")+" XP";
+  document.getElementById("chipLvl").textContent=LEVELS[levelOf(x)].name;
+}
+
+function renderHome(scrollTo){
+  const doneN=Object.keys(S.done).length, pct=Math.round(doneN/TOTAL_CH*100);
+  const x=totalXp(), li=levelOf(x), lvl=LEVELS[li], nxt=LEVELS[li+1];
+  const lvPct=nxt?Math.round((x-lvl.xp)/(nxt.xp-lvl.xp)*100):100;
+  const modsOk=MODULES.filter(isComplete).length;
+  const nu=nextUp();
+  const st=streak(), act=activeWeeks(), wk=weekKeys(8), cur=isoWeek(new Date());
+  const C=2*Math.PI*56;
+  let resume;
+  if(!doneN){resume=`<button class="btn btn-gold" data-open="0,0">Commencer le module 01 ${I.arrow}</button>`}
+  else if(nu){const m=MODULES[nu[0]];resume=`<button class="btn btn-gold" data-open="${nu[0]},${nu[1]}">Reprendre ${I.arrow}</button>`}
+  else resume=`<button class="btn btn-gold" data-open="9,0">Voir mon certificat ${I.arrow}</button>`;
+  const resumeMeta=nu?`<div class="resume-meta">Prochaine étape : <b>Module ${pad(MODULES[nu[0]].n)} · ${esc(MODULES[nu[0]].chapters[nu[1]].t)}</b></div>`:"";
+  const greet=!doneN?"Ton parcours<br><span class='gold-text'>commence ici.</span>":pct===100?"Parcours<br><span class='gold-text'>terminé.</span>":"Ton parcours<br><span class='gold-text'>avance.</span>";
+
+  const firstOpen=MODULES.findIndex(m=>!isComplete(m)&&!(m.cert&&!certUnlocked()));
+  app.innerHTML=`
+  <section class="hero" id="accueil">
+    <div>
+      <div class="eyebrow">Espace formation</div>
+      <h1>${greet}</h1>
+      <p class="lead">Dix modules, dans l'ordre réel de la progression d'un trader. Chaque chapitre terminé te rapporte de l'expérience et te rapproche de la certification.</p>
+      <div class="hero-ctas">${resume}<button class="btn btn-ghost" data-go="modules">Voir les 10 modules</button></div>
+      ${resumeMeta}
+    </div>
+    <aside class="dash" aria-label="Ma progression">
+      <div class="ring-row">
+        <div class="ring" role="img" aria-label="${pct} % du parcours terminé">
+          <svg viewBox="0 0 132 132"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs>
+            <circle cx="66" cy="66" r="56" fill="none" stroke="#1b2028" stroke-width="10"/>
+            <circle id="ringArc" cx="66" cy="66" r="56" fill="none" stroke="url(#rg)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"/></svg>
+          <div class="val"><div><strong class="mono">${pct}<small style="font-size:.5em">%</small></strong><span>du parcours</span></div></div>
+        </div>
+        <div class="ring-side">
+          <div class="eyebrow" style="font-size:11px">Niveau ${li+1} / 7</div>
+          <div class="big">${lvl.name}</div>
+          <div class="small">${nxt?`<span class="mono">${(nxt.xp-x).toLocaleString("fr-FR")} XP</span> avant <b style="color:var(--ink);font-weight:600">${nxt.name}</b>`:"Dernier niveau atteint"}</div>
+        </div>
+      </div>
+      <div class="lvl-bar">
+        <div class="head"><span>Expérience</span><b class="mono">${x.toLocaleString("fr-FR")}${nxt?" / "+nxt.xp.toLocaleString("fr-FR"):""} XP</b></div>
+        <div class="bar"><i data-w="${lvPct}"></i></div>
+        <div class="ladder" style="margin-top:12px" aria-hidden="true">${LEVELS.map((l,k)=>`<span class="${k<=li?"on":""}"></span>`).join("")}</div>
+        <div class="ladder-labels" aria-hidden="true"><span>Découvrir</span><span>Durer</span></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="k">Chapitres</div><div class="v">${doneN}<span style="color:var(--ink-mute);font-weight:400">/${TOTAL_CH}</span></div></div>
+        <div class="stat"><div class="k">Modules</div><div class="v">${modsOk}<span style="color:var(--ink-mute);font-weight:400">/10</span></div></div>
+        <div class="stat"><div class="k">Série</div><div class="v">${st}<span style="color:var(--ink-mute);font-weight:400"> sem.</span></div></div>
+      </div>
+      <div>
+        <div class="lvl-bar"><div class="head"><span>Régularité · 8 semaines</span><span style="font-size:12px">un chapitre par semaine suffit</span></div></div>
+        <div class="weeks">${wk.map((k,i)=>`<div><i class="${act.has(k)?"on":""} ${k===cur?"now":""}" title="Semaine ${k.split("-")[1]}"></i><small>${k===cur?"auj.":"S"+k.split("-")[1]}</small></div>`).join("")}</div>
+      </div>
+    </aside>
+  </section>
+
+  <section id="modules">
+    <div class="sec-head">
+      <div><div class="eyebrow">Le parcours</div><h2>Dix modules, du premier graphique<br>à la certification.</h2></div>
+      <p>La psychologie vient avant la méthode. Suis l'ordre : chaque module prépare le suivant.</p>
+    </div>
+    <div class="grid">
+      ${MODULES.map((m,i)=>{
+        const locked=m.cert&&!certUnlocked(), done=isComplete(m), d=modDone(m), p=modPct(m);
+        const pill=locked?`<span class="pill">${I.lock} Verrouillé</span>`:done?`<span class="pill ok">${I.check} Validé</span>`:d?`<span class="pill go">En cours</span>`:`<span class="pill">À commencer</span>`;
+        return `<button class="mod ${locked?"locked":""} ${i===firstOpen&&d?"current":""}" ${locked?'aria-disabled="true"':""} data-mod="${i}">
+          ${pill}
+          <div class="num">MODULE ${pad(m.n)}</div>
+          <h3>${esc(m.t)}</h3>
+          <p>${esc(m.d)}</p>
+          <div class="foot">
+            <div class="meta"><span>${locked?"Termine les modules 01 à 09":d+" / "+m.chapters.length+" chapitres"}</span><span class="mono">${locked?"":p+" %"}</span></div>
+            <div class="bar thin ${done?"done":""}"><i data-w="${p}"></i></div>
+          </div>
+        </button>`}).join("")}
+    </div>
+  </section>
+
+  <section id="notes">
+    <div class="sec-head">
+      <div><div class="eyebrow">Carnet</div><h2>Mes notes.</h2></div>
+      <div class="notes-tools"><label for="noteSearch" style="position:absolute;left:-9999px">Rechercher dans mes notes</label><input id="noteSearch" type="search" placeholder="Rechercher dans mes notes…"></div>
+    </div>
+    <div class="notes-wrap" id="notesList">${notesHtml("")}</div>
+  </section>
+
+  <section id="badges">
+    <div class="sec-head">
+      <div><div class="eyebrow">Récompenses</div><h2>Mes badges.</h2></div>
+      <p>Chaque badge correspond à une étape réelle du parcours, jamais à un simple clic.</p>
+    </div>
+    <div class="badges">
+      ${BADGES.map(b=>`<div class="badge ${b.ok()?"":"off"}">${medal(b)}<strong>${esc(b.t)}</strong><span>${esc(b.d)}</span></div>`).join("")}
+    </div>
+  </section>
+  ${footer()}`;
+  const ns=document.getElementById("noteSearch");
+  ns.addEventListener("input",()=>{document.getElementById("notesList").innerHTML=notesHtml(ns.value)});
+  animateBars();
+  requestAnimationFrame(()=>{const a=document.getElementById("ringArc");if(a)a.style.strokeDashoffset=C*(1-pct/100)});
+  setNav(scrollTo||"accueil");
+  if(scrollTo&&scrollTo!=="accueil"){const el=document.getElementById(scrollTo);if(el)el.scrollIntoView({behavior:"smooth",block:"start"})}
+}
+
+function notesHtml(q){
+  q=(q||"").trim().toLowerCase();
+  const total=Object.values(S.notes).filter(v=>v&&v.trim()).length;
+  if(!total)return `<div class="notes-empty">Aucune note pour l'instant. Dans chaque chapitre, le bloc « Mes notes » se retrouve automatiquement ici, classé par module.</div>`;
+  const blocks=MODULES.map((m,mi)=>{
+    const items=m.chapters.map((c,ci)=>({c,ci,v:(S.notes[c.id]||"").trim()}))
+      .filter(x=>x.v&&(!q||x.v.toLowerCase().includes(q)||x.c.t.toLowerCase().includes(q)||m.t.toLowerCase().includes(q)));
+    if(!items.length)return "";
+    return `<div class="notes-mod"><h3>Module ${pad(m.n)} <span>${esc(m.t)}</span></h3><div class="notes-grid">${items.map(x=>
+      `<button class="note-card" data-open="${mi},${x.ci}"><span class="h"><b>${esc(x.c.t)}</b><em>Ouvrir →</em></span><p>${esc(x.v)}</p></button>`).join("")}</div></div>`;
+  }).join("");
+  return blocks||`<div class="notes-empty">Aucune note ne contient « ${esc(q)} ».</div>`;
+}
+
+function footer(){
+  return `<footer>
+    <span>Trader 360 · Le trading comporte un risque de perte en capital.</span>
+    <span class="acts"><button data-demo>Voir un exemple de progression</button><button data-reset>Réinitialiser ma progression</button></span>
+  </footer>`;
+}
+
+function renderModule(mi,ci){
+  const m=MODULES[mi];
+  if(m.cert&&!certUnlocked()){toast("🔒","Termine les modules 01 à 09 pour débloquer la certification.");return}
+  if(ci==null){ci=m.chapters.findIndex(c=>!S.done[c.id]);if(ci<0)ci=0}
+  const c=m.chapters[ci];
+  S.last=[mi,ci];save();
+  view={name:"module",mi,ci};
+  const d=modDone(m), p=modPct(m), isDone=!!S.done[c.id];
+  let lastGroup=undefined;
+  const list=m.chapters.map((ch,k)=>{
+    let g="";
+    if(ch.group!==lastGroup){ if(m.groups.length>1) g=`<div class="chap-group">${ch.group?"Module "+esc(ch.group):"Module "+pad(m.n)}</div>`; lastGroup=ch.group }
+    const dn=!!S.done[ch.id];
+    return g+`<button class="chap ${dn?"done":""}" data-chap="${k}" ${k===ci?'aria-current="true"':""}>
+      <span class="dot">${dn?I.check:pad(ch.idx)}</span>
+      <span><span class="t">${esc(ch.t)}</span><br><span class="s">${dn?"Terminé · +"+XP_CHAP+" XP":"+"+XP_CHAP+" XP"}</span></span></button>`;
+  }).join("");
+  const prev=ci>0?[mi,ci-1]:(mi>0?[mi-1,MODULES[mi-1].chapters.length-1]:null);
+  const nextM=MODULES[mi+1];
+  const next=ci<m.chapters.length-1?[mi,ci+1]:(nextM&&!(nextM.cert&&!certUnlocked())?[mi+1,0]:null);
+  const certBlock=m.cert&&isComplete(m)?`<div class="cert">${medal(BADGES[BADGES.length-1],"c").replace('class="medal"','class="medal" style="width:96px;height:96px"')}<div class="eyebrow" style="margin-top:8px">Parcours validé</div><h3>Trader 360 certifié.</h3><p>Les dix modules sont traversés. La suite se joue en séance, avec le journal, le brief et la communauté.</p></div>`:"";
+
+  app.innerHTML=`
+  <div class="crumbs"><button data-go="modules">${"Les modules"}</button><span>/</span><span>Module ${pad(m.n)}</span></div>
+  <section class="mhead">
+    <div><div class="eyebrow">Module ${pad(m.n)} · ${m.chapters.length} chapitres</div><h1>${esc(m.t)}</h1><p>${esc(m.d)}</p></div>
+    <div class="mprog"><div class="head"><span>${d} / ${m.chapters.length} terminés</span><b class="mono" style="color:var(--ink)">${p} %</b></div><div class="bar ${p===100?"done":""}"><i data-w="${p}"></i></div></div>
+  </section>
+  <div class="mview">
+    <nav class="chap-list" aria-label="Chapitres du module">${list}</nav>
+    <div class="player">
+      ${certBlock}
+      <div class="screen"><canvas id="chart"></canvas>
+        <div class="over"><div><div class="play">${I.play}</div><strong style="font-size:17px">${esc(c.t)}</strong><small>La vidéo de ce chapitre s'affichera ici.</small></div></div>
+        <span class="tag">M${pad(m.n)} · ${esc(c.t)}</span>
+      </div>
+      <div class="lesson-head">
+        <div><div class="eyebrow">Chapitre ${ci+1} sur ${m.chapters.length}</div><h2>${esc(c.t)}</h2></div>
+        <div class="lesson-actions">
+          ${isDone?`<button class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`:`<button class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${XP_CHAP} XP</span></button>`}
+        </div>
+      </div>
+      <div class="card notes">
+        <h4>Mes notes</h4>
+        <label for="note-${c.id}" style="position:absolute;left:-9999px">Notes du chapitre</label>
+        <textarea id="note-${c.id}" placeholder="Ce que je retiens de ce chapitre, ce que je veux appliquer en séance…">${esc(S.notes[c.id]||"")}</textarea>
+        <div class="saved" id="savedMsg"></div>
+      </div>
+      <div class="pager">
+        ${prev?`<button class="btn btn-ghost" data-open="${prev[0]},${prev[1]}">${I.back} Précédent</button>`:"<span></span>"}
+        ${next?`<button class="btn btn-ghost" data-open="${next[0]},${next[1]}">${next[0]!==mi?"Module "+pad(MODULES[next[0]].n):"Suivant"} ${I.arrow}</button>`:""}
+      </div>
+    </div>
+  </div>
+  ${footer()}`;
+  animateBars();drawChart(mi*31+ci*7+3);setNav("modules",true);
+  const ta=document.getElementById("note-"+c.id);let tmo;
+  ta.addEventListener("input",()=>{S.notes[c.id]=ta.value;clearTimeout(tmo);tmo=setTimeout(()=>{save();document.getElementById("savedMsg").textContent="Note enregistrée dans ce navigateur."},400)});
+  window.scrollTo({top:0});
+}
+
+/* Décor du lecteur : chandeliers générés, dessinés au canvas */
+function drawChart(seed){
+  const cv=document.getElementById("chart");if(!cv)return;
+  const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  cv.width=r.width*dpr;cv.height=r.height*dpr;const g=cv.getContext("2d");g.scale(dpr,dpr);
+  let s=seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280};
+  const n=Math.floor(r.width/14),w=r.width/n;let p=r.height*.55;
+  for(let i=0;i<n;i++){
+    const o=p,cl=o+(rnd()-.5)*r.height*.09-(i/n)*1.2,h=Math.min(o,cl)-rnd()*r.height*.03,l=Math.max(o,cl)+rnd()*r.height*.03;
+    const up=cl<o;g.globalAlpha=.22;g.strokeStyle=g.fillStyle=up?"#e8b84b":"#7e7e77";
+    g.beginPath();g.moveTo(i*w+w/2,h);g.lineTo(i*w+w/2,l);g.stroke();
+    g.fillRect(i*w+w*.22,Math.min(o,cl),w*.56,Math.max(1,Math.abs(cl-o)));p=Math.max(r.height*.15,Math.min(r.height*.85,cl));
+  }
+  g.globalAlpha=1;
+}
+
+function animateBars(){requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll(".bar i[data-w]").forEach(b=>b.style.width=b.dataset.w+"%")))}
+function setNav(id,force){document.querySelectorAll(".nav button").forEach(b=>b.setAttribute("aria-current",b.dataset.go===id?"true":"false"))}
+
+/* ============ Actions ============ */
+function complete(){
+  const {mi,ci}=view;const m=MODULES[mi];const c=m.chapters[ci];
+  const beforeLvl=levelOf(totalXp()), wasDone=isComplete(m);
+  const beforeBadges=BADGES.filter(b=>b.ok()).map(b=>b.id);
+  S.done[c.id]=Date.now();save();updateChip();
+  const afterLvl=levelOf(totalXp());
+  const newBadges=BADGES.filter(b=>b.ok()&&!beforeBadges.includes(b.id));
+  if(!wasDone&&isComplete(m)){
+    renderModule(mi,ci);
+    celebrate(m.cert?BADGES[BADGES.length-1]:BADGES.find(b=>b.id==="m"+m.n),
+      m.cert?"Parcours certifié":"Module "+pad(m.n)+" validé",
+      `+${m.cert?XP_CERT:XP_MOD} XP de bonus.`+(afterLvl>beforeLvl?` Tu passes au niveau ${LEVELS[afterLvl].name}.`:""),mi);
+    return;
+  }
+  if(afterLvl>beforeLvl){renderModule(mi,ci);celebrate({id:"lvl",num:afterLvl+1},"Niveau "+LEVELS[afterLvl].name,"Tu as franchi une nouvelle étape du parcours.",mi);return}
+  if(newBadges.length){renderModule(mi,ci);celebrate(newBadges[0],newBadges[0].t,newBadges[0].d,mi);return}
+  toast(`<span class="xp">+${XP_CHAP} XP</span>`,esc(c.t)+" terminé");
+  const nx=m.chapters.findIndex((ch,k)=>k>ci&&!S.done[ch.id]);
+  renderModule(mi,nx>-1?nx:ci);
+}
+function undo(){const {mi,ci}=view;delete S.done[MODULES[mi].chapters[ci].id];save();updateChip();renderModule(mi,ci)}
+
+let tmo;
+function toast(icon,msg){const t=document.getElementById("toast");t.innerHTML=icon+"<span>"+msg+"</span>";t.classList.add("show");clearTimeout(tmo);tmo=setTimeout(()=>t.classList.remove("show"),2600)}
+
+function celebrate(b,title,text,mi){
+  const nextM=MODULES[mi+1];
+  const canNext=nextM&&isComplete(MODULES[mi])&&!(nextM.cert&&!certUnlocked());
+  const bg=document.createElement("div");bg.className="modal-bg";
+  bg.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">${medal(b,"m")}
+    <div class="eyebrow">Bravo</div><h3 id="mt">${esc(title)}</h3><p>${esc(text)}</p>
+    <div class="row">${canNext?`<button class="btn btn-gold" data-next>Module ${pad(nextM.n)} ${I.arrow}</button>`:""}<button class="btn btn-ghost" data-close>Continuer</button></div></div>`;
+  document.body.appendChild(bg);
+  const close=()=>bg.remove();
+  bg.addEventListener("click",e=>{if(e.target===bg||e.target.closest("[data-close]"))close();if(e.target.closest("[data-next]")){close();renderModule(mi+1,0)}});
+  bg.querySelector("button").focus();
+  confetti();
+}
+
+function confetti(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const cv=document.getElementById("confetti"),g=cv.getContext("2d");
+  cv.width=innerWidth;cv.height=innerHeight;
+  const cols=["#f3d585","#e8b84b","#b98a2e","#f7f6f3"];
+  const ps=Array.from({length:140},()=>({x:innerWidth/2,y:innerHeight*.42,vx:(Math.random()-.5)*14,vy:-Math.random()*13-4,s:Math.random()*6+3,r:Math.random()*6,vr:(Math.random()-.5)*.3,c:cols[Math.random()*4|0]}));
+  let f=0;(function tick(){g.clearRect(0,0,cv.width,cv.height);ps.forEach(p=>{p.vy+=.35;p.vx*=.99;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;g.save();g.translate(p.x,p.y);g.rotate(p.r);g.fillStyle=p.c;g.globalAlpha=Math.max(0,1-f/120);g.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);g.restore()});if(++f<130)requestAnimationFrame(tick);else g.clearRect(0,0,cv.width,cv.height)})();
+}
+
+function confirmBox(title,text,label,fn){
+  const bg=document.createElement("div");bg.className="modal-bg";
+  bg.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3 style="font-size:24px">${title}</h3><p>${text}</p><div class="row"><button class="btn btn-gold" data-yes>${label}</button><button class="btn btn-ghost" data-close>Annuler</button></div></div>`;
+  document.body.appendChild(bg);
+  bg.addEventListener("click",e=>{if(e.target===bg||e.target.closest("[data-close]"))bg.remove();if(e.target.closest("[data-yes]")){bg.remove();fn()}});
+}
+
+function demo(){
+  const now=Date.now(),W=7*864e5;let k=0;S=blank();
+  const plan=[[0,7],[1,10],[2,5],[3,2]];
+  plan.forEach(([mi,n])=>{for(let i=0;i<n;i++){S.done[MODULES[mi].chapters[i].id]=now-Math.max(0,(5-Math.floor(k/5)))*W-k*36e5;k++}});
+  S.last=[3,2];save();updateChip();renderHome();toast("✦","Exemple chargé : réinitialise quand tu veux.");
+}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-reset],[data-demo]");if(!t)return;
+  if(t.dataset.go){ if(view.name!=="home"){view={name:"home"};renderHome(t.dataset.go)} else {const el=document.getElementById(t.dataset.go);el&&el.scrollIntoView({behavior:"smooth",block:"start"});setNav(t.dataset.go)} }
+  else if(t.dataset.mod!=null){renderModule(+t.dataset.mod)}
+  else if(t.dataset.open){const [a,b]=t.dataset.open.split(",").map(Number);renderModule(a,b)}
+  else if(t.dataset.chap!=null){renderModule(view.mi,+t.dataset.chap)}
+  else if(t.hasAttribute("data-complete"))complete();
+  else if(t.hasAttribute("data-undo"))undo();
+  else if(t.hasAttribute("data-reset"))confirmBox("Réinitialiser ma progression ?","Tous les chapitres, l'expérience, les badges et les notes de ce navigateur seront effacés.","Tout effacer",()=>{S=blank();save();updateChip();view={name:"home"};renderHome();toast("↺","Progression remise à zéro.")});
+  else if(t.hasAttribute("data-demo"))confirmBox("Charger un exemple ?","Ta progression actuelle sera remplacée par un parcours fictif (modules 01 à 03 terminés, module 04 en cours).","Charger l'exemple",demo);
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){const m=document.querySelector(".modal-bg");m&&m.remove()}});
+addEventListener("resize",()=>{if(view.name==="module")drawChart(view.mi*31+view.ci*7+3)});
+
+updateChip();
+const h=(location.hash||"").replace("#","");
+const hm=h.match(/^m(\d{1,2})$/);
+if(hm&&MODULES[+hm[1]-1])renderModule(+hm[1]-1);else renderHome();
+</script>
+</body>
+</html>

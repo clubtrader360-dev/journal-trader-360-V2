@@ -138,6 +138,8 @@
     });
     // ⚠️ Le bouton a quatre etats : il ne se masque pas, il change de libelle.
     rendreBoutonJournal();
+    // ⚠️ Et le chemin de retour, pour qu'il ne puisse pas diverger de `data-droit`.
+    majRetour();
   }
 
   /**
@@ -148,10 +150,29 @@
    * SIGNALERAIT. C'est la meme classe de defaut que `[hidden]` neutralise par une
    * classe d'auteur, rencontree deux fois sur ces deux depots.
    */
-  const montrer = (id, oui) => {
+  /**
+   * ⚠️ LE MODE D'AFFICHAGE EST UN PARAMÈTRE, ET CE N'EST PAS DU CONFORT.
+   * `#mainApp` et `#coachApp` sont des `flex` (barre latérale + contenu).
+   * `#formationApp` est une PAGE : en `flex`, son en-tête et son contenu se
+   * mettraient côte à côte au lieu de s'empiler. ⛔ Rien ne l'aurait signalé :
+   * la page se serait simplement affichée de travers.
+   */
+  const montrer = (id, oui, mode) => {
     const el = document.getElementById(id);
-    if (el) el.style.setProperty('display', oui ? 'flex' : 'none', 'important');
+    if (el) el.style.setProperty('display', oui ? (mode || 'flex') : 'none', 'important');
   };
+
+  /** Les trois espaces, pour n'en laisser qu'un. ⛔ Aucun ne se masque tout seul. */
+  function masquerTout() {
+    // ⚠️ Le marqueur tombe des qu on quitte : les elements du journal
+    // reviennent exactement comme avant.
+    delete document.body.dataset.espace;
+    montrer('choixEspace', false);
+    montrer('authScreen', false);
+    montrer('coachApp', false);
+    montrer('mainApp', false);
+    montrer('formationApp', false);
+  }
 
   /** D'ou l'on venait avant d'entrer dans la formation : 'coach' ou 'journal'. */
   let _origine = 'journal';
@@ -160,24 +181,54 @@
    * Fait entrer dans un espace. ⛔ Ne vérifie rien : la vérification a eu lieu
    * avant, et surtout elle a lieu en base. Cette fonction n'est qu'un aiguillage.
    */
+  /**
+   * ── ⚠️ DEUX ESPACES, PLUS DEUX ONGLETS ───────────────────────────────────
+   *
+   * ⛔ `entrer('formation')` NE PASSE PLUS PAR `showSection`. Tant que la
+   * formation etait une `section` de `#mainApp`, y entrer voulait dire ouvrir un
+   * onglet du journal : elle heritait de sa barre laterale et de son en-tete.
+   * Retour de Nadir : « si je suis sur l espace formation, je suis sur l espace
+   * formation ». Elle a donc son propre conteneur de premier niveau,
+   * `#formationApp`, et `showSection` ne la connait plus.
+   */
   function entrer(espace) {
     const coach = document.getElementById('coachApp');
-    // ⚠️ On retient d'ou l'on vient AVANT de masquer : le bouton de retour de la
+    // ⚠️ On retient d'ou l'on vient AVANT de masquer : le chemin de retour de la
     // formation ne mene pas au meme endroit pour un coach et pour un eleve.
     _origine = (coach && getComputedStyle(coach).display !== 'none') ? 'coach' : 'journal';
-    montrer('choixEspace', false);
-    montrer('authScreen', false);
-    // ⛔ `#coachApp` AUSSI : la formation vit dans `#mainApp`, et l'interface coach
-    // resterait posee par-dessus. Oubli attrape en capturant la formation et en
-    // voyant « Performance par Heure (tous eleves) » a la place.
-    montrer('coachApp', false);
+    masquerTout();
+    if (espace === 'formation') {
+      // ⚠️ `block` et pas `flex` : c'est une page, en-tete au-dessus du contenu.
+      montrer('formationApp', true, 'block');
+      /**
+       * ⚠️ UN MARQUEUR SUR LE CORPS, parce que deux elements du journal vivent
+       * HORS de `#mainApp` et restaient donc affiches par-dessus l espace
+       * formation. Mesure du 11/10/2026, elements visibles hors
+       * `#formationApp` : le pied de page legal (1440x61) et l horloge
+       * `.aube-clock` (120x18). ⛔ Le pied de page apparaissait en bleu sous la
+       * maquette, et la capture le montrait.
+       * ⚠️ Le journal n est pas touche : la regle CSS ne mord que tant que cet
+       * attribut est pose, et `masquerTout()` le retire.
+       */
+      document.body.dataset.espace = 'formation';
+      appliquer();
+      nommerEleve();
+      if (window.Formation) window.Formation.ouvrir();
+      else console.error('[ACCES] ⛔ supabase-formation.js non charge');
+      return;
+    }
+    sortirDeLaFormation();
     montrer('mainApp', true);
     appliquer();
-    majRetour();
-    if (window.showSection) window.showSection(espace === 'formation' ? 'formation' : 'dashboard');
+    if (window.showSection) window.showSection('dashboard');
   }
 
-  /** Le bouton de retour de la formation, selon d'ou l'on vient. */
+  /**
+   * Le chemin de retour, selon d'ou l'on vient. ⛔ Appele par `appliquer()` et
+   * pas seulement par `entrer()` : sinon un rechargement des droits reafficherait
+   * « Revenir au journal » a un coach, puisque `appliquer()` ne regarde que
+   * `data-droit`. Les deux ne peuvent plus diverger.
+   */
   function majRetour() {
     const versJournal = document.querySelector('.formation-retour-journal');
     const versCoach = document.querySelector('.formation-retour-coach');
@@ -185,9 +236,45 @@
     if (versCoach) versCoach.hidden = _origine !== 'coach';
   }
 
+  /** Le prenom dans la tete de page. ⚠️ Vide plutot que faux si on ne le sait pas. */
+  function nommerEleve() {
+    const el = document.getElementById('formationTeteNom');
+    if (!el) return;
+    const u = window.currentUser || {};
+    el.textContent = u.first_name || u.prenom || u.full_name || '';
+  }
+
+  /**
+   * ⛔ ON ARRETE LES ANIMATIONS DE LA FORMATION AVANT DE SORTIR, et c est une
+   * correction mesuree le 11/10/2026. `Formation.arreterAnimations()` existait,
+   * ecrite expres pour cela, et ⚠️ ELLE N ETAIT BRANCHEE A RIEN. Mesure du banc,
+   * encre du canevas des confettis apres le retour au journal :
+   *
+   *     2550  ->  1142  ->  183        la boucle tournait toujours
+   *
+   * Elle s eteignait d elle-meme au bout de 130 trames, donc personne n aurait
+   * rien vu : juste deux secondes de calcul derriere une interface masquee, a
+   * chaque celebration. ⛔ C est le motif « module ecrit, teste, mais jamais
+   * cable » de ce depot.
+   */
+  function sortirDeLaFormation() {
+    if (window.Formation && window.Formation.arreterAnimations) {
+      window.Formation.arreterAnimations();
+    }
+  }
+
+  /** Ramene l'eleve a son journal. ⛔ Ne verifie rien : la serrure est en base. */
+  function retourJournal() {
+    sortirDeLaFormation();
+    masquerTout();
+    montrer('mainApp', true);
+    if (window.showSection) window.showSection('dashboard');
+  }
+
   /** Ramene le coach a son espace. ⛔ Ne touche pas aux droits : il n'en a pas. */
   function retourCoach() {
-    montrer('mainApp', false);
+    sortirDeLaFormation();
+    masquerTout();
     montrer('coachApp', true);
   }
 
@@ -389,6 +476,7 @@
     MESSAGE_RETIRE,
     retourCoach,
     majRetour,
+    retourJournal,
     droits: () => _droits,
     aFormation: () => !!(_droits && _droits.formation),
     aJournal: () => !!(_droits && _droits.journal),

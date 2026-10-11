@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal Trader 360, style espace formation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050506; --surface:#111318; --surface-2:#161a20; --surface-3:#1b2028;
+  --ink:#f7f6f3; --ink-soft:#a6a6a1; --ink-mute:#7e7e77;
+  --gold:#e8b84b; --gold-2:#f3d585; --gold-deep:#b98a2e;
+  --gold-glow:rgba(232,184,75,.5); --gold-wash:rgba(232,184,75,.08); --gold-line:rgba(232,184,75,.35);
+  --line:#1e2128; --line-soft:#15171c;
+  --ok:#10b981; --ok-glow:#34d399; --ok-wash:rgba(16,185,129,.12);
+  --ko:#ef4444; --ko-wash:rgba(239,68,68,.12);
+  --on-gold:#120e07;
+  --f-ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif;
+  --f-mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+  --r-card:18px; --r-pill:40px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);-webkit-font-smoothing:antialiased}
+.bandeau{background:#b45309;color:#fff;padding:10px 18px;font:600 13px/1.5 var(--f-ui);text-align:center}
+
+/* ---- tete de page ---- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:18px 22px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0b0e,#050506)}
+.marque{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.22em;font-size:14px}
+.hexa{width:34px;height:34px;border:2px solid var(--gold);border-radius:8px;display:grid;place-items:center;
+  color:var(--gold);font-weight:800;font-size:15px;clip-path:polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%)}
+.top .lien{color:var(--ink-soft);text-decoration:none;font-size:13px;font-weight:500}
+.pill{background:linear-gradient(135deg,var(--gold-2),var(--gold));color:var(--on-gold);
+  border:0;border-radius:var(--r-pill);padding:9px 18px;font:700 13px var(--f-ui);
+  box-shadow:0 0 22px var(--gold-glow);cursor:pointer}
+
+/* ---- navigation ---- */
+.nav{display:flex;gap:4px;padding:10px 22px;border-bottom:1px solid var(--line);overflow-x:auto}
+.nav a{color:var(--ink-mute);text-decoration:none;font:600 13px var(--f-ui);
+  padding:8px 14px;border-radius:var(--r-pill);white-space:nowrap}
+.nav a.on{color:var(--gold);background:var(--gold-wash);box-shadow:inset 0 0 0 1px var(--gold-line)}
+
+.wrap{max-width:1080px;margin:0 auto;padding:26px 22px 60px}
+
+/* ---- hero P&L ---- */
+.hero{background:linear-gradient(135deg,var(--surface-2),var(--surface));
+  border:1px solid var(--line);border-radius:var(--r-card);padding:28px;margin-bottom:18px;
+  position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:-40% -20% auto auto;width:320px;height:320px;
+  background:radial-gradient(circle,var(--gold-wash),transparent 70%);pointer-events:none}
+.eyebrow{color:var(--gold);font:700 11px/1 var(--f-ui);letter-spacing:.26em;text-transform:uppercase}
+.pnl{font-family:var(--f-mono);font-size:54px;font-weight:700;letter-spacing:-.02em;margin:14px 0 6px;color:var(--ok)}
+.pnl small{font-size:22px;color:var(--ink-mute);font-weight:500}
+.sous{color:var(--ink-soft);font-size:14px}
+.chips{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.chip{background:var(--surface-3);border:1px solid var(--line);border-radius:var(--r-pill);
+  padding:7px 14px;font:600 12px var(--f-ui);color:var(--ink-soft)}
+.chip b{color:var(--ink);font-family:var(--f-mono)}
+
+/* ---- grille de cartes ---- */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:20px}
+.card .lab{color:var(--ink-mute);font:700 11px var(--f-ui);letter-spacing:.2em;text-transform:uppercase}
+.card .val{font-family:var(--f-mono);font-size:30px;font-weight:700;margin-top:10px}
+.card .note{color:var(--ink-soft);font-size:12px;margin-top:6px}
+.val.ok{color:var(--ok)} .val.gold{color:var(--gold)}
+
+/* ---- anneau T360 ---- */
+.score{display:flex;gap:22px;align-items:center}
+.ring{width:104px;height:104px;flex:0 0 auto}
+.ring circle{fill:none;stroke-width:9;stroke-linecap:round}
+.ring .bgc{stroke:var(--surface-3)}
+.ring .arc{stroke:var(--gold);filter:drop-shadow(0 0 6px var(--gold-glow));
+  stroke-dasharray:283;stroke-dashoffset:71;transform:rotate(-90deg);transform-origin:50% 50%}
+.ring text{fill:var(--ink);font-family:var(--f-mono);font-size:26px;font-weight:700;text-anchor:middle}
+
+/* ---- calendrier ---- */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:14px}
+.cal div{aspect-ratio:1;border-radius:9px;background:var(--surface-3);border:1px solid var(--line);
+  display:grid;place-items:center;font:600 12px var(--f-mono);color:var(--ink-mute)}
+.cal .g{background:var(--ok-wash);border-color:rgba(16,185,129,.3);color:var(--ok-glow)}
+.cal .r{background:var(--ko-wash);border-color:rgba(239,68,68,.3);color:#fca5a5}
+.cal .n{background:var(--gold-wash);border-color:var(--gold-line);color:var(--gold)}
+
+/* ---- tableau de trades ---- */
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+th{color:var(--ink-mute);font:700 11px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;
+  text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:13px 12px;border-bottom:1px solid var(--line-soft);font-family:var(--f-mono);color:var(--ink-soft)}
+td.sym{color:var(--ink);font-weight:700;font-family:var(--f-ui)}
+td.p{color:var(--ok);font-weight:700} td.m{color:var(--ko);font-weight:700}
+.tag{display:inline-block;background:var(--gold-wash);color:var(--gold);border:1px solid var(--gold-line);
+  border-radius:var(--r-pill);padding:3px 10px;font:600 11px var(--f-ui)}
+h2{font-size:17px;font-weight:700;margin-bottom:2px}
+.h-sous{color:var(--ink-mute);font-size:12.5px}
+@media(max-width:560px){ .pnl{font-size:40px} .wrap{padding:18px 14px 50px} }
+</style></head>
+<body>
+
+<div class="bandeau">Maquette. Chiffres fictifs, aucune donnée réelle. Le journal tel qu'il serait dans le style de l'espace formation.</div>
+
+<header class="top">
+  <div class="marque"><span class="hexa">T</span> TRADER360</div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <a class="lien" href="#">Formation</a>
+    <button class="pill">Nouveau trade</button>
+  </div>
+</header>
+
+<nav class="nav">
+  <a class="on" href="#">Tableau de bord</a><a href="#">Mes trades</a><a href="#">Journal du jour</a>
+  <a href="#">Statistiques</a><a href="#">Comptes</a><a href="#">Replays</a><a href="#">Mon profil</a>
+</nav>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div class="eyebrow">Performance du mois</div>
+    <div class="pnl">+4 820 <small>$</small></div>
+    <div class="sous">17 séances tradées sur 21 jours ouvrés. Meilleure série en cours : 5 jours.</div>
+    <div class="chips">
+      <span class="chip">Win rate <b>64 %</b></span>
+      <span class="chip">Gain moyen <b>+412 $</b></span>
+      <span class="chip">Perte moyenne <b>-198 $</b></span>
+      <span class="chip">Drawdown max <b>-1 150 $</b></span>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div class="card score">
+      <svg class="ring" viewBox="0 0 100 100">
+        <circle class="bgc" cx="50" cy="50" r="45"></circle>
+        <circle class="arc" cx="50" cy="50" r="45"></circle>
+        <text x="50" y="58">75</text>
+      </svg>
+      <div>
+        <div class="lab">T360 Score</div>
+        <div class="note" style="margin-top:8px">Discipline et respect du plan.<br>Point faible du moment : la gestion du risque.</div>
+      </div>
+    </div>
+    <div class="card"><div class="lab">Trades du mois</div><div class="val">38</div><div class="note">dont 31 dans la méthode</div></div>
+    <div class="card"><div class="lab">Jours sans trade</div><div class="val gold">4</div><div class="note">attendre fait partie du plan</div></div>
+    <div class="card"><div class="lab">Checklist tenue</div><div class="val ok">92 %</div><div class="note">17 séances sur 17 remplies</div></div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1fr 1.25fr">
+    <div class="card">
+      <h2>Octobre</h2><div class="h-sous">Vert gagnant, rouge perdant, or sans trade</div>
+      <div class="cal">
+        <div>29</div><div>30</div><div class="g">1</div><div class="g">2</div><div class="r">3</div><div>4</div><div>5</div>
+        <div class="g">6</div><div class="n">7</div><div class="g">8</div><div class="g">9</div><div class="r">10</div><div>11</div><div>12</div>
+        <div class="g">13</div><div class="g">14</div><div class="n">15</div><div class="g">16</div><div class="g">17</div><div>18</div><div>19</div>
+        <div class="r">20</div><div class="g">21</div><div class="g">22</div><div class="n">23</div><div class="g">24</div><div>25</div><div>26</div>
+        <div class="g">27</div><div class="g">28</div><div class="g">29</div><div class="n">30</div><div>31</div><div></div><div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Derniers trades</h2><div class="h-sous">Les cinq plus récents</div>
+      <table>
+        <tr><th>Instrument</th><th>Sens</th><th>Résultat</th><th>Méthode</th></tr>
+        <tr><td class="sym">NQ</td><td>Long</td><td class="p">+640 $</td><td><span class="tag">Méthode</span></td></tr>
+        <tr><td class="sym">ES</td><td>Short</td><td class="p">+275 $</td><td><span class="tag">Méthode</span></td></tr>
+        <tr><td class="sym">NQ</td><td>Short</td><td class="m">-210 $</td><td><span class="tag">Méthode</span></td></tr>
+        <tr><td class="sym">ES</td><td>Long</td><td class="p">+395 $</td><td><span class="tag">Méthode</span></td></tr>
+        <tr><td class="sym">NQ</td><td>Long</td><td class="m">-180 $</td><td style="color:var(--ink-mute)">Hors méthode</td></tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body></html>
