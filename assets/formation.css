@@ -360,3 +360,33 @@ body[data-animations="off"] .formation-barre-remplie { transition: none; }
   .formation-fenetre { padding: 12px; }
   .formation-fenetre-carte { padding: 16px 16px 18px; max-height: 92vh; }
 }
+
+/* Le bouton d export, au-dessus du filtre. ⛔ Cote eleve uniquement. */
+.formation-export { margin-bottom: 12px; }
+
+/* Le compteur de demandes dans la navigation coach. */
+.coach-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; margin-left: 8px; padding: 0 6px;
+  font-size: 12px; font-weight: 700; border-radius: var(--radius-pill);
+  background: var(--accent); color: var(--primary);
+}
+/* ⛔ Meme famille que les quatre precedentes : une classe qui pose `display`
+   bat la regle sans specificite du navigateur, et l attribut devient decoratif. */
+#coachAppSidebar [hidden], #coachApp [hidden] { display: none !important; }
+
+/* Le tableau de progression coach : il defile seul plutot que de pousser la page. */
+.coach-progression { width: 100%; border-collapse: collapse; font-size: 14px; }
+.coach-progression th, .coach-progression td {
+  padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.coach-progression th { font-weight: 600; color: var(--text-muted); font-size: 13px; }
+.coach-progression-enveloppe { overflow-x: auto; }
+.coach-progression-barre {
+  height: 6px; width: 90px; border-radius: var(--radius-pill);
+  background: var(--surface-2); border: 1px solid var(--border); overflow: hidden;
+}
+.coach-progression-barre > div { height: 100%; background: var(--accent); }
+/* ⚠️ Un eleve disparu depuis six semaines est ce que le coach cherche : il se
+   signale, et pas seulement par la couleur, puisque le texte le dit aussi. */
+.coach-absent { color: var(--danger); font-weight: 600; }

@@ -90,7 +90,8 @@
   let _moduleCourant = null;
   let _leconCourante = null;
   let _progression = {};         // lecon_id -> { vue, progress_seconds }
-  let _notes = {};               // lecon_id -> texte
+  let _notes = {};               // lecon_id -> texte, charge a la demande
+  let _avecNote = new Set();     // les lecons qui PORTENT une note, sans leur texte
   let _minuterieNote = null;
   let _derniereEcriture = 0;
   let _lecteur = null;
@@ -114,19 +115,63 @@
 
   // ===== CHARGEMENT =========================================================
 
+  /**
+   * ── ⛔ ON NE CHARGE QUE CE QUI EST AFFICHE ───────────────────────────────
+   *
+   * La version precedente lisait le TEXTE de toutes les notes a chaque ouverture
+   * de l'espace. Invisible a sept lecons, lourd a soixante-quatre, et ⚠️ personne
+   * ne l'aurait vu venir : cela se degrade progressivement, sans seuil ni erreur.
+   *
+   * Le sommaire n'a pas besoin du texte, seulement de savoir QUELLES lecons en
+   * portent une. On ne lit donc que `lecon_id`, et chaque lecon charge la sienne
+   * a l'ouverture. La vue « toutes mes notes » les charge toutes, mais c'est
+   * precisement ce qu'on lui demande, et seulement quand on y va.
+   *
+   * ⚠️ `last_watched_at` EST DESORMAIS SELECTIONNE, et c'etait un defaut :
+   * `reprisePrecise()` le lisait pour trouver la lecon la plus recente, alors que
+   * `charger()` ne le ramenait pas. ⛔ `quand` valait donc toujours zero, et la
+   * reprise tombait sur la derniere lecon dans l'ordre du sommaire plutot que sur
+   * la derniere ouverte. Aucune sonde ne pouvait le voir : elles n'avaient qu'une
+   * seule ligne de progression, ou la comparaison ne tranche rien.
+   */
   async function charger() {
     const u = await uid();
     if (!u) return;
     const [p, n] = await Promise.all([
-      cli().from('formation_progression').select('lecon_id, vue, progress_seconds').eq('user_id', u),
-      cli().from('formation_notes').select('lecon_id, texte').eq('user_id', u),
+      cli().from('formation_progression')
+        .select('lecon_id, vue, progress_seconds, last_watched_at').eq('user_id', u),
+      // ⛔ `lecon_id` SEUL : pas de `texte` ici.
+      cli().from('formation_notes').select('lecon_id').eq('user_id', u),
     ]);
     _progression = {};
     (p.data || []).forEach((r) => { _progression[r.lecon_id] = r; });
+    _avecNote = new Set((n.data || []).map((r) => r.lecon_id));
     _notes = {};
-    (n.data || []).forEach((r) => { _notes[r.lecon_id] = r.texte; });
     if (p.error) console.warn('[FORMATION] progression illisible :', p.error.message);
     if (n.error) console.warn('[FORMATION] notes illisibles :', n.error.message);
+  }
+
+  /** Charge le texte d'UNE note, a l'ouverture de sa lecon. */
+  async function chargerNote(leconId) {
+    if (_notes[leconId] !== undefined) return _notes[leconId];
+    if (!_avecNote.has(leconId)) { _notes[leconId] = ''; return ''; }
+    const u = await uid();
+    if (!u) return '';
+    const { data, error } = await cli().from('formation_notes')
+      .select('texte').eq('user_id', u).eq('lecon_id', leconId).maybeSingle();
+    if (error) { console.warn('[FORMATION] note illisible :', error.message); return ''; }
+    _notes[leconId] = (data && data.texte) || '';
+    return _notes[leconId];
+  }
+
+  /** Charge TOUS les textes, pour la vue « toutes mes notes » et pour l'export. */
+  async function chargerToutesLesNotes() {
+    const u = await uid();
+    if (!u) return;
+    const { data, error } = await cli().from('formation_notes')
+      .select('lecon_id, texte').eq('user_id', u);
+    if (error) { console.warn('[FORMATION] notes illisibles :', error.message); return; }
+    (data || []).forEach((r) => { _notes[r.lecon_id] = r.texte; });
   }
 
   // ===== PROGRESSION ========================================================
@@ -172,6 +217,9 @@
     }, { onConflict: 'user_id,lecon_id' });
     if (error) { console.error('[FORMATION] ⚠️ note NON enregistrée :', error.message); return false; }
     _notes[leconId] = texte;
+    // ⚠️ Le registre suit, sinon le sommaire ne saurait pas qu une note existe
+    // tant qu on n a pas recharge la page.
+    if (texte.trim()) _avecNote.add(leconId); else _avecNote.delete(leconId);
     return true;
   }
 
@@ -442,7 +490,7 @@
     _vue = 'notes';
     const q = (filtre || '').trim().toLowerCase();
     const avec = D().SUITE
-      .map((l) => ({ l, texte: (_notes[l.id] || '').trim() }))
+      .map((l) => ({ l, texte: (_notes[l.id] || '').trim() }))  // deja charge par ouvrirNotes()
       .filter((x) => x.texte)
       .filter((x) => !q || x.texte.toLowerCase().includes(q) || x.l.titre.toLowerCase().includes(q));
 
@@ -454,6 +502,8 @@
     $('formationContenu').innerHTML = `
       <h2 class="formation-titre">Mes notes</h2>
       <p class="formation-compteur">${avec.length} note${avec.length > 1 ? 's' : ''}${q ? ' trouvée' + (avec.length > 1 ? 's' : '') : ''}</p>
+      ${avec.length ? `<button type="button" class="formation-btn-fantome formation-export"
+            onclick="Formation.exporterNotes()">Telecharger mes notes</button>` : ''}
       <input type="search" id="formationNotesFiltre" class="formation-filtre"
              placeholder="Chercher dans mes notes" aria-label="Chercher dans mes notes"
              value="${txt(q)}" oninput="Formation.filtrerNotes(this.value)">
@@ -586,6 +636,12 @@
 
     brancherNotes(id);
     brancherLecteur(id);
+    // ⚠️ La note arrive APRES le rendu, et on ne l'ecrase que si l'eleve n'a pas
+    // commence a taper entre-temps. ⛔ Sinon on effacerait ses premiers mots.
+    chargerNote(id).then((texte) => {
+      const z = $('formationNote');
+      if (z && z.value === '' && texte) z.value = texte;
+    });
     // La dictée vocale existe déjà dans le journal ; on la rattache au DOM neuf.
     if (window.MicDictation) window.MicDictation.scan($('formationContenu'));
   }
@@ -704,6 +760,64 @@
     await marquerVue(D().SUITE.filter((l) => estVue(l.id)).length);
   }
 
+  // ===== L EXPORT DES NOTES =================================================
+
+  /**
+   * ── ⚠️ POURQUOI UN ELEVE DOIT POUVOIR SORTIR SES NOTES ──────────────────
+   *
+   * Ce qu'il ecrit pendant sa formation lui appartient, et il doit pouvoir le
+   * garder meme s'il s'en va. C'est aussi ce qui rend la zone de notes digne de
+   * confiance : on n'ecrit pas longuement dans un endroit dont on ne peut rien
+   * sortir.
+   *
+   * ⛔ AUCUN EXPORT COTE COACH. Les notes d'un eleve ne se telechargent pas.
+   * Cette fonction vit dans le module de l'eleve et lit ses propres lignes, que
+   * RLS borne a `auth.uid()`.
+   */
+  async function exporterNotes() {
+    await chargerToutesLesNotes();
+    const lignes = [];
+    lignes.push('MES NOTES DE FORMATION - TRADER 360');
+    lignes.push(`Export du ${new Date().toLocaleDateString('fr-FR')}`);
+    lignes.push('');
+    let combien = 0;
+    for (const m of D().MODULES) {
+      const avec = m.lecons.filter((l) => (_notes[l.id] || '').trim());
+      if (!avec.length) continue;
+      lignes.push(`=== MODULE ${m.numero} - ${m.titre} ===`);
+      lignes.push('');
+      for (const l of avec) {
+        lignes.push(`--- ${l.titre} ---`);
+        // ⚠️ Le texte part TEL QUEL : apostrophes, retours a la ligne et accents
+        // compris. ⛔ Aucun echappement, aucun remplacement : ce n'est pas du
+        // HTML, c'est un fichier texte, et « nettoyer » y abimerait ses mots.
+        lignes.push(_notes[l.id].trim());
+        lignes.push('');
+        combien += 1;
+      }
+    }
+    if (!combien) { lignes.push('Aucune note pour le moment.'); }
+
+    /**
+     * ⚠️ `﻿` EN TETE, ET CE N'EST PAS UN DETAIL. Sans cette marque d'ordre
+     * des octets, Excel sur Windows ouvre un fichier UTF-8 en interpretant les
+     * octets comme du latin-1 : « préparé » devient « prÃ©parÃ© ». ⛔ L'eleve
+     * croirait ses accents perdus alors que le fichier est juste.
+     */
+    const contenu = '﻿' + lignes.join('\n');
+    const url = URL.createObjectURL(new Blob([contenu], { type: 'text/plain;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mes-notes-trader360-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // ⚠️ L'adresse est liberee, mais pas tout de suite : la revoquer dans la
+    // foulee annule le telechargement dans certains navigateurs.
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return { notes: combien, contenu };
+  }
+
   // ===== BRANCHEMENTS =======================================================
 
   function brancherNotes(id) {
@@ -781,8 +895,15 @@
     ouvrirSommaire() { detacherLecteur(); rendreSommaire(); },
     ouvrirModule(n) { detacherLecteur(); rendreModule(n); },
     ouvrirLecon(id) { detacherLecteur(); rendreLecon(id); },
-    ouvrirNotes() { detacherLecteur(); rendreNotes(''); },
+    async ouvrirNotes() {
+      detacherLecteur();
+      // ⚠️ C est le SEUL endroit qui a besoin de tous les textes, et il les
+      // demande au moment ou on y va, pas a chaque ouverture de l espace.
+      await chargerToutesLesNotes();
+      rendreNotes('');
+    },
     filtrerNotes(q) { rendreNotes(q); },
+    exporterNotes,
     async basculerVue(id, vue) { await ecrireProgression(id, { vue }); },
     // Exposés pour la sonde : ⛔ ne pas les appeler depuis l'interface.
     _etat: () => ({ vue: _vue, module: _moduleCourant, lecon: _leconCourante }),

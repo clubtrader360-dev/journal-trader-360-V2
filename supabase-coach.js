@@ -25,8 +25,11 @@
         // MEME moment : un coach qui ouvre cet ecran doit voir les deux listes. Un
         // chargement separe finirait par etre oublie dans un des chemins.
         if (window.DemandesJournal) {
-            window.DemandesJournal.charger().catch((e) =>
-                console.error('[COACH] demandes journal :', e && e.message));
+            const D = window.DemandesJournal;
+            // ⚠️ Les trois ensemble : un chargement separe finirait par etre oublie
+            // dans un des chemins, et c est exactement le defaut qu on traque.
+            Promise.all([D.charger(), D.chargerProgression(), D.majCompteur()])
+                .catch((e) => console.error('[COACH] formation :', e && e.message));
         }
         
         try {

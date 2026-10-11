@@ -132,11 +132,104 @@
         return;
       }
       await charger();
+      await majCompteur();
     } catch (e) {
       console.error('[DEMANDES] ⚠️ appel impossible :', e && e.message);
       window.alert('L action n a pas abouti. Verifie ta connexion.');
     }
   }
 
-  window.DemandesJournal = { charger, repondre };
+  /**
+   * ── ⚠️ UNE SEULE REQUETE, QUEL QUE SOIT LE NOMBRE D ELEVES ──────────────
+   *
+   * ⛔ PAS UNE REQUETE PAR ELEVE. Il y en a 102, et ce depot a deja paye ce
+   * defaut : le tableau de bord coach est passe de 281 requetes a 4 par une vue
+   * consolidee. On lit donc `coach_formation_overview`, qui agrege en base, et
+   * le compte de requetes NE CROIT PAS avec le nombre d eleves.
+   *
+   * ⚠️ La vue porte `security_invoker = true`, comme les cinq autres : les
+   * politiques s appliquent, un coach voit tout, un eleve ne verrait que sa
+   * ligne. ⛔ Sans cette option elle contournerait RLS.
+   */
+  const JOURS_ABSENT = 21;
+
+  function depuisQuand(iso) {
+    if (!iso) return { texte: 'jamais venu', absent: true };
+    const jours = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+    if (jours >= JOURS_ABSENT) return { texte: `il y a ${jours} jours`, absent: true };
+    if (jours >= 2) return { texte: `il y a ${jours} jours`, absent: false };
+    if (jours === 1) return { texte: 'hier', absent: false };
+    return { texte: "aujourd'hui", absent: false };
+  }
+
+  async function chargerProgression() {
+    const zone = document.getElementById('coachProgressionFormation');
+    if (!zone) return;
+
+    const { data, error } = await cli()
+      .from('coach_formation_overview')
+      .select('user_id, name, email, lecons_vues, notes_ecrites, derniere_activite')
+      .order('derniere_activite', { ascending: true, nullsFirst: true });
+
+    if (error) {
+      // ⚠️ La vue n existe pas encore en base : on le dit plutot que de laisser
+      // « Chargement... » pour toujours. ⛔ Un ecran fige est un echec muet.
+      console.error('[PROGRESSION] ⚠️ lecture impossible :', error.message);
+      zone.innerHTML = '<p class="text-gray-500 text-center py-4">'
+        + 'La progression n est pas encore disponible. La vue '
+        + '<code>coach_formation_overview</code> doit etre appliquee en base.</p>';
+      return;
+    }
+    if (!data || !data.length) {
+      zone.innerHTML = '<p class="text-gray-500 text-center py-4">Aucun eleve</p>';
+      return;
+    }
+
+    const total = (window.FormationDonnees && window.FormationDonnees.total()) || 0;
+    zone.innerHTML = `
+      <div class="coach-progression-enveloppe">
+        <table class="coach-progression">
+          <thead><tr>
+            <th>Eleve</th><th>Avancement</th><th>Notes</th><th>Derniere visite</th>
+          </tr></thead>
+          <tbody>
+            ${data.map((e) => {
+              const q = depuisQuand(e.derniere_activite);
+              const pct = total ? Math.round((e.lecons_vues / total) * 100) : 0;
+              return `<tr>
+                <td>${txt(e.name || e.email || e.user_id)}</td>
+                <td>
+                  <div class="coach-progression-barre"><div style="width:${pct}%"></div></div>
+                  ${e.lecons_vues}${total ? ` / ${total}` : ''} lecon${e.lecons_vues > 1 ? 's' : ''}
+                </td>
+                <td>${e.notes_ecrites}</td>
+                <td class="${q.absent ? 'coach-absent' : ''}">${txt(q.texte)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  /**
+   * Le compteur de demandes. ⛔ Rien ne s affiche quand il n y a rien : un badge
+   * a zero en permanence devient invisible, et le jour ou il passe a un, personne
+   * ne le voit.
+   */
+  async function majCompteur() {
+    const b = document.getElementById('coachBadgeDemandes');
+    if (!b) return 0;
+    const { count, error } = await cli()
+      .from('acces_membre')
+      .select('user_id', { count: 'exact', head: true })
+      .not('journal_demande_le', 'is', null);
+    if (error) { b.hidden = true; return 0; }
+    const n = count || 0;
+    b.textContent = String(n);
+    b.hidden = n === 0;
+    b.setAttribute('aria-label', `${n} demande${n > 1 ? 's' : ''} d acces en attente`);
+    return n;
+  }
+
+  window.DemandesJournal = { charger, repondre, chargerProgression, majCompteur };
 })();

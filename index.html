@@ -3308,7 +3308,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <i class="fas fa-euro-sign mr-3"></i>Comptabilité
                 </div>
                 <div class="sidebar-item" id="coachNavRegistrations" onclick="showCoachSection('coachRegistrations')">
-                    <i class="fas fa-user-check mr-3"></i>Inscriptions
+                    <i class="fas fa-user-check mr-3"></i>Inscriptions<!--
+                    ⚠️ LE ZERO NE S AFFICHE PAS, et c est tout l interet. Un badge a zero
+                    en permanence devient invisible, et le jour ou il passe a un, personne
+                    ne le voit. ⛔ Il n apparait que lorsqu il y a quelque chose a voir.
+                    `[hidden]` est tenu par une regle de formation.css : sans elle, la
+                    classe poserait `display` et l attribut serait decoratif. -->
+                    <span id="coachBadgeDemandes" class="coach-badge" hidden></span>
                 </div>
                 <div class="sidebar-item" id="coachNavReplays" onclick="showCoachSection('coachReplays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
@@ -3781,6 +3787,19 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                      parfaitement et la fonctionnalite etait inexistante.
                      ⚠️ Posee AVANT les inscriptions : quelqu un qui attend un acces est
                      deja eleve, il ne doit pas passer apres les nouvelles arrivees. -->
+                <!-- ⚠️ « Ou en sont mes eleves » est la premiere question d un coach, et
+                     aucun ecran n y repondait. Les politiques l autorisaient pourtant deja :
+                     `is_coach()` est dans les trois branches de lecture.
+                     ⛔ AUCUN TEXTE DE NOTE ICI. Les politiques le permettent, le produit non :
+                     une note est un espace personnel, et un eleve qui s en doute cesse d en
+                     ecrire. Seul leur NOMBRE est affiche. -->
+                <div class="trader-card mb-6" style="padding: 24px;">
+                    <h2 class="text-xl font-bold mb-4">🎓 Progression dans la formation</h2>
+                    <div id="coachProgressionFormation">
+                        <p class="text-gray-500 text-center py-4">Chargement...</p>
+                    </div>
+                </div>
+
                 <div class="trader-card mb-6" style="padding: 24px;">
                     <h2 class="text-xl font-bold mb-4">🔑 Demandes d accès au journal</h2>
                     <div id="coachDemandesJournal">
