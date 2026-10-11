@@ -92,6 +92,7 @@
   let _progression = {};         // lecon_id -> { vue, progress_seconds }
   let _notes = {};               // lecon_id -> texte, charge a la demande
   let _avecNote = new Set();     // les lecons qui PORTENT une note, sans leur texte
+  let _citation = { texte: '', auteur: '' };
   let _minuterieNote = null;
   let _derniereEcriture = 0;
   let _lecteur = null;
@@ -149,6 +150,7 @@
     _notes = {};
     if (p.error) console.warn('[FORMATION] progression illisible :', p.error.message);
     if (n.error) console.warn('[FORMATION] notes illisibles :', n.error.message);
+    await chargerCitation();
   }
 
   /** Charge le texte d'UNE note, a l'ouverture de sa lecon. */
@@ -391,13 +393,54 @@
    * passant pas par le journal pour la saisir. Rapporte, pas corrige : changer la
    * source toucherait le journal, hors perimetre de ce lot.
    */
-  function citation() {
-    let texte = '';
-    let auteur = '';
+  /**
+   * ── ⚠️ LA REPRISE DE L'EXISTANT, ET POURQUOI ELLE EST ICI ───────────────
+   *
+   * ⛔ AUCUNE REQUETE SQL NE PEUT RECUPERER LES CITATIONS : elles vivent dans le
+   * navigateur de chaque eleve, et la base ne les a jamais vues. La reprise se
+   * fait donc au premier chargement, ici, dans cet ordre :
+   *
+   *   1. la base gagne des qu'elle porte quelque chose
+   *   2. sinon, si `localStorage` en porte une, on la TELEVERSE une fois
+   *   3. sinon, citation par defaut
+   *
+   * ⛔ ET `localStorage` N'EST PAS EFFACE, meme apres televersement. Tant que
+   * tous les eleves ne se sont pas reconnectes, c'est la seule copie de celle de
+   * ceux qui ne sont pas revenus. ⚠️ On ne jette pas la seule copie d'une donnee
+   * parce qu'on vient d'en faire une autre.
+   */
+  async function chargerCitation() {
+    const u = await uid();
+    if (!u) return;
+    const { data, error } = await cli().from('user_preferences')
+      .select('mantra_texte, mantra_auteur').eq('user_id', u).maybeSingle();
+    // ⚠️ La colonne n'existe pas encore : on se rabat sur le stockage local sans
+    // bruit. ⛔ Ce repli disparait quand la migration 05 est appliquee.
+    if (error) { console.warn('[FORMATION] citation illisible :', error.message); return; }
+
+    if (data && data.mantra_texte) {
+      _citation = { texte: data.mantra_texte, auteur: data.mantra_auteur || '' };
+      return;
+    }
+    let local = '';
+    let localAuteur = '';
     try {
-      texte = localStorage.getItem('userMantra') || '';
-      auteur = localStorage.getItem('userMantraAuthor') || '';
-    } catch { texte = ''; }
+      local = localStorage.getItem('userMantra') || '';
+      localAuteur = localStorage.getItem('userMantraAuthor') || '';
+    } catch { local = ''; }
+    if (!local) return;
+
+    _citation = { texte: local, auteur: localAuteur };
+    const { error: e2 } = await cli().from('user_preferences')
+      .upsert({ user_id: u, mantra_texte: local, mantra_auteur: localAuteur || null },
+        { onConflict: 'user_id' });
+    if (e2) console.warn('[FORMATION] citation NON reprise en base :', e2.message);
+    else console.log('[FORMATION] ✅ citation reprise du navigateur vers la base');
+  }
+
+  function citation() {
+    let texte = _citation.texte;
+    let auteur = _citation.auteur;
     /**
      * ⚠️ UNE CITATION PAR DÉFAUT, PARCE QUE L'ABSENCE PRODUIRAIT UN VIDE.
      * Un élève qui n'a que la formation ne passe jamais par le journal pour en
