@@ -185,7 +185,13 @@
 
   // ===== RENDU : SOMMAIRE ===================================================
 
-  /** Minutes et secondes lisibles. ⛔ Jamais des secondes brutes a l ecran. */
+  /**
+   * Minutes et secondes lisibles. ⛔ Jamais des secondes brutes a l ecran.
+   * ⚠️ ET LA POSITION NE S AFFICHE PAS QUAND ELLE VAUT ZERO. Le parcours de bout
+   * en bout a montre « Module 01 · lecon 1 · a 0 s » pour une lecon cochee « vue »
+   * sans avoir ete lue : techniquement vrai, et du bruit a l ecran. Une lecon
+   * ouverte sans position se reprend a son debut, cela va de soi.
+   */
   function duree(s) {
     const n = Math.max(0, Math.floor(Number(s) || 0));
     const m = Math.floor(n / 60);
@@ -279,7 +285,7 @@
 
         ${r
           ? `<p class="formation-reprise-ou">Tu en es à
-               <strong>Module ${txt(r.module)} · leçon ${r.rang} · à ${duree(r.secondes)}</strong></p>
+               <strong>Module ${txt(r.module)} · leçon ${r.rang}${r.secondes > 0 ? ` · à ${duree(r.secondes)}` : ''}</strong></p>
              <button type="button" class="formation-btn-or" onclick="Formation.ouvrirLecon('${r.lecon.id}')">
                Reprendre : ${txt(r.lecon.titre)}
              </button>`
