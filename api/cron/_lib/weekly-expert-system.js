@@ -673,6 +673,109 @@ ${noJournalNotice}
 // ========================================================================
 // Le rapport passif rend désormais { html, attachments } comme l'actif : son logo est
 // une pièce jointe inline, il ne peut donc plus se contenter de rendre une chaîne.
+/**
+ * ⚠️ UN ECHAPPEMENT LOCAL, ET IL MANQUAIT. J ai d abord appele `escapeHtml`, qui
+ * n existe nulle part dans ce fichier : ⛔ le rapport aurait leve une exception a
+ * l envoi du dimanche, pas avant. Le nom d un eleve peut porter une apostrophe
+ * ou un chevron, et il part dans du HTML de courriel.
+ */
+function echapper(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/**
+ * ── LA TROISIEME VARIANTE : L ELEVE QUI N A QUE LA FORMATION ───────────────
+ *
+ * ⛔ POURQUOI ELLE EXISTE. La variante passive dit : « tu n as pas rempli ton
+ * journal dans les 3 derniers jours ». Pour quelqu un qui n a PAS le droit
+ * journal, c est un reproche adresse a propos d un outil qu il ne peut pas
+ * ouvrir. ⚠️ Plus grave que des zeros : les zeros se comprennent, un reproche
+ * injuste se ressent, et chaque dimanche.
+ *
+ * ⚠️ ELLE EST CHOISIE SUR LE DROIT, PAS SUR L ABSENCE DE TRADES. Un eleve qui a
+ * le journal et ne l a pas rempli garde la variante passive, qui lui est
+ * justement destinee. ⛔ « N a pas trade » et « n a pas le droit de trader ici »
+ * ne sont pas la meme chose.
+ *
+ * ⛔ AUCUNE PROMESSE DE GAIN, DE REVENU NI DE FINANCEMENT, comme les dix phrases
+ * du parcours. Elle parle de ce qu il APPREND, jamais de ce que cela
+ * rapporterait.
+ *
+ * ⚠️ CE TEXTE EST UNE PROPOSITION. Il part chaque dimanche au nom des coachs :
+ * Nadir le corrige avant qu il ne serve.
+ */
+function generateFormationReportHTML({ user, progression = {}, mode = 'cid' }) {
+  const logo = buildLogo(mode);
+  const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
+  const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame}, transparent); margin:26px 0;"></div>`;
+
+  const vues = progression.vues || 0;
+  const total = progression.total || 0;
+  const suivante = progression.suivante || null;
+  const commence = vues > 0;
+
+  // ⚠️ Pas de pourcentage tant que la structure est incomplete, exactement comme
+  // dans l espace membre : un denominateur partiel mentirait de la meme facon.
+  const avancement = total
+    ? `${vues} lecon${vues > 1 ? 's' : ''} sur ${total}`
+    : `${vues} lecon${vues > 1 ? 's' : ''}`;
+
+  const titre = commence
+    ? 'Ta formation avance'
+    : 'Ta formation t attend';
+
+  const corps = commence
+    ? `Cette semaine, tu en es a <strong style="color:${PALETTE.gold};">${avancement}</strong>. `
+      + `Ce que tu apprends maintenant se verra plus tard, quand tu passeras a la pratique.`
+    : `Tu n as pas encore ouvert ta premiere lecon. Ce n est pas un reproche : `
+      + `commencer est souvent le plus difficile, et la premiere dure moins de dix minutes.`;
+
+  const prochaine = suivante
+    ? `<div style="background:${PALETTE.bgInside}; border:1px solid ${PALETTE.goldFrame}; border-radius:12px; padding:18px 20px; margin:0 0 22px;">
+         <div style="color:${PALETTE.bronze}; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;">La suite</div>
+         <div style="color:${PALETTE.textPrimary}; font-size:16px; line-height:1.5;">${echapper(suivante)}</div>
+       </div>`
+    : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; background:${PALETTE.bgNavy};">
+<div style="background:${PALETTE.bgNavy}; padding:40px 16px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="600" align="center" cellspacing="0" cellpadding="0" style="max-width:600px; background:${PALETTE.bgCard}; border:1px solid ${PALETTE.goldFrame}; border-radius:16px;">
+    <tr><td style="padding:32px;">
+
+      <div style="text-align:center; margin-bottom:28px;">
+        ${logo.html}
+        <h1 style="color:${PALETTE.gold}; font-size:22px; letter-spacing:0.12em; text-transform:uppercase; margin:16px 0 6px;">${titre}</h1>
+        <p style="color:${PALETTE.bronze}; font-style:italic; margin:0; font-size:14px;">${echapper(userName)}</p>
+      </div>
+
+      <p style="color:${PALETTE.textPrimary}; font-size:15px; line-height:1.75; margin:0 0 22px;">${corps}</p>
+
+      ${prochaine}
+
+      ${hairline}
+
+      <p style="color:${PALETTE.textPrimary}; font-size:14.5px; line-height:1.75; margin:0 0 8px;">
+        Prends le temps qu il faut. Une lecon comprise vaut mieux que dix survolees,
+        et personne ne te chronometre.
+      </p>
+      <p style="color:${PALETTE.bronze}; font-size:13px; line-height:1.7; margin:16px 0 0;">
+        Une question sur une lecon ? Reponds a ce message, on te lit.
+      </p>
+
+      <p style="color:${PALETTE.bronze}; font-size:13px; margin:28px 0 0; text-align:center;">Tes coachs</p>
+
+    </td></tr>
+  </table>
+</div>
+</body></html>`;
+
+  return { html, attachments: logo.attachments };
+}
+
 function generatePassiveReportHTML({ user, mode = 'cid' }) {
   const logo = buildLogo(mode);
   const userName = (user && (user.name || user.email)) ? (user.name || user.email) : 'Trader';
@@ -747,5 +850,6 @@ export {
   computeWinRate, computeProfitFactor, computeTotalRR, computeTraderScore,
   findWeakestComponent, runExpertSystem, buildActionPlan, generateWeeklyReportHTML,
   generatePassiveReportHTML,
+  generateFormationReportHTML,
   formatDate, COMPONENT_RECOMMENDATIONS,
 };

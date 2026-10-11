@@ -155,7 +155,17 @@
 
   const SUITE = MODULES.flatMap((m) => m.lecons.map((l) => ({ ...l, module: m.numero })));
 
-  window.FormationDonnees = {
+  /**
+   * ⚠️ LE MEME FICHIER SERT AU NAVIGATEUR ET AU SERVEUR, et c'est voulu.
+   * Le rapport hebdomadaire a besoin de nommer la prochaine leçon d'un élève.
+   * ⛔ Dupliquer la structure côté serveur la ferait diverger au premier module
+   * ajouté, sans qu'aucune erreur ne le signale : le mail parlerait d'une leçon
+   * qui n'existe plus, ou en oublierait une.
+   * `globalThis` existe des deux côtés ; `module.exports` n'est pose que si
+   * quelqu'un le cherche.
+   */
+  const racine = typeof window !== 'undefined' ? window : globalThis;
+  racine.FormationDonnees = {
     MODULES,
     PHRASES,
     SUITE,
@@ -169,4 +179,7 @@
     /** Le nombre total de leçons réellement posées, modules vides exclus. */
     total: () => SUITE.length,
   };
+  // ⛔ PAS DE `module.exports` ICI. Le depot est en `"type": "module"`, donc un
+  // `require` de ce fichier rend un objet VIDE sans lever d erreur. Le serveur le
+  // charge autrement, en l evaluant : voir `api/cron/weekly-report.js`.
 })();
