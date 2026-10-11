@@ -101,7 +101,15 @@ async function preparer(page, lignesProgression = [], droits = { formation: true
         return Promise.resolve({ error: null });
       },
     });
-    window.supabase = {
+    /**
+     * ⛔ ON DOUBLE `window.supabaseClient`, PAS `window.supabase`.
+     * ⚠️ La version precedente doublait `window.supabase`, le global NU. Elle
+     * rendait donc vrai un global que le code n aurait jamais du lire, et
+     * masquait le defaut qui faisait dire a un eleve qu il n avait aucun acces.
+     * Un double qui repare ce qu il devait eprouver rend un rapport vert sur du
+     * code casse.
+     */
+    window.supabaseClient = {
       from: table,
       auth: {
         getUser: async () => ({ data: { user: { id: 'eleve-double-0000' } } }),

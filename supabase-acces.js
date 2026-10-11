@@ -32,6 +32,46 @@
 (function () {
   'use strict';
 
+  /**
+   * ── ⛔ LE CLIENT EST `window.supabaseClient`, PAS `window.supabase` ────────
+   *
+   * ⚠️ C'EST LE DEFAUT QUI A FAIT DIRE A NADIR, AVEC SES DEUX DROITS, QU IL
+   * N OUVRAIT AUCUN DES DEUX ESPACES. Mesure du 11/10/2026, dans le navigateur :
+   *
+   *     window.supabase        la BIBLIOTHEQUE UMD du CDN
+   *                            cles : createClient, SupabaseClient, Functions*
+   *                            .auth  absent      .from  undefined
+   *     window.supabaseClient  le CLIENT, avec .auth et .from
+   *
+   * Ce fichier lisait le global nu `supabase`. `cli().auth.getUser()` levait
+   * donc une exception, le `try/catch` la rattrapait, et `uid` valait null : le
+   * code concluait « aucune session » et affichait l absence de droits.
+   *
+   * ⛔ ET MES SONDES NE POUVAIENT PAS LE VOIR : elles remplacaient
+   * `window.supabase` par un double qui, lui, portait `.auth` et `.from`. Le banc
+   * d essai rendait vrai le global fautif. ⚠️ Un double qui repare ce qu il devait
+   * eprouver est pire qu absent : il rend un rapport vert sur du code casse.
+   * Les deux sondes doublent desormais `window.supabaseClient`.
+   *
+   * Tous les autres modules du depot font exactement cette ligne. Cette fois, ce
+   * fichier aussi.
+   */
+  /**
+   * ⚠️ RESOLU A CHAQUE APPEL, PAS CAPTURE AU CHARGEMENT. Deux raisons :
+   *   1. Plus de dependance a l ordre des scripts. `supabase-config.js` pose
+   *      `window.supabaseClient` ; si un jour il le posait plus tard, ce fichier
+   *      garderait une reference morte sans que rien ne le signale.
+   *   2. ⛔ C est ce qui rend ce fichier EPROUVABLE. Un double pose apres le
+   *      chargement est pris en compte ; une reference capturee ne l aurait
+   *      jamais ete, et la sonde aurait mesure le vrai client en croyant mesurer
+   *      le sien.
+   */
+  const cli = () => {
+    const c = window.supabaseClient;
+    if (!c) console.error('[ACCES] ⛔ window.supabaseClient manquant : config non chargee ?');
+    return c;
+  };
+
   /** Ce qu'on sait des droits de la personne connectée. */
   let _droits = null;
 
@@ -41,16 +81,20 @@
   async function charger() {
     let uid = null;
     try {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await cli().auth.getUser();
       uid = data?.user?.id || null;
     } catch { uid = null; }
 
     if (!uid) {
-      _droits = { formation: false, journal: false, connu: true, motif: 'aucune session' };
+      // ⛔ `connu: false`, ET PAS `true`. Ne pas avoir de session n est PAS la
+      // meme chose que ne pas avoir de droits, et affirmer savoir revient a dire
+      // a quelqu un qui a paye qu il n a rien. ⚠️ C etait ecrit `connu: true`, et
+      // c est ce qui transformait une ignorance en refus.
+      _droits = { formation: false, journal: false, connu: false, motif: 'aucune session' };
       return _droits;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await cli()
       .from('acces_membre')
       .select('formation_actif, journal_actif, journal_demande_le, journal_retire_le')
       .eq('user_id', uid)
@@ -199,7 +243,20 @@
     // n'a pas rendu la main. ⛔ On ne pose RIEN par-dessus ce qui est à l'écran :
     // écraser une interface qu'on n'a pas comprise est pire que de s'abstenir.
     if (!u) {
-      console.error('[ACCES] ⛔ session non restaurée après 6 s, orientation abandonnée');
+      // ⚠️ `orienter()` n est appelee QUE lorsqu une session existe. Depasser le
+      // delai veut donc dire que `restoreSession()` a echoue, pas que la personne
+      // n est pas connectee : lui laisser l ecran de connexion serait trompeur.
+      // ⛔ ET SURTOUT PAS « tu n as aucun acces » : on ne sait pas, on le dit.
+      console.error('[ACCES] ⛔ session non restaurée après 6 s : message d incertitude');
+      const bloc = document.getElementById('choixAucunDroit');
+      const blocErreur = document.getElementById('choixErreur');
+      if (bloc) bloc.hidden = true;
+      if (blocErreur) blocErreur.hidden = false;
+      montrer('authScreen', false);
+      montrer('mainApp', false);
+      montrer('choixEspace', true);
+      // ⛔ Et aucune porte n est montree : on ne sait pas lesquelles existent.
+      document.querySelectorAll('[data-droit], [data-journal-bouton]').forEach((e) => { e.hidden = true; });
       return;
     }
 
@@ -210,7 +267,11 @@
     // zéro ligne dit « pas de droits ». Une lecture en ERREUR ne dit rien du tout,
     // et annoncer « tu n'as aucun droit » à quelqu'un dont la requête a échoué
     // serait un mensonge poli.
-    const erreur = d.connu === false && d.motif === 'erreur';
+    // ⛔ TOUT CE QUI N EST PAS CONNU EST UNE INCERTITUDE, JAMAIS UN REFUS.
+    // Une session absente, une requete en erreur : dans les deux cas on ne SAIT
+    // pas, et un faux « tu n as aucun acces » est pire qu une seconde d attente,
+    // parce que la personne croit avoir perdu ce qu elle a paye.
+    const erreur = d.connu === false;
     const aucun = !erreur && !d.formation && !d.journal;
 
     const bloc = document.getElementById('choixAucunDroit');
@@ -299,13 +360,13 @@
       return;
     }
     // ── « jamais demandé » : on pose la demande, et RIEN d autre ────────────
-    const { data } = await supabase.auth.getUser();
+    const { data } = await cli().auth.getUser();
     const uid = data?.user?.id;
     if (!uid) return;
     // ⚠️ UNE SEULE COLONNE EST ÉCRITE, et le `grant update (journal_demande_le)`
     // de la migration 03 fait que c est la seule qui PUISSE l etre. L interface
     // ne se protege pas elle-meme : la barriere est dans le grant.
-    const { error } = await supabase.from('acces_membre')
+    const { error } = await cli().from('acces_membre')
       .update({ journal_demande_le: new Date().toISOString() })
       .eq('user_id', uid);
     if (error) {

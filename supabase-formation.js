@@ -43,6 +43,46 @@
 (function () {
   'use strict';
 
+  /**
+   * ── ⛔ LE CLIENT EST `window.supabaseClient`, PAS `window.supabase` ────────
+   *
+   * ⚠️ C'EST LE DEFAUT QUI A FAIT DIRE A NADIR, AVEC SES DEUX DROITS, QU IL
+   * N OUVRAIT AUCUN DES DEUX ESPACES. Mesure du 11/10/2026, dans le navigateur :
+   *
+   *     window.supabase        la BIBLIOTHEQUE UMD du CDN
+   *                            cles : createClient, SupabaseClient, Functions*
+   *                            .auth  absent      .from  undefined
+   *     window.supabaseClient  le CLIENT, avec .auth et .from
+   *
+   * Ce fichier lisait le global nu `supabase`. `cli().auth.getUser()` levait
+   * donc une exception, le `try/catch` la rattrapait, et `uid` valait null : le
+   * code concluait « aucune session » et affichait l absence de droits.
+   *
+   * ⛔ ET MES SONDES NE POUVAIENT PAS LE VOIR : elles remplacaient
+   * `window.supabase` par un double qui, lui, portait `.auth` et `.from`. Le banc
+   * d essai rendait vrai le global fautif. ⚠️ Un double qui repare ce qu il devait
+   * eprouver est pire qu absent : il rend un rapport vert sur du code casse.
+   * Les deux sondes doublent desormais `window.supabaseClient`.
+   *
+   * Tous les autres modules du depot font exactement cette ligne. Cette fois, ce
+   * fichier aussi.
+   */
+  /**
+   * ⚠️ RESOLU A CHAQUE APPEL, PAS CAPTURE AU CHARGEMENT. Deux raisons :
+   *   1. Plus de dependance a l ordre des scripts. `supabase-config.js` pose
+   *      `window.supabaseClient` ; si un jour il le posait plus tard, ce fichier
+   *      garderait une reference morte sans que rien ne le signale.
+   *   2. ⛔ C est ce qui rend ce fichier EPROUVABLE. Un double pose apres le
+   *      chargement est pris en compte ; une reference capturee ne l aurait
+   *      jamais ete, et la sonde aurait mesure le vrai client en croyant mesurer
+   *      le sien.
+   */
+  const cli = () => {
+    const c = window.supabaseClient;
+    if (!c) console.error('[FORMATION] ⛔ window.supabaseClient manquant : config non chargee ?');
+    return c;
+  };
+
   const ESPACEMENT_MS = 10000;   // Même valeur que supabase-replays-student.js.
   const DELAI_SAISIE_MS = 1200;  // Repos de frappe avant d'enregistrer une note.
 
@@ -60,7 +100,7 @@
 
   async function uid() {
     try {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await cli().auth.getUser();
       return data?.user?.id || null;
     } catch { return null; }
   }
@@ -78,8 +118,8 @@
     const u = await uid();
     if (!u) return;
     const [p, n] = await Promise.all([
-      supabase.from('formation_progression').select('lecon_id, vue, progress_seconds').eq('user_id', u),
-      supabase.from('formation_notes').select('lecon_id, texte').eq('user_id', u),
+      cli().from('formation_progression').select('lecon_id, vue, progress_seconds').eq('user_id', u),
+      cli().from('formation_notes').select('lecon_id, texte').eq('user_id', u),
     ]);
     _progression = {};
     (p.data || []).forEach((r) => { _progression[r.lecon_id] = r; });
@@ -115,7 +155,7 @@
       last_watched_at: new Date().toISOString(),
     };
     _progression[leconId] = ligne;
-    const { error } = await supabase.from('formation_progression')
+    const { error } = await cli().from('formation_progression')
       .upsert(ligne, { onConflict: 'user_id,lecon_id' });
     // ⛔ Dit en clair : une écriture qui échoue en silence est le défaut dominant
     // de ce projet. L'élève doit pouvoir le signaler, et nous le retrouver.
@@ -127,7 +167,7 @@
   async function ecrireNote(leconId, texte) {
     const u = await uid();
     if (!u) return false;
-    const { error } = await supabase.from('formation_notes').upsert({
+    const { error } = await cli().from('formation_notes').upsert({
       user_id: u, lecon_id: leconId, texte, updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id,lecon_id' });
     if (error) { console.error('[FORMATION] ⚠️ note NON enregistrée :', error.message); return false; }
@@ -574,7 +614,7 @@
   async function etatParcours() {
     const u = await uid();
     if (!u) return null;
-    const { data, error } = await supabase
+    const { data, error } = await cli()
       .from('formation_parcours_vu')
       .select('lecons_vues_au_dernier_affichage, vue_le')
       .eq('user_id', u)
@@ -597,7 +637,7 @@
   async function marquerVue(faites) {
     const u = await uid();
     if (!u) return;
-    const { error } = await supabase.from('formation_parcours_vu').upsert({
+    const { error } = await cli().from('formation_parcours_vu').upsert({
       user_id: u,
       lecons_vues_au_dernier_affichage: faites,
       vue_le: new Date().toISOString(),

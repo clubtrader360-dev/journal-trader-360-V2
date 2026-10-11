@@ -39,17 +39,51 @@ comment on column public.acces_membre.journal_retire_le is
 -- pouvait écrire sa ligne, il s'accorderait ses droits lui-même. Mais il doit
 -- pouvoir demander le journal d'un clic.
 --
--- ⚠️ LA SOLUTION N'EST PAS UNE POLITIQUE PLUS FINE : RLS NE SAIT PAS RESTREINDRE
--- PAR COLONNE. Une politique d'`update` autorise la ligne entière, et un
--- `with check` ne peut pas empêcher de changer `journal_actif` en même temps,
--- puisqu'il n'évalue que le résultat. ⛔ Un `with check (journal_actif = false)`
--- semblerait suffire et ne suffirait pas : il bloquerait l'auto-octroi, mais
--- laisserait modifier `formation_actif`, `journal_fin` et le reste.
+-- ⚠️ RLS NE SAIT PAS RESTREINDRE PAR COLONNE. Une politique d'`update` autorise
+-- la ligne entière, et un `with check` n'évalue que le résultat.
 --
--- Ce qui restreint par colonne, c'est le GRANT. `grant update (colonne)` est la
--- seule barrière qui nomme une colonne, et elle s'applique AVANT les politiques.
+-- ── ⛔ ET VOICI LA FAUTE QUE CE FICHIER PORTAIT, CORRIGÉE LE 11/10/2026 ──────
+--
+-- La version précédente écrivait seulement :
+--
+--     grant update (journal_demande_le) on public.acces_membre to authenticated;
+--
+-- et affirmait en commentaire que « le grant fait que c'est la seule colonne qui
+-- PUISSE l'être ». ⛔ C'EST FAUX. UN `GRANT` DONNE, IL NE RETIRE JAMAIS.
+--
+-- Mesure des privilèges réels, le 11/10/2026, avant toute application :
+--
+--     authenticated   UPDATE sur la table entiere
+--     authenticated   UPDATE sur user_id, formation_actif, formation_fin,
+--                            journal_actif, journal_fin, updated_at, created_at
+--     anon            les memes
+--
+-- Ces privilèges viennent des defauts de Supabase à la création de la table. La
+-- politique `acces_membre_demande` aurait donc ouvert TOUTES les colonnes à un
+-- élève sans journal, la seule barrière restant son `with check` :
+--
+--     journal_actif = true     refuse, le with check travaille
+--     journal_retire_le = null AUTORISE : il efface la trace de sa revocation
+--     journal_fin              AUTORISE : la colonne qui portera l abonnement
+--     formation_actif = false  AUTORISE : absurde, mais la porte etait ouverte
+--
+-- ⚠️ C'est le motif du 8 octobre, dans mon propre fichier : un commentaire qui
+-- affirme ce que le code ne fait pas, et qui passe la relecture parce qu'on lit
+-- le commentaire.
+--
+-- ⚠️ L'ORDRE COMPTE : on révoque D'ABORD, on accorde ENSUITE. L'inverse
+-- effacerait le grant fin qu'on vient de poser.
+--
+-- ⛔ `service_role` ET `postgres` NE SONT PAS TOUCHÉS, vérifié : ils gardent
+-- leurs privilèges propres. L'octroi des droits par un coach passe par la clé de
+-- service, ce chemin n'est donc pas affecté. Mesuré, pas supposé.
 
-grant update (journal_demande_le) on public.acces_membre to authenticated;
+revoke update, insert, delete on public.acces_membre from authenticated, anon;
+grant  update (journal_demande_le) on public.acces_membre to authenticated;
+
+-- ⚠️ `insert` et `delete` sont révoqués aussi. Aucune politique ne les autorise
+-- aujourd'hui, donc RLS les bloque déjà ; mais un privilège inutile est une arme
+-- chargée qui attend sa politique. ⛔ Les lignes naissent par la clé de service.
 
 create policy acces_membre_demande on public.acces_membre
   for update to authenticated
@@ -87,3 +121,46 @@ create policy acces_membre_demande on public.acces_membre
 -- Attendu juste après application : 98 actifs, 4 jamais demandé, 0 en attente,
 -- 0 retirés. ⚠️ Les 4 sont les comptes fermés : ils apparaissent ici en « jamais
 -- demandé » par construction, et c'est sans effet puisqu'ils ne se connectent pas.
+
+-- ============================================================================
+-- ⚠️ LE CONTRÔLE QUI TRANCHE, ET IL NE LISTE PAS DES GRANTS
+-- ============================================================================
+-- ⛔ Un contrôle qui liste les privilèges ne prouve rien : il dit ce qui est
+-- écrit, pas ce qui est possible. On ÉPROUVE LA TENTATIVE, sous l'identité d'un
+-- compte sans journal. Les trois premières doivent être REFUSÉES, la quatrième
+-- doit RÉUSSIR. ⚠️ Sans cette quatrième, un refus universel ressemblerait à une
+-- protection.
+--
+--   set local role authenticated;
+--   set local request.jwt.claims to '{"sub":"<uuid d un compte sans journal>"}';
+--
+--   update public.acces_membre set journal_retire_le = null where user_id = auth.uid();
+--   update public.acces_membre set journal_fin       = now()  where user_id = auth.uid();
+--   update public.acces_membre set formation_actif   = false  where user_id = auth.uid();
+--   -- ⚠️ TEMOIN, doit reussir :
+--   update public.acces_membre set journal_demande_le = now() where user_id = auth.uid();
+--
+--   reset role;
+--
+-- Attendu : « permission denied for column ... » sur les trois premières,
+-- UPDATE 1 sur la quatrième.
+
+-- ============================================================================
+-- ⚠️ LA CLASSE, PAS L'INSTANCE : LES TROIS TABLES DE FORMATION
+-- ============================================================================
+-- Elles hériteront des MÊMES privilèges par défaut à leur création. Relevé fait,
+-- et la réponse n'est pas la même pour elles :
+--
+--   formation_notes          texte, updated_at          toutes sont a l eleve
+--   formation_progression    vue, progress_seconds, ... toutes sont a l eleve
+--   formation_parcours_vu    lecons_vues..., vue_le     toutes sont a l eleve
+--
+-- ⚠️ AUCUNE DE LEURS COLONNES NE DIT UN DROIT. Un élève qui écrit n'importe quoi
+-- dans `progress_seconds` ou dans `vue` ne fait que mentir à sa propre barre de
+-- progression. Leurs politiques, qui bornent la LIGNE à `auth.uid() = user_id`
+-- et exigent `a_acces_formation()`, suffisent donc.
+--
+-- ⛔ `acces_membre` EST LA SEULE EXCEPTION, et pour une raison précise : c'est la
+-- seule dont une colonne décide d'un ACCÈS. C'est pour cela qu'elle seule reçoit
+-- une restriction par colonne, et c'est écrit ici pour que personne ne
+-- « harmonise » les quatre un jour de ménage.
