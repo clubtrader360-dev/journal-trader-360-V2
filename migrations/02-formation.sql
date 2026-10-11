@@ -112,3 +112,48 @@ create policy formation_progression_delete_strict on public.formation_progressio
 --    where n.nspname = 'public'
 --      and c.relname in ('formation_notes', 'formation_progression')
 --    group by 1, 2;
+
+-- ============================================================================
+-- 4. L'ÉTAT DE LA FENÊTRE DE PARCOURS
+-- ============================================================================
+-- ⚠️ EN BASE, ET PAS EN STOCKAGE LOCAL. Un repère local repartirait à zéro sur
+-- chaque appareil : l'élève reverrait la fenêtre sur son téléphone après l'avoir
+-- vue sur son ordinateur, et finirait par la fermer sans la lire.
+--
+-- ⛔ PAS DE COLONNE SUR `acces_membre` : cette table dit les DROITS, et y mêler
+-- un état d'interface les rendrait difficiles à relire le jour où un coach les
+-- vérifiera. Une notion par table.
+--
+-- ⚠️ `lecons_vues_au_dernier_affichage` ET `vue_le` SONT TOUS LES DEUX
+-- NÉCESSAIRES, et c'est le coeur de la règle :
+--
+--     aucune ligne                      première visite       → on affiche
+--     lecons_vues > au dernier affichage ET vue_le < 20 h     → on affiche
+--     sinon                                                   → on n'affiche pas
+--
+-- ⛔ SANS L'INTERVALLE, la fenêtre reviendrait à chaque visite d'un élève qui
+-- avance d'une leçon entre deux, c'est-à-dire d'un élève assidu : on punirait
+-- exactement celui qu'on veut encourager. Vingt heures laissent la fenêtre
+-- revenir le lendemain, jamais deux fois dans la même journée.
+
+create table if not exists public.formation_parcours_vu (
+  user_id                          uuid        primary key references auth.users (id) on delete cascade,
+  lecons_vues_au_dernier_affichage integer     not null default 0,
+  vue_le                           timestamptz not null default now()
+);
+
+alter table public.formation_parcours_vu enable row level security;
+
+create policy formation_parcours_vu_select on public.formation_parcours_vu
+  for select using (((auth.uid() = user_id) and a_acces_formation()) or is_coach());
+
+create policy formation_parcours_vu_insert_strict on public.formation_parcours_vu
+  for insert to authenticated with check ((auth.uid() = user_id) and a_acces_formation());
+
+create policy formation_parcours_vu_update_strict on public.formation_parcours_vu
+  for update to authenticated
+  using ((auth.uid() = user_id) and a_acces_formation())
+  with check ((auth.uid() = user_id) and a_acces_formation());
+
+create policy formation_parcours_vu_delete_strict on public.formation_parcours_vu
+  for delete to authenticated using ((auth.uid() = user_id) and a_acces_formation());

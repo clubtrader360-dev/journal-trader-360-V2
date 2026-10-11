@@ -334,3 +334,29 @@ body[data-animations="off"] .formation-barre-remplie { transition: none; }
 @media (max-width: 480px) {
   .formation-entete, .formation-parcours { padding: 14px 15px; }
 }
+
+/* ── La fenetre de parcours ─────────────────────────────────────────────────
+   ⚠️ Elle recouvre l espace formation, pas la page entiere : la barre laterale
+   reste atteignable, donc l eleve n est jamais enferme. */
+.formation-fenetre {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(0, 11, 37, 0.62);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+}
+.formation-fenetre-carte {
+  width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+  padding: 22px 24px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+/* ⛔ Dans la fenetre, le parcours ne porte pas une seconde surface : il est deja
+   sur celle de la carte, et deux cadres imbriques alourdissent sans rien dire. */
+.formation-fenetre-carte .formation-parcours {
+  background: none; border: none; padding: 0; margin-bottom: 18px;
+}
+.formation-fenetre-carte .formation-btn-or { width: 100%; text-align: center; }
+@media (max-width: 480px) {
+  .formation-fenetre { padding: 12px; }
+  .formation-fenetre-carte { padding: 16px 16px 18px; max-height: 92vh; }
+}

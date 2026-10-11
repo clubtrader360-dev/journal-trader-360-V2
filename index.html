@@ -4213,6 +4213,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <img src="/assets/marque/t360-monogramme-or.png" alt="" width="36" height="35">
                     <span>Espace membre</span>
                 </div>
+                <!-- ⚠️ LA FENETRE DE PARCOURS. Elle accueille a la premiere visite, puis
+                     quand la progression a change, jamais deux fois dans la meme journee.
+                     ⛔ Son etat vit en base, pas en stockage local : sinon elle reviendrait
+                     sur chaque appareil, et l eleve apprendrait a la fermer sans la lire.
+                     ⚠️ `hidden` est tenu par la regle `#formation [hidden]` de
+                     formation.css : sans elle, la classe d auteur l afficherait quand meme. -->
+                <div id="formationFenetre" class="formation-fenetre" role="dialog" aria-modal="true"
+                     aria-labelledby="formationFenetreTitre" hidden>
+                    <div class="formation-fenetre-carte">
+                        <h2 id="formationFenetreTitre" class="formation-titre">Ton parcours</h2>
+                        <div id="formationFenetreCorps"></div>
+                        <button type="button" id="formationFenetreFermer" class="formation-btn-or"
+                                onclick="Formation.fermerFenetre()">Continuer</button>
+                    </div>
+                </div>
                 <nav class="formation-fil" id="formationFilAriane" aria-label="Fil d'Ariane"></nav>
                 <!-- Le chemin inverse. ⛔ Masque si le droit journal n est pas actif : on ne
                      montre pas une porte fermee. La vraie serrure reste dans les politiques. -->

@@ -304,7 +304,22 @@
       texte = localStorage.getItem('userMantra') || '';
       auteur = localStorage.getItem('userMantraAuthor') || '';
     } catch { texte = ''; }
-    if (!texte) return '';
+    /**
+     * ⚠️ UNE CITATION PAR DÉFAUT, PARCE QUE L'ABSENCE PRODUIRAIT UN VIDE.
+     * Un élève qui n'a que la formation ne passe jamais par le journal pour en
+     * saisir une : sans ce repli, il n'en verrait jamais aucune.
+     *
+     * ⛔ CE N'EST PAS UNE SECONDE SOURCE DE PERSONNALISATION. Si l'élève a la
+     * sienne, c'est la sienne qui s'affiche ; celle-ci ne s'écrit nulle part et
+     * ne se règle pas.
+     *
+     * ⛔ ET ELLE NE PROMET RIEN. Ni gain, ni revenu, ni réussite, ni
+     * financement, comme les dix phrases du parcours. Elle parle de méthode.
+     */
+    if (!texte) {
+      texte = 'La régularité bat l\'intensité : une leçon comprise vaut mieux que dix survolées.';
+      auteur = 'Trader 360';
+    }
     return `
       <figure class="trader-card formation-citation">
         <i class="fas fa-quote-left" aria-hidden="true"></i>
@@ -529,6 +544,82 @@
     if (window.MicDictation) window.MicDictation.scan($('formationContenu'));
   }
 
+  // ===== LA FENETRE DE PARCOURS =============================================
+
+  /**
+   * ── ⚠️ QUAND LA FENETRE S OUVRE, ET POURQUOI PAS PLUS SOUVENT ───────────
+   *
+   *     aucune ligne en base                          PREMIERE VISITE  → oui
+   *     lecons vues > au dernier affichage
+   *       ET plus de 20 h depuis le dernier           progression      → oui
+   *     sinon                                                          → non
+   *
+   * ⛔ LA PREMIERE VISITE EST LE CAS QUI COMPTE, et c est celui qui manquait a
+   * la premiere redaction de cette regle. Un nouvel eleve n a AUCUNE
+   * progression, donc aucun changement, donc il n aurait jamais vu la fenetre.
+   * Or c est precisement lui qu elle doit accueillir : la formation sans journal
+   * est le point d entree de tout le monde.
+   *
+   * ⚠️ L INTERVALLE DE VINGT HEURES repond a l eleve qui ferme sans lire. Sans
+   * lui, la fenetre reviendrait a chaque visite de quelqu un qui avance d une
+   * lecon entre deux, c est-a-dire de l eleve assidu : on punirait celui qu on
+   * veut encourager. Vingt heures la laissent revenir le lendemain, jamais deux
+   * fois dans la meme journee.
+   *
+   * ⛔ L ETAT VIT EN BASE, pas en stockage local : un repere local repartirait a
+   * zero sur chaque appareil.
+   */
+  const INTERVALLE_MS = 20 * 60 * 60 * 1000;
+
+  async function etatParcours() {
+    const u = await uid();
+    if (!u) return null;
+    const { data, error } = await supabase
+      .from('formation_parcours_vu')
+      .select('lecons_vues_au_dernier_affichage, vue_le')
+      .eq('user_id', u)
+      .maybeSingle();
+    // ⚠️ Une erreur n est PAS une premiere visite : on ne sait pas, donc on
+    // n ouvre rien. ⛔ Ouvrir par defaut sur une panne ferait revenir la fenetre
+    // a chaque chargement, exactement ce qu on veut eviter.
+    if (error) { console.warn('[FORMATION] etat du parcours illisible :', error.message); return 'erreur'; }
+    return data || null;
+  }
+
+  function doitOuvrir(etat, faites) {
+    if (etat === 'erreur') return false;
+    if (!etat) return true;                       // première visite
+    if (faites <= etat.lecons_vues_au_dernier_affichage) return false;
+    const depuis = Date.now() - Date.parse(etat.vue_le);
+    return !(depuis >= 0 && depuis < INTERVALLE_MS);
+  }
+
+  async function marquerVue(faites) {
+    const u = await uid();
+    if (!u) return;
+    const { error } = await supabase.from('formation_parcours_vu').upsert({
+      user_id: u,
+      lecons_vues_au_dernier_affichage: faites,
+      vue_le: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+    if (error) console.error('[FORMATION] ⚠️ fenetre NON marquee comme vue :', error.message);
+  }
+
+  function ouvrirFenetre(r) {
+    const d = $('formationFenetre');
+    if (!d) return;
+    $('formationFenetreCorps').innerHTML = parcours(r);
+    d.hidden = false;
+    const b = $('formationFenetreFermer');
+    if (b) b.focus();
+  }
+
+  async function fermerFenetre() {
+    const d = $('formationFenetre');
+    if (d) d.hidden = true;
+    await marquerVue(D().SUITE.filter((l) => estVue(l.id)).length);
+  }
+
   // ===== BRANCHEMENTS =======================================================
 
   function brancherNotes(id) {
@@ -595,7 +686,14 @@
     async ouvrir() {
       await charger();
       rendreSommaire();
+      const faites = D().SUITE.filter((l) => estVue(l.id)).length;
+      const etat = await etatParcours();
+      if (doitOuvrir(etat, faites)) ouvrirFenetre(reprisePrecise());
     },
+    fermerFenetre,
+    // Exposes pour la sonde. ⛔ Ne pas appeler depuis l interface.
+    _doitOuvrir: doitOuvrir,
+    _intervalleMs: INTERVALLE_MS,
     ouvrirSommaire() { detacherLecteur(); rendreSommaire(); },
     ouvrirModule(n) { detacherLecteur(); rendreModule(n); },
     ouvrirLecon(id) { detacherLecteur(); rendreLecon(id); },

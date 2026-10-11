@@ -48,6 +48,7 @@ async function preparer(page, opts = {}) {
       localStorage.removeItem('userMantraAuthor');
     }
     window.__ecritures = [];
+    window.__parcoursVu = window.__parcoursVuInitial || null;
     const table = (nom) => ({
       select() { return this; },
       eq() {
@@ -55,6 +56,13 @@ async function preparer(page, opts = {}) {
           data: nom === 'formation_progression' ? prog : nom === 'formation_notes' ? nts : [],
           error: null,
         };
+        if (nom === 'formation_parcours_vu') {
+          return {
+            maybeSingle: () => Promise.resolve({ data: window.__parcoursVu || null, error: null }),
+            single: () => Promise.resolve({ data: window.__parcoursVu || null, error: null }),
+            then: (ok2, ko2) => Promise.resolve({ data: [], error: null }).then(ok2, ko2),
+          };
+        }
         const un = { data: Object.assign({
           formation_actif: true, journal_actif: false,
           journal_demande_le: null, journal_retire_le: null,
@@ -92,6 +100,9 @@ async function preparer(page, opts = {}) {
     document.getElementById('formation').classList.remove('hidden');
     window.currentUser = { role: 'student', uuid: 'eleve-double-0000' };
   }, progression, notes, droits, mantra, sombre);
+  if (opts.parcoursVu !== undefined) {
+    await page.evaluate((v) => { window.__parcoursVu = v; }, opts.parcoursVu);
+  }
   await page.evaluate(() => window.Formation.ouvrir());
   await new Promise((r) => setTimeout(r, 350));
 }
@@ -305,8 +316,16 @@ console.log('\n  ══ LA CITATION ══');
   const p2 = await nav.newPage();
   await p2.setViewport({ width: 1440, height: 900 });
   await preparer(p2, { mantra: null });
-  const vide = await p2.evaluate(() => !document.querySelector('#formation .formation-citation'));
-  dire('⚠️ TEMOIN : aucune citation dans le journal, aucune inventee ici', vide);
+  // ⚠️ ASSERTION MISE A JOUR. Elle exigeait qu AUCUNE citation n apparaisse sans
+  // valeur personnelle. ⛔ Ce n est plus vrai depuis l arbitrage du 11/10 : une
+  // citation par defaut remplit le vide. Le temoin devient donc : ce n est PAS
+  // celle de l eleve, et ce n est pas vide non plus.
+  const sansPerso = await p2.evaluate(() => {
+    const c = document.querySelector('#formation .formation-citation');
+    return { presente: !!c, texte: c ? c.textContent : '' };
+  });
+  dire('⚠️ TEMOIN : sans citation personnelle, celle par defaut prend la place',
+    sansPerso.presente && !/Temoin de citation du journal/.test(sansPerso.texte));
   await p2.close();
 }
 
@@ -370,7 +389,11 @@ console.log('\n  ══ TOUTES MES NOTES ══');
 {
   const p = await nav.newPage();
   await p.setViewport({ width: 1440, height: 900 });
-  await preparer(p, { notes: [
+  // ⚠️ `parcoursVu` POSE pour que la fenetre ne s ouvre PAS : sans lui, elle
+  // recouvre le sommaire et la sonde lisait « Ton parcours » comme titre de la
+  // lecon d arrivee. ⛔ Encore une sonde qui mesurait autre chose que son sujet.
+  await preparer(p, { parcoursVu: { lecons_vues_au_dernier_affichage: 99, vue_le: new Date().toISOString() },
+    notes: [
     { lecon_id: 'm01-l0', texte: 'Premiere note : la routine du matin.' },
     { lecon_id: 'm01-l3', texte: 'Deuxieme note : tenir la discipline.' },
     { lecon_id: 'm01-l6', texte: 'Troisieme note : entrer dans la zone.' },
@@ -389,7 +412,7 @@ console.log('\n  ══ TOUTES MES NOTES ══');
     await new Promise((res) => setTimeout(res, 200));
     return {
       nombre: cartes.length, origines, apresFiltre,
-      arriveeTitre: (document.querySelector('#formation .formation-titre') || {}).textContent || '',
+      arriveeTitre: (document.querySelector('#formationContenu .formation-titre') || {}).textContent || '',
       zoneNote: (document.getElementById('formationNote') || {}).value || '',
     };
   });
@@ -466,6 +489,104 @@ console.log('\n  ══ LES QUATRE ETATS DU BOUTON JOURNAL ══');
   dire('⚠️ TEMOIN : les quatre rendus sont distincts', new Set(vus).size === 4, `${new Set(vus).size} distincts sur 4`);
 }
 
+/* ══ 6 bis. LA FENETRE DE PARCOURS, TROIS CAS ══════════════════════════════
+   ⛔ Le controle « 6 bis » du lot precedent, sur les reglages d apparence, est
+   CADUC : l espace formation ne lit ni l opacite ni l accent depuis
+   `user_preferences`, arbitrage du point 7. Il n a donc rien a « suivre », et ce
+   controle-ci porte un autre sujet. ⚠️ Un controle orphelin d une consigne
+   revisee demande de prouver ce qui n est plus vrai. */
+console.log('\n  ══ LA FENETRE DE PARCOURS ══');
+{
+  const hier = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString();
+  const ilYaUneHeure = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const CAS = [
+    ['premiere visite', null, [], true],
+    ['progression inchangee', { lecons_vues_au_dernier_affichage: 1, vue_le: hier },
+      [{ lecon_id: 'm01-l0', vue: true, progress_seconds: 10 }], false],
+    ['progression changee', { lecons_vues_au_dernier_affichage: 1, vue_le: hier },
+      [{ lecon_id: 'm01-l0', vue: true }, { lecon_id: 'm01-l1', vue: true }], true],
+    ['⚠️ avance mais vue il y a une heure', { lecons_vues_au_dernier_affichage: 1, vue_le: ilYaUneHeure },
+      [{ lecon_id: 'm01-l0', vue: true }, { lecon_id: 'm01-l1', vue: true }], false],
+  ];
+  const vus = [];
+  for (const [nom, etat, prog, attendu] of CAS) {
+    const p = await nav.newPage();
+    await p.setViewport({ width: 1440, height: 900 });
+    await preparer(p, { progression: prog, parcoursVu: etat });
+    await new Promise((r) => setTimeout(r, 250));
+    const r = await p.evaluate(() => {
+      const d = document.getElementById('formationFenetre');
+      return {
+        ouverte: !!d && getComputedStyle(d).display !== 'none',
+        jalons: d ? d.querySelectorAll('.formation-jalon').length : 0,
+        phrase: d ? (d.querySelector('.formation-parcours-phrase') || {}).textContent || '' : '',
+      };
+    });
+    vus.push(r.ouverte);
+    console.log(`     ${nom.padEnd(36)} ouverte ${String(r.ouverte).padEnd(5)} (attendu ${attendu})`);
+    if (r.ouverte) console.log(`       ${r.jalons} jalons · « ${r.phrase.trim()} »`);
+    dire(`  ${nom}`, r.ouverte === attendu, `${r.ouverte} au lieu de ${attendu}`);
+    if (r.ouverte) dire('    les dix modules sont poses en jalons', r.jalons === 10, String(r.jalons));
+    await p.close();
+  }
+  // ⚠️ TEMOIN : si les quatre cas rendaient la meme chose, la regle ne
+  // deciderait rien. Deux « oui » et deux « non » sont attendus.
+  dire('⚠️ TEMOIN : la regle discrimine, elle ne dit pas oui a tout',
+    vus.filter(Boolean).length === 2 && vus.filter((x) => !x).length === 2,
+    `${vus.filter(Boolean).length} ouvertes sur 4`);
+
+  // La fermeture marque l etat EN BASE, pas en stockage local.
+  const p2 = await nav.newPage();
+  await p2.setViewport({ width: 1440, height: 900 });
+  await preparer(p2, { progression: [{ lecon_id: 'm01-l0', vue: true }], parcoursVu: null });
+  await new Promise((r) => setTimeout(r, 250));
+  const fermeture = await p2.evaluate(async () => {
+    await window.Formation.fermerFenetre();
+    await new Promise((res) => setTimeout(res, 150));
+    return {
+      fermee: getComputedStyle(document.getElementById('formationFenetre')).display === 'none',
+      ecritures: window.__ecritures.filter((e) => e.table === 'formation_parcours_vu'),
+      local: Object.keys(localStorage).filter((k) => /parcours|fenetre/i.test(k)),
+    };
+  });
+  dire('la fermeture ferme bien la fenetre', fermeture.fermee);
+  dire('⛔ l etat est ecrit EN BASE', fermeture.ecritures.length === 1,
+    JSON.stringify(fermeture.ecritures.map((e) => e.ligne)));
+  dire('⛔ et RIEN en stockage local', fermeture.local.length === 0, fermeture.local.join(', '));
+  await p2.close();
+}
+
+/* ══ 6 ter. LA CITATION PAR DEFAUT ═════════════════════════════════════════ */
+console.log('\n  ══ LA CITATION PAR DEFAUT ══');
+{
+  const p = await nav.newPage();
+  await p.setViewport({ width: 1440, height: 900 });
+  await preparer(p, { mantra: null, parcoursVu: { lecons_vues_au_dernier_affichage: 0, vue_le: new Date().toISOString() } });
+  const r = await p.evaluate(() => {
+    const c = document.querySelector('#formation .formation-citation');
+    return { presente: !!c, texte: c ? c.textContent.replace(/\s+/g, ' ').trim() : '' };
+  });
+  console.log(`     sans citation personnelle : « ${r.texte} »`);
+  dire('⛔ l absence ne produit plus un vide', r.presente);
+  // ⚠️ CONFORMITE : aucune promesse de gain, de revenu ni de financement.
+  const interdits = /gain|revenu|profit|payout|financ|riche|argent|succès garanti|réussite assurée/i;
+  dire('⛔ la citation par defaut ne promet rien', !interdits.test(r.texte), r.texte);
+  // ⚠️ TEMOIN : le detecteur sait voir une promesse quand il y en a une.
+  dire('⚠️ TEMOIN : le detecteur reconnait une phrase proscrite',
+    interdits.test('bientot ton premier payout'));
+  await p.close();
+
+  const p2 = await nav.newPage();
+  await p2.setViewport({ width: 1440, height: 900 });
+  await preparer(p2, { mantra: { texte: 'Citation personnelle de l eleve', auteur: 'Lui-meme' },
+    parcoursVu: { lecons_vues_au_dernier_affichage: 0, vue_le: new Date().toISOString() } });
+  const perso = await p2.evaluate(() =>
+    (document.querySelector('#formation .formation-citation') || {}).textContent || '');
+  dire('⛔ si l eleve en a une, c est la sienne qui s affiche',
+    /Citation personnelle de l eleve/.test(perso) && !/régularité/.test(perso));
+  await p2.close();
+}
+
 /* ══ 7. CAPTURES, DEUX MODES, QUATRE TAILLES ═══════════════════════════════ */
 console.log('\n  ══ CAPTURES ══');
 {
@@ -479,6 +600,7 @@ console.log('\n  ══ CAPTURES ══');
         const p = await nav.newPage();
         await p.setViewport({ width: l, height: h, deviceScaleFactor: 2 });
         await preparer(p, { sombre, progression: prog,
+          parcoursVu: { lecons_vues_au_dernier_affichage: 99, vue_le: new Date().toISOString() },
           mantra: { texte: 'Le succes est la somme de petits efforts repetes.', auteur: 'Robert Collier' } });
         await new Promise((r) => setTimeout(r, 250));
         await p.screenshot({ path: `${SORTIE}/${sombre ? 'sombre' : 'clair'}-${nom}-${l}x${h}.png` });
