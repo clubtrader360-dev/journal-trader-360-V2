@@ -1,0 +1,101 @@
+# ⛔ CE QUI NE DOIT PAS PARTIR EN LIGNE
+#
+# ── ⚠️ POURQUOI CE FICHIER EXISTE, ET CE QU'IL CORRIGE ──────────────────────
+#
+# La racine du dépôt EST la racine web. Ce projet n'a pas de dossier de sortie :
+# son build est `echo 'Build complete'`, et Vercel sert donc les fichiers tels
+# qu'ils sont déposés. ⛔ Et la règle de réécriture de `vercel.json`,
+# `/((?!api/|.*\..*).*)`, exclut tout chemin CONTENANT UN POINT : ces chemins ne
+# sont pas renvoyés vers `index.html`, ils tombent sur le fichier statique.
+#
+# ⚠️ Autrement dit : tout fichier à la racine portant une extension est public.
+#
+# ── ⛔ MESURÉ EN PRODUCTION LE 13/10, PAS SUPPOSÉ ───────────────────────────
+#
+# Sur `app.journaltrader360.fr`, qui est un domaine personnalisé et échappe donc
+# au SSO des aperçus :
+#
+#     MIGRATION_COMPLETE.sql                        200    6 503 octets
+#     migration_tradovate.sql                       200    8 868 octets
+#     UPDATE.md                                     200   30 629 octets
+#     AUDIT_PRE_MIGRATION_*.md                      200   15 066 octets
+#     GPT_KNOWLEDGE_*.pdf                           200   22 011 octets
+#     supabase-migrations/*_tighten_coach_rls_*.sql 200    8 070 octets
+#     supabase-migrations/*_is_coach_security_*.sql 200    1 268 octets
+#     legal/cgu.md                                  200    2 983 octets
+#     design-system-trader360/02-palette.md         200    5 472 octets
+#     .github/workflows/prompts/daily-brief-*.md    200   35 749 octets
+#
+# ⛔ ET CE N EST PAS QUE LA RACINE. Un premier recensement n avait regarde que
+# les fichiers racine : 15 servis a tort. En appliquant les motifs a tout le
+# depot, ce sont 48 fichiers, dont le dossier `supabase-migrations/` ENTIER,
+# 19 fichiers de plus. ⚠️ Les sous-dossiers sont servis exactement comme la
+# racine, et c est la raison pour laquelle « deplacer sous un dossier » ne
+# protegeait rien.
+#
+# ⚠️ TEMOIN de ce second releve : une adresse inventee dans le meme dossier,
+# `supabase-migrations/inexistant.sql`, rend bien 404.
+#
+# ⛔ Ce que cela donne : le schéma complet de la base, les noms de tables dont
+# `tradovate_credentials`, et le texte exact des politiques RLS. Une politique
+# publiée dit à qui veut la lire où sont les identifiants et quelle règle les
+# protège. ⚠️ Et `UPDATE.md` est un document de passation interne qui décrit
+# l'architecture et les problèmes connus.
+#
+# ⚠️ TÉMOIN DU RELEVÉ : `favicon.ico` répond 200, et `.env.example`,
+# `package.json` et `package-lock.json` répondent 404 : Vercel ne les sert
+# jamais. Le relevé distingue donc bien ce qui est servi de ce qui ne l'est pas,
+# et son zéro n'est pas celui d'un instrument aveugle.
+#
+# ── ⛔ POURQUOI `.vercelignore` ET PAS AUTRE CHOSE ─────────────────────────
+#
+# Trois pistes étaient possibles :
+#
+#   déplacer sous un dossier    ⛔ ne protège rien : les sous-dossiers sont
+#                                servis comme la racine. Il n'existe pas de
+#                                chemin « non publié » dans ce projet.
+#   exclure par `vercel.json`   ⛔ ses `rewrites` redirigent, ils n'empêchent pas
+#                                un fichier statique d'exister. Et un `headers`
+#                                ne retire rien, il habille.
+#   sortir du dépôt             ⚠️ pour le relevé Vimeo, régénérable, ce serait
+#                                tenable. ⛔ Mais pas pour les migrations ni les
+#                                documents : ils doivent rester versionnés, c'est
+#                                leur raison d'être.
+#
+# ⛔ `.vercelignore` agit AU DÉPÔT, pas au service : les fichiers ne sont jamais
+# téléversés. Rien à oublier, rien à contourner, et ils restent dans git pour
+# l'équipe. ⚠️ Et il traite la CLASSE par motif, pas le fichier du jour.
+#
+# ── ⚠️ CE QUI N'EST PAS EXCLU, ET POURQUOI ────────────────────────────────
+#
+# Vérifié avant d'écrire : aucun `fetch(`, `src=` ni `href=` du site ou des
+# fonctions ne charge un `.md`, `.sql`, `.pdf` ou `.py` à l'exécution.
+# ⛔ `vercel.json` et `package.json` ne sont PAS exclus : le premier porte la
+# configuration de déploiement, le second est lu au build.
+
+# ── Le schéma de la base et ses politiques ──
+*.sql
+
+# ── Les documents internes : passation, audits, notes de chantier ──
+*.md
+
+# ── La base de connaissance de la formation ──
+*.pdf
+
+# ── L'outillage de développement ──
+*.py
+.gitignore
+
+# ── ⛔ LE RELEVÉ VIMEO, et c'est le motif d'origine de ce fichier ──
+#
+# Il porte les 63 identifiants de vidéos de la formation. ⚠️ Il n'est pas encore
+# en ligne, la branche n'étant pas fusionnée : il le serait le jour de la fusion,
+# et ce jour-là personne n'y penserait.
+#
+# ⛔ Pourquoi cela compte : la liste des identifiants, combinée à une seule vidéo
+# dont la restriction de domaine ne serait pas celle qu'on croit, donne la
+# formation entière. Et une vidéo diffusée ne se reprend pas.
+#
+# ⚠️ Il est nommé EN PLUS du motif `*.json` qui n'existe pas ici : exclure tous
+# les `.json` emporterait `vercel.json` et `package.json`.
+formation-vimeo-releve.json
