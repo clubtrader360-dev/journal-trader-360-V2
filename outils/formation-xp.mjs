@@ -177,6 +177,121 @@ console.log('\n  ══ 6. ⛔ LES TROIS NIVEAUX ══');
   dire('⚠️ TÉMOIN : un module inexistant ne reçoit aucun niveau', n.inconnu === null);
 }
 
+console.log('\n  ══ 7. ⛔ AUCUN TOTAL D XP N EST ÉCRIT EN DUR ══');
+{
+  const avant = await p.evaluate(() => ({
+    max: window.Formation._calcul.xpMaximum(),
+    paliers: window.Formation._calcul.niveaux().map((n) => n.xp),
+  }));
+  console.log(`        maximum atteignable : ${avant.max} XP`);
+  console.log(`        paliers de niveau   : ${avant.paliers.join(', ')}`);
+  dire('⛔ le maximum est calculé, pas écrit', avant.max > 0, `${avant.max}`);
+  dire('⛔ le dernier palier VAUT le maximum, il est donc atteignable',
+    avant.paliers[avant.paliers.length - 1] === avant.max,
+    `${avant.paliers[avant.paliers.length - 1]} pour un maximum de ${avant.max}`);
+
+  /**
+   * ⛔ LA PREUVE : on ajoute un chapitre fictif, et le total DOIT bouger.
+   * ⚠️ Un total ecrit en dur ne bougerait pas, et ce controle est le seul qui
+   * sache faire la difference entre « derive » et « juste par hasard ».
+   */
+  const apres = await p.evaluate(() => {
+    const D = window.FormationDonnees;
+    // ⚠️ Un module NEUF, pas un chapitre de plus : ajouter un chapitre a un
+    // module existant ne change pas son total, qui reste 100 par construction.
+    D.MODULES.push({ numero: '99', titre: 'Module de sonde',
+      lecons: [{ id: 'sonde-l0', titre: 'Chapitre de sonde' }] });
+    return { max: window.Formation._calcul.xpMaximum(),
+      paliers: window.Formation._calcul.niveaux().map((n) => n.xp) };
+  });
+  dire('⛔ un module fictif FAIT BOUGER le maximum', apres.max > avant.max,
+    `${avant.max} → ${apres.max}`);
+  dire('⛔ et les paliers suivent', apres.paliers[apres.paliers.length - 1] === apres.max,
+    `dernier palier ${apres.paliers[apres.paliers.length - 1]}`);
+
+  // ⚠️ TÉMOIN : on le retire, et tout revient. Sans lui, « ça bouge » pourrait
+  // décrire un calcul qui dérive à chaque appel.
+  const retour = await p.evaluate(() => {
+    const D = window.FormationDonnees;
+    D.MODULES.pop();
+    return { max: window.Formation._calcul.xpMaximum(),
+      paliers: window.Formation._calcul.niveaux().map((n) => n.xp) };
+  });
+  dire('⚠️ TÉMOIN : retiré, le maximum REVIENT à sa valeur', retour.max === avant.max,
+    `${apres.max} → ${retour.max}`);
+  dire('⚠️ et les paliers aussi',
+    JSON.stringify(retour.paliers) === JSON.stringify(avant.paliers));
+}
+
+console.log('\n  ══ 8. ⛔ AUCUNE SOURCE EN ATTENTE NE SE REPLIE SUR « C EST BON » ══');
+{
+  const base = await p.evaluate(() => window.Formation._calcul.conditionsNiveau());
+  dire('⛔ aujourd hui, les TROIS sources se taisent : l accès est FERMÉ',
+    base.ouvert === false && base.manquantes.length === 3,
+    `${base.manquantes.length} condition(s) manquante(s)`);
+  for (const m of base.manquantes) console.log(`        ${m.cle.padEnd(9)} ${m.etat.padEnd(8)} « ${m.texte} »`);
+
+  /**
+   * ⛔ CHAQUE SOURCE COUPÉE L UNE APRÈS L AUTRE. ⚠️ On ouvre les deux autres et
+   * on coupe la troisième : si une seule absence suffit à fermer, alors aucune
+   * ne se replie sur « c est bon ». C est le contrôle que le lot demande.
+   */
+  for (const coupee of ['paiement', 'quiz', 'seances']) {
+    const r = await p.evaluate((cle) => {
+      const C = window.Formation._calcul.CONDITIONS;
+      const garde = C.map((c) => c.lire);
+      C.forEach((c) => { c.lire = () => (c.cle === cle ? { etat: 'inconnu' } : { etat: 'rempli' }); });
+      const out = window.Formation._calcul.conditionsNiveau();
+      C.forEach((c, i) => { c.lire = garde[i]; });
+      return out;
+    }, coupee);
+    dire(`⛔ ${coupee} coupée, les deux autres remplies : l accès reste FERMÉ`,
+      r.ouvert === false && r.manquantes.length === 1 && r.manquantes[0].cle === coupee,
+      `${r.manquantes.map((x) => x.cle).join(', ') || 'aucune'}`);
+  }
+
+  // ⚠️ TÉMOIN : les trois remplies, l accès s ouvre. Sinon « ça ferme »
+  // décrirait aussi une porte murée.
+  const ouvert = await p.evaluate(() => {
+    const C = window.Formation._calcul.CONDITIONS;
+    const garde = C.map((c) => c.lire);
+    C.forEach((c) => { c.lire = () => ({ etat: 'rempli' }); });
+    const out = window.Formation._calcul.conditionsNiveau();
+    C.forEach((c, i) => { c.lire = garde[i]; });
+    return out;
+  });
+  dire('⚠️ TÉMOIN : les trois remplies, l accès s OUVRE', ouvert.ouvert === true,
+    `${ouvert.manquantes.length} manquante(s)`);
+
+  // ⛔ Et une valeur inattendue ferme aussi : le défaut protège.
+  const bizarre = await p.evaluate(() => {
+    const C = window.Formation._calcul.CONDITIONS;
+    const garde = C.map((c) => c.lire);
+    C.forEach((c) => { c.lire = () => ({ etat: 'peut-etre' }); });
+    const out = window.Formation._calcul.conditionsNiveau();
+    C.forEach((c, i) => { c.lire = garde[i]; });
+    return out;
+  });
+  dire('⛔ une valeur inattendue ferme aussi : seul « rempli » ouvre',
+    bizarre.ouvert === false, `3 sources à « peut-etre » → ${bizarre.manquantes.length} manquantes`);
+}
+
+console.log('\n  ══ 9. ⚠️ « QUIZ À VENIR » NE RESSEMBLE PAS À UN ÉCHEC ══');
+{
+  const q = await p.evaluate(() => window.Formation._calcul.conditionsNiveau()
+    .manquantes.find((x) => x.cle === 'quiz'));
+  dire('⛔ son état est « a_venir », pas « manquant »', q.etat === 'a_venir', q.etat);
+  dire('⛔ son texte ne dit ni « échec » ni « non validé »',
+    !/échec|non valid|rat[ée]/i.test(q.texte), `« ${q.texte} »`);
+  dire('⛔ et il n appelle aucune action de l élève', q.action === null,
+    'rien à faire pour lui aujourd hui');
+  // ⚠️ TÉMOIN : les deux autres, elles, appellent une action.
+  const autres = await p.evaluate(() => window.Formation._calcul.conditionsNiveau()
+    .manquantes.filter((x) => x.cle !== 'quiz').map((x) => x.action));
+  dire('⚠️ TÉMOIN : les deux autres appellent bien une action',
+    autres.every(Boolean), autres.join(' / '));
+}
+
 await nav.close();
 console.log(fautes ? `\n  ⛔ ${fautes} CONTROLE(S) ROUGE(S).\n` : '\n  Tout est vert.\n');
 process.exit(fautes ? 1 : 0);

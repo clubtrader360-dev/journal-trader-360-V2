@@ -607,12 +607,157 @@
 
   const XP_MOD = 250;
   const XP_CERT = 1000;
-  const NIVEAUX = [
-    { nom: 'Découvrir', xp: 0 }, { nom: 'Psychologie', xp: 800 },
-    { nom: 'Méthode', xp: 2000 }, { nom: 'Outils', xp: 3500 },
-    { nom: 'Discipline', xp: 5000 }, { nom: 'Financé', xp: 6500 },
-    { nom: 'Durer', xp: 8200 },
+
+  /**
+   * ── ⛔ LE MAXIMUM ATTEIGNABLE SE CALCULE, IL NE S ECRIT PAS ───────────────
+   *
+   * ⚠️ DEUX SYSTEMES S ADDITIONNENT, et il faut le dire parce que deux
+   * compteurs qui ne comptent pas la meme chose est precisement ce qu il ne
+   * faut pas :
+   *
+   *   les CHAPITRES   100 XP par module, repartis entre ses chapitres.
+   *                   C est l avancement fin : chaque chapitre vu rapporte.
+   *   les MODULES     XP_MOD de plus quand un module est TERMINE en entier.
+   *                   C est la recompense d avoir fini, pas d avoir avance.
+   *
+   * ⛔ Ils ne se concurrencent pas : le premier mesure le chemin, le second
+   * marque l arrivee. Et `xpTotal()` les additionne, une seule fois chacun.
+   *
+   * ⛔ AUCUN TOTAL N EST ECRIT EN DUR. Le jour ou la certification du module 10
+   * aura des chapitres, elle rapportera, et ce maximum montera tout seul.
+   * ⚠️ Un 3150 ecrit ici serait faux le lendemain, sans que rien ne le signale.
+   */
+  function xpMaximum() {
+    let max = 0;
+    for (const m of mods()) {
+      if (m.introduction || m.bonus || !m.lecons.length) continue;
+      max += XP_MODULE;                              // tous ses chapitres
+      max += estCert(m) ? XP_CERT : XP_MOD;          // et le module termine
+    }
+    return max;
+  }
+
+  /**
+   * ── ⛔ LES PALIERS SE DERIVENT DU MAXIMUM, ILS NE SONT PLUS FIXES ─────────
+   *
+   * ⚠️ DEFAUT MESURE LE 14/10 : ils montaient a 8200 XP, calibres sur l ancien
+   * calcul qui donnait 100 XP par chapitre, soit 6300. Depuis que chaque module
+   * vaut 100, le maximum atteignable est tombe a 3150. ⛔ Les trois derniers
+   * paliers etaient donc INATTEIGNABLES, et un eleve ayant tout termine serait
+   * reste au troisieme niveau sur sept, sans qu aucune erreur ne le dise.
+   *
+   * ⚠️ Les NOMS sont un choix editorial et ne bougent pas. Les seuils, eux,
+   * sont des fractions du maximum : ils suivent le parcours quoi qu il arrive.
+   */
+  const NOMS_NIVEAUX = ['Découvrir', 'Psychologie', 'Méthode', 'Outils',
+    'Discipline', 'Financé', 'Durer'];
+  const niveaux = () => {
+    const max = xpMaximum();
+    return NOMS_NIVEAUX.map((nom, i) => ({
+      nom,
+      // ⚠️ Le premier a 0, le dernier au maximum : on atteint le sommet en
+      // terminant le parcours, et pas avant.
+      xp: Math.round((max * i) / (NOMS_NIVEAUX.length - 1)),
+    }));
+  };
+  /**
+   * ⛔ `niveaux()` EST UNE FONCTION, PAS UNE CONSTANTE. ⚠️ Fige au chargement,
+   * le tableau n aurait plus suivi les donnees : ajouter un module n aurait
+   * rien change aux paliers, et la derivation n aurait ete qu une apparence.
+   */
+
+  /* ══ LES TROIS CONDITIONS DE PASSAGE DE NIVEAU ════════════════════════════ */
+  /**
+   * ── ⛔ TROIS SOURCES, AUCUNE CONSTRUITE, AUCUNE QUI OUVRE PAR DEFAUT ──────
+   *
+   * Passer d un niveau au suivant demande les TROIS, pas deux sur trois :
+   *
+   *   1. l eleve a TOUT PAYE      l info vit dans le tableur de Manu
+   *   2. il a VALIDE son quiz     80 % minimum
+   *   3. il a rempli 20 SEANCES   dans son journal
+   *
+   * ⛔ AUCUNE DES TROIS NE SE MESURE AUJOURD HUI. Le lien au tableur n existe
+   * pas, les quiz n existent pas, et le comptage des seances appartient a la
+   * refonte du journal. ⚠️ Chacune est donc isolee derriere une fonction qui
+   * rendra un jour la vraie valeur : un futur lot n a qu a la remplir.
+   *
+   * ⛔ ET UNE SOURCE ABSENTE FERME, ELLE N OUVRE PAS. C est la regle la plus
+   * importante de ce bloc : un `?? true` quelque part donnerait l acces a tout
+   * le monde, et personne ne s en apercevrait avant qu un eleve non paye ne
+   * voie le module 07. ⚠️ `etat` vaut `'inconnu'` tant que la source se tait,
+   * et `'inconnu'` ne passe jamais pour `'rempli'`.
+   */
+  const CONDITIONS = [
+    {
+      cle: 'paiement',
+      /**
+       * ⛔ A REMPLIR : lire l etat de paiement dans le tableur de Manu.
+       * ⚠️ Chemin releve le 14/10 dans `_contenu-formation/releve-paiement-et-
+       * seances.md` : colonne AC du tableur, qui porte le MONTANT et non un
+       * etat. Il faudra une action lecture seule dans le dispatcher Apps
+       * Script, appelee cote SERVEUR, jamais depuis le navigateur.
+       */
+      lire: () => ({ etat: 'inconnu' }),
+      message: () => 'Ton accès au niveau suivant n’est pas encore ouvert.',
+      action: 'Écris à ton coach',
+    },
+    {
+      cle: 'quiz',
+      /**
+       * ⛔ A REMPLIR : le score du quiz du dernier module du niveau, 80 % mini.
+       * ⚠️ Les quiz n existent pas encore. Specification dans
+       * `_contenu-formation/specification-quiz.md`.
+       */
+      lire: () => ({ etat: 'a_venir' }),
+      /**
+       * ⚠️ « A VENIR » N EST PAS UN ECHEC, et la formulation le dit. ⛔ Un eleve
+       * qui lirait « quiz non valide » alors qu aucun quiz n existe croirait a
+       * un defaut et ecrirait au coach pour rien.
+       * ⛔ TEXTE PROPOSE, pas fige : il est publie au nom de Trader 360.
+       */
+      message: () => 'Le quiz de fin de niveau arrive bientôt. Rien à faire pour l’instant.',
+      action: null,
+    },
+    {
+      cle: 'seances',
+      /**
+       * ⛔ A REMPLIR : compter les seances remplies dans `journal_entries`.
+       * ⚠️ Quatre questions restent ouvertes, relevees le 14/10 : ce qu est une
+       * seance remplie, si les journees `no_trade` comptent, vingt d affilee ou
+       * vingt en tout, et ce qui se passe si l eleve en efface.
+       * ⛔ Rattache a la refonte du journal, pas a l espace formation.
+       */
+      lire: () => ({ etat: 'inconnu', faites: null, requis: 20 }),
+      message: (v) => (v.faites == null
+        ? 'Il te faut 20 séances remplies dans ton journal.'
+        : `Il te reste ${Math.max(0, v.requis - v.faites)} séance(s) à remplir dans ton journal.`),
+      action: 'Ouvrir mon journal',
+    },
   ];
+
+  /**
+   * L etat des trois conditions, et ce qui bloque.
+   * @return {{ouvert:boolean, manquantes:Array}}
+   */
+  function conditionsNiveau() {
+    const manquantes = [];
+    for (const c of CONDITIONS) {
+      const v = c.lire();
+      // ⛔ SEUL `'rempli'` OUVRE. `'inconnu'`, `'a_venir'`, `'manquant'` et
+      // toute valeur inattendue ferment : c est le defaut qui protege.
+      if (v.etat !== 'rempli') {
+        manquantes.push({ cle: c.cle, etat: v.etat, texte: c.message(v), action: c.action });
+      }
+    }
+    return { ouvert: manquantes.length === 0, manquantes };
+  }
+
+  /**
+   * La cle interne d un module. ⚠️ `numero` est ce que l ELEVE lit, « 7 bis »,
+   * alors que les niveaux sont declares sur les cles « 07bis ».
+   */
+  const cleModule = (m) => String(m.numero).replace(/\s+/g, '').padStart(2, '0')
+    .replace(/^0*(\d)bis$/, '0$1bis');
 
   const mods = () => D().MODULES;
   const totalChap = () => D().total();
@@ -658,7 +803,7 @@
   }
   function niveauDe(x) {
     let i = 0;
-    NIVEAUX.forEach((n, k) => { if (x >= n.xp) i = k; });
+    niveaux().forEach((n, k) => { if (x >= n.xp) i = k; });
     return i;
   }
 
@@ -782,7 +927,7 @@
     const a = $('chipXp');
     const b = $('chipLvl');
     if (a) a.textContent = `${x.toLocaleString('fr-FR')} XP`;
-    if (b) b.textContent = NIVEAUX[niveauDe(x)].nom;
+    if (b) b.textContent = niveaux()[niveauDe(x)].nom;
   }
 
   function animerBarres() {
@@ -835,8 +980,9 @@
     const pct = total ? Math.round((faites / total) * 100) : 0;
     const x = xpTotal();
     const li = niveauDe(x);
-    const niv = NIVEAUX[li];
-    const suiv = NIVEAUX[li + 1];
+    const N = niveaux();
+    const niv = N[li];
+    const suiv = N[li + 1];
     const pctNiv = suiv ? Math.round(((x - niv.xp) / (suiv.xp - niv.xp)) * 100) : 100;
     const modsOk = M.filter(moduleFini).length;
     const pr = prochain();
@@ -876,7 +1022,7 @@
             <div class="val"><div><strong class="mono">${pct}<small style="font-size:.5em">%</small></strong><span>du parcours</span></div></div>
           </div>
           <div class="ring-side">
-            <div class="eyebrow" style="font-size:11px">Niveau ${li + 1} / ${NIVEAUX.length}</div>
+            <div class="eyebrow" style="font-size:11px">Niveau ${li + 1} / ${N.length}</div>
             <div class="big">${txt(niv.nom)}</div>
             <div class="small">${suiv
               ? `<span class="mono">${(suiv.xp - x).toLocaleString('fr-FR')} XP</span> avant <b style="color:var(--ink);font-weight:600">${txt(suiv.nom)}</b>`
@@ -886,8 +1032,8 @@
         <div class="lvl-bar">
           <div class="head"><span>Expérience</span><b class="mono">${x.toLocaleString('fr-FR')}${suiv ? ` / ${suiv.xp.toLocaleString('fr-FR')}` : ''} XP</b></div>
           <div class="bar"><i data-w="${pctNiv}"></i></div>
-          <div class="ladder" style="margin-top:12px" aria-hidden="true">${NIVEAUX.map((l, k) => `<span class="${k <= li ? 'on' : ''}"></span>`).join('')}</div>
-          <div class="ladder-labels" aria-hidden="true"><span>${txt(NIVEAUX[0].nom)}</span><span>${txt(NIVEAUX[NIVEAUX.length - 1].nom)}</span></div>
+          <div class="ladder" style="margin-top:12px" aria-hidden="true">${N.map((l, k) => `<span class="${k <= li ? 'on' : ''}"></span>`).join('')}</div>
+          <div class="ladder-labels" aria-hidden="true"><span>${txt(N[0].nom)}</span><span>${txt(N[N.length - 1].nom)}</span></div>
         </div>
         <div class="stat-row">
           <div class="stat"><div class="k">Chapitres</div><div class="v">${faites}<span style="color:var(--ink-mute);font-weight:400">/${total}</span></div></div>
@@ -908,18 +1054,39 @@
       </div>
       <div class="grid">
         ${M.map((m, i) => {
+          /**
+           * ⛔ LE VERROU DE NIVEAU S AJOUTE A CELUI DE LA CERTIFICATION.
+           * ⚠️ Un module d un niveau non ouvert se verrouille, et l ecran dit
+           * LAQUELLE des trois conditions manque : « repasse ton quiz », « il
+           * te reste 7 seances » et « ton acces n est pas ouvert » n appellent
+           * pas la meme action, et les confondre ferait ecrire au coach pour
+           * rien.
+           */
           const verrou = estCert(m) && !certOuverte();
+          /**
+           * ⛔ LE VERROU DE NIVEAU, distinct de celui de la certification.
+           * ⚠️ Il ne s applique qu au PREMIER module d un niveau que l eleve n a
+           * pas encore ouvert : verrouiller tout le niveau cacherait son contenu
+           * alors que l eleve doit voir ce qui l attend. ⛔ Et le bonus n est
+           * jamais verrouille : il est hors parcours.
+           */
+          const niv = D().niveauDuModule(cleModule(m));
+          const premierDuNiveau = niv && niv.modules[0] === cleModule(m);
+          const cond = (premierDuNiveau && niv.cle !== 'debutant' && !m.bonus)
+            ? conditionsNiveau() : { ouvert: true, manquantes: [] };
+          const verrouNiveau = !cond.ouvert;
           const fini = moduleFini(m);
           const d = faitesDe(m);
           const pp = pctDe(m);
           // ⚠️ Un module SANS chapitre n est pas « a commencer » : il attend
           // l import Vimeo. ⛔ Le dire, plutot que d afficher 0 / 0.
           const vide = m.lecons.length === 0 && !verrou;
-          const pastille = verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
+          const pastille = verrouNiveau ? `<span class="pill">${I.lock} Niveau ${txt(niv.nom)}</span>`
+            : verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
             : vide ? '<span class="pill">Leçons à venir</span>'
               : fini ? `<span class="pill ok">${I.check} Validé</span>`
                 : d ? '<span class="pill go">En cours</span>' : '<span class="pill">À commencer</span>';
-          const inerte = verrou || vide;
+          const inerte = verrou || vide || verrouNiveau;
           return `<button type="button" class="mod ${inerte ? 'locked' : ''} ${i === premierOuvert && d ? 'current' : ''}"
             ${inerte ? 'aria-disabled="true"' : ''} data-mod="${i}">
             ${pastille}
@@ -927,8 +1094,10 @@
             <h3>${txt(m.titre)}</h3>
             <p>${m.description ? txt(m.description) : '<em style="color:var(--ink-mute)">En attente de description.</em>'}</p>
             <div class="foot">
-              <div class="meta"><span>${verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
-                : vide ? 'Chapitres à venir' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
+              <div class="meta"><span>${verrouNiveau
+                ? cond.manquantes.map((x) => txt(x.texte)).join('<br>')
+                : verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
+                  : vide ? 'Chapitres à venir' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
               <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}"></i></div>
             </div>
           </button>`;
@@ -1226,12 +1395,12 @@
       const b = estCert(m) ? badges()[badges().length - 1] : badges().find((z) => z.id === `m${m.numero}`);
       celebrer(b, estCert(m) ? 'Parcours certifié' : `Module ${m.numero} validé`,
         `+${estCert(m) ? XP_CERT : XP_MOD} XP de bonus.`
-        + (niveauApres > niveauAvant ? ` Tu passes au niveau ${NIVEAUX[niveauApres].nom}.` : ''), mi);
+        + (niveauApres > niveauAvant ? ` Tu passes au niveau ${niveaux()[niveauApres].nom}.` : ''), mi);
       return;
     }
     if (niveauApres > niveauAvant) {
       await rendreModule(mi, ci);
-      celebrer({ id: 'lvl', num: niveauApres + 1 }, `Niveau ${NIVEAUX[niveauApres].nom}`,
+      celebrer({ id: 'lvl', num: niveauApres + 1 }, `Niveau ${niveaux()[niveauApres].nom}`,
         'Tu as franchi une nouvelle étape du parcours.', mi);
       return;
     }
@@ -1418,7 +1587,7 @@
     marquerBienvenueVue,
     // ⚠️ Exposes pour les sondes : elles doivent pouvoir lire le CALCUL, pas le
     // deviner. ⛔ Aucun d eux n ECRIT quoi que ce soit.
-    _calcul: { xpTotal, niveauDe, badges, serie, NIVEAUX, XP_MODULE, partsXp, xpDe, XP_MOD, XP_CERT },
+    _calcul: { xpTotal, niveauDe, badges, serie, niveaux, xpMaximum, conditionsNiveau, CONDITIONS, XP_MODULE, partsXp, xpDe, XP_MOD, XP_CERT },
   };
   window.Formation = Formation;
 })();
