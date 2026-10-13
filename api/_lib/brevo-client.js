@@ -10,7 +10,9 @@
 //
 // Deux listes gérées, aux régimes OPPOSÉS :
 //   - LIST_NAME (membres)          : synchronisée depuis le tableur par syncList()
-//   - PROSPECTS_LIST_NAME          : alimentée À LA MAIN, JAMAIS synchronisée
+//   - PROSPECTS_LIST_NAME          : JAMAIS synchronisée. Alimentée à la main dans
+//                                    Brevo, ET par ajouts unitaires depuis le
+//                                    formulaire public du site. Voir plus bas.
 // ========================================
 
 const BREVO_BASE = 'https://api.brevo.com/v3';
@@ -20,10 +22,27 @@ const BREVO_BASE = 'https://api.brevo.com/v3';
 // écrasée au prochain sync.
 export const LIST_NAME = 'BRIEF QUOTIDIEN T360 (auto)';
 
-// Liste prospects. PAS de suffixe "(auto)" À DESSEIN : contrairement à la liste
-// membres, elle est alimentée À LA MAIN dans l'interface Brevo et n'est JAMAIS
-// synchronisée. Lui appliquer syncList() la viderait pour la conformer au tableur,
-// qui ne contient que des élèves.
+// Liste prospects (identifiant 18). PAS de suffixe "(auto)" À DESSEIN : contrairement
+// à la liste membres, elle n'est JAMAIS synchronisée. Lui appliquer syncList() la
+// viderait pour la conformer au tableur, qui ne contient que des élèves.
+//
+// ═══ DEUX RÉGIMES À NE PAS CONFONDRE ═══
+//
+// ⛔ INTERDIT : SYNCHRONISATION DE MASSE. Aucun script ne doit aligner cette liste sur
+//    une source extérieure, ni la vider, ni en retirer qui que ce soit pour la
+//    conformer à quoi que ce soit. C'est le danger que cette note protège depuis le
+//    début : le tableur ne contient que des élèves, et une synchronisation effacerait
+//    tous les prospects.
+//
+// ✅ AUTORISÉ : AJOUTS UNITAIRES depuis le formulaire public du site. Le site ajoute
+//    une adresse à la fois, sur inscription volontaire, via POST /v3/contacts avec
+//    updateEnabled. Rien n'est comparé, rien n'est effacé, rien n'est aligné.
+//    Source : src/pages/api/brief.ts et outils/brief-rejouer.mjs, dépôt trader360-site.
+//    Destination tranchée par Nadir.
+//
+// ⚠️ POURQUOI C'EST ÉCRIT ICI. Sans cette distinction, quelqu'un tombant un jour sur
+//    des contacts qu'aucune main n'a saisis les prendrait pour une anomalie et les
+//    supprimerait. Ce ne sont pas des anomalies : ce sont des inscriptions.
 export const PROSPECTS_LIST_NAME = 'BRIEF PROSPECTS T360';
 
 const LIST_FOLDER_ID = 1;
