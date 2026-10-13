@@ -63,7 +63,17 @@ function lireLearnyBox() {
       'TUTO "IMBALANCE"': '9.3' };
     let numero; let titre;
     if (BONUS[brut]) { numero = BONUS[brut]; titre = brut; }
-    else if (m) { numero = m[1].trim(); titre = m[2].trim(); }
+    else if (m) {
+      numero = m[1].trim(); titre = m[2].trim();
+      /**
+       * ⛔ `7bis Intro` SE LISAIT « numero 7, titre bis Intro ». ⚠️ Le motif
+       * n acceptait que `Bis` avec une majuscule, hérité de `5.3 Bis` ; en
+       * minuscules, « bis » retombait dans le titre et les quatre chapitres du
+       * module 7 bis se rattachaient au module 07.
+       */
+      const bis = titre.match(/^bis\s*(.*)$/i);
+      if (bis) { numero = `${numero}bis ${bis[1].split(/\s+/)[0]}`.trim(); titre = bis[1].replace(/^\S+\s*[-\u2013:]?\s*/, '').trim(); }
+    }
     else continue;
 
     const paras = corps.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
@@ -105,7 +115,9 @@ function lireLearnyBox() {
 /* ══ 2. LES CHAPITRES DU DEPOT ════════════════════════════════════════════ */
 function lireDepot() {
   const out = {};
-  for (const b of SRC.matchAll(/'(\d\d)'\s*:\s*\[([\s\S]*?)\n\s*\]/g)) {
+  // ⛔ `'07bis'` N EST PAS UNE CLE A DEUX CHIFFRES. ⚠️ Un motif `\d\d` ne la
+  // voyait pas, et le module entier disparaissait de l appariement sans erreur.
+  for (const b of SRC.matchAll(/'(\d\d(?:bis)?)'\s*:\s*\[([\s\S]*?)\n\s*\]/g)) {
     out[b[1]] = [...b[2].matchAll(/\{\s*id:\s*'([^']*)',\s*titre:\s*"((?:[^"\\]|\\.)*)"/g)]
       .map((m) => ({ id: m[1], titre: m[2].replace(/\\"/g, '"') }));
   }
@@ -160,9 +172,18 @@ const sansVideo = [];    // entrees LearnyBox sans chapitre en face
 const estQuiz = (e) => /\bquiz{1,2}\b/i.test(e.titre) || /\bquiz{1,2}\b/i.test(e.numero);
 for (const mod of Object.keys(depot).sort()) {
   if (mod === '00' || mod === '10') continue;
-  const num = String(Number(mod));
-  const siennes = lb.filter((x) => x.numero === num || x.numero.startsWith(`${num}.`)
-    || (num === '7' && /^7\s*bis/.test(x.numero)));
+  /**
+   * ⛔ LA CLE DU MODULE N EST PLUS FORCEMENT UN NOMBRE. ⚠️ Depuis que le 7 bis
+   * est autonome, sa cle est `'07bis'` et `Number('07bis')` rend `NaN` : aucune
+   * entree LearnyBox ne correspondait, et ses quatre chapitres perdaient leur
+   * description en silence. Le fichier engendre passait de 63 a 59 entrees,
+   * sans une erreur.
+   */
+  const estBis = /bis$/i.test(mod);
+  const num = estBis ? '7bis' : String(Number(mod));
+  const siennes = estBis
+    ? lb.filter((x) => /^7\s*bis/i.test(x.numero))
+    : lb.filter((x) => x.numero === num || x.numero.startsWith(`${num}.`));
   const libres = depot[mod].slice();
   for (const e of siennes) {
     if (estQuiz(e)) { sansVideo.push(e); continue; }
@@ -254,13 +275,19 @@ const descMod = {};
  */
 const sections = LBM.split(/\n## /).map((s, i) => (i === 0 ? s : `## ${s}`));
 for (const sec of sections) {
-  const tete = sec.match(/^## Module (\d+)\s*(?:bis)?\s*:/);
+  /**
+   * ⛔ `Module 7` ET `Module 7bis` SONT DEUX MODULES. ⚠️ Un motif qui rendait
+   * `7` pour les deux faisait ecraser la description du 07 par celle du 7 bis,
+   * silencieusement : les deux cles etaient identiques et la derniere gagnait.
+   */
+  const tete = sec.match(/^## Module (\d+)(\s*bis)?\s*:/i);
   if (!tete) continue;
-  const m = [null, tete[1], sec.slice(sec.indexOf('\n'))];
+  const cle = tete[2] ? '07bis' : tete[1].padStart(2, '0');
+  const m = [null, cle, sec.slice(sec.indexOf('\n'))];
   const paras = m[2].split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
   // ⚠️ Le premier paragraphe qui n est ni une annotation ni un bloc en gras.
   const d = paras.find((x) => !/^[⚠⛔]/.test(x) && !/^\*\*/.test(x));
-  if (d) descMod[m[1].padStart(2, '0')] = d.replace(/\s*\n\s*/g, ' ').trim();
+  if (d) descMod[m[1]] = d.replace(/\s*\n\s*/g, ' ').trim();
 }
 console.log(`\n  ══ 4. LES DESCRIPTIONS DE MODULE ══`);
 console.log(`     ${Object.keys(descMod).length} description(s) de module lues : `
@@ -291,7 +318,15 @@ if (ECRIRE) {
      */
     const motif = new RegExp(`(\n\\s*'${num}':\\s*)("(?:[^"\\\\]|\\\\.)*"|'(?:[^'\\\\]|\\\\.)*')`);
     if (motif.test(t)) t = t.replace(motif, `$1${JSON.stringify(d)}`);
-    else console.log(`     ⚠️ module ${num} : clé introuvable dans DESCRIPTIONS, non remplacée`);
+    else {
+      // ⛔ `07bis` n existe pas encore dans le bloc : on l INSERE avant `'08'`,
+      // a sa place dans l ordre du parcours.
+      const ancre = "\n    '08':";
+      if (t.includes(ancre)) {
+        t = t.replace(ancre, `\n    '${num}': ${JSON.stringify(d)},${ancre}`);
+        console.log(`     ⚠️ module ${num} : clé absente, insérée`);
+      } else console.log(`     ⛔ module ${num} : impossible à poser`);
+    }
   }
   writeFileSync('assets/formation-donnees.js', t, 'utf8');
   console.log('\n  ⇒ assets/formation-donnees.js réécrit.');

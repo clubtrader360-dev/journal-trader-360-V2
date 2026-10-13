@@ -596,7 +596,9 @@
       if (i >= 0) {
         // ⛔ L INTRODUCTION NE RAPPORTE RIEN. Elle ne compte pas pour la
         // certification non plus : la video de bienvenue n est pas un acquis.
-        if (m.introduction) return 0;
+        // ⛔ L INTRODUCTION et LE BONUS rapportent zero. ⚠️ Le bonus reste
+        // visible : zero XP ne veut pas dire cache.
+        if (m.introduction || m.bonus) return 0;
         return partsXp(m.lecons.length)[i];
       }
     }
@@ -627,7 +629,14 @@
    * ne peut pas encore jouer, sa liste de domaines Vimeo n etant pas confirmee :
    * le certificat deviendrait inatteignable.
    */
-  const certOuverte = () => mods().filter((m) => !estCert(m) && !estIntro(m)).every(moduleFini);
+  const estBonus = (m) => !!m.bonus;
+  /**
+   * ⛔ NI L INTRODUCTION NI LE BONUS ne conditionnent la certification.
+   * ⚠️ Le module 9 est hors parcours : exiger ses trois chapitres pour le
+   * certificat en ferait un passage oblige, ce qu un bonus n est pas.
+   */
+  const certOuverte = () => mods()
+    .filter((m) => !estCert(m) && !estIntro(m) && !estBonus(m)).every(moduleFini);
   const nbFaites = () => D().SUITE.filter((l) => estVue(l.id)).length;
 
   function xpTotal() {
@@ -640,9 +649,11 @@
     let x = 0;
     mods().forEach((m) => {
       const parts = partsXp(m.lecons.length);
-      m.lecons.forEach((l, i) => { if (estVue(l.id) && !m.introduction) x += parts[i]; });
+      m.lecons.forEach((l, i) => { if (estVue(l.id) && !m.introduction && !m.bonus) x += parts[i]; });
     });
-    mods().forEach((m) => { if (moduleFini(m) && !m.introduction) x += estCert(m) ? XP_CERT : XP_MOD; });
+    mods().forEach((m) => {
+      if (moduleFini(m) && !m.introduction && !m.bonus) x += estCert(m) ? XP_CERT : XP_MOD;
+    });
     return x;
   }
   function niveauDe(x) {

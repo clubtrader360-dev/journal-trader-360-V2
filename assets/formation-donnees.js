@@ -246,7 +246,6 @@
       video: null, description: null, provisoire: true, minutes: 8 },
   ],
   '07': [
-    // MODULE 7
     { id: 'm07-l0', titre: "Gérer l'après-challenge et construire sa rentabilité",
       video: null, description: null, provisoire: true, minutes: 4 },
     { id: 'm07-l1', titre: "Découvrir le fonctionnement des prop firms",
@@ -265,7 +264,24 @@
       video: null, description: null, provisoire: true, minutes: 16 },
     { id: 'm07-l8', titre: "Consolider son mindset après la réussite du challenge",
       video: null, description: null, provisoire: true, minutes: 9 },
-    // MODULE 7BIS
+  ],
+  /**
+   * ── ⛔ LE MODULE 7 BIS, AUTONOME DEPUIS LE LOT 14 ─────────────────────────
+   *
+   * Ses quatre chapitres etaient ranges dans le module 07, qui en comptait 13.
+   * ⚠️ LearnyBox le presente a l eleve comme un MODULE : titre propre, intro
+   * « 7bis Intro », description au sommaire. Il le connait comme un module, il
+   * doit le retrouver comme un module.
+   *
+   * ⛔ LES IDENTIFIANTS NE CHANGENT PAS : `m07-l9` a `m07-l12` restent tels
+   * quels, sous leur nouveau module. ⚠️ C est ce qui rend ce redecoupage sans
+   * risque : la progression est enregistree par `lecon_id` dans
+   * `formation_progression`, et le module n est qu un regroupement d affichage.
+   * ⛔ Les renumeroter en `m7b-l0` ferait perdre toute progression deja
+   * enregistree sur ces quatre chapitres, en silence : les lignes resteraient
+   * en base, orphelines, et l eleve verrait quatre chapitres redevenus a faire.
+   */
+  '07bis': [
     { id: 'm07-l9', titre: "Structurer son activité de trader après le challenge",
       video: null, description: null, provisoire: true, groupe: '7 bis', minutes: 2 },
     { id: 'm07-l10', titre: "Comprendre le fonctionnement du payout et construire son matelas de sécurité",
@@ -275,6 +291,7 @@
     { id: 'm07-l12', titre: "Passer en live avec discipline et professionnalisme",
       video: null, description: null, provisoire: true, groupe: '7 bis', minutes: 5 },
   ],
+
   '08': [
     { id: 'm08-l0', titre: "Comprendre la fiscalité du trader prop firm",
       video: null, description: null, provisoire: true, minutes: 5 },
@@ -307,7 +324,8 @@
     '04': "Dans ce module, tu vas découvrir les outils que tu vas utiliser tous les jours : la plateforme sur laquelle tu analyses le marché, et celle sur laquelle tu passes tes trades. L'objectif, c'est que tu comprennes où tu mets les pieds et que tu sois à l'aise techniquement dès le départ.",
     '05': "Dans ce module, tu vas découvrir la méthode TRADER 360, une approche complète et structurée qui te guide pas à pas dans ta progression. Du mental à la technique, de la préparation à l'exécution, tout est conçu pour te rendre autonome et performant sur le long terme.",
     '06': "Dans ce module, tu vas découvrir l'importance capitale de la psychologie dans le trading. Comprendre comment tes émotions, tes biais et ta gestion mentale influencent tes décisions est la clé pour passer d'un trader impulsif à un trader discipliné et performant.",
-    '07': "Dans ce module, tu vas découvrir les étapes clés à suivre après avoir réussi ou terminé ton challenge prop firm. Tu apprendras comment consolider tes acquis, gérer ta progression, et préparer les prochaines étapes pour continuer à évoluer dans le trading.",
+    '07': "Dans ce module, tu vas apprendre toutes les étapes pour devenir un trader propfirm financé.",
+    '07bis': "Dans ce module, tu vas découvrir les étapes clés à suivre après avoir réussi ou terminé ton challenge prop firm. Tu apprendras comment consolider tes acquis, gérer ta progression, et préparer les prochaines étapes pour continuer à évoluer dans le trading.",
     '08': "Dans ce module, tu vas comprendre les bases de la fiscalité applicable au trading, les obligations légales, et les bonnes pratiques pour optimiser ta situation fiscale tout en restant en règle.",
     '09': "Aucune description dans LearnyBox.",
     '10': 'La validation du parcours, une fois les neuf modules précédents traversés.',
@@ -380,10 +398,6 @@ const CONTENU_CHAPITRES = {
   'm06-l2': { description: "Dans ce chapitre, tu vas apprendre à reconnaître et maîtriser le stress, les émotions fortes et la cupidité, qui sont des pièges fréquents en trading. Tu découvriras des techniques efficaces pour garder la tête froide et prendre des décisions rationnelles, même sous pression.", learnybox: "6.2" },
   'm06-l3': { description: "Dans ce chapitre, tu apprendras à accueillir les aléas du trading comme une étape normale du parcours. Tu découvriras aussi l'importance de reconnaître ton niveau actuel pour progresser avec confiance et éviter les décisions précipitées.", learnybox: "6.3" },
   'm06-l4': { description: "Dans ce chapitre, tu vas apprendre à maintenir ta discipline sur le long terme grâce à un check-in émotionnel quotidien. Tu découvriras comment repérer et noter tes erreurs pour progresser de manière continue et garder le contrôle de tes décisions.", encart: "A la suite de ce dernier module, n'oublie pas cette partie :\n**MESSAGE DISCORD NIVEAU CONFIRMÉ**\nDANS SALON \"REGLES ET ANNONCES\"\nPOSTE : Message important pour tous les débutants", learnybox: "6.4" },
-  'm07-l9': { description: "Dans ce module, tu vas apprendre à structurer ton activité après le challenge : comprendre le système de payouts et bâtir ton matelas de sécurité, mettre en place un plan de scaling progressif, puis passer en live avec des routines pro pour faire croître ton capital sans dériver.", learnybox: "7" },
-  'm07-l10': { description: "Dans ce chapitre, tu découvriras comment fonctionne le payout (versement de tes gains) avec ta prop firm, et l'importance du matelas de sécurité pour protéger tes bénéfices tout en assurant la continuité de tes trades.", learnybox: "7" },
-  'm07-l11': { description: "Dans ce chapitre, tu vas apprendre à augmenter progressivement la taille de tes positions et ton capital investi grâce au scaling plan. C'est une stratégie essentielle pour faire croître ton compte en maîtrisant les risques.", learnybox: "7" },
-  'm07-l12': { description: "Dans ce chapitre, tu vas découvrir comment réussir ta transition du compte démo au trading en live. Tu apprendras les bonnes pratiques pour gérer le stress, rester discipliné, et appliquer ta méthode efficacement sur de l'argent réel.", learnybox: "7" },
   'm07-l0': { description: "Dans ce module, tu vas apprendre à décoder le fonctionnement des prop firms et leurs règles, éviter les pièges, configurer ta plateforme, t'entraîner efficacement et appliquer une stratégie claire pour valider en moins de 2 jours, puis gérer l'après-challenge (gestion du risque, retraits, scaling) afin de construire une rentabilité durable.", learnybox: "7.0" },
   'm07-l1': { description: "Dans ce chapitre, tu vas comprendre comment fonctionne le défi prop firm, quels sont les objectifs à atteindre, et pourquoi c'est une opportunité unique pour trader avec un capital important sans risquer ton propre argent.", learnybox: "7.1" },
   'm07-l2': { description: "Dans ce chapitre, tu découvriras les règles propres à chaque prop firm, leurs exigences particulières, ainsi que les pièges courants à éviter pour maximiser tes chances de réussite lors du challenge.", learnybox: "7.2" },
@@ -393,6 +407,10 @@ const CONTENU_CHAPITRES = {
   'm07-l6': { description: "Ce chapitre t'accompagne dans ta phase d'entraînement sur compte démo, tout en te guidant pour préparer ton mental afin d'aborder le challenge prop firm avec confiance et sérénité.", learnybox: "7.4" },
   'm07-l7': { description: "Dans ce chapitre, tu découvriras des stratégies efficaces et des conseils pratiques pour réussir rapidement ton challenge prop firm, en maximisant ta concentration et en minimisant les risques, pour valider ton compte en un temps record.", learnybox: "7.5" },
   'm07-l8': { description: "Dans ce chapitre, tu apprendras à gérer ton état d'esprit après le challenge prop firm, qu'il soit réussi ou non. Tu découvriras comment rester aligné, analyser tes résultats sereinement, et préparer ta prochaine étape avec confiance.", learnybox: "7.6" },
+  'm07-l9': { description: "Dans ce module, tu vas apprendre à structurer ton activité après le challenge : comprendre le système de payouts et bâtir ton matelas de sécurité, mettre en place un plan de scaling progressif, puis passer en live avec des routines pro pour faire croître ton capital sans dériver.", learnybox: "7bis Intro" },
+  'm07-l10': { description: "Dans ce chapitre, tu découvriras comment fonctionne le payout (versement de tes gains) avec ta prop firm, et l'importance du matelas de sécurité pour protéger tes bénéfices tout en assurant la continuité de tes trades.", learnybox: "7bis 1" },
+  'm07-l11': { description: "Dans ce chapitre, tu vas apprendre à augmenter progressivement la taille de tes positions et ton capital investi grâce au scaling plan. C'est une stratégie essentielle pour faire croître ton compte en maîtrisant les risques.", learnybox: "7bis 2" },
+  'm07-l12': { description: "Dans ce chapitre, tu vas découvrir comment réussir ta transition du compte démo au trading en live. Tu apprendras les bonnes pratiques pour gérer le stress, rester discipliné, et appliquer ta méthode efficacement sur de l'argent réel.", learnybox: "7bis 3" },
   'm08-l0': { description: "> Dans ce chapitre, tu vas comprendre comment sont imposés les revenus que tu > perçois d'une prop firm, et pourquoi ils ne relèvent pas du même régime que > ceux d'un trader pour compte propre. De quoi savoir ce que tu dois déclarer, et > à quel titre.", learnybox: "8.1" },
   'm08-l1': { description: "> Dans ce chapitre, tu vas découvrir quelles formes juridiques existent pour > exercer, ce qu'elles impliquent en cotisations et en déclarations, et à partir > de quel moment la question se pose vraiment. L'objectif est que tu saches quoi > demander à un comptable, pas que tu t'en passes.", learnybox: "8.2" },
   'm08-l2': { description: "> Dans ce chapitre, tu vas voir comment traiter ton activité de trading comme une > activité professionnelle : séparer tes comptes, tenir tes chiffres, et poser un > cadre qui tienne dans la durée. Le trading est un métier, et il s'organise > comme tel.", learnybox: "8.3" },
@@ -400,6 +418,23 @@ const CONTENU_CHAPITRES = {
   'm09-l1': { description: "> Ce bonus présente le programme membre et la façon dont tu peux recommander > Trader 360 autour de toi. Comment ça marche, ce que ça t'apporte, et ce qu'on > attend en retour.", learnybox: "9.2" },
   'm09-l2': { description: "> Ce bonus t'explique ce qu'est une imbalance, comment la repérer sur un > graphique, et ce qu'elle dit du comportement du marché. Une notion technique > qui complète la méthode.", learnybox: "9.3" },
 };
+
+  /**
+   * ── ⛔ LES TROIS NIVEAUX DU PARCOURS ──────────────────────────────────────
+   *
+   * Tranche par Nadir le 14/10. ⚠️ A partir du module 7, c est CONFIRME, meme
+   * si les couvertures du module 8 annoncent autre chose : les mentions
+   * contradictoires sur les images n y changent rien.
+   *
+   * ⛔ Le module 7 bis appartient au confirme, ses couvertures portent
+   * « PROGRAMME CONFIRME ». ⚠️ Le module 9, bonus, y figure aussi : il est
+   * accessible, mais il ne compte ni en XP ni dans la progression du niveau.
+   */
+  const NIVEAUX_PARCOURS = [
+    { cle: 'debutant', nom: 'Débutant', modules: ['01', '02', '03', '04'] },
+    { cle: 'intermediaire', nom: 'Intermédiaire', modules: ['05', '06'] },
+    { cle: 'confirme', nom: 'Confirmé', modules: ['07', '07bis', '08', '09', '10'] },
+  ];
 
   const MODULES = [
     /**
@@ -419,8 +454,23 @@ const CONTENU_CHAPITRES = {
     { numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: CHAPITRES['05'] },
     { numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: CHAPITRES['06'] },
     { numero: '07', titre: "Gérer l'après-challenge et structurer son activité", lecons: CHAPITRES['07'] },
+    /**
+     * ⛔ `numero: '7 bis'` est ce que l ELEVE lit, `'07bis'` est la cle interne.
+     * ⚠️ LearnyBox ecrit « 7bis », « 5.3 Bis » et « 4.2.2 » pour la meme idee de
+     * complement : trois formes. ⛔ Celle-ci suit le sommaire que l eleve
+     * connait, l harmonisation des trois reste a trancher par Nadir.
+     */
+    { numero: '7 bis', titre: 'Structurer son activité de trader après le challenge',
+      lecons: CHAPITRES['07bis'] },
     { numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: CHAPITRES['08'] },
-    { numero: '09', titre: 'Pour aller plus loin', lecons: CHAPITRES['09'] },
+    /**
+     * ⛔ LE MODULE 9 EST UN BONUS : ZERO XP, et hors progression.
+     * ⚠️ Trois chapitres a 33 XP contre douze a 8 dans le module 05 en
+     * faisaient de loin le chemin le plus rentable. ⛔ Un bonus ne doit pas
+     * etre un raccourci vers le niveau suivant.
+     * ⚠️ Il reste VISIBLE et accessible : zero XP ne veut pas dire cache.
+     */
+    { numero: '09', titre: 'Pour aller plus loin', lecons: CHAPITRES['09'], bonus: true },
     // ⛔ VERROUILLE tant que les neuf autres ne sont pas traverses, et SANS
     // chapitre : aucun dossier Vimeo ne lui correspond, et on ne lui en invente
     // pas. La certification est une condition, pas une lecon.
@@ -468,6 +518,10 @@ const CONTENU_CHAPITRES = {
   const racine = typeof window !== 'undefined' ? window : globalThis;
   racine.FormationDonnees = {
     MODULES,
+    NIVEAUX_PARCOURS,
+    /** Le niveau d un module, par son numero interne. `null` si inconnu. */
+    niveauDuModule: (numero) => NIVEAUX_PARCOURS
+      .find((n) => n.modules.includes(numero)) || null,
     PHRASES,
     SUITE,
     module: (numero) => MODULES.find((m) => m.numero === numero) || null,
