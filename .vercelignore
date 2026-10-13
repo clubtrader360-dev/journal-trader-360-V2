@@ -68,6 +68,19 @@
 # ── La base de connaissance de la formation ──
 *.pdf
 
+# ── ⛔ LE CONTENU DE LA FORMATION ──
+#
+# `_contenu-formation/` porte le releve manuel des 63 descriptions, fait
+# chapitre par chapitre par Nadir le 13/10, plus les specifications des quiz et
+# de la gamification. ⚠️ Il est versionne pour ne pas se perdre, et exclu du
+# televersement pour la meme raison que tout le reste : le dossier porte le
+# contenu pedagogique integral de la formation.
+#
+# ⚠️ Le motif `*.md` ci-dessus le couvre deja. ⛔ Il est nomme en plus, pour que
+# le jour ou quelqu un retire `*.md`, le contenu de la formation ne reparte pas
+# en ligne sans qu on y pense.
+_contenu-formation/
+
 # ── L'outillage de développement ──
 *.py
 .gitignore
