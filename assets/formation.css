@@ -757,3 +757,8 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 /* ── Le badge reste : le bouton qui le range ──────────────────────────────── */
 #formationApp .scene-badge__dire{max-width:40ch}
 #formationApp .scene-badge__ranger{margin-top:12px;pointer-events:auto}
+
+/* ── Le titre et la description AU-DESSUS de la video (retour du 14/10) ───── */
+#formationApp .lesson-desc{margin:-4px 0 0;color:var(--ink-soft);font-size:15.5px;line-height:1.6;max-width:70ch}
+#formationApp .lesson-note{display:flex;gap:10px;align-items:flex-start;margin:0;padding:10px 14px;border:1px dashed var(--gold-line);border-radius:12px;font-size:13.5px;color:var(--ink-soft);line-height:1.5}
+#formationApp .lesson-note b{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);padding-top:2px;flex-shrink:0}

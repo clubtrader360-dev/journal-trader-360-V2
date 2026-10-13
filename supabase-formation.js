@@ -1093,13 +1093,47 @@
      * doit voir ce qui l attend. ⚠️ Et le bonus n est jamais verrouille : il
      * est hors parcours, il ne rapporte rien, il ne conditionne rien.
      */
-    const premierDuNiveau = !!niveau && niveau.modules[0] === m.cle;
-    const soumis = premierDuNiveau && niveau.cle !== 'debutant' && !estBonus(m);
+    /**
+     * ── ⛔ TOUT LE NIVEAU EST VERROUILLE, BONUS COMPRIS ────────────────────
+     *
+     * ⚠️ RETOUR DE NADIR SUR L APERCU DU 14/10 : « le module 6 est cliquable
+     * alors qu il fait partie du niveau intermédiaire ; 7 bis, 8 et 9 sont
+     * confirmé, ça ne devrait pas être cliquable ». Le verrou ne portait que
+     * sur le PREMIER module du niveau, par mon choix de laisser voir la suite.
+     * ⛔ Ce n est pas le sien : un niveau fermé est fermé en entier, et le
+     * bonus suit son niveau. Les cartes restent visibles, avec leur cadenas.
+     */
+    const soumis = !!niveau && niveau.cle !== 'debutant' && !estIntro(m);
     const cond = soumis ? conditionsNiveau(niveau) : { ouvert: true, manquantes: [] };
     if (!cond.ouvert) return { ouvrable: false, cause: 'niveau', cond, niveau };
+    /**
+     * ── ⛔ ET UN MODULE N OUVRE QU APRES LE QUIZ DU PRECEDENT ──────────────
+     *
+     * Ses mots : « on avait dit qu il fallait minimum 80 % de réussite avant
+     * de pouvoir aller sur l autre module ». Le precedent est le module qui
+     * vient juste avant dans l ordre, Introduction exclue. ⚠️ Le bonus et la
+     * certification n y sont pas soumis : le bonus est un a-cote de son
+     * niveau, la certification a sa propre condition, tous les modules finis.
+     * ⛔ Un precedent SANS quiz n enferme pas : on ne verrouille pas sur une
+     * condition que l eleve ne peut pas remplir.
+     */
+    const precedent = precedentDe(m);
+    if (precedent && !estBonus(m) && !estCert(m)) {
+      const quiz = precedent.lecons.find((l) => l.quiz);
+      if (quiz && !estVue(quiz.id)) return { ouvrable: false, cause: 'quiz', cond, niveau, precedent };
+    }
     if (estCert(m) && !certOuverte()) return { ouvrable: false, cause: 'certification', cond, niveau };
     if (!m.lecons.length) return { ouvrable: false, cause: 'vide', cond, niveau };
     return { ouvrable: true, cause: null, cond, niveau };
+  }
+  /** Le module qui precede `m` dans le parcours, Introduction et bonus exclus. `null` pour le premier. */
+  function precedentDe(m) {
+    const M = mods();
+    const i = M.findIndex((x) => x.cle === m.cle);
+    for (let k = i - 1; k >= 0; k -= 1) {
+      if (!estIntro(M[k]) && !estBonus(M[k])) return M[k];
+    }
+    return null;
   }
 
   function xpTotal() {
@@ -1632,6 +1666,7 @@
           const e = etatModule(m);
           const verrou = e.cause === 'certification';
           const verrouNiveau = e.cause === 'niveau';
+          const verrouQuiz = e.cause === 'quiz';
           const vide = e.cause === 'vide';
           const niv = e.niveau;
           const cond = e.cond;
@@ -1639,6 +1674,7 @@
           const d = faitesDe(m);
           const pp = pctDe(m);
           const pastille = verrouNiveau ? `<span class="pill">${I.lock} Niveau ${txt(niv.nom)}</span>`
+            : verrouQuiz ? `<span class="pill">${I.lock} Après le quiz du module ${txt(e.precedent.numero)}</span>`
             : verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
             : vide ? '<span class="pill">Sans chapitre</span>'
               : fini ? `<span class="pill ok">${I.check} Validé</span>`
@@ -1654,6 +1690,7 @@
             <div class="foot">
               <div class="meta"><span>${verrouNiveau
                 ? cond.manquantes.map((x) => txt(x.texte)).join('<br>')
+                : verrouQuiz ? `Réussis le quiz du module ${txt(e.precedent.numero)} à 80 % ou plus`
                 : verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
                   : vide ? 'Aucun chapitre' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
               <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}" data-rail-module="${txt(m.cle)}"></i></div>
@@ -1910,6 +1947,11 @@
     if (!etat.ouvrable) {
       if (etat.cause === 'niveau') {
         montrerConditions(m, etat);
+      } else if (etat.cause === 'quiz') {
+        // ⚠️ On dit la condition ET on y mene : le quiz du module precedent.
+        toast(I.lock, `Réussis d’abord le quiz du module ${txt(etat.precedent.numero)} à 80 %.`);
+        const ou = trouverLecon(`m${etat.precedent.cle}-quiz`);
+        if (ou && _vueCourante.nom === 'accueil') rendreModule(ou[0], ou[1]);
       } else if (etat.cause === 'certification') {
         toast(I.lock, `Termine les modules 01 à ${txt(M[M.length - 2].numero)} pour débloquer la certification.`);
       } else {
@@ -2020,6 +2062,19 @@
      * page (liste, en-tete, navigation) est identique : c est un chapitre.
      */
     const colonne = c.quiz ? rendreQuiz(m, c, mi, ci) : `
+        <!-- ⚠️ LE TITRE ET LA DESCRIPTION AU-DESSUS DE LA VIDEO, retour de
+             Nadir du 14/10 : on lit de quoi parle le chapitre, puis on
+             regarde. Le bouton « Marquer comme terminé » reste avec le titre. -->
+        <div class="lesson-head">
+          <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length}</div><h2>${txt(c.titre)}</h2></div>
+          <div class="lesson-actions">
+            ${fini
+              ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
+              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
+          </div>
+        </div>
+        ${c.description ? `<p class="lesson-desc">${txt(c.description)}</p>` : ''}
+        ${(c.notes || []).map((n) => `<p class="lesson-note"><b>Note</b><span>${txt(n)}</span></p>`).join('')}
         <!-- ⚠️ L EMPLACEMENT DE LA MAQUETTE, et le lecteur le remplace au
              clic : voir poserLecteur. -->
         <div class="screen"><canvas id="chart"></canvas>
@@ -2036,18 +2091,6 @@
           </div></div>
           <span class="tag">M${txt(m.numero)} · ${txt(c.titre)}</span>
         </div>
-        <div class="lesson-head">
-          <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length}</div><h2>${txt(c.titre)}</h2></div>
-          <div class="lesson-actions">
-            ${fini
-              ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
-              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
-          </div>
-        </div>
-        ${c.description ? `<div class="card">
-          <h4>Ce chapitre</h4>
-          <p style="margin:0;color:var(--ink-soft)">${txt(c.description)}</p>
-        </div>` : ''}
         <div class="card notes">
           <h4>Mes notes</h4>
           <label for="formationNote" style="position:absolute;left:-9999px">Notes du chapitre</label>

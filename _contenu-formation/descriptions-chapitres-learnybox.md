@@ -673,11 +673,17 @@ Ce chapitre ouvre la partie plateforme : installer, paramétrer et maîtriser l'
 
 ## 7.3.1 Installer TOPSTEPX
 
+Dans ce chapitre, tu vas prendre en main TopstepX, la plateforme de Topstep, qui repose sur TradingView : choisir ton symbole en vérifiant qu'il est le même partout, poser la MM20, la VWAP et les bandes de Bollinger, et te servir de l'outil de position pour contrôler ton ratio avant d'entrer. Tu verras comment organiser ton écran avec l'outil « Commande », paramétrer un bracket qui place ton stop et ton objectif dès l'entrée, et surtout régler ton risque journalier avec « Liquider et bloquer », qui ferme la position et verrouille le compte pour la journée. Tu termineras par les types d'ordres, marché, limite, stop et trailing, et par le bouton BE qui sécurise ton trade en un clic.
+
+⚠️ Écrite par moi le 14/10 depuis la transcription Vimeo (`1229950309`, 11 min).
+⛔ Aucune description dans LearnyBox, seulement l'avertissement ci-dessous.
+⚠️ À valider par Nadir.
+
+**Note :**
 Fais bien attention de calculer tes lots au préalable car il n'y a pas la fonctionnalité sur topstepx! Pour se faire tu peux utiliser Tradingview avec le papertrading ou Tradovate si tu l'as, et également faire tes analyses sur ces 2 plateformes ou les indicateurs sont plus fiables.
 
-⛔ **Ce n'est pas une description, c'est un avertissement pratique.** ⚠️ À poser
-comme une note distincte, au même titre que celles de 3.1 et 5.8.2. ⛔ Et il
-manque une vraie description du chapitre.
+⛔ **L'avertissement est une note, pas une description** : posé comme celles de
+3.1 et 5.8.2, il disparaîtra le jour où la vidéo sera refaite.
 
 ⚠️ Trois relevés : « Pour se faire » au lieu de « Pour ce faire », « où les
 indicateurs » écrit « ou », et pas d'espace avant le point d'exclamation.

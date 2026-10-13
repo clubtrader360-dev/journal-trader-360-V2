@@ -107,7 +107,10 @@ function lireLearnyBox() {
      * maniere fiable un avertissement d une description, et un detecteur
      * approximatif reclasserait des descriptions legitimes.
      */
-    if (numero === '7.3.1' && description) { notes.unshift(description); description = null; }
+    // ⚠️ Depuis le 14/10, le fichier source porte l avertissement de 7.3.1
+    // sous `**Note :**`, et une vraie description au-dessus : le cas nomme
+    // n a plus lieu d etre. ⛔ On verifie qu il est bien lu comme une note.
+    if (numero === '7.3.1' && !notes.length) throw new Error('7.3.1 : l avertissement n est plus lu comme une note');
     blocs.push({ numero, titre, description, notes, sousTitre, encart });
   }
   return blocs;

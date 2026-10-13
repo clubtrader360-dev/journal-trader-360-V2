@@ -118,13 +118,21 @@ console.log('\n  ══ 2. CHAQUE DESCRIPTION SE RETROUVE DANS LA SOURCE ══'
 
 console.log('\n  ══ 3. LES CAS PARTICULIERS, NOMMÉS ══');
 {
+  /**
+   * ⚠️ DEPUIS LE 14/10, PLUS AUCUN CHAPITRE N ATTEND : les cinq qui n avaient
+   * rien dans LearnyBox (4.2.2, 5.3 Bis, 7.3, 7.3.1, 7.3.2) portent une
+   * description ecrite depuis la transcription Vimeo, marquee comme telle
+   * dans la source. ⛔ Decision de Nadir : aucune mention d attente a l ecran.
+   */
   const enAttente = Object.entries(pose).filter(([, c]) => !c.description).map(([id]) => id);
-  dire('⛔ CINQ chapitres sont en attente de description, pas inventés',
-    enAttente.length === 5, enAttente.join(', '));
-  const attendus = ['4.2.2', '5.3 Bis', '7.3', '7.3.1', '7.3.2'];
-  const numeros = enAttente.map((id) => pose[id].learnybox).sort();
-  dire('⛔ et ce sont bien ceux que la source annonce',
-    JSON.stringify(numeros) === JSON.stringify(attendus.sort()), numeros.join(', '));
+  dire('⛔ AUCUN chapitre sans description', enAttente.length === 0, enAttente.join(', ') || 'aucun');
+  const ecrits = ['4.2.2', '5.3 Bis', '7.3', '7.3.1', '7.3.2'];
+  const marques = ecrits.filter((n) => {
+    const i = LB.indexOf(`## ${n} `);
+    return i >= 0 && /Écrite par moi le 14\/10/.test(LB.slice(i, i + 2500));
+  });
+  dire('⛔ et les cinq écrites depuis Vimeo sont marquées comme telles dans la source',
+    marques.length === 5, marques.join(', '));
 
   const avecNotes = Object.entries(pose).filter(([, c]) => c.notes?.length);
   dire('⛔ TROIS notes distinctes, pas fondues dans les descriptions',

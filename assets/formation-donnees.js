@@ -402,7 +402,7 @@ const CONTENU_CHAPITRES = {
   'm07-l1': { description: "Dans ce chapitre, tu vas comprendre comment fonctionne le défi prop firm, quels sont les objectifs à atteindre, et pourquoi c'est une opportunité unique pour trader avec un capital important sans risquer ton propre argent.", learnybox: "7.1" },
   'm07-l2': { description: "Dans ce chapitre, tu découvriras les règles propres à chaque prop firm, leurs exigences particulières, ainsi que les pièges courants à éviter pour maximiser tes chances de réussite lors du challenge.", learnybox: "7.2" },
   'm07-l3': { description: "Ce chapitre ouvre la partie plateforme : installer, paramétrer et maîtriser l'outil sur lequel tu vas passer ton challenge, parce qu'en trading l'exécution, c'est la moitié de la réussite. Tu verras ce qui change d'une prop firm à l'autre : TopstepX, devenue la seule plateforme autorisée par Topstep, avec ses verrouillages de sécurité, et Tradovate, utilisée par Apex et Tradify. Les deux chapitres suivants te guident pas à pas sur chacune.", learnybox: "7.3" },
-  'm07-l4': { notes: ["Fais bien attention de calculer tes lots au préalable car il n'y a pas la fonctionnalité sur topstepx! Pour se faire tu peux utiliser Tradingview avec le papertrading ou Tradovate si tu l'as, et également faire tes analyses sur ces 2 plateformes ou les indicateurs sont plus fiables."], learnybox: "7.3.1" },
+  'm07-l4': { description: "Dans ce chapitre, tu vas prendre en main TopstepX, la plateforme de Topstep, qui repose sur TradingView : choisir ton symbole en vérifiant qu'il est le même partout, poser la MM20, la VWAP et les bandes de Bollinger, et te servir de l'outil de position pour contrôler ton ratio avant d'entrer. Tu verras comment organiser ton écran avec l'outil « Commande », paramétrer un bracket qui place ton stop et ton objectif dès l'entrée, et surtout régler ton risque journalier avec « Liquider et bloquer », qui ferme la position et verrouille le compte pour la journée. Tu termineras par les types d'ordres, marché, limite, stop et trailing, et par le bouton BE qui sécurise ton trade en un clic.", notes: ["Fais bien attention de calculer tes lots au préalable car il n'y a pas la fonctionnalité sur topstepx! Pour se faire tu peux utiliser Tradingview avec le papertrading ou Tradovate si tu l'as, et également faire tes analyses sur ces 2 plateformes ou les indicateurs sont plus fiables."], learnybox: "7.3.1" },
   'm07-l5': { description: "Dans ce chapitre, tu vas créer ton compte démo Tradovate et le configurer comme on trade : chandeliers japonais, bandes de Bollinger, EMA 20, VWAP, période 4 heures personnalisée, passage en micro contrats MES et l'outil de position pour vérifier ton ratio de 2 avant chaque entrée. Tu apprendras à trader avec le bracket, qui place ton stop et ton objectif automatiquement, puis sans, en plaçant toi-même tes ordres stop et limite, avec le réflexe à prendre : « Quitter marché » en fin de session pour ne laisser aucun ordre actif. Tu termineras par les rapports, les préférences, et le tracé du POC et de la clôture de la veille avec le TPO.", learnybox: "7.3.2" },
   'm07-l6': { description: "Ce chapitre t'accompagne dans ta phase d'entraînement sur compte démo, tout en te guidant pour préparer ton mental afin d'aborder le challenge prop firm avec confiance et sérénité.", learnybox: "7.4" },
   'm07-l7': { description: "Dans ce chapitre, tu découvriras des stratégies efficaces et des conseils pratiques pour réussir rapidement ton challenge prop firm, en maximisant ta concentration et en minimisant les risques, pour valider ton compte en un temps record.", learnybox: "7.5" },
@@ -418,6 +418,34 @@ const CONTENU_CHAPITRES = {
   'm09-l1': { description: "Ce bonus présente le programme membre et la façon dont tu peux recommander Trader 360 autour de toi. Comment ça marche, ce que ça t'apporte, et ce qu'on attend en retour.", learnybox: "9.2" },
   'm09-l2': { description: "Ce bonus t'explique ce qu'est une imbalance, comment la repérer sur un graphique, et ce qu'elle dit du comportement du marché. Une notion technique qui complète la méthode.", learnybox: "9.3" },
 };
+
+  /**
+   * ── ⛔ LES DESCRIPTIONS SONT POSEES SUR LES CHAPITRES, ICI ─────────────────
+   *
+   * ⚠️ DEFAUT VU PAR NADIR SUR L APERCU DU 14/10 : « je ne vois pas les
+   * descriptions des chapitres ». `CONTENU_CHAPITRES` existait, engendre,
+   * verifie par sa sonde, 63 entrees appariees, et ⛔ RIEN NE LE LISAIT.
+   * Chaque chapitre gardait `description: null`, et l ecran n affichait rien,
+   * sans erreur. C est le motif « module ecrit, teste, jamais cable », deja
+   * rencontre sur ce depot, et la sonde d import ne pouvait pas le voir : elle
+   * mesure le fichier produit, pas ce que la page en fait.
+   *
+   * ⛔ `sousTitre` et `encart` (4.3 et 6.4) ne sont PAS poses : ils decrivent
+   * un deblocage par Discord qui n existe pas dans le journal, Nadir tranche
+   * a la bascule. `notes` est pose : ce sont des avertissements sur la video.
+   */
+  Object.values(CHAPITRES).flat().forEach((l) => {
+    const c = CONTENU_CHAPITRES[l.id];
+    if (!c) return;
+    if (c.description && !l.description) l.description = c.description;
+    if (c.notes) l.notes = c.notes;
+  });
+  (function controlerLesDescriptions() {
+    const muets = Object.entries(CHAPITRES)
+      .filter(([cle]) => cle !== '00' && cle !== '10')
+      .flatMap(([, ls]) => ls).filter((l) => !l.description).map((l) => l.id);
+    if (muets.length) console.error('[DONNEES] ⛔ chapitre sans description :', muets);
+  }());
 
   /**
    * ── ⛔ LES TROIS NIVEAUX DU PARCOURS ──────────────────────────────────────
