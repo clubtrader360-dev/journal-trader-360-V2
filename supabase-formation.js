@@ -556,7 +556,53 @@
    *
    * ⚠️ Les baremes et les sept niveaux sont ceux de la maquette, au chiffre.
    */
-  const XP_CHAP = 100;
+  /**
+   * ── ⛔ CHAQUE MODULE VAUT 100 XP, DIVISES PAR SON NOMBRE DE CHAPITRES ──────
+   *
+   * Tranche par Nadir le 14/10. ⚠️ Un chapitre ne vaut donc pas la meme chose
+   * partout, et c est voulu : on recompense l AVANCEMENT, pas le temps passe.
+   * Un module de 12 chapitres ne rapporte pas plus qu un module de 3.
+   *
+   * ⛔ LES DIVISIONS NE TOMBENT PAS RONDES. Le module 1 a 7 chapitres, soit
+   * 14,28 chacun. ⚠️ Afficher une decimale est laid ; arrondir chapitre par
+   * chapitre fait que le module ne totalise plus 100 : 7 x 14 = 98.
+   *
+   * ⛔ ON REPARTIT DONC LES ARRONDIS. Chaque chapitre recoit la part entiere,
+   * et les unites restantes vont aux PREMIERS chapitres, un chacune. Pour 7
+   * chapitres : les deux premiers recoivent l unite restante, soit
+   * 15, 15, 14, 14, 14, 14, 14. Total 100.
+   *
+   * ⚠️ Les premiers plutot que les derniers : un eleve qui abandonne en route a
+   * encaisse la part la plus grande, et le dernier chapitre ne vaut jamais
+   * moins que les autres de plus d une unite.
+   */
+  const XP_MODULE = 100;
+
+  /**
+   * La part de chaque chapitre d un module, dans l ordre.
+   * @return {number[]} longueur = nombre de chapitres, somme = 100
+   */
+  function partsXp(nbChapitres) {
+    if (!nbChapitres) return [];
+    const base = Math.floor(XP_MODULE / nbChapitres);
+    const reste = XP_MODULE - base * nbChapitres;
+    return Array.from({ length: nbChapitres }, (_, i) => base + (i < reste ? 1 : 0));
+  }
+
+  /** Les XP d un chapitre, par son identifiant. ⚠️ Zero s il est introuvable. */
+  function xpDe(leconId) {
+    for (const m of mods()) {
+      const i = m.lecons.findIndex((l) => l.id === leconId);
+      if (i >= 0) {
+        // ⛔ L INTRODUCTION NE RAPPORTE RIEN. Elle ne compte pas pour la
+        // certification non plus : la video de bienvenue n est pas un acquis.
+        if (m.introduction) return 0;
+        return partsXp(m.lecons.length)[i];
+      }
+    }
+    return 0;
+  }
+
   const XP_MOD = 250;
   const XP_CERT = 1000;
   const NIVEAUX = [
@@ -585,8 +631,18 @@
   const nbFaites = () => D().SUITE.filter((l) => estVue(l.id)).length;
 
   function xpTotal() {
-    let x = nbFaites() * XP_CHAP;
-    mods().forEach((m) => { if (moduleFini(m)) x += estCert(m) ? XP_CERT : XP_MOD; });
+    /**
+     * ⛔ LA SOMME DES CHAPITRES VUS, chacun a sa propre valeur.
+     * ⚠️ L ancien calcul comptait 100 XP par chapitre, soit 6 300 pour le
+     * parcours. ⛔ Deux systemes qui comptent differemment seraient pires que
+     * pas de gamification : celui-ci est le seul.
+     */
+    let x = 0;
+    mods().forEach((m) => {
+      const parts = partsXp(m.lecons.length);
+      m.lecons.forEach((l, i) => { if (estVue(l.id) && !m.introduction) x += parts[i]; });
+    });
+    mods().forEach((m) => { if (moduleFini(m) && !m.introduction) x += estCert(m) ? XP_CERT : XP_MOD; });
     return x;
   }
   function niveauDe(x) {
@@ -1026,7 +1082,7 @@
       const dn = estVue(ch.id);
       return `${g}<button type="button" class="chap ${dn ? 'done' : ''}" data-chap="${k}" ${k === ci ? 'aria-current="true"' : ''}>
         <span class="dot">${dn ? I.check : String(k + 1).padStart(2, '0')}</span>
-        <span><span class="t">${txt(ch.titre)}</span><br><span class="s">${dn ? `Terminé · +${XP_CHAP} XP` : `+${XP_CHAP} XP`}</span></span></button>`;
+        <span><span class="t">${txt(ch.titre)}</span><br><span class="s">${dn ? `Terminé · +${xpDe(ch.id)} XP` : `+${xpDe(ch.id)} XP`}</span></span></button>`;
     }).join('');
 
     const prec = ci > 0 ? [mi, ci - 1] : (mi > 0 && M[mi - 1].lecons.length ? [mi - 1, M[mi - 1].lecons.length - 1] : null);
@@ -1060,7 +1116,7 @@
           <div class="lesson-actions">
             ${fini
               ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
-              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${XP_CHAP} XP</span></button>`}
+              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(ch.id)} XP</span></button>`}
           </div>
         </div>
         <!-- ⛔ AUCUNE DESCRIPTION INVENTEE. Nadir les fournira ; d ici la, le
@@ -1173,7 +1229,7 @@
       celebrer(neufs[0], neufs[0].t, neufs[0].d, mi);
       return;
     }
-    toast(`<span class="xp">+${XP_CHAP} XP</span>`, `${txt(c.titre)} terminé`);
+    toast(`<span class="xp">+${xpDe(c.id)} XP</span>`, `${txt(c.titre)} terminé`);
     const nx = m.lecons.findIndex((ch, k) => k > ci && !estVue(ch.id));
     await rendreModule(mi, nx > -1 ? nx : ci);
   }
@@ -1351,7 +1407,7 @@
     marquerBienvenueVue,
     // ⚠️ Exposes pour les sondes : elles doivent pouvoir lire le CALCUL, pas le
     // deviner. ⛔ Aucun d eux n ECRIT quoi que ce soit.
-    _calcul: { xpTotal, niveauDe, badges, serie, NIVEAUX, XP_CHAP, XP_MOD, XP_CERT },
+    _calcul: { xpTotal, niveauDe, badges, serie, NIVEAUX, XP_MODULE, partsXp, xpDe, XP_MOD, XP_CERT },
   };
   window.Formation = Formation;
 })();
