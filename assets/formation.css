@@ -417,6 +417,10 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
   color: #8b8e95; font-size: .9rem;
 }
 .f-bienvenue__lecteur p { margin: 0; padding: 0 1rem; }
+/* ⚠️ Lot 18 : la vidéo joue. Le cadre pointillé de l'attente disparaît, et
+   l'iframe prend tout l'emplacement, au même rapport 16/9. */
+.f-bienvenue__lecteur--video { position: relative; border: 0; background: #000; overflow: hidden; }
+.f-bienvenue__lecteur--video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .f-bienvenue__sous { margin: 0 0 1.25rem; font-size: .9rem; color: #b9bcc2; line-height: 1.5; }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -648,3 +652,108 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
   #formationApp .xp-chip .xpt,#formationApp .bar i,#formationApp .ladder span,
   #formationApp .intro-card,#formationApp .badge{transition:none}
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LOT 18, 14/10/2026 : LE LECTEUR, LE QUIZ, LES ANCRES, LA NAVIGATION
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️ Additif, prefixe comme le reste. Rien de la maquette n est retouche. */
+
+/* ── Les ancres passent SOUS l en-tete collant, pas dessous ───────────────
+   `--f-top` est la hauteur mesuree de `.top`, posee par `mesurerEnTete()`.
+   ⛔ Sans elle, « Mes notes » et « Mes badges » arrivaient le titre cache. */
+#formationApp section[id],
+#formationApp .mod[data-carte-module]{scroll-margin-top:calc(var(--f-top,64px) + 16px)}
+
+/* ── Le lecteur Vimeo prend l ecran ───────────────────────────────────────
+   ⚠️ Le bouton de lecture est un vrai <button> : la maquette avait un <div>
+   qui ne lancait rien, et c est ce que Nadir a vu le 14/10. */
+#formationApp button.play{border:0;cursor:pointer;padding:0;font:inherit}
+#formationApp button.play:hover{transform:scale(1.04)}
+#formationApp .screen--lecteur{background:#000}
+#formationApp .screen--lecteur iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+#formationApp .screen__faute{display:grid;gap:8px;justify-items:center;max-width:44ch}
+#formationApp .screen__faute strong{font-size:17px}
+#formationApp .screen__faute .btn{margin-top:6px}
+/* Apres la fin de la video, le bouton « Marquer comme terminé » s allume. */
+#formationApp [data-complete].invite{animation:f-invite 1.6s ease-in-out 3}
+@keyframes f-invite{0%,100%{box-shadow:0 8px 30px -8px var(--gold-glow)}50%{box-shadow:0 0 0 6px rgba(232,184,75,.25),0 12px 40px -8px var(--gold-glow)}}
+
+/* ── La navigation entre modules, en tete du module ──────────────────────── */
+#formationApp .mnav{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:14px 0 0}
+#formationApp .mnav__btn{display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:var(--r-pill);padding:8px 16px;color:var(--ink);text-align:left;max-width:100%}
+#formationApp .mnav__btn:hover{border-color:var(--gold-line)}
+#formationApp .mnav__btn span{display:grid;line-height:1.15}
+#formationApp .mnav__btn small{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
+#formationApp .mnav__btn b{font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+#formationApp .mnav__btn svg{width:14px;height:14px;flex-shrink:0}
+#formationApp .mnav__btn--ferme{opacity:.6}
+#formationApp .mnav > :last-child{justify-self:end}
+#formationApp .mnav__grille{background:none;border:0;padding:6px 10px;color:var(--ink-soft);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+#formationApp .mnav__grille:hover{color:var(--ink)}
+@media (max-width:520px){
+  #formationApp .mnav{grid-template-columns:1fr 1fr}
+  #formationApp .mnav__grille{grid-column:1 / -1;order:3;justify-self:center}
+}
+
+/* ── Le quiz dans la liste des chapitres ──────────────────────────────────── */
+#formationApp .chap--quiz .dot{border-style:dashed;color:var(--gold);border-color:var(--gold-line);font-size:13px;font-weight:700}
+#formationApp .chap--quiz.done .dot{border-style:solid}
+#formationApp .chap--verrou{opacity:.62}
+#formationApp .chap--verrou .dot{color:var(--ink-mute);border-color:var(--line)}
+#formationApp .chap--verrou .dot svg{width:12px;height:12px}
+
+/* ── Le quiz : entree, questions, resultat ────────────────────────────────── */
+#formationApp .quiz{display:grid;gap:14px;padding:26px}
+#formationApp .quiz h3{font-size:clamp(20px,2.6vw,26px);font-weight:800;letter-spacing:-.02em;line-height:1.15;margin:0}
+#formationApp .quiz p{margin:0;color:var(--ink-soft);line-height:1.55}
+#formationApp .quiz p b{color:var(--ink)}
+#formationApp .quiz__entree,#formationApp .quiz__fait,#formationApp .quiz__verrou{display:grid;gap:12px;justify-items:start}
+#formationApp .quiz__verrou .cond__cadenas{margin:0}
+#formationApp .quiz__coche{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--ok-wash);color:var(--ok-glow);border:1px solid rgba(16,185,129,.35)}
+#formationApp .quiz__coche svg{width:20px;height:20px}
+#formationApp .quiz__dernier{font-size:14px;color:var(--ink-mute)}
+#formationApp .quiz__barre{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+#formationApp .quiz__barre i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-deep),var(--gold),var(--gold-2));border-radius:inherit;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+#formationApp .quiz__sur{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:700}
+#formationApp .quiz__sur span{color:var(--ink-mute);letter-spacing:0;text-transform:none;font-weight:500}
+#formationApp .quiz__enonce{text-wrap:balance}
+#formationApp .quiz__opts{display:grid;gap:10px}
+#formationApp .quiz__opt{display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:center;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:var(--ink);font-size:15.5px;line-height:1.4;cursor:pointer;transition:border-color .2s ease,background .2s ease,transform .2s ease}
+#formationApp .quiz__opt:hover{border-color:var(--gold-line);transform:translateY(-1px)}
+#formationApp .quiz__opt[aria-checked="true"]{border-color:var(--gold);background:var(--gold-wash);box-shadow:0 0 0 1px var(--gold) inset}
+#formationApp .quiz__lettre{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);font-size:13px;font-weight:700;color:var(--ink-mute)}
+#formationApp .quiz__opt[aria-checked="true"] .quiz__lettre{border-color:var(--gold);background:var(--gold);color:var(--on-gold)}
+#formationApp .quiz__pied{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-top:6px}
+#formationApp .quiz__resultat{display:grid;gap:14px}
+#formationApp .quiz__score{display:flex;align-items:baseline;gap:14px}
+#formationApp .quiz__score strong{font-size:clamp(40px,7vw,64px);font-weight:800;letter-spacing:-.04em;line-height:1}
+#formationApp .quiz__score strong small{font-size:.42em;color:var(--ink-mute);font-weight:600;margin-left:6px;letter-spacing:0}
+#formationApp .quiz__score span{font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;padding:5px 12px;border-radius:var(--r-pill);border:1px solid var(--line)}
+#formationApp .quiz__resultat--ok .quiz__score span{color:var(--ok-glow);border-color:rgba(16,185,129,.35);background:var(--ok-wash)}
+#formationApp .quiz__resultat--rate .quiz__score span{color:var(--gold);border-color:var(--gold-line);background:var(--gold-wash)}
+#formationApp .quiz__resultat .row{display:flex;gap:10px;flex-wrap:wrap;padding-top:4px}
+#formationApp .quiz__fautes{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+#formationApp .quiz__faute{border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;gap:8px;background:rgba(255,255,255,.015)}
+#formationApp .quiz__faute-q{color:var(--ink);font-weight:600}
+#formationApp .quiz__faute-r,#formationApp .quiz__faute-b{display:grid;grid-template-columns:92px 1fr;gap:10px;font-size:14px}
+#formationApp .quiz__faute-r span,#formationApp .quiz__faute-b span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);font-weight:700;padding-top:3px}
+#formationApp .quiz__faute-b{color:var(--ok-glow)}
+#formationApp .quiz__faute-c{font-size:14px;color:var(--ink-soft);border-left:2px solid var(--gold-line);padding-left:12px}
+#formationApp .quiz__revoir{justify-self:start;display:inline-flex;align-items:center;gap:8px;background:none;border:1px solid var(--gold-line);border-radius:var(--r-pill);padding:8px 14px;color:var(--gold);font-size:13.5px;font-weight:600;text-align:left}
+#formationApp .quiz__revoir:hover{background:var(--gold-wash)}
+#formationApp .quiz__revoir svg{width:14px;height:14px;flex-shrink:0}
+#formationApp .quiz__details summary{cursor:pointer;color:var(--ink-soft);font-size:14px;padding:6px 0}
+#formationApp .quiz__details[open] summary{margin-bottom:10px}
+#formationApp .quiz__non-ecrit{color:var(--gold);font-size:14px;border:1px dashed var(--gold-line);border-radius:12px;padding:10px 14px}
+#formationApp .quiz__lien{background:none;border:0;padding:0;color:var(--gold);text-decoration:underline;text-underline-offset:3px;font:inherit;cursor:pointer}
+#formationApp .cond__act--btn{background:none;border:1px solid var(--gold-line);border-radius:var(--r-pill);padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+#formationApp .cond__act--btn svg{width:12px;height:12px}
+#formationApp .cond__act--btn:hover{background:var(--gold-wash)}
+@media (max-width:520px){
+  #formationApp .quiz{padding:18px}
+  #formationApp .quiz__faute-r,#formationApp .quiz__faute-b{grid-template-columns:1fr}
+}
+
+/* ── Le badge reste : le bouton qui le range ──────────────────────────────── */
+#formationApp .scene-badge__dire{max-width:40ch}
+#formationApp .scene-badge__ranger{margin-top:12px;pointer-events:auto}

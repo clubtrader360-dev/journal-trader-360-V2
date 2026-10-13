@@ -167,6 +167,20 @@ C. la regle ne vaut que pour les eleves ayant deja paye
 construire avant la réponse : ouvrir du contenu payant à quelqu'un qui ne l'a pas
 acheté ne se rattrape pas en silence.
 
+## ⛔ Règle posée par Nadir le 14/10 : le journal est obligatoire dès l'intermédiaire
+
+> « Normalement, arrivé au module intermédiaire, tout le monde a demandé l'accès
+> au journal. Obligatoirement. »
+
+⛔ **Conséquence** : la condition des 20 séances ne pose pas de cas particulier.
+⚠️ Un élève intermédiaire sans journal n'est pas un cas à gérer, c'est une
+anomalie : l'écran lui propose de demander son accès, par le mécanisme qui existe
+déjà (`journal_demande_le`), et c'est tout.
+
+⚠️ **Et cela éclaire le passage débutant → intermédiaire** : il suppose que
+l'accès au journal a été demandé. ⛔ À vérifier le jour où ce passage sera
+construit, et à faire figurer dans les trois conditions si c'est bien le cas.
+
 ## Ce qui reste à préciser dans tous les cas
 
 ```

@@ -96,9 +96,33 @@
   let _minuterieNote = null;
   let _derniereEcriture = 0;
   let _lecteur = null;
+  /**
+   * ── ⛔ LES VIDEOS VIENNENT DE LA BASE, JAMAIS D UN FICHIER PUBLIC ─────────
+   *
+   * `formation_videos` porte, par lecon, l identifiant Vimeo et le hachage
+   * `h=` sans lequel une video « non repertoriee » ne joue pas. ⚠️ Sa politique
+   * RLS ne la laisse lire qu a un eleve ayant acces a la formation : un
+   * navigateur anonyme qui charge `assets/formation-donnees.js` n y trouve donc
+   * aucun identifiant, et c est le point. ⛔ Lot 18, 14/10/2026.
+   *
+   *     _videos      lecon_id -> { vimeo_id, hash, duree_s }
+   *     _videosEtat  'ok' | 'vide' | 'erreur' : pour dire a l eleve CE QUI
+   *                  manque, pas « bientot ». Une table vide et une lecture
+   *                  refusee ne sont pas la meme phrase.
+   */
+  let _videos = {};
+  let _videosEtat = 'vide';
+  /**
+   * ── ⚠️ LES QUIZ, LUS DEPUIS `formation_quiz_resultats` ────────────────────
+   * module_cle -> { reussi, score, total, tentatives, derniere }. ⛔ Une ligne
+   * par tentative en base, la synthese se calcule ici : « reussi » des qu UNE
+   * tentative l est, et le dernier score pour l afficher.
+   */
+  let _quiz = {};
 
   const $ = (id) => document.getElementById(id);
   const D = () => window.FormationDonnees;
+  const QUIZ = () => window.FORMATION_QUIZ || {};
 
   async function uid() {
     try {
@@ -138,11 +162,16 @@
   async function charger() {
     const u = await uid();
     if (!u) return;
-    const [p, n] = await Promise.all([
+    const [p, n, v, q] = await Promise.all([
       cli().from('formation_progression')
         .select('lecon_id, vue, progress_seconds, last_watched_at').eq('user_id', u),
       // ⛔ `lecon_id` SEUL : pas de `texte` ici.
       cli().from('formation_notes').select('lecon_id').eq('user_id', u),
+      // ⚠️ Les 64 videos, en UNE lecture : la RLS filtre, pas le `eq`.
+      cli().from('formation_videos').select('lecon_id, vimeo_id, hash, duree_s'),
+      cli().from('formation_quiz_resultats')
+        .select('module_cle, score, total, reussi, created_at').eq('user_id', u)
+        .order('created_at', { ascending: true }),
     ]);
     _progression = {};
     (p.data || []).forEach((r) => { _progression[r.lecon_id] = r; });
@@ -150,6 +179,22 @@
     _notes = {};
     if (p.error) console.warn('[FORMATION] progression illisible :', p.error.message);
     if (n.error) console.warn('[FORMATION] notes illisibles :', n.error.message);
+    _videos = {};
+    (v.data || []).forEach((r) => { _videos[r.lecon_id] = r; });
+    _videosEtat = v.error ? 'erreur' : (v.data && v.data.length ? 'ok' : 'vide');
+    if (v.error) console.error('[FORMATION] ⚠️ videos illisibles :', v.error.message);
+    _quiz = {};
+    (q.data || []).forEach((r) => {
+      const s = _quiz[r.module_cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
+      s.tentatives += 1;
+      s.reussi = s.reussi || !!r.reussi;
+      // ⚠️ Le MEILLEUR score reste affiche : un eleve qui rejoue pour reviser
+      // ne doit pas voir son badge accompagne d un score inferieur.
+      if (r.score / Math.max(1, r.total) >= s.score / Math.max(1, s.total)) { s.score = r.score; s.total = r.total; }
+      s.derniere = r.created_at;
+      _quiz[r.module_cle] = s;
+    });
+    if (q.error) console.warn('[FORMATION] resultats de quiz illisibles :', q.error.message);
     await chargerCitation();
     await chargerBienvenue(u);
   }
@@ -233,7 +278,27 @@
 
   // ===== PROGRESSION ========================================================
 
-  const estVue = (id) => !!(_progression[id] && _progression[id].vue);
+  /**
+   * ── ⛔ LE QUIZ EST LE DERNIER CHAPITRE, ET « VU » VEUT DIRE « REUSSI » ─────
+   *
+   * Ses mots, le 14/10 : « 11 chapitres, le onzieme c est le quiz ». Le quiz
+   * n est donc pas un ecran a part : c est une lecon de plus dans `m.lecons`,
+   * posee par `mods()`, et TOUT ce qui compte des lecons le compte avec elles :
+   * la part des 100 XP, l avancement du module, `moduleFini`, le badge, la
+   * prochaine etape. ⚠️ Un seul endroit decide qu une lecon est acquise, et
+   * c est ici : pour un chapitre video, la case cochee ; pour le quiz, une
+   * tentative reussie dans `formation_quiz_resultats`.
+   *
+   * ⛔ Les modules SANS quiz (l Introduction, la certification) ne recoivent
+   * aucun chapitre fantome : `mods()` n ajoute le quiz que si
+   * `FORMATION_QUIZ` en porte un pour cette cle.
+   */
+  const estQuiz = (id) => /-quiz$/.test(String(id));
+  const cleDuQuiz = (id) => String(id).replace(/^m/, '').replace(/-quiz$/, '');
+  const quizReussi = (cle) => !!(_quiz[cle] && _quiz[cle].reussi);
+  const estVue = (id) => (estQuiz(id)
+    ? quizReussi(cleDuQuiz(id))
+    : !!(_progression[id] && _progression[id].vue));
 
   function avancement(mod) {
     const total = mod.lecons.length;
@@ -297,6 +362,139 @@
     const libelles = { repos: '', ecrit: 'Enregistrement…', ok: 'Enregistré', faute: "⚠️ Non enregistré" };
     el.textContent = libelles[etat] || '';
     el.dataset.etat = etat;
+  }
+
+  // ===== LE LECTEUR VIMEO ===================================================
+
+  /**
+   * ── ⛔ L IFRAME EST POSEE AU CLIC, JAMAIS AU RENDU ─────────────────────────
+   *
+   * Un module de douze chapitres rendrait douze fois rien, mais un chapitre
+   * ouvert puis quitte par la liste chargerait un lecteur a chaque fois.
+   * ⚠️ L emplacement reste l ecran de la maquette (chandeliers et bouton
+   * dore) ; le lecteur le remplace quand l eleve appuie, avec `autoplay=1`
+   * parce que c est lui qui vient d appuyer.
+   *
+   * ── ⚠️ `h=` EST OBLIGATOIRE, ET C EST LE SECOND VERROU ─────────────────────
+   *
+   * Les 64 videos sont « non repertoriees » : sans leur hachage, le lecteur
+   * repond « Désolé, nous n'arrivons pas à trouver cette vidéo ». ⛔ Le premier
+   * verrou est la liste de domaines Vimeo (`embed: whitelist`), que Nadir pose
+   * lui-meme : `app.journaltrader360.fr` et `apercu.journaltrader360.fr`. Si
+   * elle manque, le lecteur affiche une erreur de confidentialite, et ce
+   * fichier la dit EN CLAIR a l eleve au lieu d un cadre noir.
+   *
+   * ── ⚠️ LA REPRISE EST CELLE DES REPLAYS ────────────────────────────────────
+   * `timeupdate` espace de `ESPACEMENT_MS`, `setCurrentTime` a la reprise si la
+   * position est superieure a zero, une ecriture de plus quand on quitte.
+   * ⛔ `ended` ne COCHE PAS le chapitre : il le propose. La case reste celle
+   * que l eleve coche, voir l en-tete du fichier.
+   */
+  const INTRO_ID = 'm00-l0';
+  const videoDe = (leconId) => _videos[leconId] || null;
+  function urlVimeo(v, autoplay) {
+    const p = new URLSearchParams({ h: v.hash, dnt: '1', title: '0', byline: '0', portrait: '0' });
+    if (autoplay) p.set('autoplay', '1');
+    return `https://player.vimeo.com/video/${encodeURIComponent(v.vimeo_id)}?${p}`;
+  }
+  /** Ce qu on dit quand une video manque : la CAUSE, jamais « bientot ». */
+  function messageSansVideo() {
+    if (_videosEtat === 'erreur') return 'La liste des vidéos n’a pas pu être lue. Recharge la page ; si ça persiste, écris à ton coach.';
+    if (_videosEtat === 'vide') return 'Aucune vidéo n’est lisible avec ce compte. Écris à ton coach.';
+    return 'Cette vidéo n’est pas rattachée à ce chapitre. Écris à ton coach.';
+  }
+
+  /** Ferme le lecteur en cours, en ecrivant la position une derniere fois. */
+  async function fermerLecteur() {
+    const l = _lecteur;
+    _lecteur = null;
+    if (!l) return;
+    try {
+      /**
+       * ⚠️ UNE COURSE CONTRE 600 ms. `getCurrentTime` passe par `postMessage`
+       * vers l iframe : si elle est retiree du document avant la reponse, la
+       * promesse ne se regle JAMAIS, et l appelant qui l attend reste
+       * suspendu sans erreur. ⛔ On prend la derniere position connue de
+       * `timeupdate` en repli.
+       */
+      const s = await Promise.race([
+        l.player.getCurrentTime(),
+        new Promise((r) => setTimeout(() => r(l.position || 0), 600)),
+      ]);
+      if (s > 0 && !estVue(l.leconId)) await ecrireProgression(l.leconId, { progress_seconds: Math.floor(s) });
+    } catch { /* ⛔ Un lecteur deja detruit n a plus de position. */ }
+    try { l.player.destroy(); } catch { /* rien */ }
+  }
+
+  /**
+   * Pose le lecteur dans `.screen` pour le chapitre courant.
+   * @param {object} c la lecon
+   */
+  function poserLecteur(c, seek) {
+    const ecran = document.querySelector('#formationApp .screen');
+    const v = videoDe(c.id);
+    if (!ecran || !v || !window.Vimeo || !window.Vimeo.Player) {
+      if (!window.Vimeo) toast('⚠️', 'Le lecteur Vimeo n’est pas chargé. Recharge la page.');
+      return;
+    }
+    void fermerLecteur();
+    // ⚠️ `seek` demande (un renvoi de quiz) l emporte sur la reprise.
+    const reprise = seek != null ? Number(seek) || 0
+      : (_progression[c.id] && !estVue(c.id) ? Number(_progression[c.id].progress_seconds) || 0 : 0);
+    ecran.classList.add('screen--lecteur');
+    ecran.innerHTML = `<iframe src="${urlVimeo(v, true)}" title="${txt(c.titre)}"
+      allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+    const iframe = ecran.querySelector('iframe');
+    const player = new window.Vimeo.Player(iframe);
+    const l = { player, leconId: c.id, derniere: 0, propose: false, position: reprise };
+    _lecteur = l;
+
+    const erreur = (e) => {
+      if (_lecteur !== l) return;
+      const nom = e && e.name ? String(e.name) : '';
+      const privee = /privacy|password|domain|notfound/i.test(nom);
+      ecran.classList.remove('screen--lecteur');
+      ecran.innerHTML = `<div class="over"><div class="screen__faute">
+        <strong>${privee ? 'Cette vidéo refuse de jouer ici.' : 'La vidéo n’a pas pu être lancée.'}</strong>
+        <small>${privee
+          ? 'Vimeo n’autorise pas ce domaine, ou la vidéo n’est plus là. Écris à ton coach en lui donnant le titre du chapitre.'
+          : 'Vérifie ta connexion et réessaie.'}</small>
+        <small class="mono" style="opacity:.6">${txt(nom || 'erreur inconnue')} · ${txt(c.titre)}</small>
+        <button type="button" class="btn btn-ghost" data-lire>Réessayer</button>
+      </div></div>`;
+      console.error('[FORMATION] ⚠️ lecteur en erreur :', nom, e && e.message);
+    };
+
+    player.ready().then(() => {
+      if (_lecteur !== l) return;
+      // ⚠️ Reprise si une position existe, et pas dans les cinq dernieres
+      // secondes : reprendre a la fin serait reprendre nulle part.
+      if (reprise > 5 && (!v.duree_s || reprise < v.duree_s - 5)) {
+        player.setCurrentTime(reprise).catch(() => {});
+      }
+    }).catch(erreur);
+    player.on('error', erreur);
+    player.on('timeupdate', ({ seconds }) => {
+      if (_lecteur !== l) return;
+      l.position = seconds;
+      if (estVue(c.id)) return;
+      const now = Date.now();
+      if (now - l.derniere < ESPACEMENT_MS) return;
+      l.derniere = now;
+      void ecrireProgression(c.id, { progress_seconds: Math.floor(seconds) });
+    });
+    player.on('ended', () => {
+      if (_lecteur !== l || l.propose) return;
+      l.propose = true;
+      /**
+       * ⛔ ON PROPOSE, ON NE COCHE PAS. Le bouton « Marquer comme terminé »
+       * s allume et un message le dit. ⚠️ Un chapitre laisse jouer jusqu au
+       * bout en arriere-plan n est pas un chapitre compris.
+       */
+      const b = document.querySelector('#formationApp [data-complete]');
+      if (b) { b.classList.add('invite'); b.focus({ preventScroll: true }); }
+      if (!estVue(c.id)) toast(I.check, 'Vidéo terminée. Marque le chapitre comme terminé quand tu l’as compris.');
+    });
   }
 
   // ===== RENDU : SOMMAIRE ===================================================
@@ -705,19 +903,28 @@
     {
       cle: 'quiz',
       /**
-       * ⛔ A REMPLIR : le score du quiz du dernier module du niveau, 80 % mini.
-       * ⚠️ Les quiz n existent pas encore. Specification dans
-       * `_contenu-formation/specification-quiz.md`.
+       * ── ⛔ REELLE DEPUIS LE LOT 18 : le quiz du DERNIER module du niveau
+       * precedent, reussi a 80 %. ⚠️ `ctx.module` est ce module-la, trouve
+       * par `conditionsNiveau(niveau)` : pour entrer en Intermediaire c est
+       * le quiz du 04, pour entrer en Confirme celui du 06.
+       * ⛔ `a_venir` ne subsiste que si ce module n a pas de quiz dans
+       * `FORMATION_QUIZ`, ce qui n est le cas d aucun des dix aujourd hui.
        */
-      lire: () => ({ etat: 'a_venir' }),
-      /**
-       * ⚠️ « A VENIR » N EST PAS UN ECHEC, et la formulation le dit. ⛔ Un eleve
-       * qui lirait « quiz non valide » alors qu aucun quiz n existe croirait a
-       * un defaut et ecrirait au coach pour rien.
-       * ⛔ TEXTE PROPOSE, pas fige : il est publie au nom de Trader 360.
-       */
-      message: () => 'Le quiz de fin de niveau arrive bientôt. Rien à faire pour l’instant.',
-      action: null,
+      lire: (ctx) => {
+        const m = ctx && ctx.module;
+        if (!m) return { etat: 'inconnu' };
+        if (!m.lecons.some((l) => l.quiz)) return { etat: 'a_venir', module: m };
+        const r = _quiz[m.cle];
+        return { etat: quizReussi(m.cle) ? 'rempli' : 'manquant', module: m, resultat: r || null };
+      },
+      message: (v) => {
+        if (!v.module) return 'Le quiz de fin de niveau n’est pas encore lisible.';
+        if (v.etat === 'a_venir') return `Le module ${v.module.numero} n’a pas de quiz.`;
+        return v.resultat
+          ? `Quiz du module ${v.module.numero} : ${v.resultat.score} / ${v.resultat.total}. Il faut 80 %.`
+          : `Réussis le quiz du module ${v.module.numero} à 80 % ou plus.`;
+      },
+      action: 'Ouvrir le quiz',
     },
     {
       cle: 'seances',
@@ -740,14 +947,33 @@
    * L etat des trois conditions, et ce qui bloque.
    * @return {{ouvert:boolean, manquantes:Array}}
    */
-  function conditionsNiveau() {
+  function conditionsNiveau(niveau) {
     const manquantes = [];
+    /**
+     * ⚠️ LE CONTEXTE : le dernier module du niveau PRECEDENT, bonus exclu.
+     * C est son quiz qui ouvre ce niveau-ci. ⛔ Sans niveau, aucun module, et
+     * la condition quiz rend `inconnu` : elle ferme, comme les deux autres.
+     */
+    let precedent = null;
+    if (niveau) {
+      const N = D().NIVEAUX_PARCOURS;
+      const i = N.findIndex((n) => n.cle === niveau.cle);
+      const avant = i > 0 ? N[i - 1] : null;
+      if (avant) {
+        const cles = avant.modules.filter((c) => { const m = mods().find((x) => x.cle === c); return m && !estBonus(m); });
+        precedent = mods().find((m) => m.cle === cles[cles.length - 1]) || null;
+      }
+    }
     for (const c of CONDITIONS) {
-      const v = c.lire();
+      const v = c.lire({ niveau, module: precedent });
       // ⛔ SEUL `'rempli'` OUVRE. `'inconnu'`, `'a_venir'`, `'manquant'` et
       // toute valeur inattendue ferment : c est le defaut qui protege.
       if (v.etat !== 'rempli') {
-        manquantes.push({ cle: c.cle, etat: v.etat, texte: c.message(v), action: c.action });
+        manquantes.push({
+          cle: c.cle, etat: v.etat, texte: c.message(v), action: c.action,
+          // ⚠️ Ou mene l action, quand elle mene quelque part : le quiz s ouvre.
+          cible: c.cle === 'quiz' && v.module ? { module: v.module.cle } : null,
+        });
       }
     }
     return { ouvert: manquantes.length === 0, manquantes };
@@ -766,7 +992,43 @@
    * `assets/formation-donnees.js` crie si une cle manque ou ne resout rien.
    * ⚠️ `numero` ne sert plus qu a l affichage : c est ce que l eleve lit.
    */
-  const mods = () => D().MODULES;
+  /**
+   * ── ⛔ `mods()` POSE LE QUIZ EN DERNIER CHAPITRE, UNE FOIS POUR TOUTES ─────
+   *
+   * ⚠️ Compose au premier appel et memorise : la donnee ne change pas pendant
+   * la session, et deux listes `lecons` differentes d un appel a l autre
+   * feraient echouer `M.indexOf(m)` sans erreur. ⛔ `assets/formation-donnees.js`
+   * n est pas modifie : ses 63 chapitres restent les chapitres VIDEO, c est ce
+   * que comptent l outil d import, le rapport hebdomadaire et les sondes.
+   * Le quiz est une composition d affichage et de progression, pas une video.
+   *
+   * ⚠️ `titre` dit « Quiz du module 01 », pas « Quiz » : la prochaine etape de
+   * l accueil l affiche hors de son module, il doit se suffire.
+   */
+  let _mods = null;
+  const mods = () => {
+    if (_mods) return _mods;
+    const Q = QUIZ();
+    _mods = D().MODULES.map((m) => {
+      const q = Q[m.cle];
+      if (!q || !q.questions || !q.questions.length) return m;
+      return {
+        ...m,
+        lecons: [...m.lecons, {
+          id: `m${m.cle}-quiz`,
+          titre: `Quiz du module ${m.numero}`,
+          quiz: true,
+          questions: q.questions.length,
+          seuil: q.seuil,
+          minutes: Math.max(3, Math.round(q.questions.length * 0.6)),
+        }],
+      };
+    });
+    return _mods;
+  };
+  /** Le quiz d un module s ouvre quand TOUS ses chapitres video sont vus. */
+  const quizOuvert = (m) => m.lecons.filter((l) => !l.quiz).every((l) => estVue(l.id));
+  const videosRestantes = (m) => m.lecons.filter((l) => !l.quiz && !estVue(l.id)).length;
   /**
    * ── ⛔ L INTRODUCTION NE COMPTE PAS DANS LE PARCOURS ──────────────────────
    *
@@ -833,7 +1095,7 @@
      */
     const premierDuNiveau = !!niveau && niveau.modules[0] === m.cle;
     const soumis = premierDuNiveau && niveau.cle !== 'debutant' && !estBonus(m);
-    const cond = soumis ? conditionsNiveau() : { ouvert: true, manquantes: [] };
+    const cond = soumis ? conditionsNiveau(niveau) : { ouvert: true, manquantes: [] };
     if (!cond.ouvert) return { ouvrable: false, cause: 'niveau', cond, niveau };
     if (estCert(m) && !certOuverte()) return { ouvrable: false, cause: 'certification', cond, niveau };
     if (!m.lecons.length) return { ouvrable: false, cause: 'vide', cond, niveau };
@@ -1185,8 +1447,34 @@
     </footer>`;
   }
 
-  function rendreAccueil(ancre) {
+  /**
+   * ── ⚠️ LA HAUTEUR DE L EN-TETE, MESUREE, POSEE EN VARIABLE CSS ─────────────
+   *
+   * ⛔ DEFAUT VU PAR NADIR LE 14/10 : « Mes notes », « Mes badges » et le retour
+   * a la grille arrivaient TROP BAS, le titre de la section passait sous
+   * l en-tete fixe. `scrollIntoView` aligne le haut de la section sur le haut
+   * de la fenetre, et l en-tete collant le recouvre. ⚠️ `scroll-margin-top`
+   * corrige cela, mais il doit valoir la hauteur REELLE de l en-tete, qui
+   * change avec la largeur d ecran et la taille de police. On la mesure donc,
+   * et le CSS la lit : `calc(var(--f-top) + 16px)`.
+   */
+  function mesurerEnTete() {
+    const top = document.querySelector('#formationApp .top');
+    const racine = $('formationApp');
+    if (!top || !racine) return 0;
+    const h = Math.round(top.getBoundingClientRect().height);
+    racine.style.setProperty('--f-top', `${h}px`);
+    return h;
+  }
+
+  /**
+   * @param {string} ancre la section a montrer : accueil, modules, notes, badges
+   * @param {{carte?:string}} [opts] `carte` : la cle du module dont la carte
+   *   doit etre visible, au retour d un module vers la grille.
+   */
+  function rendreAccueil(ancre, opts) {
     _vueCourante = { nom: 'accueil' };
+    void fermerLecteur();
     const M = mods();
     const total = totalChap();
     const faites = nbFaites();
@@ -1352,7 +1640,7 @@
           const pp = pctDe(m);
           const pastille = verrouNiveau ? `<span class="pill">${I.lock} Niveau ${txt(niv.nom)}</span>`
             : verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
-            : vide ? '<span class="pill">Leçons à venir</span>'
+            : vide ? '<span class="pill">Sans chapitre</span>'
               : fini ? `<span class="pill ok">${I.check} Validé</span>`
                 : d ? '<span class="pill go">En cours</span>' : '<span class="pill">À commencer</span>';
           const inerte = !e.ouvrable;
@@ -1362,12 +1650,12 @@
             ${pastille}
             <div class="num">MODULE ${txt(m.numero)}</div>
             <h3>${txt(m.titre)}</h3>
-            <p>${m.description ? txt(m.description) : '<em style="color:var(--ink-mute)">En attente de description.</em>'}</p>
+            ${m.description ? `<p>${txt(m.description)}</p>` : ''}
             <div class="foot">
               <div class="meta"><span>${verrouNiveau
                 ? cond.manquantes.map((x) => txt(x.texte)).join('<br>')
                 : verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
-                  : vide ? 'Chapitres à venir' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
+                  : vide ? 'Aucun chapitre' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
               <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}" data-rail-module="${txt(m.cle)}"></i></div>
             </div>
             <!-- ⚠️ L ANCRE D OU LE BADGE EMERGE, et c est pour cela qu elle est
@@ -1427,9 +1715,21 @@
     const poserAnneau = () => { const a = $('ringArc'); if (a) a.style.strokeDashoffset = C * (1 - pct / 100); };
     if (motionOk()) requestAnimationFrame(poserAnneau); else poserAnneau();
     majNav(ancre || 'accueil');
-    if (ancre && ancre !== 'accueil') {
+    mesurerEnTete();
+    /**
+     * ⛔ AU RETOUR D UN MODULE, C EST SA CARTE QU ON MONTRE, pas le haut de la
+     * grille : l eleve revient d ou il etait. ⚠️ `block: 'start'` avec le
+     * `scroll-margin-top` de la carte, donc sous l en-tete et non dessous.
+     */
+    const carte = opts && opts.carte
+      ? document.querySelector(`#formationApp [data-carte-module="${opts.carte}"]`) : null;
+    if (carte) {
+      carte.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
+    } else if (ancre && ancre !== 'accueil') {
       const el = $(ancre);
       if (el) el.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
+    } else {
+      window.scrollTo({ top: 0 });
     }
     montrerBienvenue();
   }
@@ -1475,7 +1775,9 @@
                 seances: 'Tes séances de journal' }[c.cle] || c.cle)}</b>
               <span>${manque ? txt(v.texte) : 'C’est bon.'}</span>
             </span>
-            ${manque && v.action ? `<span class="cond__act">${txt(v.action)}</span>` : ''}
+            ${manque && v.action ? (v.cible
+              ? `<button type="button" class="cond__act cond__act--btn" data-quiz-module="${txt(v.cible.module)}">${txt(v.action)} ${I.arrow}</button>`
+              : `<span class="cond__act">${txt(v.action)}</span>`) : ''}
           </li>`;
         }).join('')}
       </ul>
@@ -1534,8 +1836,16 @@
           aria-label="Fermer">&times;</button>
         <p class="f-bienvenue__sur">Bienvenue</p>
         <h2 class="f-bienvenue__titre">Bienvenue à Trader 360</h2>
-        <div class="f-bienvenue__lecteur" role="note">
-          <p>La vidéo sera disponible ici très bientôt.</p>
+        <!-- ⚠️ LA VIDEO JOUE, depuis le lot 18 : l identifiant et le hachage
+             viennent de la table formation_videos, et la fenetre pose l iframe
+             directement. ⛔ Pas d autoplay : douze minutes qui demarrent
+             seules a la premiere connexion, c est ce qu on fermerait.
+             ⛔ Et aucun accent grave dans ce commentaire : il vit dans un gabarit. -->
+        <div class="f-bienvenue__lecteur ${videoDe(INTRO_ID) ? 'f-bienvenue__lecteur--video' : ''}" role="${videoDe(INTRO_ID) ? 'presentation' : 'note'}">
+          ${videoDe(INTRO_ID)
+            ? `<iframe src="${urlVimeo(videoDe(INTRO_ID), false)}" title="Bienvenue à Trader 360"
+                allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`
+            : `<p>${txt(messageSansVideo())}</p>`}
         </div>
         <p class="f-bienvenue__sous">Tu la retrouveras quand tu veux dans
           <strong>Introduction</strong>, avant le module 01.</p>
@@ -1576,7 +1886,12 @@
     return blocs || `<div class="notes-empty">Aucune note ne contient « ${txt(q)} ».</div>`;
   }
 
-  async function rendreModule(mi, ci) {
+  /**
+   * @param {number} mi index du module dans `mods()`
+   * @param {number|null} ci index du chapitre, ou null pour le premier non vu
+   * @param {{seek?:number}} [opts] `seek` : ouvrir la video a cette seconde
+   */
+  async function rendreModule(mi, ci, opts) {
     const M = mods();
     const m = M[mi];
     if (!m) return;
@@ -1598,7 +1913,7 @@
       } else if (etat.cause === 'certification') {
         toast(I.lock, `Termine les modules 01 à ${txt(M[M.length - 2].numero)} pour débloquer la certification.`);
       } else {
-        toast('⏳', `Les chapitres du module ${txt(m.numero)} arrivent.`);
+        toast('⏳', `Le module ${txt(m.numero)} n’a pas de chapitre.`);
       }
       return;
     }
@@ -1607,6 +1922,10 @@
       if (ci < 0) ci = 0;
     }
     const c = m.lecons[ci];
+    // ⚠️ Changer de chapitre ferme le lecteur, et ecrit sa position une
+    // derniere fois. ⛔ Sinon l iframe precedente continuerait de jouer, et
+    // d ecrire, sous le nouveau chapitre.
+    await fermerLecteur();
     _vueCourante = { nom: 'module', mi, ci };
     _moduleCourant = m.numero;
     _leconCourante = c.id;
@@ -1616,7 +1935,7 @@
 
     // ⚠️ La note du chapitre est lue AVANT le rendu : le champ s affiche rempli,
     // et non vide puis rempli, ce qui ferait croire a une note perdue.
-    const note = await chargerNote(c.id);
+    const note = c.quiz ? '' : await chargerNote(c.id);
 
     /**
      * ⛔ UNE SENTINELLE, PAS `undefined`, ET C EST UNE CORRECTION MESUREE.
@@ -1641,15 +1960,47 @@
         groupePose = ch.groupe || null;
       }
       const dn = estVue(ch.id);
-      return `${g}<button type="button" class="chap ${dn ? 'done' : ''}" data-chap="${k}" ${k === ci ? 'aria-current="true"' : ''}>
-        <span class="dot">${dn ? I.check : String(k + 1).padStart(2, '0')}</span>
-        <span><span class="t">${txt(ch.titre)}</span><br><span class="s">${dn ? `Terminé · +${xpDe(ch.id)} XP` : `+${xpDe(ch.id)} XP`}</span></span></button>`;
+      /**
+       * ⛔ LE QUIZ SE VOIT VERROUILLE TANT QU IL RESTE UNE VIDEO. ⚠️ Pas cache :
+       * l eleve doit savoir qu il l attend au bout du module, et combien de
+       * chapitres l en separent. Reussi, il porte son score.
+       */
+      const verrou = ch.quiz && !quizOuvert(m) && !estVue(ch.id);
+      const r = ch.quiz ? _quiz[m.cle] : null;
+      const sous = ch.quiz
+        ? (dn ? `Réussi · ${r.score} / ${r.total} · +${xpDe(ch.id)} XP`
+          : verrou ? `Après les ${m.lecons.length - 1} chapitres · +${xpDe(ch.id)} XP`
+            : (r ? `Dernier essai ${r.score} / ${r.total} · +${xpDe(ch.id)} XP` : `${ch.questions} questions · +${xpDe(ch.id)} XP`))
+        : (dn ? `Terminé · +${xpDe(ch.id)} XP` : `+${xpDe(ch.id)} XP`);
+      return `${g}<button type="button" class="chap ${dn ? 'done' : ''} ${ch.quiz ? 'chap--quiz' : ''} ${verrou ? 'chap--verrou' : ''}" data-chap="${k}" ${k === ci ? 'aria-current="true"' : ''}>
+        <span class="dot">${dn ? I.check : verrou ? I.lock : ch.quiz ? '?' : String(k + 1).padStart(2, '0')}</span>
+        <span><span class="t">${txt(ch.titre)}</span><br><span class="s">${sous}</span></span></button>`;
     }).join('');
 
-    const prec = ci > 0 ? [mi, ci - 1] : (mi > 0 && M[mi - 1].lecons.length ? [mi - 1, M[mi - 1].lecons.length - 1] : null);
+    /**
+     * ── ⚠️ PRECEDENT ET SUIVANT TRAVERSENT LES MODULES, VERROUS COMPRIS ──────
+     * ⛔ Le suivant n est propose que si son module S OUVRE, par le MEME
+     * `etatModule` que la carte : une fleche vers un module verrouille
+     * ouvrirait l ecran des conditions, ce qui est juste mais surprenant au
+     * bout d un chapitre.
+     */
+    // ⛔ L Introduction n est le precedent de personne : elle a sa carte.
+    const modPrec = mi > 0 && !estIntro(M[mi - 1]) ? M[mi - 1] : null;
+    const prec = ci > 0 ? [mi, ci - 1]
+      : (modPrec && modPrec.lecons.length && etatModule(modPrec).ouvrable ? [mi - 1, modPrec.lecons.length - 1] : null);
     const modSuiv = M[mi + 1];
     const suiv = ci < m.lecons.length - 1 ? [mi, ci + 1]
-      : (modSuiv && modSuiv.lecons.length && !(estCert(modSuiv) && !certOuverte()) ? [mi + 1, 0] : null);
+      : (modSuiv && modSuiv.lecons.length && etatModule(modSuiv).ouvrable ? [mi + 1, 0] : null);
+    /** La navigation ENTRE modules, en tete : le precedent, le suivant, et leur etat. */
+    const navModule = (x, k, sens) => {
+      if (!x || estIntro(x)) return '<span></span>';
+      const e = etatModule(x);
+      const ferme = !e.ouvrable;
+      return `<button type="button" class="mnav__btn ${ferme ? 'mnav__btn--ferme' : ''}" data-mod="${k}"
+        aria-label="${sens === 'prec' ? 'Module précédent' : 'Module suivant'} : module ${txt(x.numero)}">
+        ${sens === 'prec' ? I.back : ''}<span><small>${sens === 'prec' ? 'Précédent' : 'Suivant'}</small><b>Module ${txt(x.numero)}${ferme ? ` ${I.lock}` : ''}</b></span>${sens === 'suiv' ? I.arrow : ''}
+      </button>`;
+    };
     const bCert = estCert(m) && moduleFini(m)
       /**
        * ⛔ `badges()[badges().length - 1]` ETAIT FAUX DEPUIS LE LOT 14.
@@ -1662,10 +2013,52 @@
       ? `<div class="cert">${medaille(badgeDeModule('10') || badges()[0], { classe: 'medal--cert' })}<div class="eyebrow" style="margin-top:8px">Parcours validé</div><h3>Trader 360 certifié.</h3><p>Les onze modules sont traversés. La suite se joue en séance, avec le journal, le brief et la communauté.</p></div>`
       : '';
 
+    /**
+     * ── ⛔ LA COLONNE DE DROITE : UNE VIDEO, OU LE QUIZ ───────────────────────
+     * Le quiz n a ni ecran video, ni notes, ni « Marquer comme terminé » : il
+     * a ses questions, et c est sa reussite qui le marque. Tout le reste de la
+     * page (liste, en-tete, navigation) est identique : c est un chapitre.
+     */
+    const colonne = c.quiz ? rendreQuiz(m, c, mi, ci) : `
+        <!-- ⚠️ L EMPLACEMENT DE LA MAQUETTE, et le lecteur le remplace au
+             clic : voir poserLecteur. -->
+        <div class="screen"><canvas id="chart"></canvas>
+          <div class="over"><div>
+            ${videoDe(c.id)
+              ? `<button type="button" class="play" data-lire aria-label="Lire la vidéo">${I.play}</button>
+                 <strong style="font-size:17px">${txt(c.titre)}</strong>
+                 <small>${(() => {
+                   const p = _progression[c.id];
+                   const s = p && !fini ? Number(p.progress_seconds) || 0 : 0;
+                   return s > 5 ? `Reprendre à ${duree(s)}` : (c.minutes ? `${c.minutes} min` : 'Lire');
+                 })()}</small>`
+              : `<strong style="font-size:17px">${txt(c.titre)}</strong><small>${txt(messageSansVideo())}</small>`}
+          </div></div>
+          <span class="tag">M${txt(m.numero)} · ${txt(c.titre)}</span>
+        </div>
+        <div class="lesson-head">
+          <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length}</div><h2>${txt(c.titre)}</h2></div>
+          <div class="lesson-actions">
+            ${fini
+              ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
+              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
+          </div>
+        </div>
+        ${c.description ? `<div class="card">
+          <h4>Ce chapitre</h4>
+          <p style="margin:0;color:var(--ink-soft)">${txt(c.description)}</p>
+        </div>` : ''}
+        <div class="card notes">
+          <h4>Mes notes</h4>
+          <label for="formationNote" style="position:absolute;left:-9999px">Notes du chapitre</label>
+          <textarea id="formationNote" placeholder="Ce que je retiens de ce chapitre, ce que je veux appliquer en séance…">${txt(note || '')}</textarea>
+          <div class="saved" id="savedMsg"></div>
+        </div>`;
+
     app().innerHTML = `
     <div class="crumbs"><button type="button" data-go="modules">Les modules</button><span>/</span><span>Module ${txt(m.numero)}</span></div>
     <section class="mhead">
-      <div><div class="eyebrow">Module ${txt(m.numero)} · ${m.lecons.length} chapitres</div><h1>${txt(m.titre)}</h1><p>${m.description ? txt(m.description) : '<em style="color:var(--ink-mute)">En attente de description.</em>'}</p></div>
+      <div><div class="eyebrow">Module ${txt(m.numero)} · ${m.lecons.length} chapitres</div><h1>${txt(m.titre)}</h1>${m.description ? `<p>${txt(m.description)}</p>` : ''}</div>
       <!--
         ⚠️ L ANCRE D OU LE BADGE EMERGERA, DANS CETTE VUE-CI. ⛔ On termine un
         chapitre depuis la page du module, pas depuis la grille : la carte du
@@ -1677,68 +2070,23 @@
       <div class="mprog"><div class="head"><span>${d} / ${m.lecons.length} terminés</span><b class="mono" style="color:var(--ink)">${pp} %</b></div><div class="bar ${pp === 100 ? 'done' : ''}"><i data-w="${pp}"></i></div>
         <span class="mod__ancre" data-ancre-badge="${txt(m.cle)}" aria-hidden="true"></span></div>
     </section>
+    <!-- ⚠️ LA NAVIGATION ENTRE MODULES, EN TETE. Retour de Nadir du 14/10 :
+         il manquait un moyen clair de passer au module d a cote, et de
+         revenir au module 01. ⛔ Les verrous sont ceux des cartes. -->
+    <nav class="mnav" aria-label="Modules voisins">
+      ${navModule(modPrec, mi - 1, 'prec')}
+      <button type="button" class="mnav__grille" data-go="modules">Tous les modules</button>
+      ${navModule(modSuiv, mi + 1, 'suiv')}
+    </nav>
     <div class="mview">
       <nav class="chap-list" aria-label="Chapitres du module">${liste}</nav>
       <div class="player">
         ${bCert}
-        <!-- ⛔ AUCUNE VIDEO POSEE. La question des domaines Vimeo n est pas
-             tranchee : tant qu elle ne l est pas, un lecteur integre afficherait
-             une erreur de lecture a l eleve. C est donc un EMPLACEMENT, au bon
-             format et au bon endroit, qui dit que la video arrive. -->
-        <div class="screen"><canvas id="chart"></canvas>
-          <div class="over"><div><div class="play">${I.play}</div><strong style="font-size:17px">${txt(c.titre)}</strong><small>La vidéo de ce chapitre s'affichera ici.</small></div></div>
-          <span class="tag">M${txt(m.numero)} · ${txt(c.titre)}</span>
-        </div>
-        <div class="lesson-head">
-          <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length}</div><h2>${txt(c.titre)}</h2></div>
-          <div class="lesson-actions">
-            ${fini
-              ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
-              /**
-               * ── ⛔ `c.id`, ET C EST LE DEFAUT QUI FERMAIT TOUT LE PARCOURS ──
-               *
-               * ⚠️ Cette ligne lisait `xpDe(ch.id)`. `ch` est le parametre du
-               * `.map()` qui construit la liste des chapitres, cinquante lignes
-               * plus haut : il n existe PLUS ici. Le chapitre courant s appelle
-               * `c`.
-               *
-               * ⛔ CE QUE CELA DONNAIT, MESURE DANS CHROME LE 14/10 : evaluer ce
-               * gabarit levait `ReferenceError: ch is not defined`, donc
-               * `app().innerHTML = ...` n etait jamais atteint. `rendreModule`
-               * etant `async`, l exception devenait un rejet de promesse que le
-               * gestionnaire de clic n observe pas : AUCUNE erreur a l ecran,
-               * aucun toast, aucun journal. Un clic sur un module ne faisait
-               * rien du tout, les douze cartes comprises.
-               *
-               * ⚠️ ET SEULEMENT POUR UN CHAPITRE PAS ENCORE TERMINE : la branche
-               * `fini` ne lit pas `ch`. Un compte avec de la progression
-               * ouvrait donc certains chapitres, ce qui rendait le defaut
-               * intermittent a l oeil. ⛔ Sur un compte neuf, rien ne s ouvrait.
-               *
-               * ⛔ ET LA SONDE DE BOUT EN BOUT L AURAIT VU : elle clique sur
-               * `[data-mod="0"]` puis ecrit dans `#formationNote`, qui n existe
-               * pas. Elle plantait. ⚠️ Elle n a pas ete lancee depuis trois lots :
-               * une sonde juste qu on ne lance pas vaut une sonde absente.
-               */
-              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
-          </div>
-        </div>
-        <!-- ⛔ AUCUNE DESCRIPTION INVENTEE. Nadir les fournira ; d ici la, le
-             bloc se lit comme provisoire plutot que de rester vide. -->
-        <div class="card">
-          <h4>Ce chapitre</h4>
-          <p style="margin:0;color:var(--ink-mute);font-style:italic">${c.description
-            ? txt(c.description) : 'En attente de description.'}</p>
-        </div>
-        <div class="card notes">
-          <h4>Mes notes</h4>
-          <label for="formationNote" style="position:absolute;left:-9999px">Notes du chapitre</label>
-          <textarea id="formationNote" placeholder="Ce que je retiens de ce chapitre, ce que je veux appliquer en séance…">${txt(note || '')}</textarea>
-          <div class="saved" id="savedMsg"></div>
-        </div>
+        ${colonne}
         <div class="pager">
-          ${prec ? `<button type="button" class="btn btn-ghost" data-open="${prec[0]},${prec[1]}">${I.back} Précédent</button>` : '<span></span>'}
-          ${suiv ? `<button type="button" class="btn btn-ghost" data-open="${suiv[0]},${suiv[1]}">${suiv[0] !== mi ? `Module ${txt(M[suiv[0]].numero)}` : 'Suivant'} ${I.arrow}</button>` : ''}
+          ${prec ? `<button type="button" class="btn btn-ghost" data-open="${prec[0]},${prec[1]}">${I.back} ${prec[0] !== mi ? `Module ${txt(M[prec[0]].numero)}` : 'Précédent'}</button>` : '<span></span>'}
+          ${suiv ? `<button type="button" class="btn btn-ghost" data-open="${suiv[0]},${suiv[1]}">${suiv[0] !== mi ? `Module ${txt(M[suiv[0]].numero)}` : 'Suivant'} ${I.arrow}</button>`
+            : `<button type="button" class="btn btn-ghost" data-go="modules">Tous les modules ${I.arrow}</button>`}
         </div>
       </div>
     </div>
@@ -1748,8 +2096,301 @@
     dessinerChart(mi * 31 + ci * 7 + 3);
     majNav('modules');
     majChip();
-    brancherNotes(c.id);
+    mesurerEnTete();
+    if (!c.quiz) brancherNotes(c.id);
     window.scrollTo({ top: 0 });
+    // ⚠️ Depuis un resultat de quiz : la video s ouvre tout de suite, au
+    // passage demande. C est l eleve qui vient de cliquer « Revoir ».
+    if (opts && opts.seek != null && !c.quiz && videoDe(c.id)) poserLecteur(c, opts.seek);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+   * LE QUIZ, DERNIER CHAPITRE DU MODULE
+   * ══════════════════════════════════════════════════════════════════════════
+   *
+   * ── ⛔ LE FORMAT EST CELUI DU QUESTIONNAIRE DE POSITIONNEMENT ──────────────
+   *
+   * Ses mots, le 14/10 : « le format du questionnaire de positionnement, avec
+   * des petits conseils et des renvois vers la vidéo ». Donc UNE question par
+   * ecran, une barre qui avance, des options en grandes cartes, « Suivant »
+   * jusqu a « Valider mes réponses ». Aucune correction en cours de route :
+   * on repond a tout, puis on lit le resultat.
+   *
+   * ── ⚠️ CE QUE LE RESULTAT DIT, ET DANS QUEL ORDRE ──────────────────────────
+   *
+   *   reussi   le score, le badge qui attend, un bouton qui lance la scene.
+   *            ⛔ La scene part d un CLIC : le contexte audio s ouvre dans
+   *            un geste, pas dans la suite d un `await`.
+   *   rate     le score, le seuil, et pour CHAQUE mauvaise reponse : ce que
+   *            l eleve a choisi, la bonne, le conseil, et un bouton qui rouvre
+   *            la video AU BON PASSAGE. Puis « Réessayer ».
+   *
+   * ── ⛔ LES OPTIONS SONT MELANGEES, LES QUESTIONS NON ───────────────────────
+   * Les questions suivent l ordre des chapitres, c est pedagogique. Les
+   * options sont melangees a chaque tentative : la bonne n est jamais « la
+   * deuxieme ». ⚠️ Le choix est enregistre dans l ordre d ORIGINE, celui du
+   * fichier, pour que le coach puisse relire `reponses` sans la permutation.
+   *
+   * ── ⚠️ UNE LIGNE PAR TENTATIVE, JAMAIS DE MISE A JOUR ──────────────────────
+   * `formation_quiz_resultats` n accepte que l insertion. ⛔ Un eleve qui rate
+   * trois fois puis reussit a quatre lignes, et le coach voit le chemin.
+   */
+  let _quizEtat = null;   // { mi, ci, cle, questions: [{q, perm}], i, choix: {}, av }
+
+  /** [mi, ci] d une lecon, par son identifiant, dans les modules composes. */
+  function trouverLecon(id) {
+    const M = mods();
+    for (let mi = 0; mi < M.length; mi += 1) {
+      const ci = M[mi].lecons.findIndex((l) => l.id === id);
+      if (ci >= 0) return [mi, ci];
+    }
+    return null;
+  }
+  const seuilDe = (c) => Math.ceil(c.questions * (c.seuil || 0.8));
+  const melanger = (n) => {
+    const a = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  };
+  const dateCourte = (iso) => {
+    const t = iso ? Date.parse(iso) : NaN;
+    return Number.isFinite(t) ? new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
+  };
+
+  /** L ecran d entree du quiz : verrouille, a passer, ou reussi. */
+  function rendreQuiz(m, c, mi, ci) {
+    _quizEtat = null;
+    const r = _quiz[m.cle] || null;
+    const reussi = quizReussi(m.cle);
+    const reste = videosRestantes(m);
+    const seuil = seuilDe(c);
+    let corps;
+    // ⚠️ REUSSI D ABORD : un quiz reussi reste reussi, meme si une video a ete
+    // decochee ensuite. Le verrou ne porte que sur le PASSAGE du quiz.
+    if (reussi) {
+      corps = `
+        <div class="quiz__fait">
+          <span class="quiz__coche" aria-hidden="true">${I.check}</span>
+          <h3>Réussi : ${r.score} / ${r.total}${r.derniere ? `, le ${dateCourte(r.derniere)}` : ''}.</h3>
+          <p>Ton score et ton badge restent acquis. Tu peux le refaire quand tu veux, pour réviser.</p>
+          <button type="button" class="btn btn-ghost" data-quiz-commencer>Refaire le quiz</button>
+        </div>`;
+    } else if (reste > 0) {
+      const prochainCi = m.lecons.findIndex((l) => !l.quiz && !estVue(l.id));
+      corps = `
+        <div class="quiz__verrou">
+          <span class="cond__cadenas" aria-hidden="true">${I.lock}</span>
+          <h3>Le quiz s’ouvre après les ${m.lecons.length - 1} chapitres.</h3>
+          <p>Il t’en reste <b>${reste}</b> à terminer. Les ${c.questions} questions portent sur ce que les vidéos disent : regarde-les d’abord.</p>
+          ${prochainCi >= 0 ? `<button type="button" class="btn btn-gold" data-open="${mi},${prochainCi}">Reprendre « ${txt(m.lecons[prochainCi].titre)} » ${I.arrow}</button>` : ''}
+        </div>`;
+    } else {
+      corps = `
+        <div class="quiz__entree">
+          <h3>${c.questions} questions, ${seuil} bonnes réponses pour valider.</h3>
+          <p>C’est 80 %. Une question par écran, et tu valides à la fin. Pour chaque mauvaise réponse, tu auras le conseil et le passage de la vidéo à revoir. Tu peux le repasser autant de fois que tu veux.</p>
+          ${r ? `<p class="quiz__dernier">Dernier essai : <b>${r.score} / ${r.total}</b>${r.derniere ? `, le ${dateCourte(r.derniere)}` : ''}.</p>` : ''}
+          <button type="button" class="btn btn-gold" data-quiz-commencer>Commencer le quiz <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>
+        </div>`;
+    }
+    return `
+      <div class="lesson-head">
+        <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length} · Quiz</div><h2>${txt(c.titre)}</h2></div>
+      </div>
+      <div class="card quiz" id="quizZone" data-module="${txt(m.cle)}">${corps}</div>`;
+  }
+
+  function commencerQuiz() {
+    const { mi, ci } = _vueCourante;
+    const m = mods()[mi];
+    const c = m && m.lecons[ci];
+    const Q = QUIZ()[m && m.cle];
+    if (!c || !c.quiz || !Q) return;
+    if (!quizOuvert(m) && !quizReussi(m.cle)) { toast(I.lock, 'Termine d’abord les chapitres vidéo.'); return; }
+    _quizEtat = {
+      mi, ci, cle: m.cle, i: 0, choix: {},
+      questions: Q.questions.map((q) => ({ q, perm: melanger(q.options.length) })),
+    };
+    rendreQuestion();
+  }
+
+  function rendreQuestion() {
+    const e = _quizEtat;
+    const zone = $('quizZone');
+    if (!e || !zone) return;
+    const n = e.questions.length;
+    const { q, perm } = e.questions[e.i];
+    const lecon = D().lecon(q.renvoi.lecon);
+    const choisi = e.choix[q.id];
+    const dernier = e.i === n - 1;
+    zone.innerHTML = `
+      <div class="quiz__barre" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${e.i + 1}"
+        aria-label="Question ${e.i + 1} sur ${n}"><i style="width:${((e.i) / n) * 100}%"></i></div>
+      <div class="quiz__sur">Question ${e.i + 1} sur ${n}${lecon ? ` · <span>${txt(lecon.titre)}</span>` : ''}</div>
+      <h3 class="quiz__enonce">${txt(q.enonce)}</h3>
+      <div class="quiz__opts" role="radiogroup" aria-label="Réponses">
+        ${perm.map((k, pos) => `<button type="button" class="quiz__opt" role="radio" data-rep="${k}"
+          aria-checked="${choisi === k ? 'true' : 'false'}">
+          <span class="quiz__lettre mono">${String.fromCharCode(65 + pos)}</span><span>${txt(q.options[k])}</span></button>`).join('')}
+      </div>
+      <div class="quiz__pied">
+        ${e.i > 0 ? `<button type="button" class="btn btn-ghost" data-quiz-prec>${I.back} Précédent</button>` : '<span></span>'}
+        <button type="button" class="btn btn-gold" data-quiz-suiv ${choisi == null ? 'disabled' : ''}>${dernier ? 'Valider mes réponses' : 'Suivant'} ${I.arrow}</button>
+      </div>`;
+    // ⚠️ La question en haut de l ecran : sur mobile, la liste des chapitres
+    // est au-dessus et une question suivante arriverait hors de vue.
+    const r = zone.getBoundingClientRect();
+    if (r.top < 0) zone.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
+  }
+
+  function repondre(k) {
+    const e = _quizEtat;
+    if (!e) return;
+    const { q } = e.questions[e.i];
+    e.choix[q.id] = k;
+    const zone = $('quizZone');
+    zone.querySelectorAll('.quiz__opt').forEach((b) => b.setAttribute('aria-checked', Number(b.dataset.rep) === k ? 'true' : 'false'));
+    const suiv = zone.querySelector('[data-quiz-suiv]');
+    if (suiv) suiv.disabled = false;
+  }
+
+  async function quizSuivant() {
+    const e = _quizEtat;
+    if (!e) return;
+    const { q } = e.questions[e.i];
+    if (e.choix[q.id] == null) return;
+    if (e.i < e.questions.length - 1) { e.i += 1; rendreQuestion(); return; }
+    await validerQuiz();
+  }
+  function quizPrecedent() {
+    const e = _quizEtat;
+    if (!e || e.i === 0) return;
+    e.i -= 1;
+    rendreQuestion();
+  }
+
+  async function ecrireQuiz(cle, score, total, reussi, reponses) {
+    const u = await uid();
+    if (!u) return false;
+    const { error } = await cli().from('formation_quiz_resultats')
+      .insert({ user_id: u, module_cle: cle, score, total, reussi, reponses });
+    if (error) { console.error('[FORMATION] ⚠️ resultat de quiz NON enregistré :', error.message); return false; }
+    return true;
+  }
+
+  async function validerQuiz() {
+    const e = _quizEtat;
+    if (!e) return;
+    const m = mods()[e.mi];
+    const c = m.lecons[e.ci];
+    const total = e.questions.length;
+    const reponses = e.questions.map(({ q }) => ({ id: q.id, choisie: e.choix[q.id], bonne: q.bonne }));
+    const score = reponses.filter((r) => r.choisie === r.bonne).length;
+    const reussi = score >= seuilDe(c);
+    /**
+     * ⛔ L ETAT D AVANT EST LU AVANT DE POSER LE RESULTAT, comme dans
+     * `terminer()` : la scene est une DIFFERENCE. ⚠️ Et il est lu meme en cas
+     * d echec, sans servir.
+     */
+    const av = { xp: xpTotal(), niveau: niveauDe(xpTotal()), fini: moduleFini(m), badges: badges().filter((b) => b.ok()).map((b) => b.id) };
+    const zone = $('quizZone');
+    if (zone) zone.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+    const ok = await ecrireQuiz(m.cle, score, total, reussi, reponses);
+    if (ok) {
+      const s = _quiz[m.cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
+      s.tentatives += 1;
+      s.reussi = s.reussi || reussi;
+      if (score / total >= s.score / Math.max(1, s.total)) { s.score = score; s.total = total; }
+      s.derniere = new Date().toISOString();
+      _quiz[m.cle] = s;
+    }
+    e.resultat = { score, total, reussi, reponses, ok, av };
+    rendreResultat();
+  }
+
+  function rendreResultat() {
+    const e = _quizEtat;
+    const zone = $('quizZone');
+    if (!e || !e.resultat || !zone) return;
+    const m = mods()[e.mi];
+    const c = m.lecons[e.ci];
+    const { score, total, reussi, reponses, ok, av } = e.resultat;
+    const seuil = seuilDe(c);
+    const fautes = reponses.filter((r) => r.choisie !== r.bonne).map((r) => {
+      const { q } = e.questions.find((x) => x.q.id === r.id);
+      const lecon = D().lecon(q.renvoi.lecon);
+      const ou = trouverLecon(q.renvoi.lecon);
+      return `<li class="quiz__faute">
+        <p class="quiz__faute-q">${txt(q.enonce)}</p>
+        <p class="quiz__faute-r"><span>Ta réponse</span>${txt(q.options[r.choisie])}</p>
+        <p class="quiz__faute-b"><span>La bonne</span>${txt(q.options[r.bonne])}</p>
+        <p class="quiz__faute-c">${txt(q.conseil)}</p>
+        ${lecon && ou ? `<button type="button" class="quiz__revoir" data-open="${ou[0]},${ou[1]}" data-seek="${q.renvoi.de * 60}">
+          ${I.play} Revoir « ${txt(lecon.titre)} », entre ${q.renvoi.de} et ${q.renvoi.a} min</button>` : ''}
+      </li>`;
+    });
+    const nonEcrit = ok ? '' : `<p class="quiz__non-ecrit">⚠️ Ce résultat n’a pas pu être enregistré. Vérifie ta connexion, puis <button type="button" class="quiz__lien" data-quiz-reecrire>réessaie l’enregistrement</button>.</p>`;
+    const dejaFini = av.fini;
+    if (reussi) {
+      const b = badgeDeModule(m.cle);
+      zone.innerHTML = `
+        <div class="quiz__resultat quiz__resultat--ok">
+          <div class="quiz__score"><strong class="mono">${score}<small>/ ${total}</small></strong><span>Réussi</span></div>
+          <h3>${dejaFini ? 'Toujours là.' : `Module ${txt(m.numero)} validé.`}</h3>
+          <p>${dejaFini
+            ? 'Ton badge et tes XP étaient déjà acquis : ce passage comptait pour réviser.'
+            : `Il fallait ${seuil} bonnes réponses, tu en as ${score}. ${b ? 'Ton badge t’attend.' : ''}`}</p>
+          ${nonEcrit}
+          <div class="row">
+            ${!dejaFini && ok ? `<button type="button" class="btn btn-gold" data-quiz-scene>Récupérer mes XP ${I.arrow}</button>`
+              : `<button type="button" class="btn btn-gold" data-go="modules">Tous les modules ${I.arrow}</button>`}
+            ${fautes.length ? '' : ''}
+          </div>
+          ${fautes.length ? `<details class="quiz__details"><summary>${fautes.length} réponse${fautes.length > 1 ? 's' : ''} à revoir quand même</summary><ul class="quiz__fautes">${fautes.join('')}</ul></details>` : ''}
+        </div>`;
+    } else {
+      zone.innerHTML = `
+        <div class="quiz__resultat quiz__resultat--rate">
+          <div class="quiz__score"><strong class="mono">${score}<small>/ ${total}</small></strong><span>Pas encore</span></div>
+          <h3>Il fallait ${seuil} bonnes réponses.</h3>
+          <p>Il t’en manque ${seuil - score}. Chaque réponse ci-dessous te renvoie au passage de la vidéo qui l’explique : revois-les, puis réessaie. Rien n’est perdu.</p>
+          ${nonEcrit}
+          <ul class="quiz__fautes">${fautes.join('')}</ul>
+          <div class="row">
+            <button type="button" class="btn btn-gold" data-quiz-commencer>Réessayer ${I.arrow}</button>
+            <button type="button" class="btn btn-ghost" data-open="${e.mi},0">Revoir le module</button>
+          </div>
+        </div>`;
+    }
+    zone.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
+  }
+
+  /** Reessaie l ecriture d un resultat qui n est pas passe. */
+  async function reecrireQuiz() {
+    const e = _quizEtat;
+    if (!e || !e.resultat || e.resultat.ok) return;
+    const { score, total, reussi, reponses } = e.resultat;
+    const ok = await ecrireQuiz(e.cle, score, total, reussi, reponses);
+    if (!ok) { toast('⚠️', 'Toujours pas enregistré.'); return; }
+    e.resultat.ok = true;
+    const s = _quiz[e.cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
+    s.tentatives += 1; s.reussi = s.reussi || reussi;
+    if (score / total >= s.score / Math.max(1, s.total)) { s.score = score; s.total = total; }
+    s.derniere = new Date().toISOString();
+    _quiz[e.cle] = s;
+    rendreResultat();
+  }
+
+  /** La scene de fin de quiz : celle d un chapitre, lancee par le clic. */
+  async function sceneQuiz() {
+    const e = _quizEtat;
+    if (!e || !e.resultat || !e.resultat.reussi) return;
+    const { mi, ci } = e;
+    const av = e.resultat.av;
+    _quizEtat = null;
+    ouvrirAudio();
+    if (!motionOk()) { await sansMouvement(mi, ci, av); return; }
+    await jouerScene(mi, ci, av);
   }
 
   /**
@@ -1858,20 +2499,36 @@
    * chapitres attendrait seize secondes au lieu de vingt-cinq ; c est cela qui
    * est en jeu, pas l elegance d une courbe.
    */
+  /**
+   * ── ⚠️ RALENTIE D UNE FOIS ET DEMIE LE 14/10, SUR L APERCU `oyjvqr7wd` ─────
+   *
+   * Retour de Nadir : « l animation et le badge vont trop vite, le badge doit
+   * rester ». ⛔ Le budget de deux secondes etait une consigne du lot 15, et
+   * c est lui qu il revise en regardant le resultat : les quatre temps de
+   * chapitre font desormais 2 400 ms, et la sonde lit la nouvelle borne.
+   *
+   * ⚠️ ET LE BADGE NE PART PLUS TOUT SEUL : il reste jusqu a ce que l eleve
+   * le range, ou six secondes au plus. Le texte, lui, reste lisible au moins
+   * 1,5 s plus 50 ms par caractere. Voir `scenerBadge`.
+   */
   const SCENE = {
-    marque: 300,      // 1. le chapitre se marque
-    vol: 520,         // 2. les XP rejoignent le compteur
-    compte: 420,      //    et le compteur s incremente en recevant
-    rail: 360,        // 3. le rail se remplit
-    palier: 480,      // 4. le palier s allume
-    calme: 280,       // 5. la page se calme
-    emerge: 480,      // 6. le badge sort de sa carte
-    eclat: 850,       // 7. ⚠️ LE TEMPS FORT : il s eclaire en dore
-    pose: 600,        // 8. il s installe dans la collection
-    retour: 250,      // 9. la page revient
+    marque: 450,      // 1. le chapitre se marque
+    vol: 780,         // 2. les XP rejoignent le compteur
+    compte: 630,      //    et le compteur s incremente, chiffre par chiffre
+    rail: 540,        // 3. le rail se remplit
+    palier: 720,      // 4. le palier s allume
+    calme: 420,       // 5. la page se calme
+    emerge: 720,      // 6. le badge sort de sa carte
+    eclat: 1100,      // 7. ⚠️ LE TEMPS FORT : il s eclaire en dore
+    tenue: 6000,      //    et il RESTE, jusqu au clic ou six secondes
+    pose: 800,        // 8. il s installe dans la collection
+    retour: 300,      // 9. la page revient
   };
+  const BUDGET_CHAPITRE_MAX = 3000;
   /** ⚠️ Le budget de la scene de chapitre, expose pour que la sonde le lise. */
   const budgetChapitre = () => SCENE.marque + SCENE.vol + SCENE.compte + SCENE.rail;
+  /** Le temps minimal de lecture d un texte : 1,5 s et 50 ms par caractere. */
+  const tempsLecture = (texte) => 1500 + 50 * String(texte || '').length;
 
   let _scene = { enCours: false, saute: false, nettoyages: [] };
 
@@ -1954,12 +2611,18 @@
     if (!motionOk() || _scene.saute || de === a) { majChip(); return; }
     el.classList.add('recoit');
     const debut = performance.now();
-    const duree = SCENE.compte;
+    /**
+     * ⚠️ CHIFFRE PAR CHIFFRE, A VITESSE CONSTANTE. Retour du 14/10 : le compte
+     * allait trop vite pour etre lu. ⛔ Une courbe qui ralentit en arrivant
+     * passait les premiers chiffres en deux trames ; ici chaque unite a le
+     * meme temps, au moins 40 ms, et la duree s allonge si le gain est grand.
+     */
+    const pas = Math.abs(a - de);
+    const duree = Math.max(SCENE.compte, pas * 40);
     await new Promise((fini) => {
       const trame = () => {
         const p = Math.min(1, (performance.now() - debut) / duree);
-        // ⚠️ Une sortie douce : le compte ralentit en arrivant sur sa valeur.
-        const v = Math.round(de + (a - de) * (1 - (1 - p) ** 3));
+        const v = de + Math.sign(a - de) * Math.floor(pas * p);
         el.textContent = `${v.toLocaleString('fr-FR')} XP`;
         if (p < 1 && !_scene.saute) requestAnimationFrame(trame); else fini();
       };
@@ -1995,11 +2658,13 @@
         <div class="eyebrow">${txt(titre)}</div>
         <strong>${txt(b.tFait || b.t)}</strong>
         <span>${txt(sous || b.d)}</span>
+        <button type="button" class="btn btn-gold scene-badge__ranger" data-ranger>Le ranger dans ma collection ${I.arrow}</button>
       </div>`;
     c.appendChild(scene);
     const piece = scene.querySelector('.scene-badge__piece');
     const halo = scene.querySelector('.scene-badge__halo');
     const dire = scene.querySelector('.scene-badge__dire');
+    const ranger = scene.querySelector('[data-ranger]');
     _scene.nettoyages.push(() => scene.remove());
 
     /* ── 5. LA PAGE SE CALME ─────────────────────────────────────────────
@@ -2058,6 +2723,24 @@
     await pause(SCENE.eclat * 0.45);
     dire.classList.add('la');
     await pause(SCENE.eclat * 0.55);
+
+    /* ── 7 bis. ⛔ LE BADGE RESTE. ────────────────────────────────────────
+     * Retour de Nadir du 14/10 : il partait avant qu on l ait regarde. Il
+     * attend desormais que l eleve le RANGE lui-meme, ou six secondes, et
+     * jamais moins que le temps de lire les deux lignes sous lui.
+     * ⚠️ Le clic sur ce bouton n est pas un « saut » : `sauter` l ignore,
+     * voir `jouerScene`. ⛔ Et la couche de scene laisse passer ce clic-la
+     * seulement : `pointer-events` est pose sur le bouton, pas sur la couche. */
+    if (!_scene.saute) {
+      const attente = Math.max(tempsLecture(`${b.tFait || b.t} ${sous || b.d}`), SCENE.tenue);
+      await new Promise((suite) => {
+        let fini = false;
+        const aller2 = () => { if (fini) return; fini = true; suite(); };
+        if (ranger) ranger.addEventListener('click', aller2, { once: true });
+        const t = setTimeout(aller2, motionOk() ? attente : 0);
+        _scene.nettoyages.push(() => { clearTimeout(t); aller2(); });
+      });
+    }
 
     /* ── 8. IL S INSTALLE DANS LA COLLECTION, ET ON LE VOIT Y ARRIVER ────
      * ⛔ Il faut donc que sa place EXISTE a l ecran. On revient a l accueil
@@ -2119,13 +2802,17 @@
     const finiMaintenant = !av.fini && moduleFini(m);
 
     _scene = { enCours: true, saute: false, nettoyages: [] };
-    const sauter = () => {
+    const sauter = (ev) => {
+      // ⚠️ « Le ranger dans ma collection » n est pas un saut : c est la
+      // suite normale de la scene, au rythme de l eleve.
+      if (ev && ev.target && ev.target.closest && ev.target.closest('[data-ranger]')) return;
+      document.removeEventListener('click', sauter, { capture: true });
       _scene.saute = true;
       _scene.nettoyages.splice(0).forEach((f) => { try { f(); } catch { /* rien */ } });
     };
     // ⛔ UN CLIC SAUTE CE QUI RESTE. ⚠️ `capture` : il ne doit pas d abord
     // declencher le bouton qui se trouve dessous.
-    document.addEventListener('click', sauter, { capture: true, once: true });
+    document.addEventListener('click', sauter, { capture: true });
 
     try {
       /* ── 1. LE CHAPITRE SE MARQUE, SOUS LES YEUX ──────────────────────
@@ -2138,7 +2825,9 @@
         const dot = ligne.querySelector('.dot');
         if (dot) dot.innerHTML = I.check;
         const s = ligne.querySelector('.s');
-        if (s) s.textContent = gain ? `Terminé · +${gain} XP` : 'Terminé';
+        const rq = c.quiz ? _quiz[m.cle] : null;
+        const mot = rq ? `Réussi · ${rq.score} / ${rq.total}` : 'Terminé';
+        if (s) s.textContent = gain ? `${mot} · +${gain} XP` : mot;
       }
       await pause(SCENE.marque);
 
@@ -2324,6 +3013,8 @@
     const m = M[mi];
     if (!m || !m.lecons[ci]) return;
     const c = m.lecons[ci];
+    // ⛔ Le quiz ne se « marque » pas : il se reussit. Voir `validerQuiz`.
+    if (c.quiz) return;
     /**
      * ⛔ L ETAT D AVANT EST LU AVANT L ECRITURE, et c est ce qui rend la scene
      * possible : « +15 XP » n est pas une donnee, c est une DIFFERENCE. ⚠️ Lu
@@ -2356,6 +3047,7 @@
   async function annuler() {
     const { mi, ci } = _vueCourante;
     const c = mods()[mi].lecons[ci];
+    if (!c || c.quiz) return;
     const ok = await ecrireProgression(c.id, { vue: false });
     if (!ok) { toast('⚠️', 'Non enregistré.'); return; }
     majChip();
@@ -2444,8 +3136,15 @@
   });
 
   function aller(id) {
-    if (_vueCourante.nom !== 'accueil') { rendreAccueil(id); return; }
+    if (_vueCourante.nom !== 'accueil') {
+      // ⚠️ Depuis un module, « Les modules » ramene a SA carte, pas au haut
+      // de la grille : l eleve revient d ou il etait.
+      const m = _vueCourante.nom === 'module' ? mods()[_vueCourante.mi] : null;
+      rendreAccueil(id, id === 'modules' && m ? { carte: m.cle } : undefined);
+      return;
+    }
     const el = $(id);
+    mesurerEnTete();
     if (el) el.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
     majNav(id);
   }
@@ -2454,17 +3153,41 @@
   document.addEventListener('click', (e) => {
     const racine = $('formationApp');
     if (!racine || !racine.contains(e.target)) return;
-    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son]');
+    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module]');
     if (!t) return;
     // ⛔ LA CARTE INTRODUCTION OUVRE LA VIDEO DE BIENVENUE, forcee : c est le
     // moyen d y revenir apres l avoir fermee a la premiere connexion.
     if (t.hasAttribute('data-bienvenue')) { montrerBienvenue(true); return; }
     if (t.hasAttribute('data-son')) { basculerSon(); return; }
+    /* ── Le lecteur et le quiz ─────────────────────────────────────────── */
+    if (t.hasAttribute('data-lire')) {
+      const m = mods()[_vueCourante.mi];
+      const c = m && m.lecons[_vueCourante.ci];
+      if (c) poserLecteur(c);
+      return;
+    }
+    if (t.hasAttribute('data-quiz-commencer')) { commencerQuiz(); return; }
+    if (t.dataset.rep != null) { repondre(Number(t.dataset.rep)); return; }
+    if (t.hasAttribute('data-quiz-suiv')) { quizSuivant(); return; }
+    if (t.hasAttribute('data-quiz-prec')) { quizPrecedent(); return; }
+    if (t.hasAttribute('data-quiz-scene')) { sceneQuiz(); return; }
+    if (t.hasAttribute('data-quiz-reecrire')) { reecrireQuiz(); return; }
+    if (t.dataset.quizModule) {
+      // Depuis l ecran des conditions : le quiz du module nomme s ouvre.
+      const ou = trouverLecon(`m${t.dataset.quizModule}-quiz`);
+      const fen = document.querySelector('#formationApp .cond-bg');
+      if (fen) fen.remove();
+      if (ou) rendreModule(ou[0], ou[1]);
+      return;
+    }
     if (t.dataset.go) { aller(t.dataset.go); return; }
     if (t.dataset.mod != null) { rendreModule(Number(t.dataset.mod), null); return; }
     if (t.dataset.open) {
       const [a, b] = t.dataset.open.split(',').map(Number);
-      rendreModule(a, b);
+      // ⚠️ `data-seek` : depuis le resultat d un quiz, la video s ouvre AU
+      // PASSAGE a revoir, en secondes.
+      const seek = t.dataset.seek != null ? Number(t.dataset.seek) : null;
+      rendreModule(a, b, seek != null && Number.isFinite(seek) ? { seek } : undefined);
       return;
     }
     if (t.dataset.chap != null) { rendreModule(_vueCourante.mi, Number(t.dataset.chap)); return; }
@@ -2512,6 +3235,13 @@
     exporterNotes,
     arreterAnimations,
     /**
+     * ⛔ QUITTER L ESPACE FERME LE LECTEUR, et ecrit sa position. ⚠️ Pas dans
+     * `arreterAnimations` : elle part aussi quand l onglet passe en arriere-
+     * plan, et un eleve qui change d onglet pendant une video ne doit pas
+     * la perdre. Quitter, c est revenir au journal ou a l espace coach.
+     */
+    quitter() { arreterAnimations(); void fermerLecteur(); },
+    /**
      * ── ⛔ LA FENETRE DE BIENVENUE, EXPOSEE A L APPELANT ───────────────────
      *
      * ⚠️ Ce module ne decide pas de l affichage : il dit s il FAUT montrer, et
@@ -2526,7 +3256,12 @@
       CONDITIONS, XP_MODULE, partsXp, xpDe, XP_MOD, XP_CERT,
       // ⚠️ Pour que la sonde lise le BUDGET de la scene au lieu de le deviner.
       // ⛔ Un budget devine par la sonde mesurerait son propre chiffre.
-      etatModule, badgeDeModule, METAUX, SCENE, budgetChapitre },
+      etatModule, badgeDeModule, METAUX, SCENE, budgetChapitre, BUDGET_CHAPITRE_MAX, tempsLecture,
+      // ⚠️ Lot 18 : les modules COMPOSES (quiz en dernier chapitre), l etat
+      // d une lecon, et les deux lectures de base, pour que la sonde mesure
+      // ce que l ecran lit.
+      mods, estVue, quizOuvert, videosRestantes, seuilDe, trouverLecon,
+      videos: () => _videos, quiz: () => _quiz },
   };
   window.Formation = Formation;
 })();

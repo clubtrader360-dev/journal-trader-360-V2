@@ -566,6 +566,9 @@ titre('⛔ LA SCENE DE FIN DE CHAPITRE : QUATRE TEMPS, ET RIEN N APPARAIT DE NUL
       ecritures: (window.__ecritures || []).filter((e) => e.table === 'formation_progression').length,
       restes: document.querySelectorAll('#formationApp .scene-jeton,#formationApp .scene-badge').length,
       budget: window.Formation._calcul.budgetChapitre(),
+      // ⚠️ Lot 18 : la borne est LUE dans le code, elle a monte a 3 000 ms
+      // quand Nadir a trouve la scene trop rapide le 14/10.
+      budgetMax: window.Formation._calcul.BUDGET_CHAPITRE_MAX || 2000,
     };
   });
   dire('⛔ TEMPS 1 : le chapitre se marque pendant la scène', r.marqueEnCours,
@@ -585,8 +588,8 @@ titre('⛔ LA SCENE DE FIN DE CHAPITRE : QUATRE TEMPS, ET RIEN N APPARAIT DE NUL
    * ⛔ DEUX SECONDES AU PLUS POUR LE TOUT, et le chiffre est LU dans le code,
    * pas recopie ici. ⚠️ Un budget ecrit dans la sonde mesurerait la sonde.
    */
-  dire('⛔ le budget de la scène de chapitre tient sous 2 000 ms',
-    r.budget <= 2000, `${r.budget} ms`);
+  dire(`⛔ le budget de la scène de chapitre tient sous ${r.budgetMax} ms`,
+    r.budget <= r.budgetMax, `${r.budget} ms`);
   propre('⛔ aucune erreur de page pendant la scène');
   await ctx.close();
 }

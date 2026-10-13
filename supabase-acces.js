@@ -258,7 +258,11 @@
    * cable » de ce depot.
    */
   function sortirDeLaFormation() {
-    if (window.Formation && window.Formation.arreterAnimations) {
+    // ⚠️ Lot 18 : `quitter()` arrete les animations ET ferme le lecteur
+    // Vimeo, en ecrivant sa position. L ancien nom reste en repli.
+    if (window.Formation && window.Formation.quitter) {
+      window.Formation.quitter();
+    } else if (window.Formation && window.Formation.arreterAnimations) {
       window.Formation.arreterAnimations();
     }
   }

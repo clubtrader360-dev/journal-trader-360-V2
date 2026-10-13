@@ -244,10 +244,13 @@ Dans ce chapitre, tu vas apprendre à créer ton compte TradingView, à choisir 
 
 ## 4.2.2 Installer TradingView (Complément)
 
-⛔ **Aucune description dans LearnyBox.** ⚠️ À écrire, comme pour 2.3.1.
+Ce chapitre complète l'installation de TradingView en direct, sur un vrai graphique, au format d'un live de questions-réponses. Tu vas y poser l'indicateur Multi Pro avec les points pivots, les bandes de Bollinger et la moyenne mobile 20, ajouter la VWAP, enregistrer un modèle de graphique pour ne plus tout refaire à chaque fois, régler tes alertes et te servir du replay pour t'entraîner hors marché. Tu verras aussi comment préparer tes captures pour le journal, garder tes rectangles en favoris et mesurer ton ratio avec l'outil de position, avec la règle à retenir : un rectangle vert au moins deux fois plus grand que le rouge.
 
-⚠️ La vidéo dure 49 minutes 40, soit plus du double de 4.2.1. ⛔ Ce n'est donc pas
-un simple appoint, et la description devra le dire.
+⚠️ Écrite par moi le 14/10 depuis la transcription Vimeo (`1229930297`, 49 min
+40). ⛔ Aucune description dans LearnyBox. ⚠️ À valider par Nadir.
+
+⚠️ La vidéo dure plus du double de 4.2.1 : ce n'est pas un appoint, c'est un live
+complet, et la description le dit dès la première phrase.
 
 ## 4.3 Rejoindre le groupe Discord
 
@@ -309,7 +312,10 @@ Dans ce chapitre, tu découvriras comment identifier tes zones. Comprendre la te
 
 ## 5.3 Bis Identifier les zones (Sur ta plateforme)
 
-⛔ **Aucune description dans LearnyBox.** ⚠️ À écrire.
+Dans ce chapitre, tu vas identifier tes zones directement sur ton graphique, sans aucun indicateur. Tu commences par placer la clôture de la veille, la bougie de 21 h 30, puis tu passes en 4 heures pour repérer les sommets et les creux sur lesquels le marché s'est retourné le plus souvent, avant d'affiner en 30 minutes. L'idée à retenir : on trade les zones les plus travaillées, jamais entre deux. C'est un travail à refaire chaque jour, et on le fera ensemble pendant les lives.
+
+⚠️ Écrite par moi le 14/10 depuis la transcription Vimeo (`1229930659`, 15 min
+36). ⛔ Aucune description dans LearnyBox. ⚠️ À valider par Nadir.
 
 ⚠️ Troisième chapitre complémentaire du parcours, après 2.3.1 et 4.2.2. ⛔ Il
 s'écrit « 5.3 Bis » avec une majuscule et une espace, là où le module 7 bis
@@ -657,7 +663,13 @@ Dans ce chapitre, tu découvriras les règles propres à chaque prop firm, leurs
 
 ## 7.3 Installer et configurer la plateforme de la prop firm choisie
 
-⛔ **Aucune description dans LearnyBox.** ⚠️ À écrire.
+Ce chapitre ouvre la partie plateforme : installer, paramétrer et maîtriser l'outil sur lequel tu vas passer ton challenge, parce qu'en trading l'exécution, c'est la moitié de la réussite. Tu verras ce qui change d'une prop firm à l'autre : TopstepX, devenue la seule plateforme autorisée par Topstep, avec ses verrouillages de sécurité, et Tradovate, utilisée par Apex et Tradify. Les deux chapitres suivants te guident pas à pas sur chacune.
+
+⚠️ Écrite par moi le 14/10 depuis la transcription Vimeo (`1229931901`, 4 min
+06). ⛔ Aucune description dans LearnyBox. ⚠️ À valider par Nadir.
+
+⚠️ Relevé dans la vidéo : Nadir annonce « le module suivant, le 5.3 » au lieu de
+7.3.1. ⛔ Lapsus oral, rien à corriger dans le journal.
 
 ## 7.3.1 Installer TOPSTEPX
 
@@ -673,7 +685,10 @@ indicateurs » écrit « ou », et pas d'espace avant le point d'exclamation.
 
 ## 7.3.2 Installer Tradovate
 
-⛔ **Aucune description dans LearnyBox.** ⚠️ À écrire.
+Dans ce chapitre, tu vas créer ton compte démo Tradovate et le configurer comme on trade : chandeliers japonais, bandes de Bollinger, EMA 20, VWAP, période 4 heures personnalisée, passage en micro contrats MES et l'outil de position pour vérifier ton ratio de 2 avant chaque entrée. Tu apprendras à trader avec le bracket, qui place ton stop et ton objectif automatiquement, puis sans, en plaçant toi-même tes ordres stop et limite, avec le réflexe à prendre : « Quitter marché » en fin de session pour ne laisser aucun ordre actif. Tu termineras par les rapports, les préférences, et le tracé du POC et de la clôture de la veille avec le TPO.
+
+⚠️ Écrite par moi le 14/10 depuis la transcription Vimeo (`1229950358`, 26 min
+11). ⛔ Aucune description dans LearnyBox. ⚠️ À valider par Nadir.
 
 ⚠️ 26 minutes, la plus longue du module. ⛔ Et elle porte sur Tradovate, dont la
 voie API est fermée depuis le 22/09 : vérifier que le contenu reste juste.
@@ -745,9 +760,10 @@ Vimeo, module par module.
 ⚠️ **Six descriptions écrites par moi**, faute de source : 8.1, 8.2, 8.3 et les
 trois bonus. ⛔ Marquées comme propositions, à valider par Nadir.
 
-⚠️ **Quatre descriptions restent à écrire** : 4.2.2, 5.3 Bis, 7.3, 7.3.2.
-⛔ Celles-là portent sur des contenus techniques dont je ne connais rien, les
-transcriptions Vimeo les donneront.
+⚠️ **Quatre descriptions écrites le 14/10 depuis les transcriptions Vimeo** :
+4.2.2, 5.3 Bis, 7.3, 7.3.2. ⛔ Plus aucun chapitre sans description : les 63 en
+ont une. ⚠️ Ces quatre-là sont des propositions, à valider par Nadir, comme les
+six du module 8 et du bonus.
 
 # ⛔ Les points à trancher par Nadir
 
@@ -760,7 +776,8 @@ transcriptions Vimeo les donneront.
            Et finit par « pour vous », seul vouvoiement du module.
 4. 7bis / 5.3 Bis / 4.2.2   trois formes pour la meme idee de complement.
            Harmoniser ?
-5. 4.2.2 et 5.3 Bis n ont aucune description, elles restent a ecrire.
+5. 4.2.2, 5.3 Bis, 7.3, 7.3.2 : descriptions ecrites par moi le 14/10
+           depuis les transcriptions, a relire.
 ```
 
 ⚠️ Les descriptions de 2.3.1 et 5.8.2 sont dictées par Nadir, pas transcrites.
