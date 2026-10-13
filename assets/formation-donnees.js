@@ -112,6 +112,28 @@
    * module. ⛔ L outil la signale et ne la range pas tout seul.
    */
   const CHAPITRES = {
+  /**
+   * ── ⛔ L'INTRODUCTION, AVANT LE MODULE 01 ─────────────────────────────────
+   *
+   * Arbitrage de Nadir du 13/10 : la vidéo de bienvenue s'affiche dans une
+   * fenêtre à la première connexion, ET elle est rangée ici pour qu'un élève
+   * puisse y revenir. ⚠️ C'est tout l'intérêt des deux : la fenêtre se ferme
+   * sans regarder, et la vidéo reste accessible.
+   *
+   * ⛔ `video: null` N'EST PAS UN OUBLI. Relevé dans Vimeo le 11/10, cette
+   * vidéo porte `embed: "whitelist"` : son intégration est restreinte à une
+   * liste de domaines qui n'est pas confirmée. ⚠️ L'emplacement du lecteur
+   * existe, le chapitre se parcourt, mais il restera MUET tant que la liste
+   * n'aura pas été vérifiée. Poser un identifiant maintenant donnerait un
+   * lecteur en erreur, ce qui est pire qu'un emplacement qui s'annonce en
+   * attente.
+   *
+   * ⚠️ Durée relevée : 769 secondes, soit 12 min 49 s.
+   */
+  '00': [
+    { id: 'm00-l0', titre: "Bienvenue à Trader 360",
+      video: null, description: null, provisoire: true, minutes: 13 },
+  ],
   '01': [
     { id: 'm01-l0', titre: "Introduction : se préparer mentalement et comprendre les bases du trading",
       video: null, description: null, provisoire: true, minutes: 6 },
@@ -169,10 +191,21 @@
       video: null, description: null, provisoire: true, minutes: 11 },
     { id: 'm04-l2', titre: "Installer TradingView",
       video: null, description: null, provisoire: true, minutes: 20 },
-    { id: 'm04-l3', titre: "Rejoindre le groupe Discord",
-      video: null, description: null, provisoire: true, minutes: 12 },
+    /**
+     * ⛔ « TradingView complément » SUIT « Installer TradingView », arbitrage de
+     * Nadir du 13/10 : c'est son complément, il le suit. Il était placé après
+     * « Rejoindre le groupe Discord », parce que Vimeo ne le numérote pas.
+     *
+     * ⚠️ LES IDENTIFIANTS NE SUIVENT PAS L'ORDRE, et c'est délibéré : `m04-l4`
+     * reste `m04-l4`. Ils sont la clé de la progression déjà enregistrée en
+     * base. ⛔ Les renuméroter ferait passer une leçon terminée pour une autre,
+     * et personne ne s'en apercevrait : la progression resterait cohérente en
+     * nombre, et fausse en contenu.
+     */
     { id: 'm04-l4', titre: "TradingView complément",
       video: null, description: null, provisoire: true, minutes: 50 },
+    { id: 'm04-l3', titre: "Rejoindre le groupe Discord",
+      video: null, description: null, provisoire: true, minutes: 12 },
   ],
   '05': [
     { id: 'm05-l0', titre: "Introduction : appliquer la méthode Trader 360",
@@ -287,6 +320,16 @@
    * par vigilance.
    */
   const MODULES = [
+    /**
+     * ⛔ L'INTRODUCTION NE COMPTE PAS POUR LA CERTIFICATION, et c'est délibéré.
+     *
+     * `certOuverte()` exige que TOUS les modules non certifiants soient
+     * terminés. ⚠️ Ajouter l'Introduction sans précaution créerait une condition
+     * neuve pour obtenir le certificat : regarder la vidéo de bienvenue.
+     * ⛔ Personne ne l'a décidée, et elle serait d'autant plus surprenante que
+     * la vidéo ne peut pas encore jouer. Le drapeau `introduction` l'écarte.
+     */
+    { numero: '00', titre: 'Introduction', lecons: CHAPITRES['00'], introduction: true },
     { numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: CHAPITRES['01'] },
     { numero: '02', titre: 'Comprendre le trading', lecons: CHAPITRES['02'] },
     { numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: CHAPITRES['03'] },

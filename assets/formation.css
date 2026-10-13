@@ -377,3 +377,47 @@ body[data-espace="formation"] .aube-clock { display: none !important; }
   #formationApp .dash{padding:20px}
 }
 @media (prefers-reduced-motion:reduce){#formationApp *{transition:none!important;animation:none!important}}
+
+/* ══ LA FENÊTRE DE BIENVENUE ════════════════════════════════════════════════
+   ⛔ Hors de `#formationApp` : un `<dialog>` modal vit dans la couche du haut
+   du navigateur, pas dans le flux de la page. ⚠️ Le préfixe de portée du reste
+   de cette feuille ne l'atteindrait donc pas, et elle sortirait sans style. */
+dialog.f-bienvenue {
+  border: 1px solid rgba(232, 184, 75, .35);
+  border-radius: 16px;
+  padding: 0;
+  background: #0d0f13;
+  color: #f1f0ee;
+  max-width: 540px;
+  width: calc(100% - 2rem);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
+.f-bienvenue__cadre { position: relative; padding: 2rem 1.75rem 1.75rem; text-align: center; }
+/* ⛔ 44 px de côté : c'est la cible tactile minimale, et cette croix est la
+   sortie d'un élève qui ne veut pas regarder douze minutes. */
+.f-bienvenue__croix {
+  position: absolute; top: .5rem; right: .5rem;
+  width: 44px; height: 44px;
+  font-size: 1.6rem; line-height: 1;
+  color: #b9bcc2; background: none; border: 0; cursor: pointer;
+}
+.f-bienvenue__croix:hover { color: #e8b84b; }
+.f-bienvenue__sur {
+  margin: 0 0 .35rem; font-size: .72rem; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase; color: #e8b84b;
+}
+.f-bienvenue__titre { margin: 0 0 1.25rem; font-size: 1.45rem; line-height: 1.3; }
+/* ⚠️ L'emplacement du lecteur, en attente : il garde le rapport 16/9 pour que
+   l'arrivée de la vidéo ne fasse pas sauter la mise en page. */
+.f-bienvenue__lecteur {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 1.1rem;
+  border: 1px dashed rgba(232, 184, 75, .3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .025);
+  color: #8b8e95; font-size: .9rem;
+}
+.f-bienvenue__lecteur p { margin: 0; padding: 0 1rem; }
+.f-bienvenue__sous { margin: 0 0 1.25rem; font-size: .9rem; color: #b9bcc2; line-height: 1.5; }

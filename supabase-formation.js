@@ -151,6 +151,61 @@
     if (p.error) console.warn('[FORMATION] progression illisible :', p.error.message);
     if (n.error) console.warn('[FORMATION] notes illisibles :', n.error.message);
     await chargerCitation();
+    await chargerBienvenue(u);
+  }
+
+  /* ══ LA FENETRE DE BIENVENUE ═══════════════════════════════════════════ */
+  /**
+   * ── ⛔ COMMENT ON DISTINGUE « JAMAIS VUE » DE « VUE ET FERMEE » ──────────
+   *
+   * Par L EXISTENCE DE LA LIGNE dans `formation_parcours_vu`, et par rien
+   * d autre :
+   *
+   *     aucune ligne   la fenetre n a JAMAIS ete montree  -> on la montre
+   *     une ligne      elle a ete montree, et `vue_le` dit quand
+   *                    -> on ne la remontre plus, jamais
+   *
+   * ⛔ FERMER COMPTE COMME VOIR, et c est le point. Douze minutes imposees a
+   * l arrivee et l eleve ferme l onglet : on ne le force pas une seconde fois.
+   * ⚠️ La video reste dans l Introduction, c est tout l interet de l y ranger.
+   *
+   * ⛔ LA LIGNE EST ECRITE A L OUVERTURE, PAS A LA FERMETURE. Un eleve qui
+   * ferme l onglet sans cliquer, ou qui perd sa connexion, ne doit pas la
+   * revoir au prochain chargement : l ecriture au moment ou on l affiche est la
+   * seule qui tienne. ⚠️ Le prix assume est qu une fenetre affichee une demi-
+   * seconde avant un plantage compte comme vue.
+   *
+   * ⚠️ `lecons_vues_au_dernier_affichage` reste a 0 : la colonne servait a
+   * l ancien usage de cette table. On ne la supprime pas, on ne s en sert pas.
+   */
+  let _bienvenueAMontrer = false;
+  async function chargerBienvenue(u) {
+    _bienvenueAMontrer = false;
+    try {
+      const { data, error } = await cli()
+        .from('formation_parcours_vu').select('vue_le').eq('user_id', u).maybeSingle();
+      if (error) {
+        // ⛔ On NE MONTRE PAS en cas de doute. Une lecture qui echoue ferait
+        // reapparaitre la fenetre a chaque chargement, ce qui est pire que de
+        // ne pas la montrer : la video reste dans l Introduction.
+        console.warn('[FORMATION] bienvenue illisible, fenetre non montree :', error.message);
+        return;
+      }
+      _bienvenueAMontrer = !data;
+    } catch (e) {
+      console.warn('[FORMATION] bienvenue illisible :', e);
+    }
+  }
+
+  /** Note que la fenetre a ete montree. ⚠️ Idempotent : `upsert` sur la cle. */
+  async function marquerBienvenueVue() {
+    const u = await uid();
+    if (!u) return false;
+    const { error } = await cli().from('formation_parcours_vu')
+      .upsert({ user_id: u, lecons_vues_au_dernier_affichage: 0 }, { onConflict: 'user_id' });
+    if (error) { console.warn('[FORMATION] bienvenue non notee :', error.message); return false; }
+    _bienvenueAMontrer = false;
+    return true;
   }
 
   /** Charge le texte d'UNE note, a l'ouverture de sa lecon. */
@@ -517,8 +572,16 @@
   const pctDe = (m) => (m.lecons.length ? Math.round((faitesDe(m) / m.lecons.length) * 100) : 0);
   const moduleFini = (m) => m.lecons.length > 0 && faitesDe(m) === m.lecons.length;
   const estCert = (m) => !!m.certification;
-  /** La certification s ouvre quand les neuf autres modules sont traverses. */
-  const certOuverte = () => mods().filter((m) => !estCert(m)).every(moduleFini);
+  const estIntro = (m) => !!m.introduction;
+  /**
+   * La certification s ouvre quand les neuf autres modules sont traverses.
+   * ⛔ L INTRODUCTION EN EST EXCLUE : elle a ete ajoutee au lot 11 pour ranger
+   * la video de bienvenue, et la compter ici ferait du visionnage de cette
+   * video une condition neuve pour obtenir le certificat. ⚠️ D autant qu elle
+   * ne peut pas encore jouer, sa liste de domaines Vimeo n etant pas confirmee :
+   * le certificat deviendrait inatteignable.
+   */
+  const certOuverte = () => mods().filter((m) => !estCert(m) && !estIntro(m)).every(moduleFini);
   const nbFaites = () => D().SUITE.filter((l) => estVue(l.id)).length;
 
   function xpTotal() {
@@ -838,6 +901,50 @@
       const el = $(ancre);
       if (el) el.scrollIntoView({ behavior: motionOk() ? 'smooth' : 'auto', block: 'start' });
     }
+    montrerBienvenue();
+  }
+
+  /**
+   * ── ⛔ LA FENETRE DE BIENVENUE, A LA PREMIERE CONNEXION SEULEMENT ────────
+   *
+   * ⚠️ ELLE SE FERME SANS REGARDER, et c est une exigence, pas un confort :
+   * douze minutes imposees a l arrivee et l eleve ferme l onglet. Trois sorties,
+   * toutes equivalentes : la croix, le bouton, et la touche d echappement.
+   *
+   * ⛔ LA VIDEO NE PEUT PAS ENCORE JOUER. Relevee dans Vimeo le 11/10, elle
+   * porte `embed: "whitelist"` : son integration est restreinte a une liste de
+   * domaines non confirmee. L emplacement du lecteur est pose et ANNONCE son
+   * attente, plutot qu un lecteur en erreur que personne ne saurait lire.
+   */
+  function montrerBienvenue() {
+    if (!_bienvenueAMontrer) return;
+    if (document.getElementById('formationBienvenue')) return;
+    // ⛔ On note AVANT de montrer : voir `chargerBienvenue`.
+    void marquerBienvenueVue();
+
+    const d = document.createElement('dialog');
+    d.id = 'formationBienvenue';
+    d.className = 'f-bienvenue';
+    d.innerHTML = `
+      <div class="f-bienvenue__cadre">
+        <button type="button" class="f-bienvenue__croix" data-fermer
+          aria-label="Fermer">&times;</button>
+        <p class="f-bienvenue__sur">Bienvenue</p>
+        <h2 class="f-bienvenue__titre">Bienvenue à Trader 360</h2>
+        <div class="f-bienvenue__lecteur" role="note">
+          <p>La vidéo sera disponible ici très bientôt.</p>
+        </div>
+        <p class="f-bienvenue__sous">Tu la retrouveras quand tu veux dans
+          <strong>Introduction</strong>, avant le module 01.</p>
+        <button type="button" class="btn btn-gold" data-fermer>Commencer</button>
+      </div>`;
+    document.body.appendChild(d);
+    const fermer = () => { d.close(); d.remove(); };
+    d.querySelectorAll('[data-fermer]').forEach((b) => b.addEventListener('click', fermer));
+    // ⚠️ La touche d echappement ferme deja un `<dialog>` : on retire l element
+    // apres, sinon un second chargement trouverait l ancien et ne montrerait rien.
+    d.addEventListener('close', () => d.remove());
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
   }
 
   /**
@@ -1233,6 +1340,15 @@
     },
     exporterNotes,
     arreterAnimations,
+    /**
+     * ── ⛔ LA FENETRE DE BIENVENUE, EXPOSEE A L APPELANT ───────────────────
+     *
+     * ⚠️ Ce module ne decide pas de l affichage : il dit s il FAUT montrer, et
+     * il note qu on a montre. ⛔ Le rendu appartient a la page, qui sait ou
+     * poser une fenetre et comment la fermer.
+     */
+    bienvenueAMontrer: () => _bienvenueAMontrer,
+    marquerBienvenueVue,
     // ⚠️ Exposes pour les sondes : elles doivent pouvoir lire le CALCUL, pas le
     // deviner. ⛔ Aucun d eux n ECRIT quoi que ce soit.
     _calcul: { xpTotal, niveauDe, badges, serie, NIVEAUX, XP_CHAP, XP_MOD, XP_CERT },
