@@ -119,6 +119,21 @@
    * tentative l est, et le dernier score pour l afficher.
    */
   let _quiz = {};
+  /**
+   * ── ⚠️ LE NIVEAU ACQUIS DANS LEARNYBOX, POUR LES ELEVES EXISTANTS ─────────
+   *
+   * `formation_niveau_learnybox` porte, par email, le groupe le plus haut
+   * ouvert a l eleve dans LearnyBox (import de l export du back-office,
+   * 14/10/2026). ⛔ C est la verite des coachs : paiement, quiz et seances
+   * ont ete valides la-bas. Ici, un niveau acquis OUVRE ses modules sans
+   * condition, et sans l ordre « quiz du precedent » : arbitrage de Nadir du
+   * 14/10, version « souple ». Les quiz de ces modules restent a valider, et
+   * l accueil le dit ; ils sont exiges avant le niveau SUIVANT.
+   *
+   *     _lb   { niveau: 'debutant'|'intermediaire'|'confirme'|null,
+   *             progression_pct, groupes }   ou null si aucune ligne
+   */
+  let _lb = null;
 
   const $ = (id) => document.getElementById(id);
   const D = () => window.FormationDonnees;
@@ -195,8 +210,29 @@
       _quiz[r.module_cle] = s;
     });
     if (q.error) console.warn('[FORMATION] resultats de quiz illisibles :', q.error.message);
+    await chargerNiveauLearnybox();
     await chargerCitation();
     await chargerBienvenue(u);
+  }
+
+  /**
+   * Lit la ligne LearnyBox de l eleve, par l email de SA session.
+   * ⛔ `ilike` sur l email, pas `maybeSingle` sans filtre : un coach lit toutes
+   * les lignes, et la premiere venue serait celle d un autre.
+   */
+  async function chargerNiveauLearnybox() {
+    _lb = null;
+    try {
+      const { data } = await cli().auth.getUser();
+      const email = data && data.user && data.user.email;
+      if (!email) return;
+      const r = await cli().from('formation_niveau_learnybox')
+        .select('niveau, progression_pct, groupes').ilike('email', email).limit(1);
+      if (r.error) { console.warn('[FORMATION] niveau LearnyBox illisible :', r.error.message); return; }
+      _lb = r.data && r.data[0] ? r.data[0] : null;
+    } catch (e) {
+      console.warn('[FORMATION] niveau LearnyBox illisible :', e);
+    }
   }
 
   /* ══ LA FENETRE DE BIENVENUE ═══════════════════════════════════════════ */
@@ -886,6 +922,24 @@
    * voie le module 07. ⚠️ `etat` vaut `'inconnu'` tant que la source se tait,
    * et `'inconnu'` ne passe jamais pour `'rempli'`.
    */
+  /** Le rang d un niveau dans le parcours : debutant 0, intermediaire 1, confirme 2. -1 si inconnu. */
+  const rangNiveau = (cle) => D().NIVEAUX_PARCOURS.findIndex((n) => n.cle === cle);
+  /** Le rang acquis dans LearnyBox, -1 sans ligne ou sans groupe. */
+  const rangLB = () => (_lb && _lb.niveau ? rangNiveau(_lb.niveau) : -1);
+  /** Un niveau est ACQUIS quand LearnyBox l a ouvert a l eleve. */
+  const niveauAcquis = (niveau) => !!niveau && rangNiveau(niveau.cle) >= 0 && rangLB() >= rangNiveau(niveau.cle);
+  /**
+   * Les modules des niveaux STRICTEMENT INFERIEURS a `niveau` dont le quiz
+   * reste a reussir : bonus et certification exclus, modules sans quiz exclus.
+   * ⚠️ Sert la condition « quiz » du niveau suivant ET l encart de l accueil.
+   */
+  function quizManquantsAvant(niveau) {
+    const r = niveau ? rangNiveau(niveau.cle) : D().NIVEAUX_PARCOURS.length;
+    const cles = D().NIVEAUX_PARCOURS.filter((n, i) => i < r).flatMap((n) => n.modules);
+    return mods().filter((m) => cles.includes(m.cle) && !estBonus(m) && !estCert(m))
+      .filter((m) => { const q = m.lecons.find((l) => l.quiz); return q && !estVue(q.id); });
+  }
+
   const CONDITIONS = [
     {
       cle: 'paiement',
@@ -896,7 +950,9 @@
        * etat. Il faudra une action lecture seule dans le dispatcher Apps
        * Script, appelee cote SERVEUR, jamais depuis le navigateur.
        */
-      lire: () => ({ etat: 'inconnu' }),
+      // ⚠️ Un niveau acquis dans LearnyBox vaut paiement valide : les coachs
+      // l ont ouvert la-bas. ⛔ Sinon, inconnu, donc ferme.
+      lire: (ctx) => ({ etat: ctx && niveauAcquis(ctx.niveau) ? 'rempli' : 'inconnu' }),
       message: () => 'Ton accès au niveau suivant n’est pas encore ouvert.',
       action: 'Écris à ton coach',
     },
@@ -910,19 +966,24 @@
        * ⛔ `a_venir` ne subsiste que si ce module n a pas de quiz dans
        * `FORMATION_QUIZ`, ce qui n est le cas d aucun des dix aujourd hui.
        */
+      /**
+       * ⚠️ DEPUIS LE 14/10 (version « souple ») : TOUS les quiz des niveaux
+       * precedents, pas seulement celui du dernier module. Pour un nouvel
+       * eleve, l ordre « quiz du precedent » les a deja imposes un par un ;
+       * pour un eleve venu de LearnyBox, c est ici qu ils sont exiges.
+       */
       lire: (ctx) => {
-        const m = ctx && ctx.module;
-        if (!m) return { etat: 'inconnu' };
-        if (!m.lecons.some((l) => l.quiz)) return { etat: 'a_venir', module: m };
-        const r = _quiz[m.cle];
-        return { etat: quizReussi(m.cle) ? 'rempli' : 'manquant', module: m, resultat: r || null };
+        if (!ctx || !ctx.niveau) return { etat: 'inconnu' };
+        const manquants = quizManquantsAvant(ctx.niveau);
+        return { etat: manquants.length ? 'manquant' : 'rempli', manquants, module: manquants[0] || null };
       },
       message: (v) => {
-        if (!v.module) return 'Le quiz de fin de niveau n’est pas encore lisible.';
-        if (v.etat === 'a_venir') return `Le module ${v.module.numero} n’a pas de quiz.`;
-        return v.resultat
-          ? `Quiz du module ${v.module.numero} : ${v.resultat.score} / ${v.resultat.total}. Il faut 80 %.`
-          : `Réussis le quiz du module ${v.module.numero} à 80 % ou plus.`;
+        if (v.etat === 'inconnu') return 'Le quiz de fin de niveau n’est pas encore lisible.';
+        if (!v.manquants.length) return 'C’est bon.';
+        const nums = v.manquants.map((m) => m.numero).join(', ');
+        return v.manquants.length === 1
+          ? `Réussis le quiz du module ${nums} à 80 % ou plus.`
+          : `Réussis les quiz des modules ${nums} à 80 % ou plus.`;
       },
       action: 'Ouvrir le quiz',
     },
@@ -935,7 +996,7 @@
        * vingt en tout, et ce qui se passe si l eleve en efface.
        * ⛔ Rattache a la refonte du journal, pas a l espace formation.
        */
-      lire: () => ({ etat: 'inconnu', faites: null, requis: 20 }),
+      lire: (ctx) => ({ etat: ctx && niveauAcquis(ctx.niveau) ? 'rempli' : 'inconnu', faites: null, requis: 20 }),
       message: (v) => (v.faites == null
         ? 'Il te faut 20 séances remplies dans ton journal.'
         : `Il te reste ${Math.max(0, v.requis - v.faites)} séance(s) à remplir dans ton journal.`),
@@ -954,18 +1015,8 @@
      * C est son quiz qui ouvre ce niveau-ci. ⛔ Sans niveau, aucun module, et
      * la condition quiz rend `inconnu` : elle ferme, comme les deux autres.
      */
-    let precedent = null;
-    if (niveau) {
-      const N = D().NIVEAUX_PARCOURS;
-      const i = N.findIndex((n) => n.cle === niveau.cle);
-      const avant = i > 0 ? N[i - 1] : null;
-      if (avant) {
-        const cles = avant.modules.filter((c) => { const m = mods().find((x) => x.cle === c); return m && !estBonus(m); });
-        precedent = mods().find((m) => m.cle === cles[cles.length - 1]) || null;
-      }
-    }
     for (const c of CONDITIONS) {
-      const v = c.lire({ niveau, module: precedent });
+      const v = c.lire({ niveau });
       // ⛔ SEUL `'rempli'` OUVRE. `'inconnu'`, `'a_venir'`, `'manquant'` et
       // toute valeur inattendue ferment : c est le defaut qui protege.
       if (v.etat !== 'rempli') {
@@ -1026,8 +1077,15 @@
     });
     return _mods;
   };
-  /** Le quiz d un module s ouvre quand TOUS ses chapitres video sont vus. */
-  const quizOuvert = (m) => m.lecons.filter((l) => !l.quiz).every((l) => estVue(l.id));
+  /**
+   * Le quiz d un module s ouvre quand TOUS ses chapitres video sont vus.
+   * ⚠️ OU quand le niveau du module est acquis dans LearnyBox : l eleve a deja
+   * suivi ces videos la-bas, et aucun detail par chapitre n a pu etre importe.
+   * ⛔ Lui imposer de tout revoir avant le quiz serait le bloquer, ce que
+   * l arbitrage « souple » du 14/10 refuse. Voir `_lb`.
+   */
+  const quizOuvert = (m) => niveauAcquis(D().niveauDuModule(m.cle))
+    || m.lecons.filter((l) => !l.quiz).every((l) => estVue(l.id));
   const videosRestantes = (m) => m.lecons.filter((l) => !l.quiz && !estVue(l.id)).length;
   /**
    * ── ⛔ L INTRODUCTION NE COMPTE PAS DANS LE PARCOURS ──────────────────────
@@ -1103,7 +1161,12 @@
      * ⛔ Ce n est pas le sien : un niveau fermé est fermé en entier, et le
      * bonus suit son niveau. Les cartes restent visibles, avec leur cadenas.
      */
-    const soumis = !!niveau && niveau.cle !== 'debutant' && !estIntro(m);
+    /**
+     * ⚠️ UN NIVEAU ACQUIS DANS LEARNYBOX EST OUVERT, et sans l ordre « quiz du
+     * precedent » : l eleve a deja traverse ces modules la-bas. Voir `_lb`.
+     */
+    const acquis = niveauAcquis(niveau);
+    const soumis = !acquis && !!niveau && niveau.cle !== 'debutant' && !estIntro(m);
     const cond = soumis ? conditionsNiveau(niveau) : { ouvert: true, manquantes: [] };
     if (!cond.ouvert) return { ouvrable: false, cause: 'niveau', cond, niveau };
     /**
@@ -1117,7 +1180,7 @@
      * ⛔ Un precedent SANS quiz n enferme pas : on ne verrouille pas sur une
      * condition que l eleve ne peut pas remplir.
      */
-    const precedent = precedentDe(m);
+    const precedent = acquis ? null : precedentDe(m);
     if (precedent && !estBonus(m) && !estCert(m)) {
       const quiz = precedent.lecons.find((l) => l.quiz);
       if (quiz && !estVue(quiz.id)) return { ouvrable: false, cause: 'quiz', cond, niveau, precedent };
@@ -1654,6 +1717,33 @@
           </span>
           <span class="intro-card__act">${vu ? 'Revoir' : 'Regarder'} ${I.arrow}</span>
         </button>`;
+      })()}
+      <!--
+        ── ⚠️ L ENCART DES QUIZ A VALIDER, POUR UN ELEVE VENU DE LEARNYBOX ──
+        Ses niveaux sont ouverts (voir _lb), mais les quiz des modules qu il
+        a deja suivis restent a reussir, et ils conditionnent le niveau
+        suivant et la certification. ⛔ Rien n est cache : l encart NOMME les
+        modules et mene a chaque quiz. ⚠️ Texte propose, publie au nom de
+        Trader 360 : Nadir le relit.
+      -->
+      ${(() => {
+        if (!_lb || !_lb.niveau) return '';
+        const niv = D().NIVEAUX_PARCOURS[rangLB()];
+        const suivant = D().NIVEAUX_PARCOURS[rangLB() + 1] || null;
+        const manquants = quizManquantsAvant(suivant);
+        if (!manquants.length) return '';
+        return `<div class="lb-encart" data-lb-encart>
+          <div class="lb-encart__texte">
+            <div class="eyebrow">Niveau ${txt(niv ? niv.nom : '')} · acquis</div>
+            <h3>Tes modules sont ouverts. Il reste les quiz.</h3>
+            <p>Tu as déjà avancé sur LearnyBox, et ton niveau est repris ici. Pour ${suivant ? `passer au niveau ${txt(suivant.nom)}` : 'obtenir ta certification'}, valide le quiz de chaque module que tu as suivi, à 80 % ou plus. Dans l’ordre que tu veux.</p>
+          </div>
+          <div class="lb-encart__quiz">
+            ${manquants.map((m) => { const ou = trouverLecon(`m${m.cle}-quiz`); const r = _quiz[m.cle];
+              return `<button type="button" class="lb-encart__btn" data-open="${ou[0]},${ou[1]}">
+                <b>Module ${txt(m.numero)}</b><span>${r ? `Dernier essai ${r.score} / ${r.total}` : `${m.lecons.find((l) => l.quiz).questions} questions`}</span></button>`; }).join('')}
+          </div>
+        </div>`;
       })()}
       <div class="grid">
         ${M.filter((m) => !estIntro(m)).map((m) => {
@@ -2218,7 +2308,7 @@
           <p>Ton score et ton badge restent acquis. Tu peux le refaire quand tu veux, pour réviser.</p>
           <button type="button" class="btn btn-ghost" data-quiz-commencer>Refaire le quiz</button>
         </div>`;
-    } else if (reste > 0) {
+    } else if (!quizOuvert(m)) {
       const prochainCi = m.lecons.findIndex((l) => !l.quiz && !estVue(l.id));
       corps = `
         <div class="quiz__verrou">
@@ -3304,7 +3394,7 @@
       // d une lecon, et les deux lectures de base, pour que la sonde mesure
       // ce que l ecran lit.
       mods, estVue, quizOuvert, videosRestantes, seuilDe, trouverLecon,
-      videos: () => _videos, quiz: () => _quiz },
+      videos: () => _videos, quiz: () => _quiz, lb: () => _lb, niveauAcquis, quizManquantsAvant },
   };
   window.Formation = Formation;
 })();
