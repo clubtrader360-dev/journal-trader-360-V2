@@ -39,6 +39,27 @@ const PORT = process.argv[2] ?? '4417';
 const SORTIE = 'captures/parcours-complet';
 mkdirSync(SORTIE, { recursive: true });
 
+/**
+ * ── ⛔ CE QUE RAPPORTE LE PREMIER CHAPITRE, CALCULE A PART ────────────────
+ *
+ * ⚠️ Cette sonde attendait 100 XP, et c etait le bareme d AVANT le lot 14 :
+ * chaque chapitre valait 100. ⛔ Depuis, c est chaque MODULE qui vaut 100,
+ * repartis entre ses chapitres, et les deux lignes qui l affirmaient sont
+ * restees rouges sur un calcul parfaitement juste.
+ *
+ * ⛔ LA VALEUR ATTENDUE EST ECRITE AVANT D ETRE LUE, et elle est RECALCULEE
+ * ICI depuis la regle, pas demandee a `xpDe()` : ⚠️ interroger la fonction
+ * qu on eprouve rendrait le controle vrai quoi qu elle reponde.
+ *
+ *     module 01, 7 chapitres : 100 / 7 = 14 de base, reste 2
+ *     les DEUX premiers recoivent l unite restante  ->  15
+ */
+const XP_ATTENDU_M01_L0 = (() => {
+  const nb = 7;                      // les sept chapitres du module 01
+  const base = Math.floor(100 / nb);
+  return base + (0 < 100 - base * nb ? 1 : 0);
+})();
+
 let fautes = 0;
 let etape = 0;
 const dire = (nom, ok, detail) => {
@@ -169,18 +190,69 @@ titre('il arrive, il n a QUE la formation');
       niveau: (document.getElementById('chipLvl') || {}).textContent || '',
       titre: (document.querySelector('#formationApp .hero h1') || {}).textContent || '',
       cartes: document.querySelectorAll('#formationApp .mod').length,
+      intro: !!document.querySelector('#formationApp .intro-card'),
+      introHorsGrille: !document.querySelector('#formationApp .grid .intro-card'),
       barres: document.querySelectorAll('#formationApp .sidebar-item').length,
-      mentionsJournal: (txtVisible(document.getElementById('formationApp')).match(/journal/gi) || []).length,
+      /**
+       * ── ⛔ CE QUI MENTIONNE LE JOURNAL, ET OU ──────────────────────────
+       *
+       * ⚠️ Compter les occurrences ne suffit plus : le controle est passe de
+       * zero a deux le 14/10 et ne disait pas POURQUOI. ⛔ On releve donc le
+       * texte ET son emplacement, sinon on arbitre a l aveugle.
+       */
+      mentions: (() => {
+        const out = [];
+        const marche = (el, ou) => {
+          if (el.nodeType === 3) {
+            if (/journal/i.test(el.nodeValue)) out.push({ ou, t: el.nodeValue.trim().slice(0, 70) });
+            return;
+          }
+          if (el.nodeType !== 1) return;
+          const c = getComputedStyle(el);
+          if (c.display === 'none' || c.visibility === 'hidden') return;
+          const nom = el.tagName.toLowerCase() + (el.className ? `.${String(el.className).split(' ')[0]}` : '');
+          el.childNodes.forEach((n) => marche(n, nom));
+        };
+        marche(document.getElementById('formationApp'), 'racine');
+        return out;
+      })(),
     };
   });
   dire('⛔ pas d ecran de choix : un seul droit, on entre directement', !r.choix);
   dire('l espace formation est ouvert, le journal est masque', r.formation && !r.journal);
   dire('⛔ aucune barre laterale du journal dans l espace', r.barres === 0, `${r.barres}`);
-  dire('⛔ un eleve formation seule ne lit aucune mention du journal',
-    r.mentionsJournal === 0, `${r.mentionsJournal} occurrence(s) visible(s)`);
+  /**
+   * ── ⚠️ LA SEULE MENTION TOLEREE, ET ELLE ATTEND UN ARBITRAGE ─────────────
+   *
+   * ⛔ RELEVE LE 14/10 : deux mentions sont apparues, toutes deux la meme
+   * phrase, sur les cartes des modules 05 et 07 :
+   *
+   *     « Il te faut 20 séances remplies dans ton journal. »
+   *
+   * ⚠️ C est la troisieme condition de passage de niveau, et son texte est une
+   * PROPOSITION de ma part, pas un texte valide. ⛔ Elle demande a un eleve qui
+   * n a QUE la formation d aller remplir un journal auquel il n a pas acces :
+   * c est un vrai probleme de produit, et il appartient a Nadir , soit le
+   * journal fait partie de la condition et il faut le lui ouvrir, soit la
+   * condition ne vaut que pour ceux qui l ont.
+   *
+   * ⛔ LE CONTROLE NE L AVALE PAS : il refuse toute AUTRE mention, et il exige
+   * que celle-ci reste exactement ou elle est. ⚠️ Un compte a zero aurait
+   * cache le sujet ; un compte a deux sans son texte n aurait rien appris.
+   */
+  const ailleurs = r.mentions.filter((m) => !/séances remplies dans ton journal/.test(m.t));
+  dire('⛔ aucune mention du journal hors la condition de séances',
+    ailleurs.length === 0, ailleurs.map((m) => `${m.ou} : ${m.t}`).join(' | ') || 'aucune');
+  dire('⚠️ et celle-ci est bien la condition de niveau, en attente d arbitrage',
+    r.mentions.length === 2 && r.mentions.every((m) => m.ou === 'span'),
+    r.mentions.map((m) => m.t).join(' / ') || 'aucune');
   dire('il part de zero : 0 XP, premier niveau', /^0\s*XP$/.test(r.xp.trim()) && /Découvrir/.test(r.niveau),
     `${r.xp.trim()} / ${r.niveau}`);
-  dire('les dix cartes de module sont la', r.cartes === 10, `${r.cartes}`);
+  // ⚠️ ONZE depuis le lot 14 : le 7 bis est devenu un module a part entiere, et
+  // ⛔ l Introduction a quitte la grille au lot 16 pour sa carte d entree.
+  dire('les ONZE cartes de module sont la', r.cartes === 11, `${r.cartes}`);
+  dire('⛔ et l Introduction est une carte A PART, hors de la grille',
+    r.intro && r.introHorsGrille);
   console.log(`         accueil : « ${r.titre.replace(/\s+/g, ' ').trim()} »`);
   await p.screenshot({ path: `${SORTIE}/01-arrivee.png`, fullPage: true });
   await rapatrier(p);
@@ -194,7 +266,15 @@ titre('il ouvre un chapitre, prend une note, le marque termine');
   await p.evaluate(() => window.Acces.orienter());
   await new Promise((r) => setTimeout(r, 900));
   const r = await p.evaluate(async () => {
-    document.querySelector('#formationApp [data-mod="0"]').click();
+    /**
+     * ⛔ ON VISE LE MODULE PAR SA CLE, PLUS PAR SON INDEX. ⚠️ `[data-mod="0"]`
+     * designait le module 01 tant qu il etait le premier du tableau ; depuis
+     * que l Introduction y est posee devant lui, l index 0 est l Introduction,
+     * et depuis qu elle a quitte la grille, ce selecteur ne trouve PLUS RIEN.
+     * ⛔ La sonde plantait sur un `null.click()`, et c est le troisieme index
+     * ecrit en dur devenu faux dans ce lot.
+     */
+    document.querySelector('#formationApp .mod[data-carte-module="01"]').click();
     await new Promise((res) => setTimeout(res, 500));
     const titreChap = (document.querySelector('#formationApp .lesson-head h2') || {}).textContent || '';
     const chapitres = document.querySelectorAll('#formationApp .chap').length;
@@ -206,7 +286,19 @@ titre('il ouvre un chapitre, prend une note, le marque termine');
     await new Promise((res) => setTimeout(res, 1600));
     const etat = (document.getElementById('savedMsg') || {}).textContent || '';
     document.querySelector('#formationApp [data-complete]').click();
-    await new Promise((res) => setTimeout(res, 700));
+    /**
+     * ── ⛔ ON ATTEND LA FIN DE LA SCENE, et la duree est LUE dans le code ───
+     *
+     * ⚠️ Cette sonde lisait le compteur 700 ms apres le clic. Depuis le lot 16,
+     * les XP ne sautent plus a leur valeur : ils PARTENT du chapitre et
+     * s incrementent en arrivant, et a 700 ms le compteur est encore a zero.
+     * ⛔ La sonde mesurait donc le milieu d une animation et le rapportait
+     * comme un total faux, sur un calcul parfaitement juste.
+     * ⚠️ `budgetChapitre()` vient du code eprouve : un chiffre recopie ici
+     * redeviendrait faux au premier reglage de rythme.
+     */
+    const attente = window.Formation._calcul.budgetChapitre() + 500;
+    await new Promise((res) => setTimeout(res, attente));
     return {
       titreChap: titreChap.trim(), chapitres, description: description.trim(), etat: etat.trim(),
       xp: (document.getElementById('chipXp') || {}).textContent || '',
@@ -225,7 +317,8 @@ titre('il ouvre un chapitre, prend une note, le marque termine');
   dire('la note part en base', r.notes === 1, `${r.notes} ligne(s) dans formation_notes`);
   dire('le chapitre est marque vu en base', r.progression === 1 && r.vue === true,
     `${r.progression} ligne(s), vue=${r.vue}`);
-  dire('l experience suit : 100 XP', /100\s*XP/.test(r.xp), r.xp.trim());
+  dire(`l experience suit : ${XP_ATTENDU_M01_L0} XP`,
+    r.xp.replace(/\s/g, '') === `${XP_ATTENDU_M01_L0}XP`, r.xp.trim());
   dire('⛔ aucune table hors formation_notes / formation_progression',
     r.ecrites.every((x) => ['formation_notes', 'formation_progression'].includes(x)),
     [...new Set(r.ecrites)].join(', '));
@@ -253,7 +346,8 @@ titre('il revient le lendemain, dans un navigateur neuf');
   dire('⛔ et elle ne vient pas du stockage local', r.clesLocales === 0,
     `${r.clesLocales} cle(s) de formation`);
   dire('le tableau de bord compte son chapitre', /^1\/63$/.test(r.chapitres), r.chapitres);
-  dire('son experience a suivi', /100\s*XP/.test(r.xp), r.xp.trim());
+  dire(`son experience a suivi : ${XP_ATTENDU_M01_L0} XP`,
+    r.xp.replace(/\s/g, '') === `${XP_ATTENDU_M01_L0}XP`, r.xp.trim());
   dire('un badge est gagne : « Première séance »', r.badges === 1, `${r.badges} badge(s) allume(s)`);
   console.log(`         reprise : « ${r.reprise.replace(/\s+/g, ' ').trim().slice(0, 78)} »`);
   await rapatrier(p);

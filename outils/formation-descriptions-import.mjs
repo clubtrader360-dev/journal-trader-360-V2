@@ -22,6 +22,7 @@
  * Usage : node outils/formation-descriptions-import.mjs [--ecrire]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { demarquer, marqueursRestants } from './_demarquer.mjs';
 
 const ECRIRE = process.argv.includes('--ecrire');
 let fautes = 0;
@@ -83,17 +84,17 @@ function lireLearnyBox() {
     let encart = null;
     for (const p of paras) {
       const suivante = (bloc) => bloc.split('\n').slice(1).join('\n').trim();
-      if (/^\*\*Sous-titre/i.test(p)) { sousTitre = suivante(p); continue; }
-      if (/^\*\*Encart/i.test(p)) { encart = suivante(p); continue; }
-      if (/^\*\*Note/i.test(p)) { notes.push(suivante(p)); continue; }
+      if (/^\*\*Sous-titre/i.test(p)) { sousTitre = demarquer(suivante(p)); continue; }
+      if (/^\*\*Encart/i.test(p)) { encart = demarquer(suivante(p)); continue; }
+      if (/^\*\*Note/i.test(p)) { notes.push(demarquer(suivante(p))); continue; }
       if (/^[⚠⛔]/.test(p)) {
         // ⚠️ Une note technique citee dans un bloc d annotation, entre guillemets.
         const g = p.match(/«\s*([^»]{20,})\s*»/);
-        if (g && /[Nn]ote/.test(p)) notes.push(g[1].replace(/\s*\n\s*/g, ' ').trim());
+        if (g && /[Nn]ote/.test(p)) notes.push(demarquer(g[1]));
         continue;
       }
       if (/^\*\*/.test(p)) continue;
-      if (description === null) description = p.replace(/\s*\n\s*/g, ' ').trim();
+      if (description === null) description = demarquer(p);
     }
     /**
      * ⛔ `7.3.1` : SON PREMIER PARAGRAPHE EST UN AVERTISSEMENT, PAS UNE
@@ -286,12 +287,80 @@ for (const sec of sections) {
   const m = [null, cle, sec.slice(sec.indexOf('\n'))];
   const paras = m[2].split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
   // ⚠️ Le premier paragraphe qui n est ni une annotation ni un bloc en gras.
-  const d = paras.find((x) => !/^[⚠⛔]/.test(x) && !/^\*\*/.test(x));
-  if (d) descMod[m[1]] = d.replace(/\s*\n\s*/g, ' ').trim();
+  /**
+   * ── ⛔ ET QUI N EST PAS UNE PHRASE *SUR* L ABSENCE DE DESCRIPTION ─────────
+   *
+   * ⚠️ DEFAUT MESURE LE 14/10 : le module 09 affichait « Aucune description
+   * dans LearnyBox. » a l eleve, mot pour mot. Le fichier source disait cela
+   * pour dire qu il n y avait rien a poser, et l import l a pose.
+   * ⛔ C est pire qu une description manquante : la carte avait l air remplie,
+   * la sonde de comparaison verbatim etait VERTE puisque la phrase se trouve
+   * bien dans la source, et le garde-fou « module sans description » ne voyait
+   * rien non plus. Trois instruments d accord sur un texte faux.
+   */
+  const META = /^(aucune description|pas de description|non capturée?|à venir)\b/i;
+  const d = paras.find((x) => !/^[⚠⛔]/.test(x) && !/^\*\*/.test(x) && !META.test(x));
+  /**
+   * ── ⛔ LES MARQUEURS DE CITATION NE SONT PAS DU TEXTE ─────────────────────
+   *
+   * ⚠️ DEFAUT MESURE LE 14/10, et c est le MEME motif : les descriptions
+   * ecrites en bloc de citation Markdown arrivaient a l eleve avec leurs
+   * chevrons, un par ligne repliee : « ... les revenus que tu > percois d une
+   * prop firm ». Six chapitres etaient touches, les trois du module 08 et les
+   * trois du 09.
+   * ⛔ ET LA SONDE VERBATIM ETAIT VERTE : elle compare au fichier source, qui
+   * porte les memes chevrons. ⚠️ Un comparateur pris dans le meme moule que la
+   * mesure ne discrimine rien, et c est exactement ce qui s est passe.
+   */
+  if (d) descMod[m[1]] = demarquer(d);
 }
 console.log(`\n  ══ 4. LES DESCRIPTIONS DE MODULE ══`);
 console.log(`     ${Object.keys(descMod).length} description(s) de module lues : `
   + Object.keys(descMod).sort().join(', '));
+/**
+ * ⛔ LES ONZE MODULES DU PARCOURS ONT UNE DESCRIPTION, nommement.
+ * ⚠️ Un compte seul ne suffit pas : neuf sur onze, c est onze moins les deux
+ * qui manquaient, et le compte ne dit pas LESQUELLES.
+ */
+{
+  const ATTENDUES = ['01', '02', '03', '04', '05', '06', '07', '07bis', '08', '09'];
+  const absentes = ATTENDUES.filter((c) => !descMod[c]);
+  dire('⛔ les dix modules de contenu ont leur description', absentes.length === 0,
+    absentes.length ? `manquent : ${absentes.join(', ')}` : '10 sur 10');
+  // ⚠️ `'10'`, la certification, n a pas de description LearnyBox : elle garde
+  // la sienne, ecrite pour le site. ⛔ Ce n est pas un oubli, c est nomme.
+  dire('⚠️ et la certification n en attend pas de LearnyBox', !descMod['10']);
+}
+
+/* ══ 6 bis. ⛔ AUCUN MARQUEUR MARKDOWN NE PART A L ECRAN ══════════════════ */
+console.log('\n  ══ 5. ⛔ LE BALISAGE NE PASSE PAS ══');
+{
+  const sales = [];
+  for (const [cle, d] of Object.entries(descMod)) {
+    const r = marqueursRestants(d);
+    if (r.length) sales.push(`module ${cle} (${r.join(', ')})`);
+  }
+  for (const b of lireLearnyBox()) {
+    for (const t of [b.description, b.sousTitre, b.encart, ...b.notes].filter(Boolean)) {
+      const r = marqueursRestants(t);
+      if (r.length) sales.push(`chapitre ${b.numero} (${r.join(', ')})`);
+    }
+  }
+  dire('⛔ aucune description, note, sous-titre ni encart ne porte de marqueur',
+    sales.length === 0, sales.length ? [...new Set(sales)].join(' ; ') : 'tous propres');
+  /**
+   * ⚠️ LE TEMOIN, ET SANS LUI LE VERT CI-DESSUS NE VAUT RIEN. ⛔ Un detecteur
+   * qui rendrait toujours « propre » passerait inapercu : six chapitres ont
+   * vecu six jours avec leurs chevrons sous trois instruments verts.
+   */
+  const sale = '> Dans ce chapitre, tu vas comprendre pourquoi\n> ca compte.';
+  dire('⚠️ TÉMOIN : un bloc de citation EST reconnu sale',
+    marqueursRestants(sale).length > 0, marqueursRestants(sale).join(', '));
+  dire('⚠️ TÉMOIN : debalise, il devient propre',
+    marqueursRestants(demarquer(sale)).length === 0, `« ${demarquer(sale)} »`);
+  dire('⚠️ TÉMOIN : et les mots, eux, n ont pas bouge',
+    demarquer(sale) === 'Dans ce chapitre, tu vas comprendre pourquoi ca compte.');
+}
 
 if (ECRIRE) {
   const marque = 'const CONTENU_CHAPITRES = {';

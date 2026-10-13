@@ -70,7 +70,16 @@ Dans ce module, tu vas comprendre les bases de la fiscalité applicable au tradi
 
 ## Module 9 : BONUS
 
-Aucune description dans LearnyBox.
+⛔ **Aucune description dans LearnyBox.** ⚠️ Proposition ci-dessous, écrite le
+14/10 à partir du contenu réel des trois bonus.
+
+> Trois vidéos en marge du parcours, à regarder quand tu en as besoin plutôt que
+> dans l'ordre. Retrouver ta confiance après une série de pertes, comprendre le
+> programme membre et la recommandation, et un tuto technique sur les imbalances.
+
+⚠️ Ces trois bonus ne rapportent aucun XP et ne comptent pas dans la progression.
+⛔ Le dire ou non à l'élève est un choix de Nadir : la description ci-dessus ne le
+mentionne pas, pour ne pas décourager de les regarder.
 
 ⚠️ Confirme la décision du 11/10 : les trois vidéos de ce module sont des bonus,
 sans ordre imposé entre elles.

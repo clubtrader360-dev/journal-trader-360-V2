@@ -327,7 +327,7 @@
     '07': "Dans ce module, tu vas apprendre toutes les étapes pour devenir un trader propfirm financé.",
     '07bis': "Dans ce module, tu vas découvrir les étapes clés à suivre après avoir réussi ou terminé ton challenge prop firm. Tu apprendras comment consolider tes acquis, gérer ta progression, et préparer les prochaines étapes pour continuer à évoluer dans le trading.",
     '08': "Dans ce module, tu vas comprendre les bases de la fiscalité applicable au trading, les obligations légales, et les bonnes pratiques pour optimiser ta situation fiscale tout en restant en règle.",
-    '09': "Aucune description dans LearnyBox.",
+    '09': "Trois vidéos en marge du parcours, à regarder quand tu en as besoin plutôt que dans l'ordre. Retrouver ta confiance après une série de pertes, comprendre le programme membre et la recommandation, et un tuto technique sur les imbalances.",
     '10': 'La validation du parcours, une fois les neuf modules précédents traversés.',
   };
 
@@ -397,7 +397,7 @@ const CONTENU_CHAPITRES = {
   'm06-l1': { description: "Dans ce chapitre, tu vas apprendre à te comporter comme un vrai professionnel du trading. Cela signifie respecter tes règles, gérer tes émotions, et aborder chaque séance avec rigueur et sérieux, comme le ferait un trader expérimenté.", learnybox: "6.1" },
   'm06-l2': { description: "Dans ce chapitre, tu vas apprendre à reconnaître et maîtriser le stress, les émotions fortes et la cupidité, qui sont des pièges fréquents en trading. Tu découvriras des techniques efficaces pour garder la tête froide et prendre des décisions rationnelles, même sous pression.", learnybox: "6.2" },
   'm06-l3': { description: "Dans ce chapitre, tu apprendras à accueillir les aléas du trading comme une étape normale du parcours. Tu découvriras aussi l'importance de reconnaître ton niveau actuel pour progresser avec confiance et éviter les décisions précipitées.", learnybox: "6.3" },
-  'm06-l4': { description: "Dans ce chapitre, tu vas apprendre à maintenir ta discipline sur le long terme grâce à un check-in émotionnel quotidien. Tu découvriras comment repérer et noter tes erreurs pour progresser de manière continue et garder le contrôle de tes décisions.", encart: "A la suite de ce dernier module, n'oublie pas cette partie :\n**MESSAGE DISCORD NIVEAU CONFIRMÉ**\nDANS SALON \"REGLES ET ANNONCES\"\nPOSTE : Message important pour tous les débutants", learnybox: "6.4" },
+  'm06-l4': { description: "Dans ce chapitre, tu vas apprendre à maintenir ta discipline sur le long terme grâce à un check-in émotionnel quotidien. Tu découvriras comment repérer et noter tes erreurs pour progresser de manière continue et garder le contrôle de tes décisions.", encart: "A la suite de ce dernier module, n'oublie pas cette partie : MESSAGE DISCORD NIVEAU CONFIRMÉ DANS SALON \"REGLES ET ANNONCES\" POSTE : Message important pour tous les débutants", learnybox: "6.4" },
   'm07-l0': { description: "Dans ce module, tu vas apprendre à décoder le fonctionnement des prop firms et leurs règles, éviter les pièges, configurer ta plateforme, t'entraîner efficacement et appliquer une stratégie claire pour valider en moins de 2 jours, puis gérer l'après-challenge (gestion du risque, retraits, scaling) afin de construire une rentabilité durable.", learnybox: "7.0" },
   'm07-l1': { description: "Dans ce chapitre, tu vas comprendre comment fonctionne le défi prop firm, quels sont les objectifs à atteindre, et pourquoi c'est une opportunité unique pour trader avec un capital important sans risquer ton propre argent.", learnybox: "7.1" },
   'm07-l2': { description: "Dans ce chapitre, tu découvriras les règles propres à chaque prop firm, leurs exigences particulières, ainsi que les pièges courants à éviter pour maximiser tes chances de réussite lors du challenge.", learnybox: "7.2" },
@@ -411,12 +411,12 @@ const CONTENU_CHAPITRES = {
   'm07-l10': { description: "Dans ce chapitre, tu découvriras comment fonctionne le payout (versement de tes gains) avec ta prop firm, et l'importance du matelas de sécurité pour protéger tes bénéfices tout en assurant la continuité de tes trades.", learnybox: "7bis 1" },
   'm07-l11': { description: "Dans ce chapitre, tu vas apprendre à augmenter progressivement la taille de tes positions et ton capital investi grâce au scaling plan. C'est une stratégie essentielle pour faire croître ton compte en maîtrisant les risques.", learnybox: "7bis 2" },
   'm07-l12': { description: "Dans ce chapitre, tu vas découvrir comment réussir ta transition du compte démo au trading en live. Tu apprendras les bonnes pratiques pour gérer le stress, rester discipliné, et appliquer ta méthode efficacement sur de l'argent réel.", learnybox: "7bis 3" },
-  'm08-l0': { description: "> Dans ce chapitre, tu vas comprendre comment sont imposés les revenus que tu > perçois d'une prop firm, et pourquoi ils ne relèvent pas du même régime que > ceux d'un trader pour compte propre. De quoi savoir ce que tu dois déclarer, et > à quel titre.", learnybox: "8.1" },
-  'm08-l1': { description: "> Dans ce chapitre, tu vas découvrir quelles formes juridiques existent pour > exercer, ce qu'elles impliquent en cotisations et en déclarations, et à partir > de quel moment la question se pose vraiment. L'objectif est que tu saches quoi > demander à un comptable, pas que tu t'en passes.", learnybox: "8.2" },
-  'm08-l2': { description: "> Dans ce chapitre, tu vas voir comment traiter ton activité de trading comme une > activité professionnelle : séparer tes comptes, tenir tes chiffres, et poser un > cadre qui tienne dans la durée. Le trading est un métier, et il s'organise > comme tel.", learnybox: "8.3" },
-  'm09-l0': { description: "> Après une série de pertes, le doute s'installe et c'est là qu'on fait n'importe > quoi. Ce bonus te donne de quoi retrouver stabilité, maîtrise et régularité > quand la confiance n'est plus là.", learnybox: "9.1" },
-  'm09-l1': { description: "> Ce bonus présente le programme membre et la façon dont tu peux recommander > Trader 360 autour de toi. Comment ça marche, ce que ça t'apporte, et ce qu'on > attend en retour.", learnybox: "9.2" },
-  'm09-l2': { description: "> Ce bonus t'explique ce qu'est une imbalance, comment la repérer sur un > graphique, et ce qu'elle dit du comportement du marché. Une notion technique > qui complète la méthode.", learnybox: "9.3" },
+  'm08-l0': { description: "Dans ce chapitre, tu vas comprendre comment sont imposés les revenus que tu perçois d'une prop firm, et pourquoi ils ne relèvent pas du même régime que ceux d'un trader pour compte propre. De quoi savoir ce que tu dois déclarer, et à quel titre.", learnybox: "8.1" },
+  'm08-l1': { description: "Dans ce chapitre, tu vas découvrir quelles formes juridiques existent pour exercer, ce qu'elles impliquent en cotisations et en déclarations, et à partir de quel moment la question se pose vraiment. L'objectif est que tu saches quoi demander à un comptable, pas que tu t'en passes.", learnybox: "8.2" },
+  'm08-l2': { description: "Dans ce chapitre, tu vas voir comment traiter ton activité de trading comme une activité professionnelle : séparer tes comptes, tenir tes chiffres, et poser un cadre qui tienne dans la durée. Le trading est un métier, et il s'organise comme tel.", learnybox: "8.3" },
+  'm09-l0': { description: "Après une série de pertes, le doute s'installe et c'est là qu'on fait n'importe quoi. Ce bonus te donne de quoi retrouver stabilité, maîtrise et régularité quand la confiance n'est plus là.", learnybox: "9.1" },
+  'm09-l1': { description: "Ce bonus présente le programme membre et la façon dont tu peux recommander Trader 360 autour de toi. Comment ça marche, ce que ça t'apporte, et ce qu'on attend en retour.", learnybox: "9.2" },
+  'm09-l2': { description: "Ce bonus t'explique ce qu'est une imbalance, comment la repérer sur un graphique, et ce qu'elle dit du comportement du marché. Une notion technique qui complète la méthode.", learnybox: "9.3" },
 };
 
   /**
@@ -446,23 +446,23 @@ const CONTENU_CHAPITRES = {
      * ⛔ Personne ne l'a décidée, et elle serait d'autant plus surprenante que
      * la vidéo ne peut pas encore jouer. Le drapeau `introduction` l'écarte.
      */
-    { numero: '00', titre: 'Introduction', lecons: CHAPITRES['00'], introduction: true },
-    { numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: CHAPITRES['01'] },
-    { numero: '02', titre: 'Comprendre le trading', lecons: CHAPITRES['02'] },
-    { numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: CHAPITRES['03'] },
-    { numero: '04', titre: 'Prendre en main ta plateforme de trading', lecons: CHAPITRES['04'] },
-    { numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: CHAPITRES['05'] },
-    { numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: CHAPITRES['06'] },
-    { numero: '07', titre: "Gérer l'après-challenge et structurer son activité", lecons: CHAPITRES['07'] },
+    { cle: '00', numero: '00', titre: 'Introduction', lecons: CHAPITRES['00'], introduction: true },
+    { cle: '01', numero: '01', titre: 'Se préparer mentalement et comprendre les bases', lecons: CHAPITRES['01'] },
+    { cle: '02', numero: '02', titre: 'Comprendre le trading', lecons: CHAPITRES['02'] },
+    { cle: '03', numero: '03', titre: 'Maîtriser tes indicateurs, et rien de plus', lecons: CHAPITRES['03'] },
+    { cle: '04', numero: '04', titre: 'Prendre en main ta plateforme de trading', lecons: CHAPITRES['04'] },
+    { cle: '05', numero: '05', titre: 'Appliquer la méthode Trader 360', lecons: CHAPITRES['05'] },
+    { cle: '06', numero: '06', titre: 'Renforcer ta psychologie de trader', lecons: CHAPITRES['06'] },
+    { cle: '07', numero: '07', titre: "Gérer l'après-challenge et structurer son activité", lecons: CHAPITRES['07'] },
     /**
-     * ⛔ `numero: '7 bis'` est ce que l ELEVE lit, `'07bis'` est la cle interne.
-     * ⚠️ LearnyBox ecrit « 7bis », « 5.3 Bis » et « 4.2.2 » pour la meme idee de
-     * complement : trois formes. ⛔ Celle-ci suit le sommaire que l eleve
+     * ⛔ `numero: '7 bis'` est ce que l ELEVE lit, `cle: '07bis'` est la cle
+     * interne. ⚠️ LearnyBox ecrit « 7bis », « 5.3 Bis » et « 4.2.2 » pour la meme
+     * idee de complement : trois formes. ⛔ Celle-ci suit le sommaire que l eleve
      * connait, l harmonisation des trois reste a trancher par Nadir.
      */
-    { numero: '7 bis', titre: 'Structurer son activité de trader après le challenge',
+    { cle: '07bis', numero: '7 bis', titre: 'Structurer son activité de trader après le challenge',
       lecons: CHAPITRES['07bis'] },
-    { numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: CHAPITRES['08'] },
+    { cle: '08', numero: '08', titre: 'Comprendre la fiscalité liée au trading', lecons: CHAPITRES['08'] },
     /**
      * ⛔ LE MODULE 9 EST UN BONUS : ZERO XP, et hors progression.
      * ⚠️ Trois chapitres a 33 XP contre douze a 8 dans le module 05 en
@@ -470,13 +470,66 @@ const CONTENU_CHAPITRES = {
      * etre un raccourci vers le niveau suivant.
      * ⚠️ Il reste VISIBLE et accessible : zero XP ne veut pas dire cache.
      */
-    { numero: '09', titre: 'Pour aller plus loin', lecons: CHAPITRES['09'], bonus: true },
+    { cle: '09', numero: '09', titre: 'Pour aller plus loin', lecons: CHAPITRES['09'], bonus: true },
     // ⛔ VERROUILLE tant que les neuf autres ne sont pas traverses, et SANS
     // chapitre : aucun dossier Vimeo ne lui correspond, et on ne lui en invente
     // pas. La certification est une condition, pas une lecon.
-    { numero: '10', titre: 'Certification Trader 360', lecons: CHAPITRES['10'], certification: true },
+    { cle: '10', numero: '10', titre: 'Certification Trader 360', lecons: CHAPITRES['10'], certification: true },
   ];
-  MODULES.forEach((m) => { m.description = DESCRIPTIONS[m.numero] || null; });
+  /**
+   * ── ⛔ `cle` EST PORTEE PAR LE MODULE, ET C EST LA CORRECTION DE CLASSE ────
+   *
+   * ⚠️ DEFAUT MESURE LE 14/10, ET C EST LE CINQUIEME ENDROIT : cette ligne
+   * lisait `DESCRIPTIONS[m.numero]`. Or le `numero` du 7 bis est « 7 bis »,
+   * avec un espace, parce que c est ce que l ELEVE lit dans le sommaire.
+   * `DESCRIPTIONS['7 bis']` vaut donc `undefined`, et la carte du module
+   * affichait « En attente de description » alors que la description EXISTE,
+   * sous la cle `'07bis'`, dans ce fichier, trois cents lignes plus haut.
+   * ⛔ Aucune erreur, aucun avertissement : un `|| null` avale la faute.
+   *
+   * ── ⚠️ LES QUATRE PRECEDENTS, POUR QUE LE MOTIF SOIT LISIBLE ─────────────
+   *
+   *   1. `Number('07bis')` rendait `NaN` dans le tri des badges
+   *   2. un motif n acceptait que `Bis` capitalise
+   *   3. `lireDepot` ne reconnaissait que les cles a DEUX chiffres
+   *   4. `Module 7` et `Module 7bis` partageaient une cle a l import
+   *
+   * ⛔ LA CORRECTION N EST PAS UN CINQUIEME RATTRAPAGE. Chacun des quatre avait
+   * ete repare localement, et le cinquième est arrive quand meme : c est la
+   * preuve que le defaut n est pas dans les appels mais dans la DONNEE, qui
+   * n avait qu un seul champ pour deux usages. ⚠️ `cle` est desormais declaree
+   * une fois, a cote du `numero`, et tout ce qui indexe lit `m.cle`.
+   * ⛔ `numero` ne sert plus qu a l AFFICHAGE.
+   */
+  MODULES.forEach((m) => { m.description = DESCRIPTIONS[m.cle] || null; });
+
+  /**
+   * ── ⛔ LE GARDE-FOU QUI CRIE, PARCE QUE LE SILENCE EST LE DEFAUT ──────────
+   *
+   * ⚠️ Les cinq pertes de `07bis` ont TOUTES echoue en silence : un `undefined`
+   * avale par un `|| null`, un `NaN` compare sans erreur, un `find` qui rend
+   * `undefined`. ⛔ Aucun n a leve. Ce bloc est la seule chose qui aurait parle.
+   *
+   * ⛔ IL NE CORRIGE RIEN, IL DIT. Corriger une cle manquante en la devinant
+   * remettrait le probleme exactement ou il etait.
+   */
+  (function controlerLesCles() {
+    const cles = MODULES.map((m) => m.cle);
+    const dits = NIVEAUX_PARCOURS.flatMap((n) => n.modules);
+    // 1. Deux modules ne peuvent pas porter la meme cle.
+    const doubles = cles.filter((c, i) => cles.indexOf(c) !== i);
+    if (doubles.length) console.error('[DONNEES] ⛔ cles de module en double :', doubles);
+    // 2. Un niveau ne peut pas nommer un module qui n existe pas.
+    const fantomes = dits.filter((c) => !cles.includes(c));
+    if (fantomes.length) console.error('[DONNEES] ⛔ niveau qui nomme un module absent :', fantomes);
+    // 3. Tout module sauf l Introduction appartient a un niveau.
+    const orphelins = MODULES.filter((m) => !m.introduction && !dits.includes(m.cle)).map((m) => m.cle);
+    if (orphelins.length) console.error('[DONNEES] ⛔ module sans niveau :', orphelins);
+    // 4. ⚠️ ET LA DESCRIPTION : c est precisement ce qui manquait sans le dire.
+    const muets = MODULES.filter((m) => !m.introduction && !m.certification && !m.description)
+      .map((m) => m.cle);
+    if (muets.length) console.error('[DONNEES] ⛔ module sans description :', muets);
+  }());
 
   /** Toutes les leçons, à plat, dans l'ordre de lecture. Sert à « leçon suivante ». */
   /**

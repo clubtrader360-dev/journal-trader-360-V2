@@ -16,6 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { demarquer, marqueursRestants } from './_demarquer.mjs';
 
 let fautes = 0;
 const dire = (nom, ok, detail) => {
@@ -70,7 +71,19 @@ console.log('\n  ══ 2. CHAQUE DESCRIPTION SE RETROUVE DANS LA SOURCE ══'
    * on compare donc sur les espaces normalises, DES DEUX COTES. ⛔ Et rien
    * d autre n est normalise : ni les apostrophes, ni la casse, ni la ponctuation.
    */
-  const plat = (s) => s.replace(/\s+/g, ' ').trim();
+  /**
+   * ── ⛔ LES DEUX COTES SONT DEBALISES, PAR LA MEME FONCTION ────────────────
+   *
+   * ⚠️ DEFAUT MESURE LE 14/10 : cette comparaison etait VERTE sur six
+   * descriptions qui arrivaient a l eleve avec les chevrons de leur bloc de
+   * citation. Elle comparait au fichier source, qui porte les memes chevrons :
+   * ⛔ un etalon pris dans le meme moule que la mesure ne discrimine rien.
+   *
+   * ⛔ LA SECTION 5 EST L AUTRE MOITIE DE LA CORRECTION : debaliser des deux
+   * cotes rend la comparaison juste sur les MOTS, et il faut un controle separe
+   * pour dire qu aucun marqueur n arrive a l ecran. Les deux, pas l un.
+   */
+  const plat = (s) => demarquer(s).replace(/\s+/g, ' ').trim();
   const source = plat(LB);
   const absents = [];
   let comptees = 0;
@@ -141,6 +154,73 @@ console.log('\n  ══ 4. ⛔ LE FICHIER ENGENDRÉ N A PAS ÉTÉ ÉDITÉ À LA 
   const apres = readFileSync('assets/formation-donnees.js', 'utf8');
   dire('⛔ une régénération ne change rien : le fichier est bien engendré',
     avant === apres, avant === apres ? 'identique' : 'DIVERGENT, il a été édité à la main');
+}
+
+
+console.log('\n  ══ 5. ⛔ LES ONZE DESCRIPTIONS DE MODULE, CARACTÈRE PAR CARACTÈRE ══');
+{
+  /**
+   * ── ⛔ CE QUE LA SECTION 2 NE POUVAIT PAS VOIR ────────────────────────────
+   *
+   * Elle ne regardait que les CHAPITRES. ⚠️ Les descriptions de MODULE vivent
+   * dans un autre bloc et dans un autre fichier source, et deux manquaient sur
+   * onze sans qu aucune des quatre sondes ne le dise :
+   *
+   *     07bis   la cle se perdait un CINQUIEME endroit : la pose lisait
+   *             `DESCRIPTIONS[m.numero]`, et le numero du 7 bis est « 7 bis »
+   *     09      « Aucune description dans LearnyBox. » etait POSE comme
+   *             description, mot pour mot, et s affichait a l eleve
+   *
+   * ⛔ Le second est le pire des deux : la carte avait l air remplie.
+   */
+  const LBM = readFileSync('_contenu-formation/descriptions-modules-learnybox.md', 'utf8');
+  const plat = (s) => demarquer(s).replace(/\s+/g, ' ').trim();
+  const sourceM = plat(LBM);
+
+  // Le bloc DESCRIPTIONS tel qu il est pose dans le fichier de donnees.
+  const src = readFileSync('assets/formation-donnees.js', 'utf8');
+  const i = src.indexOf('const DESCRIPTIONS = {');
+  const j = src.indexOf('\n  };', i);
+  const posees = {};
+  for (const m of src.slice(i, j).matchAll(/'([\w]+)':\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g)) {
+    posees[m[1]] = JSON.parse(m[2][0] === "'"
+      ? `"${m[2].slice(1, -1).replace(/\\'/g, "'").replace(/"/g, '\\"')}"` : m[2]);
+  }
+
+  const ONZE = ['01', '02', '03', '04', '05', '06', '07', '07bis', '08', '09', '10'];
+  dire('⛔ les ONZE modules du parcours ont une description posée',
+    ONZE.every((c) => (posees[c] || '').trim().length > 20),
+    ONZE.filter((c) => !(posees[c] || '').trim().length).join(', ') || '11 sur 11');
+
+  // ⛔ Et chacune se retrouve DANS LA SOURCE, mot pour mot.
+  // ⚠️ `'10'` exceptee : la certification n a pas de description LearnyBox, la
+  // sienne vient du site. ⛔ Nommee, pas avalee par un filtre discret.
+  const dix = ONZE.filter((c) => c !== '10');
+  const absentes = dix.filter((c) => !sourceM.includes(plat(posees[c] || 'zzz')));
+  dire('⛔ les dix venues de LearnyBox se retrouvent verbatim dans la source',
+    absentes.length === 0, absentes.length ? absentes.join(', ') : '10 sur 10');
+  dire('⚠️ et celle de la certification vient du site, pas de LearnyBox',
+    !sourceM.includes(plat(posees['10'] || 'zzz')));
+
+  /**
+   * ⚠️ LE TEMOIN D ECHEC, et c est lui qui donne sa valeur aux deux verts.
+   * ⛔ Sans lui, un comparateur qui rendrait toujours vrai passerait inapercu,
+   * et c est exactement ce qui est arrive a la section 2 pendant six jours.
+   */
+  const abimee = posees['01'].replace(/\b(\w{7,})\b/, 'MOTABIME');
+  dire('⚠️ TÉMOIN : une description de module abîmée n est PLUS retrouvée',
+    abimee !== posees['01'] && !sourceM.includes(plat(abimee)));
+  dire('⚠️ TÉMOIN : la phrase qui disait l absence n est PLUS posée',
+    !Object.values(posees).some((d) => /^aucune description/i.test(d)),
+    'aucun « Aucune description dans LearnyBox. »');
+
+  /* ⛔ ET AUCUN MARQUEUR MARKDOWN N ARRIVE A L ECRAN. */
+  const sales = Object.entries(posees)
+    .map(([c, d]) => [c, marqueursRestants(d)]).filter(([, r]) => r.length);
+  dire('⛔ aucune description de module ne porte de marqueur Markdown',
+    sales.length === 0, sales.map(([c, r]) => `${c} (${r.join(', ')})`).join(' ; ') || 'toutes propres');
+  dire('⚠️ TÉMOIN : le détecteur de marqueurs n est pas aveugle',
+    marqueursRestants('> une citation').length > 0);
 }
 
 console.log(fautes ? `\n  ⛔ ${fautes} CONTROLE(S) ROUGE(S).\n` : '\n  Tout est vert.\n');

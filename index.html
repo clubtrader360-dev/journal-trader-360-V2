@@ -8614,15 +8614,39 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 catch (e) { console.warn('[INIT] restoreSession a échoué:', e); }
             }
 
-            // 🛟 Filet de sécurité : si après 5s aucune des trois interfaces n'est visible,
-            // on force l'écran d'auth pour ne JAMAIS laisser l'utilisateur sur du vide.
+            // 🛟 Filet de sécurité : si après 5s AUCUNE interface de premier niveau
+            // n'est visible, on force l'écran d'auth pour ne JAMAIS laisser
+            // l'utilisateur sur du vide.
+            //
+            // ── ⛔ DÉFAUT MESURÉ LE 14/10, ET IL FRAPPAIT TOUS LES ÉLÈVES ───────
+            //
+            // Cette liste ne connaissait que `mainApp`, `coachApp` et `authScreen`.
+            // ⚠️ `#formationApp` et `#choixEspace` sont nés APRÈS ce filet, et
+            // personne n'est revenu l'allonger. Conséquence : un élève qui n'a que
+            // la formation voyait son espace s'afficher normalement, puis
+            // L'ÉCRAN DE CONNEXION LUI TOMBER DESSUS CINQ SECONDES PLUS TARD,
+            // formulaire, photo de fond et tout. Le filet censé éviter le vide
+            // posait un écran de connexion par-dessus un espace qui marchait.
+            //
+            // ⛔ AUCUNE ERREUR NULLE PART : c'est un `setTimeout` qui fait
+            // exactement ce qu'on lui a demandé, avec une liste devenue fausse.
+            // ⚠️ Et aucune sonde ne le voyait : toutes mesuraient dans les deux
+            // premières secondes. Il a fallu REGARDER une image prise à 3,2 s
+            // d'une scène, dont le fond était l'écran de connexion.
+            //
+            // ⛔ LA LISTE EST DÉSORMAIS CELLE DES ESPACES DE PREMIER NIVEAU, au
+            // même endroit, et c'est la correction de CLASSE : allonger la liste
+            // de deux identifiants aurait laissé le piège intact pour le
+            // prochain espace. ⚠️ Un espace ajouté sans être inscrit ici
+            // reproduirait exactement le même défaut.
+            const ESPACES_PREMIER_NIVEAU = ['mainApp', 'coachApp', 'formationApp', 'choixEspace'];
             setTimeout(() => {
                 const authScreen = document.getElementById('authScreen');
-                const mainApp = document.getElementById('mainApp');
-                const coachApp = document.getElementById('coachApp');
                 const visible = (el) => el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
-                if (!visible(mainApp) && !visible(coachApp) && !visible(authScreen)) {
-                    console.warn('[INIT] 🛟 Aucune interface visible — fallback authScreen');
+                const unVisible = ESPACES_PREMIER_NIVEAU
+                    .some((id) => visible(document.getElementById(id)));
+                if (!unVisible && !visible(authScreen)) {
+                    console.warn('[INIT] 🛟 Aucune interface visible, fallback authScreen');
                     if (authScreen) authScreen.style.display = 'flex';
                 }
             }, 5000);

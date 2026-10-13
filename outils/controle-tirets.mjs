@@ -70,7 +70,34 @@ for (const f of neufs) {
   for (const l of t.split('\n')) ajouts.push([f, l]);
 }
 
-const fautes = ajouts.filter(([, l]) => l.includes(CADRATIN) || l.includes(DEMI));
+/**
+ * ── ⛔ UN SEUL PERIMETRE EXCLU, ET C EST LA PROSE DE NADIR ────────────────
+ *
+ * `_contenu-formation/` porte le releve manuel des descriptions, transcrit
+ * chapitre par chapitre depuis LearnyBox. ⚠️ Ce sont SES mots et SA
+ * ponctuation : un cadratin qu il a ecrit n est pas une faute, c est du
+ * contenu. ⛔ Et le corriger serait exactement ce que `_demarquer.mjs` refuse
+ * de faire : reecrire un texte au lieu de le poser.
+ *
+ * ⛔ CE N EST PAS UN TROU : les descriptions passent par `demarquer()` avant
+ * d arriver a l ecran, et la sonde des descriptions compare le resultat au
+ * caractere pres. ⚠️ Le temoin ci-dessous prouve que l exclusion est ETROITE :
+ * un cadratin pose ailleurs reste vu.
+ */
+const HORS_PERIMETRE = (f) => f.startsWith('_contenu-formation/');
+{
+  const faux = [['supabase-formation.js', `un ${CADRATIN} dans du code`],
+    ['_contenu-formation/x.md', `un ${CADRATIN} dans la prose`]];
+  const vus = faux.filter(([f, l]) => !HORS_PERIMETRE(f) && l.includes(CADRATIN));
+  if (vus.length !== 1) {
+    console.error('  ⛔ ETALONNAGE RATE : l exclusion ne discrimine pas.');
+    process.exit(1);
+  }
+  console.log('  etalonnage  l exclusion de _contenu-formation/ est etroite : 1 vu sur 2');
+}
+
+const fautes = ajouts.filter(([f, l]) => !HORS_PERIMETRE(f)
+  && (l.includes(CADRATIN) || l.includes(DEMI)));
 console.log(`  perimetre   ${ajouts.length} lignes ajoutees par ce chantier`
   + ` (diff contre main + ${neufs.length} fichiers neufs)`);
 
