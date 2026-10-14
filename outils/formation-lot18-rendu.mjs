@@ -12,7 +12,7 @@ const el = (id) => { const o = { id, _html:'', textContent:'', style:{setPropert
 const main = el('formation'); const chip=el('chipXp'); const lvl=el('chipLvl'); const chart=null;
 const document = { addEventListener(){}, getElementById(id){ return id==='formation'?main: id==='chipXp'?chip: id==='chipLvl'?lvl : id==='formationApp'? el('formationApp') : null; }, querySelector(){return null}, querySelectorAll(){return []}, createElement(){ const d={textContent:'',style:{},classList:{add(){},remove(){}},setAttribute(){},appendChild(){},querySelector(){return null},querySelectorAll(){return []},addEventListener(){},remove(){},close(){},showModal(){}}; Object.defineProperty(d,'innerHTML',{get(){return String(d.textContent).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')},set(v){d._html=v}}); return d; }, body:{dataset:{},appendChild(){}}, hidden:false };
 const chaine = (data) => { const p = Promise.resolve({ data, error:null }); const o = { select(){return o}, eq(){return o}, order(){return o}, maybeSingle(){return Promise.resolve({data:null,error:null})}, upsert(){return Promise.resolve({error:null})}, insert(){return Promise.resolve({error:null})}, then: p.then.bind(p), catch: p.catch.bind(p) }; return o; };
-const tables = { formation_progression: [{lecon_id:'m01-l0',vue:true,progress_seconds:0,last_watched_at:'2026-10-14T10:00:00Z'}], formation_notes: [], formation_videos: [{lecon_id:'m01-l1',vimeo_id:'123',hash:'abcdef0123',duree_s:540},{lecon_id:'m00-l0',vimeo_id:'9',hash:'0123456789',duree_s:769}], formation_quiz_resultats: [{module_cle:'01',score:12,total:15,reussi:true,created_at:'2026-10-14T09:00:00Z'},{module_cle:'02',score:13,total:15,reussi:true,created_at:'2026-10-14T10:00:00Z'}], user_preferences: [] , formation_parcours_vu: [] };
+const tables = { formation_progression: [{lecon_id:'m01-l0',vue:true,progress_seconds:0,secondes_vues:0,last_watched_at:'2026-10-14T10:00:00Z'},{lecon_id:'m01-l1',vue:false,progress_seconds:300,secondes_vues:432,last_watched_at:'2026-10-14T10:00:00Z'}], formation_notes: [], formation_videos: [{lecon_id:'m01-l1',vimeo_id:'123',hash:'abcdef0123',duree_s:540},{lecon_id:'m01-l3',vimeo_id:'124',hash:'abcdef0124',duree_s:960},{lecon_id:'m00-l0',vimeo_id:'9',hash:'0123456789',duree_s:769}], formation_quiz_resultats: [{module_cle:'01',score:12,total:15,reussi:true,created_at:'2026-10-14T09:00:00Z'},{module_cle:'02',score:13,total:15,reussi:true,created_at:'2026-10-14T10:00:00Z'}], user_preferences: [] , formation_parcours_vu: [] };
 const supabaseClient = { auth:{ getUser: async()=>({data:{user:{id:'u1'}}}) }, from(t){ return chaine(tables[t] ?? []); } };
 const window = { document, matchMedia:()=>({matches:false}), addEventListener(){}, innerWidth:1200, innerHeight:800, scrollTo(){}, localStorage:{getItem(){return null},setItem(){}}, supabaseClient };
 window.window = window;
@@ -33,6 +33,15 @@ dire(['07','07bis','08','09'].every(c=>/locked/.test(carte(c))),'07, 7 bis, 08, 
 dire(/Niveau Confirmé/.test(carte('09')),'le bonus porte le cadenas de son niveau');
 dire(/MODULE 02/.test(accueil) && />1 \/ 11 chapitres</.test(accueil),'carte module 02 : 1 / 11 chapitres (quiz reussi compte)', (accueil.match(/\d+ \/ 11 chapitres/)||[])[0]);
 dire(/scroll|data-carte-module="02"/.test(accueil),'carte 02 a son ancre');
+dire(['debutant','intermediaire','confirme'].every(n=>accueil.includes(`data-niveau="${n}"`)),'cartes groupees par niveau, trois titres');
+dire(accueil.indexOf('data-niveau="debutant"') < accueil.indexOf('data-carte-module="01"') && accueil.indexOf('data-carte-module="04"') < accueil.indexOf('data-niveau="intermediaire"'),'01 a 04 sous Debutant, puis Intermediaire');
+dire(/mod--cert/.test(accueil) && accueil.lastIndexOf('mod--cert') > accueil.lastIndexOf('data-carte-module="09"'),'la certification a sa carte a part, en dernier');
+dire(/Les objectifs, la discipline, la routine\./.test(accueil) && !/Dans ce module, tu vas/.test(accueil),'les cartes portent le resume du site, pas la description LearnyBox');
+dire(/mod--bonus/.test(carte('09')),'le bonus est marque');
+const C2 = F._calcul;
+dire(C2.pretAValider('m01-l1')===true && C2.secondesRequises('m01-l1')===432,'m01-l1 : 432 s vues sur 432 requises -> pret');
+dire(C2.pretAValider('m01-l3')===false && C2.secondesRequises('m01-l3')===768,'m01-l3 : rien vu, 768 s requises -> pas pret');
+dire(C2.pretAValider('m01-l2')===true,'m01-l2 : sans video connue, rien a exiger');
 // module 01, chapitre 1 (video posee)
 rendus.length=0; F.ouvrirLecon('m01-l1'); await new Promise(r=>setTimeout(r,40));
 let h = rendus.find(r=>r.id==='formation').html;
@@ -43,6 +52,11 @@ dire(/lesson-desc">Dans ce chapitre, tu vas comprendre comment adopter/.test(h),
 dire(/chap done chap--quiz/.test(h) && /Réussi · 12 \/ 15 · \+12 XP/.test(h),'quiz 01 reussi dans la liste, 12/15, +12 XP');
 dire(/class="mnav"/.test(h) && /Module 02/.test(h) && !/Module 00/.test(h),'navigation entre modules sans l Introduction');
 dire(/Chapitre 2 sur 8/.test(h),'chapitre 2 sur 8');
+// chapitre non regarde : bouton ferme, aide en clair
+rendus.length=0; F.ouvrirLecon('m01-l3'); await new Promise(r=>setTimeout(r,40)); h = rendus.find(r=>r.id==='formation').html;
+dire(/data-complete disabled/.test(h) && /Regarde la vidéo pour valider : 0 s sur 12 min\./.test(h),'m01-l3 : « Marquer comme terminé » desactive, aide « 0 s sur 12 min »');
+rendus.length=0; F.ouvrirLecon('m01-l1'); await new Promise(r=>setTimeout(r,40)); h = rendus.find(r=>r.id==='formation').html;
+dire(/data-complete >/.test(h) && !/data-complete disabled/.test(h) && /data-complete-aide hidden/.test(h),'m01-l1 : bouton ouvert, aide cachee');
 // chapitre sans video
 rendus.length=0; F.ouvrirLecon('m01-l2'); await new Promise(r=>setTimeout(r,40)); h = rendus.find(r=>r.id==='formation').html;
 dire(/n’est pas rattachée/.test(h) && !/data-lire/.test(h),'chapitre sans video : cause dite, pas de bouton');

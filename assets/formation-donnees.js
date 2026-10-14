@@ -532,6 +532,32 @@ const CONTENU_CHAPITRES = {
   MODULES.forEach((m) => { m.description = DESCRIPTIONS[m.cle] || null; });
 
   /**
+   * ── ⚠️ LES RESUMES DES CARTES, REPRIS DU SITE ────────────────────────────
+   *
+   * Retour de Nadir sur l apercu du 14/10 : les descriptions LearnyBox sont
+   * trop longues pour une carte, « ça ne sera pas lu et ce n'est pas visuel ».
+   * ⛔ Les dix phrases ci-dessous sont celles de `trader360.fr/programme/`,
+   * relevees le 14/10, mot pour mot : la carte dit la meme chose que le site.
+   * ⚠️ Le 7 bis n existe pas sur le site : sa phrase est ecrite depuis sa
+   * description LearnyBox, a valider par Nadir. La description longue reste
+   * sur la page du module.
+   */
+  const RESUMES = {
+    '01': "Les objectifs, la discipline, la routine. Ce qui se met en place avant les graphiques.",
+    '02': "Ce qu'on échange, comment se lit un graphique, ce qui fait bouger un prix.",
+    '03': "Quelques indicateurs bien compris valent mieux qu'un graphique saturé.",
+    '04': "Installer, configurer, savoir où tout se trouve avant la première séance.",
+    '05': "Lire une séance, repérer les zones, calibrer son risque, décider sans improviser.",
+    '06': "Ce qui déclenche les décisions impulsives, et comment tenir quand ça tangue.",
+    '07': "Du challenge réussi au compte financé, puis à une activité qui tient.",
+    '07bis': "Les payouts, le matelas de sécurité, le scaling plan, puis le passage en live.",
+    '08': "Le cadre administratif et fiscal d'une activité de trading.",
+    '09': "Les compléments qu'on ajoute quand une question revient souvent.",
+    '10': "La validation du parcours, une fois les neuf modules précédents traversés.",
+  };
+  MODULES.forEach((m) => { m.resume = RESUMES[m.cle] || null; });
+
+  /**
    * ── ⛔ LE GARDE-FOU QUI CRIE, PARCE QUE LE SILENCE EST LE DEFAUT ──────────
    *
    * ⚠️ Les cinq pertes de `07bis` ont TOUTES echoue en silence : un `undefined`
@@ -557,6 +583,8 @@ const CONTENU_CHAPITRES = {
     const muets = MODULES.filter((m) => !m.introduction && !m.certification && !m.description)
       .map((m) => m.cle);
     if (muets.length) console.error('[DONNEES] ⛔ module sans description :', muets);
+    const sansResume = MODULES.filter((m) => !m.introduction && !m.resume).map((m) => m.cle);
+    if (sansResume.length) console.error('[DONNEES] ⛔ module sans résumé de carte :', sansResume);
   }());
 
   /** Toutes les leçons, à plat, dans l'ordre de lecture. Sert à « leçon suivante ». */

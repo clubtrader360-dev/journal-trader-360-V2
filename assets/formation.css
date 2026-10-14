@@ -773,3 +773,109 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp .lb-encart__btn b{font-size:13.5px;font-weight:700}
 #formationApp .lb-encart__btn span{font-size:11.5px;color:var(--ink-mute)}
 @media (max-width:900px){#formationApp .lb-encart{grid-template-columns:1fr}}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RETOURS DE NADIR SUR L APERCU DU 14/10 (lot 18 bis)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Le fond : moins noir, un halo dore, comme le reel Instagram (sans la ruche) */
+#formationApp{
+  --bg:#0a0a0d; --ink-soft:#bdbcb6; --ink-mute:#9c9b94;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232,184,75,.14), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232,184,75,.10), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%);
+  background-attachment:fixed;
+}
+#formationApp .top{background:rgba(10,10,13,.72)}
+
+/* ── Les petites ecritures, toutes remontees d un cran ───────────────────── */
+#formationApp .eyebrow{font-size:14px;letter-spacing:.22em}
+#formationApp .resume-meta{font-size:16.5px;color:var(--ink-soft)}
+#formationApp .resume-meta b{color:var(--ink)}
+#formationApp .ring .val span{font-size:12.5px}
+#formationApp .ring-side .small{font-size:15.5px}
+#formationApp .stat .k{font-size:12.5px}
+#formationApp .lvl-bar .head,#formationApp .mhead .mprog .head{font-size:14.5px}
+#formationApp .palier-eyebrow{font-size:12px}
+#formationApp .palier .head b{font-size:18px}
+#formationApp .palier-reste{font-size:15px}
+#formationApp .palier-bornes{font-size:14px;color:var(--ink-soft)}
+#formationApp .palier-bornes span:nth-child(2){font-size:14.5px}
+#formationApp .palier-bornes em{font-size:13px;opacity:.9}
+#formationApp .sec-head p{font-size:16px}
+#formationApp .mod .num{font-size:13.5px}
+#formationApp .mod p{font-size:15px;color:var(--ink-soft)}
+#formationApp .mod .meta{font-size:13.5px}
+#formationApp .pill{font-size:12px}
+#formationApp .intro-card__sous{font-size:15px}
+#formationApp .badge strong{font-size:15px}
+#formationApp .badge span{font-size:13.5px}
+#formationApp .badge__etat{font-size:11.5px}
+#formationApp .chap .t{font-size:15px}
+#formationApp .chap .s{font-size:13.5px}
+#formationApp .chap-group{font-size:12px}
+#formationApp .crumbs{font-size:15px}
+#formationApp .screen .over small{font-size:14.5px}
+#formationApp .screen .tag{font-size:13px}
+#formationApp .notes .saved{font-size:13.5px}
+#formationApp .notes-mod h3 span{font-size:14px}
+#formationApp .lesson-desc{font-size:16px}
+#formationApp .lesson-note{font-size:14.5px}
+#formationApp .mnav__btn small{font-size:11.5px}
+#formationApp .mnav__btn b{font-size:14.5px}
+#formationApp .quiz__sur{font-size:13px}
+#formationApp .quiz__dernier{font-size:15px}
+#formationApp .quiz__faute-r,#formationApp .quiz__faute-b,#formationApp .quiz__faute-c{font-size:15px}
+#formationApp .quiz__faute-r span,#formationApp .quiz__faute-b span{font-size:12px}
+#formationApp .lb-encart p{font-size:15.5px}
+#formationApp .lb-encart__btn span{font-size:13px}
+#formationApp .cond__texte span{font-size:14.5px}
+#formationApp footer,#formationApp footer button{font-size:14px}
+#formationApp .xp-chip{font-size:14px}
+#formationApp .toast{font-size:15px}
+
+/* ── La navigation entre modules : trois boutons de la meme forme ────────── */
+#formationApp .mnav{grid-template-columns:1fr auto 1fr}
+#formationApp .mnav > :first-child{justify-self:start}
+#formationApp .mnav > :last-child{justify-self:end}
+#formationApp .mnav__btn{width:auto;max-width:none}
+#formationApp .mnav__btn--grille{justify-self:center;padding:10px 18px}
+#formationApp .mnav__btn--grille b{font-size:14px;font-weight:600}
+@media (max-width:520px){
+  #formationApp .mnav{grid-template-columns:1fr 1fr}
+  #formationApp .mnav__btn--grille{grid-column:1 / -1;order:3}
+}
+
+/* ── Les cartes par niveau, la certification a part ───────────────────────── */
+#formationApp .niveau{margin:0 0 30px}
+#formationApp .niveau__tete{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 14px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+#formationApp .niveau__tete h3{font-size:clamp(22px,2.8vw,30px);font-weight:800;letter-spacing:-.02em;margin:6px 0 0;line-height:1}
+#formationApp .niveau__etat{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-soft);padding:6px 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:rgba(255,255,255,.03);white-space:nowrap}
+#formationApp .niveau__etat svg{width:12px;height:12px}
+#formationApp .niveau__etat.ok{color:var(--ok-glow);border-color:rgba(16,185,129,.35);background:var(--ok-wash)}
+#formationApp .niveau--cert{margin-top:6px}
+#formationApp .mod--cert{min-height:0;padding:34px 36px;border-color:var(--gold-line);background:linear-gradient(135deg,rgba(232,184,75,.12),rgba(17,19,24,.85) 55%);display:grid;grid-template-columns:1fr auto;gap:10px 28px;align-items:center}
+#formationApp .mod--cert .num{grid-column:1}
+#formationApp .mod--cert h3{font-size:clamp(26px,3.4vw,38px);grid-column:1}
+#formationApp .mod--cert p{grid-column:1;font-size:16px;max-width:60ch}
+#formationApp .mod--cert .foot{grid-column:1 / -1;margin-top:8px}
+#formationApp .mod--cert .pill{position:static;grid-column:2;grid-row:1 / 4;justify-self:end;align-self:start}
+#formationApp .mod--bonus{border-style:dashed}
+@media (max-width:760px){
+  #formationApp .mod--cert{grid-template-columns:1fr;padding:26px 22px}
+  #formationApp .mod--cert .pill{grid-column:1;grid-row:auto;justify-self:start}
+  #formationApp .niveau__tete{flex-wrap:wrap}
+}
+
+/* ── Un badge obtenu est un bouton : il rejoue sa scene ───────────────────── */
+#formationApp button.badge{font:inherit;color:inherit;cursor:pointer;width:100%}
+#formationApp .badge--obtenu:hover{border-color:var(--gold-line);transform:translateY(-2px);box-shadow:0 14px 40px -18px var(--gold-glow)}
+#formationApp .badge__etat--revoir{color:var(--gold);opacity:0;transition:opacity .25s ease}
+#formationApp .badge--obtenu:hover .badge__etat--revoir,#formationApp .badge--obtenu:focus-visible .badge__etat--revoir{opacity:1}
+
+/* ── « Marquer comme terminé » attend 80 % de lecture ─────────────────────── */
+#formationApp .btn--attend{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none}
+#formationApp .btn--attend:hover{transform:none;box-shadow:none}
+#formationApp .lesson-aide{margin:-6px 0 0;font-size:14.5px;color:var(--ink-soft)}
+#formationApp .lesson-aide[hidden]{display:none}

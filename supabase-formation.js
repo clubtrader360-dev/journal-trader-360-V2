@@ -179,7 +179,7 @@
     if (!u) return;
     const [p, n, v, q] = await Promise.all([
       cli().from('formation_progression')
-        .select('lecon_id, vue, progress_seconds, last_watched_at').eq('user_id', u),
+        .select('lecon_id, vue, progress_seconds, secondes_vues, last_watched_at').eq('user_id', u),
       // ⛔ `lecon_id` SEUL : pas de `texte` ici.
       cli().from('formation_notes').select('lecon_id').eq('user_id', u),
       // ⚠️ Les 64 videos, en UNE lecture : la RLS filtre, pas le `eq`.
@@ -350,12 +350,14 @@
   async function ecrireProgression(leconId, champs) {
     const u = await uid();
     if (!u) return;
-    const avant = _progression[leconId] || { vue: false, progress_seconds: 0 };
+    const avant = _progression[leconId] || { vue: false, progress_seconds: 0, secondes_vues: 0 };
     const ligne = {
       user_id: u,
       lecon_id: leconId,
       vue: champs.vue !== undefined ? champs.vue : avant.vue,
       progress_seconds: champs.progress_seconds !== undefined ? champs.progress_seconds : avant.progress_seconds,
+      // ⚠️ Les secondes VUES ne reculent jamais : c est un cumul de lecture.
+      secondes_vues: Math.max(Number(avant.secondes_vues) || 0, Number(champs.secondes_vues) || 0),
       last_watched_at: new Date().toISOString(),
     };
     _progression[leconId] = ligne;
@@ -440,6 +442,47 @@
     return 'Cette vidéo n’est pas rattachée à ce chapitre. Écris à ton coach.';
   }
 
+  /**
+   * ── ⛔ « MARQUER COMME TERMINÉ » S OUVRE A 80 % DE LECTURE ────────────────
+   *
+   * Retour de Nadir du 14/10 : « je peux mettre des chapitres comme terminé
+   * alors que je n'ai même pas regardé la vidéo ». ⚠️ La POSITION ne prouve
+   * rien, on y va d un coup de souris ; ce sont les secondes de LECTURE qui
+   * comptent, cumulees par `timeupdate` quand deux mesures successives sont a
+   * moins de deux secondes l une de l autre (un saut ne compte pas, une
+   * lecture a vitesse double compte). ⛔ Sans duree connue (video absente de
+   * la table), on ne peut rien exiger : le bouton reste ouvert.
+   */
+  const SEUIL_LECTURE = 0.8;
+  const SAUT_MAX_S = 2;
+  function secondesVues(leconId) {
+    const p = _progression[leconId];
+    const enCours = _lecteur && _lecteur.leconId === leconId ? _lecteur.vues : 0;
+    return Math.max(Number(p && p.secondes_vues) || 0, enCours || 0);
+  }
+  /** Ce qu il faut avoir regarde pour valider, en secondes. 0 si inconnu. */
+  function secondesRequises(leconId) {
+    const v = videoDe(leconId);
+    return v && v.duree_s ? Math.ceil(v.duree_s * SEUIL_LECTURE) : 0;
+  }
+  const pretAValider = (leconId) => estVue(leconId) || secondesVues(leconId) >= secondesRequises(leconId);
+
+  /** Met a jour le bouton « Marquer comme terminé » selon la lecture. */
+  function majBoutonTerminer(leconId) {
+    const b = document.querySelector('#formationApp [data-complete]');
+    if (!b) return;
+    const pret = pretAValider(leconId);
+    b.disabled = !pret;
+    b.classList.toggle('btn--attend', !pret);
+    const aide = document.querySelector('#formationApp [data-complete-aide]');
+    if (aide) {
+      const req = secondesRequises(leconId);
+      const vu = Math.min(secondesVues(leconId), req);
+      aide.hidden = pret;
+      aide.textContent = pret ? '' : `Regarde la vidéo pour valider : ${duree(vu)} sur ${duree(req)}.`;
+    }
+  }
+
   /** Ferme le lecteur en cours, en ecrivant la position une derniere fois. */
   async function fermerLecteur() {
     const l = _lecteur;
@@ -457,7 +500,9 @@
         l.player.getCurrentTime(),
         new Promise((r) => setTimeout(() => r(l.position || 0), 600)),
       ]);
-      if (s > 0 && !estVue(l.leconId)) await ecrireProgression(l.leconId, { progress_seconds: Math.floor(s) });
+      if ((s > 0 || l.vues > 0) && !estVue(l.leconId)) {
+        await ecrireProgression(l.leconId, { progress_seconds: Math.floor(s), secondes_vues: Math.floor(l.vues) });
+      }
     } catch { /* ⛔ Un lecteur deja detruit n a plus de position. */ }
     try { l.player.destroy(); } catch { /* rien */ }
   }
@@ -482,7 +527,10 @@
       allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
     const iframe = ecran.querySelector('iframe');
     const player = new window.Vimeo.Player(iframe);
-    const l = { player, leconId: c.id, derniere: 0, propose: false, position: reprise };
+    const l = { player, leconId: c.id, derniere: 0, propose: false, position: reprise,
+      // ⚠️ Le cumul repart de ce qui est deja en base : une lecture coupee
+      // puis reprise ne recommence pas a zero.
+      vues: Number(_progression[c.id] && _progression[c.id].secondes_vues) || 0, dernierT: null, seuilDit: false };
     _lecteur = l;
 
     const erreur = (e) => {
@@ -512,12 +560,24 @@
     player.on('error', erreur);
     player.on('timeupdate', ({ seconds }) => {
       if (_lecteur !== l) return;
+      // ⛔ Le cumul de LECTURE : seulement quand on avance d un pas normal.
+      if (l.dernierT != null) {
+        const d = seconds - l.dernierT;
+        if (d > 0 && d <= SAUT_MAX_S) l.vues += d;
+      }
+      l.dernierT = seconds;
       l.position = seconds;
       if (estVue(c.id)) return;
+      // ⚠️ Le seuil franchi s annonce une fois, au moment ou il l est.
+      if (!l.seuilDit && pretAValider(c.id)) {
+        l.seuilDit = true;
+        majBoutonTerminer(c.id);
+        toast(I.check, 'Tu peux marquer ce chapitre comme terminé.');
+      }
       const now = Date.now();
       if (now - l.derniere < ESPACEMENT_MS) return;
       l.derniere = now;
-      void ecrireProgression(c.id, { progress_seconds: Math.floor(seconds) });
+      void ecrireProgression(c.id, { progress_seconds: Math.floor(seconds), secondes_vues: Math.floor(l.vues) });
     });
     player.on('ended', () => {
       if (_lecteur !== l || l.propose) return;
@@ -1545,6 +1605,59 @@
   }
 
   /**
+   * Une carte de module. ⚠️ Le texte est le RESUME du site, pas la description
+   * LearnyBox : retour de Nadir du 14/10, « trop de texte, ça ne sera pas lu ».
+   * La description longue reste sur la page du module.
+   */
+  function carteModule(m, M, premierOuvert) {
+    const i = M.indexOf(m);
+    /**
+     * ⛔ UN SEUL ETAT, LU PAR LA CARTE ET PAR L OUVERTURE. ⚠️ La carte
+     * portait sa propre lecture du verrou, et `rendreModule` n en avait
+     * aucune : les cartes verrouillees s ouvraient au clic.
+     */
+    const e = etatModule(m);
+    const verrou = e.cause === 'certification';
+    const verrouNiveau = e.cause === 'niveau';
+    const verrouQuiz = e.cause === 'quiz';
+    const vide = e.cause === 'vide';
+    const niv = e.niveau;
+    const cond = e.cond;
+    const fini = moduleFini(m);
+    const d = faitesDe(m);
+    const pp = pctDe(m);
+    const pastille = verrouNiveau ? `<span class="pill">${I.lock} Niveau ${txt(niv.nom)}</span>`
+      : verrouQuiz ? `<span class="pill">${I.lock} Après le quiz du module ${txt(e.precedent.numero)}</span>`
+      : verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
+      : vide ? '<span class="pill">Sans chapitre</span>'
+        : fini ? `<span class="pill ok">${I.check} Validé</span>`
+          : d ? '<span class="pill go">En cours</span>' : '<span class="pill">À commencer</span>';
+    const inerte = !e.ouvrable;
+    const bm = badgeDeModule(m.cle);
+    return `<button type="button" class="mod ${inerte ? 'locked' : ''} ${i === premierOuvert && d ? 'current' : ''} ${estCert(m) ? 'mod--cert' : ''} ${estBonus(m) ? 'mod--bonus' : ''}"
+      ${inerte ? 'aria-disabled="true"' : ''} data-mod="${i}" data-carte-module="${txt(m.cle)}">
+      ${pastille}
+      <div class="num">${estCert(m) ? 'CERTIFICATION' : estBonus(m) ? 'BONUS' : `MODULE ${txt(m.numero)}`}</div>
+      <h3>${txt(m.titre)}</h3>
+      ${m.resume ? `<p>${txt(m.resume)}</p>` : ''}
+      <div class="foot">
+        <div class="meta"><span>${verrouNiveau
+          ? cond.manquantes.map((x) => txt(x.texte)).join('<br>')
+          : verrouQuiz ? `Réussis le quiz du module ${txt(e.precedent.numero)} à 80 % ou plus`
+          : verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
+            : vide ? 'Aucun chapitre' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
+        <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}" data-rail-module="${txt(m.cle)}"></i></div>
+      </div>
+      <!-- ⚠️ L ANCRE D OU LE BADGE EMERGE, et c est pour cela qu elle est
+           ici plutot que dans la scene : le badge doit sortir de SA carte,
+           pas du centre de l ecran. ⛔ Vide et sans taille : elle ne
+           dessine rien, elle donne un point. -->
+      <span class="mod__ancre" data-ancre-badge="${txt(m.cle)}" aria-hidden="true"
+        ${bm ? '' : 'hidden'}></span>
+    </button>`;
+  }
+
+  /**
    * ── ⚠️ LA HAUTEUR DE L EN-TETE, MESUREE, POSEE EN VARIABLE CSS ─────────────
    *
    * ⛔ DEFAUT VU PAR NADIR LE 14/10 : « Mes notes », « Mes badges » et le retour
@@ -1572,6 +1685,9 @@
   function rendreAccueil(ancre, opts) {
     _vueCourante = { nom: 'accueil' };
     void fermerLecteur();
+    // ⚠️ Un quiz en cours est abandonne en quittant sa page : son minuteur de
+    // scene ne doit plus rien declencher.
+    if (_quizEtat) { clearTimeout(_quizEtat.minuteurScene); _quizEtat = null; }
     const M = mods();
     const total = totalChap();
     const faites = nbFaites();
@@ -1745,55 +1861,30 @@
           </div>
         </div>`;
       })()}
-      <div class="grid">
-        ${M.filter((m) => !estIntro(m)).map((m) => {
-          const i = M.indexOf(m);
-          /**
-           * ⛔ UN SEUL ETAT, LU PAR LA CARTE ET PAR L OUVERTURE. ⚠️ La carte
-           * portait sa propre lecture du verrou, et `rendreModule` n en avait
-           * aucune : les cartes verrouillees s ouvraient au clic.
-           */
-          const e = etatModule(m);
-          const verrou = e.cause === 'certification';
-          const verrouNiveau = e.cause === 'niveau';
-          const verrouQuiz = e.cause === 'quiz';
-          const vide = e.cause === 'vide';
-          const niv = e.niveau;
-          const cond = e.cond;
-          const fini = moduleFini(m);
-          const d = faitesDe(m);
-          const pp = pctDe(m);
-          const pastille = verrouNiveau ? `<span class="pill">${I.lock} Niveau ${txt(niv.nom)}</span>`
-            : verrouQuiz ? `<span class="pill">${I.lock} Après le quiz du module ${txt(e.precedent.numero)}</span>`
-            : verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
-            : vide ? '<span class="pill">Sans chapitre</span>'
-              : fini ? `<span class="pill ok">${I.check} Validé</span>`
-                : d ? '<span class="pill go">En cours</span>' : '<span class="pill">À commencer</span>';
-          const inerte = !e.ouvrable;
-          const bm = badgeDeModule(m.cle);
-          return `<button type="button" class="mod ${inerte ? 'locked' : ''} ${i === premierOuvert && d ? 'current' : ''}"
-            ${inerte ? 'aria-disabled="true"' : ''} data-mod="${i}" data-carte-module="${txt(m.cle)}">
-            ${pastille}
-            <div class="num">MODULE ${txt(m.numero)}</div>
-            <h3>${txt(m.titre)}</h3>
-            ${m.description ? `<p>${txt(m.description)}</p>` : ''}
-            <div class="foot">
-              <div class="meta"><span>${verrouNiveau
-                ? cond.manquantes.map((x) => txt(x.texte)).join('<br>')
-                : verrouQuiz ? `Réussis le quiz du module ${txt(e.precedent.numero)} à 80 % ou plus`
-                : verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
-                  : vide ? 'Aucun chapitre' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
-              <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}" data-rail-module="${txt(m.cle)}"></i></div>
-            </div>
-            <!-- ⚠️ L ANCRE D OU LE BADGE EMERGE, et c est pour cela qu elle est
-                 ici plutot que dans la scene : le badge doit sortir de SA carte,
-                 pas du centre de l ecran. ⛔ Vide et sans taille : elle ne
-                 dessine rien, elle donne un point. -->
-            <span class="mod__ancre" data-ancre-badge="${txt(m.cle)}" aria-hidden="true"
-              ${bm ? '' : 'hidden'}></span>
-          </button>`;
-        }).join('')}
-      </div>
+      <!--
+        ── ⚠️ LES CARTES PAR NIVEAU, LA CERTIFICATION A PART ─────────────────
+        Retour de Nadir du 14/10 : « classe-les par niveau, un titre au-dessus
+        Débutant, Intermédiaire, Confirmé, et la certification en plus grosse
+        en dessous ». ⛔ Les niveaux viennent de NIVEAUX_PARCOURS, pas d une
+        liste ecrite ici : un module qui change de niveau change de bloc sans
+        toucher au rendu. Le bonus reste dans son niveau, la certification
+        est sortie du sien pour avoir sa carte seule.
+      -->
+      ${D().NIVEAUX_PARCOURS.map((niv) => {
+        const siens = M.filter((m) => niv.modules.includes(m.cle) && !estCert(m));
+        if (!siens.length) return '';
+        const finis = siens.filter((m) => !estBonus(m) && moduleFini(m)).length;
+        const total = siens.filter((m) => !estBonus(m)).length;
+        const ouvert = siens.some((m) => etatModule(m).ouvrable);
+        return `<div class="niveau" data-niveau="${txt(niv.cle)}">
+          <div class="niveau__tete">
+            <div><div class="eyebrow">Niveau</div><h3>${txt(niv.nom)}</h3></div>
+            <span class="niveau__etat ${finis === total ? 'ok' : ''}">${ouvert ? `${finis} / ${total} module${total > 1 ? 's' : ''} validé${finis > 1 ? 's' : ''}` : `${I.lock} Niveau fermé`}</span>
+          </div>
+          <div class="grid">${siens.map((m) => carteModule(m, M, premierOuvert)).join('')}</div>
+        </div>`;
+      }).join('')}
+      ${(() => { const cert = M.find(estCert); return cert ? `<div class="niveau niveau--cert">${carteModule(cert, M, premierOuvert)}</div>` : ''; })()}
     </section>
 
     <section id="notes">
@@ -1823,12 +1914,12 @@
         aurait raison a l ecran.
       -->
       <div class="badges">
-        ${badges().map((b) => { const o = b.ok(); return `<div class="badge ${o ? '' : 'off'}"
-          data-badge="${txt(b.id)}" data-obtenu="${o ? 'oui' : 'non'}">
+        ${badges().map((b) => { const o = b.ok(); return `<${o ? 'button type="button"' : 'div'} class="badge ${o ? 'badge--obtenu' : 'off'}"
+          data-badge="${txt(b.id)}" data-obtenu="${o ? 'oui' : 'non'}" ${o ? `data-rejouer="${txt(b.id)}" title="Revoir la scène"` : ''}>
           ${medaille(b, { obtenu: o, classe: o ? '' : 'medal--silhouette' })}
           <strong>${txt(b.t)}</strong><span>${txt(b.d)}</span>
-          ${o ? '' : '<em class="badge__etat">Pas encore</em>'}
-        </div>`; }).join('')}
+          ${o ? '<em class="badge__etat badge__etat--revoir">Revoir</em>' : '<em class="badge__etat">Pas encore</em>'}
+        </${o ? 'button' : 'div'}>`; }).join('')}
       </div>
     </section>
     ${piedDePage()}`;
@@ -2058,6 +2149,7 @@
     // derniere fois. ⛔ Sinon l iframe precedente continuerait de jouer, et
     // d ecrire, sous le nouveau chapitre.
     await fermerLecteur();
+    if (_quizEtat && !c.quiz) { clearTimeout(_quizEtat.minuteurScene); _quizEtat = null; }
     _vueCourante = { nom: 'module', mi, ci };
     _moduleCourant = m.numero;
     _leconCourante = c.id;
@@ -2160,9 +2252,11 @@
           <div class="lesson-actions">
             ${fini
               ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
-              : `<button type="button" class="btn btn-gold" data-complete>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
+              : `<button type="button" class="btn btn-gold ${pretAValider(c.id) ? '' : 'btn--attend'}" data-complete ${pretAValider(c.id) ? '' : 'disabled'}>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
           </div>
         </div>
+        <!-- ⚠️ Pourquoi le bouton attend : dit en clair, avec le compte. -->
+        <p class="lesson-aide" data-complete-aide ${fini || pretAValider(c.id) ? 'hidden' : ''}>${fini || pretAValider(c.id) ? '' : `Regarde la vidéo pour valider : ${duree(Math.min(secondesVues(c.id), secondesRequises(c.id)))} sur ${duree(secondesRequises(c.id))}.`}</p>
         ${c.description ? `<p class="lesson-desc">${txt(c.description)}</p>` : ''}
         ${(c.notes || []).map((n) => `<p class="lesson-note"><b>Note</b><span>${txt(n)}</span></p>`).join('')}
         <!-- ⚠️ L EMPLACEMENT DE LA MAQUETTE, et le lecteur le remplace au
@@ -2208,7 +2302,7 @@
          revenir au module 01. ⛔ Les verrous sont ceux des cartes. -->
     <nav class="mnav" aria-label="Modules voisins">
       ${navModule(modPrec, mi - 1, 'prec')}
-      <button type="button" class="mnav__grille" data-go="modules">Tous les modules</button>
+      <button type="button" class="mnav__btn mnav__btn--grille" data-go="modules"><span><b>Tous les modules</b></span></button>
       ${navModule(modSuiv, mi + 1, 'suiv')}
     </nav>
     <div class="mview">
@@ -2414,6 +2508,9 @@
   async function validerQuiz() {
     const e = _quizEtat;
     if (!e) return;
+    // ⛔ Le contexte audio s ouvre ICI, dans le clic « Valider » : la scene
+    // partira d elle-meme apres le resultat, hors de tout geste.
+    ouvrirAudio();
     const m = mods()[e.mi];
     const c = m.lecons[e.ci];
     const total = e.questions.length;
@@ -2439,6 +2536,16 @@
     }
     e.resultat = { score, total, reussi, reponses, ok, av };
     rendreResultat();
+    /**
+     * ⚠️ LA SCENE PART TOUTE SEULE, apres deux secondes de resultat. Retour de
+     * Nadir du 14/10 : « à la réussite du quiz le badge se met directement en
+     * bas sans jouer la scène ». Le bouton reste pour qui n attend pas.
+     * ⛔ `e.scenePartie` evite de la jouer deux fois (bouton puis minuteur).
+     */
+    if (reussi && ok && !av.fini) {
+      const t = setTimeout(() => { if (_quizEtat === e && !e.scenePartie) sceneQuiz(); }, 2000);
+      e.minuteurScene = t;
+    }
   }
 
   function rendreResultat() {
@@ -2517,7 +2624,9 @@
   /** La scene de fin de quiz : celle d un chapitre, lancee par le clic. */
   async function sceneQuiz() {
     const e = _quizEtat;
-    if (!e || !e.resultat || !e.resultat.reussi) return;
+    if (!e || !e.resultat || !e.resultat.reussi || e.scenePartie) return;
+    e.scenePartie = true;
+    clearTimeout(e.minuteurScene);
     const { mi, ci } = e;
     const av = e.resultat.av;
     _quizEtat = null;
@@ -3055,6 +3164,40 @@
     toast(I.check, `${txt(c.titre)} terminé${bouts.length ? ` · ${bouts.join(' · ')}` : ''}`);
   }
 
+  /**
+   * ── ⚠️ REVOIR LA SCENE D UN BADGE DEJA OBTENU ────────────────────────────
+   *
+   * Retour de Nadir du 14/10 : « les badges en bas de page, quand on clique
+   * dessus ça devrait rejouer la scène ». ⛔ Rien n est ecrit : c est la meme
+   * choregraphie, temps 5 a 9, qui part de la carte du badge dans la
+   * collection et y revient. Un badge non obtenu ne rejoue rien.
+   */
+  async function rejouerBadge(id) {
+    if (_scene.enCours) return;
+    const b = badges().find((x) => x.id === id);
+    if (!b || !b.ok()) return;
+    ouvrirAudio();
+    if (!motionOk()) { toast(I.check, `${b.tFait || b.t}`); return; }
+    _scene = { enCours: true, saute: false, nettoyages: [] };
+    const sauter = (ev) => {
+      if (ev && ev.target && ev.target.closest && ev.target.closest('[data-ranger]')) return;
+      document.removeEventListener('click', sauter, { capture: true });
+      _scene.saute = true;
+      _scene.nettoyages.splice(0).forEach((f) => { try { f(); } catch { /* rien */ } });
+    };
+    // ⚠️ Pose apres le clic courant, sinon ce clic-la sauterait la scene.
+    setTimeout(() => document.addEventListener('click', sauter, { capture: true }), 0);
+    try {
+      const ancre = document.querySelector(`#formationApp .badge[data-badge="${id}"] .medal`);
+      const m = b.module ? mods().find((x) => x.cle === b.module) : null;
+      await scenerBadge(b, ancre, m ? (estCert(m) ? 'Parcours validé' : `Module ${m.numero} terminé`) : 'Badge obtenu', b.d);
+    } finally {
+      document.removeEventListener('click', sauter, { capture: true });
+      _scene.enCours = false;
+      _scene.nettoyages = [];
+    }
+  }
+
   /* ══ LE SON ═══════════════════════════════════════════════════════════════
    *
    * ── ⛔ IL PART DANS LE GESTE DE CLIC, ET SON ECHEC NE CASSE RIEN ─────────
@@ -3148,6 +3291,9 @@
     const c = m.lecons[ci];
     // ⛔ Le quiz ne se « marque » pas : il se reussit. Voir `validerQuiz`.
     if (c.quiz) return;
+    // ⛔ Et un chapitre ne se marque pas avant 80 % de lecture, meme par un
+    // clic force sur un bouton desactive.
+    if (!pretAValider(c.id)) { majBoutonTerminer(c.id); toast('⏳', 'Regarde la vidéo avant de valider ce chapitre.'); return; }
     /**
      * ⛔ L ETAT D AVANT EST LU AVANT L ECRITURE, et c est ce qui rend la scene
      * possible : « +15 XP » n est pas une donnee, c est une DIFFERENCE. ⚠️ Lu
@@ -3286,7 +3432,7 @@
   document.addEventListener('click', (e) => {
     const racine = $('formationApp');
     if (!racine || !racine.contains(e.target)) return;
-    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module]');
+    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module],[data-rejouer]');
     if (!t) return;
     // ⛔ LA CARTE INTRODUCTION OUVRE LA VIDEO DE BIENVENUE, forcee : c est le
     // moyen d y revenir apres l avoir fermee a la premiere connexion.
@@ -3305,6 +3451,7 @@
     if (t.hasAttribute('data-quiz-prec')) { quizPrecedent(); return; }
     if (t.hasAttribute('data-quiz-scene')) { sceneQuiz(); return; }
     if (t.hasAttribute('data-quiz-reecrire')) { reecrireQuiz(); return; }
+    if (t.dataset.rejouer) { rejouerBadge(t.dataset.rejouer); return; }
     if (t.dataset.quizModule) {
       // Depuis l ecran des conditions : le quiz du module nomme s ouvre.
       const ou = trouverLecon(`m${t.dataset.quizModule}-quiz`);
@@ -3394,7 +3541,8 @@
       // d une lecon, et les deux lectures de base, pour que la sonde mesure
       // ce que l ecran lit.
       mods, estVue, quizOuvert, videosRestantes, seuilDe, trouverLecon,
-      videos: () => _videos, quiz: () => _quiz, lb: () => _lb, niveauAcquis, quizManquantsAvant },
+      videos: () => _videos, quiz: () => _quiz, lb: () => _lb, niveauAcquis, quizManquantsAvant,
+      pretAValider, secondesRequises, secondesVues, SEUIL_LECTURE },
   };
   window.Formation = Formation;
 })();
