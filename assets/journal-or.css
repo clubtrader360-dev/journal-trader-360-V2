@@ -1,0 +1,349 @@
+/* ============================================================================
+   LE JOURNAL, AU STYLE DE L ESPACE MEMBRE (« noir et or »)
+   ============================================================================
+   Demande de Nadir du 14/10 : « le fond sera noir avec ce petit éclairage doré,
+   tu uniformises avec un peu d or et de noir ; tu ne touches à rien à l
+   intérieur des cards, ni aux graphiques ».
+
+   ⚠️ CE FICHIER EST UNE PEAU, PAS UNE REFONTE. Il est charge EN DERNIER, apres
+   aube.css, et ne change que : le fond, la barre laterale, la COQUILLE des
+   cartes (fond, bordure, arrondi, ombre), les boutons, les fenetres, les
+   listes deroulantes, les titres de section et le pied de page. Il ne pose
+   aucune regle sur ce qui vit DANS une carte : graphiques, tableaux,
+   calendrier, chiffres, barres. ⛔ Rien ici ne touche #coachApp, qui viendra
+   apres, ni #formationApp, qui porte deja cette palette.
+
+   ⚠️ La palette est celle de assets/formation.css, recopiee ici en variables
+   du journal : le journal lit `--surface`, `--text`, `--accent`, `--aube-*`
+   partout, et c est par elles que la peau prend sans toucher aux regles.
+   Les couleurs bleu nuit ecrites EN DUR dans aube.css (rgba(10,15,24,.55) et
+   consorts) sont des voiles translucides : posees sur un fond noir, elles
+   rendent un noir a peine bleute (#0a0d15 contre #0a0a0d), invisible a l oeil.
+   Seules les surfaces OPAQUES (fenetres, listes, toasts) sont reprises ici.
+
+   ⛔ `!important` partout ou aube.css en met : a specificite egale, c est la
+   position qui tranche, et ce fichier vient apres ; mais aube.css pose
+   `!important` sur ses fonds, donc les notres doivent le porter aussi.
+   ⚠️ LA GARDE `:has(#mainApp[style*="display: flex"])` SUR CHAQUE REGLE : cette
+   peau ne prend que quand le JOURNAL est a l ecran (y compris la coach view
+   #80, qui affiche le journal d un eleve dans #mainApp). Sans elle, les
+   variables de palette, les fenetres et le pied de page auraient change aussi
+   sous l espace coach, qui garde son habillage jusqu a son propre lot.
+   Les selecteurs qui commencent par #mainApp n en ont pas besoin.
+   ========================================================================== */
+
+/* ── 1. La palette du journal, remplacee par celle de l espace membre ─────── */
+body.dark-mode:has(#mainApp[style*="display: flex"]) {
+  --bg: #0a0a0d;
+  --bg-gradient:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .10), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%);
+  --surface: #111318; --surface-2: #161a20; --surface-3: #1b2028; --surface-elevated: #14171d;
+  --text: #f7f6f3; --text-strong: #ffffff; --text-muted: #bdbcb6; --text-soft: #9c9b94; --text-disabled: #6f6e68;
+  --border: #1e2128; --border-strong: #2a2e37; --border-accent: rgba(232, 184, 75, .35);
+  --primary: #120e07; --primary-2: #1b2028;
+  --accent: #e8b84b; --accent-hover: #f3d585; --accent-bright: #f3d585; --accent-soft: rgba(232, 184, 75, .12);
+  --sidebar-bg: rgba(10, 10, 13, .72);
+  --sidebar-border: #1e2128;
+  --sidebar-text: #bdbcb6; --sidebar-text-muted: #9c9b94;
+  --sidebar-text-hover: #f7f6f3; --sidebar-text-active: #f7f6f3;
+  --sidebar-hover: rgba(232, 184, 75, .08); --sidebar-divider: #1e2128;
+  --shadow-glow-gold: 0 8px 30px -8px rgba(232, 184, 75, .5);
+  --ring: 0 0 0 3px rgba(232, 184, 75, .25);
+  /* aube.css */
+  --color-gold: #e8b84b; --color-aurum: #e8b84b; --color-champagne: #f7f6f3; --color-bronze: #b98a2e; --color-navy: #0a0a0d;
+  --aube-frame: rgba(232, 184, 75, .22); --aube-frame-hover: rgba(232, 184, 75, .55); --aube-frame-radius: 18px;
+  --aube-btn-gold: linear-gradient(180deg, #f3d585, #e8b84b);
+  --aube-base: var(--bg-gradient);
+  --aube-glass: rgba(17, 19, 24, .88); --aube-glass-border: #1e2128;
+  --aube-text-primary: #f7f6f3; --aube-text-secondary: #bdbcb6;
+  --aube-card-shadow: 0 20px 60px -40px rgba(0, 0, 0, .7);
+}
+/* Le theme clair du journal suit le theme clair de l espace membre. */
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) {
+  --bg: #f6f2ea;
+  --bg-gradient:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .22), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .14), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #faf7f1, #f3eee4 70%);
+  --surface: #ffffff; --surface-2: #f1ece1; --surface-3: #e7e0d1; --surface-elevated: #ffffff;
+  --text: #17140f; --text-strong: #0d0b07; --text-muted: #4e483d; --text-soft: #6e685b; --text-disabled: #a39d8f;
+  --border: #e2dbcc; --border-strong: #d2c9b5; --border-accent: rgba(185, 138, 46, .40);
+  --primary: #17140f; --primary-2: #2a2519;
+  --accent: #b98a2e; --accent-hover: #d3a73c; --accent-bright: #d3a73c; --accent-soft: rgba(185, 138, 46, .10);
+  --sidebar-bg: rgba(250, 247, 241, .78); --sidebar-border: #e2dbcc;
+  --sidebar-text: #17140f; --sidebar-text-muted: #6e685b;
+  --sidebar-text-hover: #b98a2e; --sidebar-text-active: #b98a2e;
+  --sidebar-hover: rgba(185, 138, 46, .10); --sidebar-divider: #e2dbcc;
+  --shadow-glow-gold: 0 8px 30px -8px rgba(185, 138, 46, .35);
+  --color-gold: #b98a2e; --color-aurum: #b98a2e; --color-champagne: #17140f; --color-bronze: #8f6a1f; --color-navy: #17140f;
+  --aube-frame: rgba(185, 138, 46, .30); --aube-frame-hover: rgba(185, 138, 46, .60); --aube-frame-radius: 18px;
+  --aube-btn-gold: linear-gradient(180deg, #e9c25a, #c9962f);
+  --aube-base: var(--bg-gradient);
+  --aube-glass: rgba(255, 255, 255, .86); --aube-glass-border: #e2dbcc;
+  --aube-text-primary: #17140f; --aube-text-secondary: #4e483d;
+  --aube-card-shadow: 0 18px 40px -30px rgba(185, 138, 46, .35);
+}
+
+/* ── 2. Le fond : noir,
+halo dore en haut et en bas,
+plus de photographie ──── */
+html:has(body.dark-mode #mainApp[style*="display: flex"]) { background: #0a0a0d; }
+html:has(body:not(.dark-mode) #mainApp[style*="display: flex"]) { background: #f6f2ea; }
+#mainApp,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainApp {
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .10), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%) !important;
+  background-attachment: fixed !important;
+  color: var(--text);
+}
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp {
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .22), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .14), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #faf7f1, #f3eee4 70%) !important;
+  background-attachment: fixed !important;
+}
+
+/* ── 3. La barre laterale : la barre du haut de l espace membre,
+a la verticale */
+#mainAppSidebar,
+#mainApp .sidebar,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainAppSidebar {
+  background: rgba(10, 10, 13, .72) !important;
+  -webkit-backdrop-filter: blur(14px) !important; backdrop-filter: blur(14px) !important;
+  border-right: 1px solid #1e2128 !important;
+}
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainAppSidebar,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .sidebar {
+  background: rgba(250, 247, 241, .78) !important;
+  border-right-color: #e2dbcc !important;
+}
+#mainAppSidebar .border-gray-700 { border-color: var(--sidebar-divider) !important; }
+#mainAppSidebar .sidebar-item { border-left-width: 2px; }
+#mainAppSidebar .sidebar-item.active {
+  background: linear-gradient(90deg, rgba(232, 184, 75, .14), rgba(232, 184, 75, .02));
+  border-left-color: #e8b84b;
+}
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainAppSidebar .sidebar-item,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainAppSidebar h3,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainAppSidebar #userInfo,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainAppSidebar a,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainAppSidebar span { text-shadow: none; }
+#mainAppSidebar .marque { --marque-couleur: #e8b84b; background-color: #e8b84b; }
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainAppSidebar .marque { --marque-couleur: #b98a2e; background-color: #b98a2e; }
+/* L entree « Formation » : la porte vers l autre espace,
+en or. */
+#mainAppSidebar .formation-acces { color: #e8b84b; font-weight: 600; }
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainAppSidebar .formation-acces { color: #b98a2e; }
+
+/* ── 4. La coquille des cartes : fond,
+bordure,
+arrondi,
+ombre. RIEN DEDANS ── */
+#mainApp .trader-card,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainApp .trader-card,
+#mainApp .metric-item,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainApp .metric-item {
+  background: rgba(17, 19, 24, .88) !important;
+  border: 1px solid #1e2128 !important;
+  border-radius: 18px !important;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 20px 60px -40px rgba(0, 0, 0, .7) !important;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .trader-card,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .metric-item {
+  background: rgba(255, 255, 255, .86) !important;
+  border-color: #e2dbcc !important;
+  color: #17140f !important;
+  box-shadow: 0 18px 40px -30px rgba(185, 138, 46, .35) !important;
+}
+/* ⛔ Pas de `filter: brightness` au survol : il eclaircirait les graphiques
+   DANS la carte. Le lisere dore s allume,
+la carte se souleve,
+c est tout. */
+#mainApp .trader-card:hover,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainApp .trader-card:hover,
+#mainApp .metric-item:hover,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainApp .metric-item:hover {
+  transform: translateY(-2px);
+  filter: none;
+  border-color: rgba(232, 184, 75, .35) !important;
+  box-shadow: 0 0 0 1px rgba(232, 184, 75, .08), 0 20px 60px -30px rgba(232, 184, 75, .5) !important;
+}
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .trader-card:hover,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .metric-item:hover {
+  border-color: #b98a2e !important;
+  box-shadow: 0 0 0 1px rgba(185, 138, 46, .10), 0 18px 40px -24px rgba(185, 138, 46, .35) !important;
+}
+/* Le bandeau des 8 indicateurs : un cadre invisible,
+les cartes respirent. */
+#mainApp .traderzella-banner,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #mainApp .traderzella-banner,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .traderzella-banner {
+  background: transparent !important; border: none !important; box-shadow: none !important;
+}
+
+/* ── 5. Les boutons : les pilules de l espace membre ──────────────────────── */
+#mainApp .trader-btn,
+#mainApp .trader-btn-secondary,
+#mainApp .trader-btn-gold,
+#mainApp .trader-btn-blue,
+#mainApp .share-btn,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-secondary,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-gold,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-blue {
+  border-radius: 40px !important;
+}
+#mainApp .trader-btn,
+#mainApp .trader-btn-gold,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-gold,
+#mainApp button[onclick="validateChecklist()"],
+#mainApp button[onclick="resetChecklist()"] {
+  background: linear-gradient(180deg, #f3d585, #e8b84b) !important;
+  color: #120e07 !important; border: 1px solid transparent !important;
+  box-shadow: 0 8px 30px -8px rgba(232, 184, 75, .5) !important;
+}
+#mainApp .trader-btn:hover,
+#mainApp .trader-btn-gold:hover,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn:hover,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-gold:hover {
+  background: linear-gradient(180deg, #f6dd96, #ecbf58) !important;
+  color: #120e07 !important; filter: none; transform: translateY(-1px);
+  box-shadow: 0 12px 36px -8px rgba(232, 184, 75, .5) !important;
+}
+#mainApp .trader-btn-secondary,
+#mainApp .trader-btn-blue,
+#mainApp .share-btn,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-secondary,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-blue,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-secondary {
+  background: rgba(255, 255, 255, .03) !important;
+  color: var(--text) !important; border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+#mainApp .trader-btn-secondary:hover,
+#mainApp .trader-btn-blue:hover,
+#mainApp .share-btn:hover,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-secondary:hover,
+body:has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-blue:hover {
+  background: rgba(232, 184, 75, .08) !important;
+  color: var(--text) !important; border-color: rgba(232, 184, 75, .35) !important;
+  filter: none; transform: translateY(-1px); box-shadow: none !important;
+}
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .trader-btn-secondary,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .trader-btn-blue,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .share-btn,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-secondary,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-blue {
+  background: rgba(255, 255, 255, .7) !important;
+}
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .trader-btn,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) #mainApp .trader-btn-gold,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .modal-content .trader-btn,
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .modal-content .trader-btn-gold {
+  background: linear-gradient(180deg, #e9c25a, #c9962f) !important; color: #17140f !important;
+}
+/* Les petits boutons « ghost » des fenetres (Annuler / Fermer),
+repris d aube.css */
+body.dark-mode:has(#mainApp[style*="display: flex"]) .aube-detail-modal button,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #replayDayModal button[onclick*="closeReplayDayModal"]:not([class*="bg-blue"]),
+body:has(#mainApp[style*="display: flex"]) .dash-btn-ghost {
+  background: rgba(255, 255, 255, .03) !important; color: var(--text) !important;
+  border: 1px solid var(--border) !important; border-radius: 40px !important;
+}
+body:has(#mainApp[style*="display: flex"]) .dash-btn-gold { background: linear-gradient(180deg, #f3d585, #e8b84b) !important; color: #120e07 !important; border-radius: 40px !important; }
+
+/* ── 6. Les titres de section : la typographie de l espace membre ──────────── */
+#mainApp .section-header,
+#mainApp .section-header h1,
+#mainApp .section-header h2,
+#mainApp .section-header h3 {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+  font-style: normal; letter-spacing: -.02em;
+}
+#mainApp .section-header h1,
+#mainApp .section-header h2 { font-weight: 800; color: var(--text); }
+#mainApp .section-header p { color: var(--text-muted) !important; }
+#mainApp .section-header .text-gray-600,
+#mainApp .section-header .text-gray-500 { color: var(--text-muted) !important; }
+
+/* ── 7. Le gros chiffre : halo dore de l espace membre ───────────────────── */
+body.dark-mode:has(#mainApp[style*="display: flex"]) #netPnlValue { text-shadow: 0 0 60px rgba(232, 184, 75, .45), 0 0 20px rgba(232, 184, 75, .2); }
+
+/* ── 8. Les fenetres,
+listes deroulantes,
+toasts : surfaces opaques reprises ── */
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #importCSVModal .modal-content,
+body.dark-mode:has(#mainApp[style*="display: flex"]) [class*="view-modal"],
+body.dark-mode:has(#mainApp[style*="display: flex"]) [id*="Modal"] .modal-content,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .aube-detail-modal,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #replayDayModal > div {
+  background: rgba(14, 15, 19, .96) !important;
+  border: 1px solid rgba(232, 184, 75, .22) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 30px 80px -30px rgba(232, 184, 75, .35), 0 20px 60px rgba(0, 0, 0, .6) !important;
+}
+body.dark-mode:has(#mainApp[style*="display: flex"]) .view-modal-section,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content .accordion-header,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content .accordion-content { background: #161a20 !important; border-color: #1e2128 !important; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content .accordion-header { border-radius: 12px; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) #csvAccountList,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #tradeAccountList,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .share-dropdown-menu,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .coach-cal-settings,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .dash-cat-card,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .aube-toast {
+  background: rgba(14, 15, 19, .97) !important;
+  border: 1px solid rgba(232, 184, 75, .22) !important;
+  border-radius: 16px !important;
+}
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content h2,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content h3,
+body.dark-mode:has(#mainApp[style*="display: flex"]) [class*="view-modal"] h2 { color: var(--text) !important; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content label { color: var(--text-muted) !important; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content input,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content select,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content textarea,
+body.dark-mode:has(#mainApp[style*="display: flex"]) #myProfile .profile-input,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .coach-search-input {
+  background: #161a20 !important; color: var(--text) !important; border: 1px solid #1e2128 !important; border-radius: 12px !important;
+}
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content input:focus,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content select:focus,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content textarea:focus {
+  border-color: rgba(232, 184, 75, .35) !important; box-shadow: 0 0 0 3px rgba(232, 184, 75, .15) !important;
+}
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content input::placeholder,
+body.dark-mode:has(#mainApp[style*="display: flex"]) .modal-content textarea::placeholder { color: #6f6e68 !important; }
+/* Les cases a cocher et boutons radio,
+en or de l espace membre. */
+#mainApp input[type="checkbox"],
+#mainApp input[type="radio"],
+body:has(#mainApp[style*="display: flex"]) .modal-content input[type="checkbox"],
+body:has(#mainApp[style*="display: flex"]) .modal-content input[type="radio"] { accent-color: #e8b84b; }
+
+/* ── 9. Le pied de page,
+le meme que l espace membre ─────────────────────── */
+body.dark-mode:has(#mainApp[style*="display: flex"]) .app-footer { background: #0a0a0d; border-top: 1px solid #1e2128; color: #9c9b94; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .app-footer::before { display: none; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .app-footer-links a { color: #bdbcb6; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .app-footer-links a:hover { color: #e8b84b; }
+body.dark-mode:has(#mainApp[style*="display: flex"]) .app-footer-copyright { color: #6f6e68; }
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .app-footer { background: #f6f2ea; border-top: 1px solid #e2dbcc; color: #6e685b; }
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .app-footer-links a { color: #4e483d; }
+body:not(.dark-mode):has(#mainApp[style*="display: flex"]) .app-footer-links a:hover { color: #b98a2e; }
+
+/* ── 10. Le focus,
+l horloge,
+l indicateur de navigation ─────────────────── */
+#mainApp :focus-visible { outline: 2px solid #e8b84b; outline-offset: 3px; }
+body:has(#mainApp[style*="display: flex"]) .aube-clock { color: #9c9b94; }
+body:has(#mainApp[style*="display: flex"]) .aube-nav-indicator { background: linear-gradient(180deg, #f3d585, #e8b84b); box-shadow: 0 0 12px rgba(232, 184, 75, .5); }
