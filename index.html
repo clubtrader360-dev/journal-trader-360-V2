@@ -3179,6 +3179,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     <link rel="stylesheet" href="/assets/formation.css">
 </head>
 <body>
+    <!-- ⚠️ LE VOILE DE CHARGEMENT. Demande de Nadir du 14/10 : « il ne faut plus de
+         pages entre deux ; je préfère un écran noir au chargement ». Un fond sombre,
+         la marque, rien d autre, tant qu aucun ecran n est affiche. assets/connexion.css
+         le retire des que l ecran de connexion, le choix, le journal, l espace coach
+         ou l espace membre est a l ecran. Sans JavaScript, il tombe aussi (`noscript`). -->
+    <div id="cxVoile" class="cx-voile" aria-hidden="true"><span class="marque marque--verrou cx-voile__marque"></span></div>
+    <noscript><style>#cxVoile{display:none !important}</style></noscript>
     <a href="#main-content" class="skip-link">Aller au contenu principal</a>
     <!-- Bandeau COACH VIEW (#80) — visible uniquement quand le coach consulte un journal élève en lecture seule. -->
     <div id="coachViewBanner" class="coach-view-banner" style="display:none;" role="status">
@@ -4110,7 +4117,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                  c est le cas normal d un nouvel eleve. `data-droit` le tient,
                  `majRetour()` tranche ensuite entre les deux destinations. -->
             <button type="button" class="btn btn-ghost formation-retour formation-retour-journal"
-                    data-droit="journal" hidden onclick="Acces.retourJournal()">
+                    data-droit="journal" hidden onclick="Acces.retourJournal()" title="Revenir au journal">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
               <span>Revenir au journal</span>
@@ -4118,7 +4125,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             <!-- ⚠️ Un coach ne revient pas au journal d un eleve, il revient a SON
                  espace. Les deux boutons sont exclusifs. -->
             <button type="button" class="btn btn-ghost formation-retour formation-retour-coach"
-                    hidden onclick="Acces.retourCoach()">
+                    hidden onclick="Acces.retourCoach()" title="Revenir à l'espace coach">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
               <span>Revenir a l espace coach</span>
@@ -4129,7 +4136,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                  `Acces.deconnecter()` ferme d abord le lecteur (position ecrite),
                  puis appelle le `logout()` du depot, qui recharge la page. -->
             <button type="button" class="btn btn-ghost formation-retour formation-deconnexion"
-                    onclick="Acces.deconnecter()">
+                    onclick="Acces.deconnecter()" title="Se déconnecter">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
               <span>Se déconnecter</span>

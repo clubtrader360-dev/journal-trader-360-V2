@@ -80,12 +80,10 @@ body[data-espace="formation"] .aube-clock { display: none !important; }
 /* Le chemin de retour vit dans la barre du haut, a cote de la pastille d XP.
    ⛔ UN SEUL, et masque quand le droit journal n est pas actif : un eleve
    « formation seule » ne doit voir aucune mention du journal. */
-#formationApp .formation-retour { padding: 9px 16px; font-size: 13.5px; }
-@media (max-width: 760px) {
-  #formationApp .formation-retour span { position: absolute; width: 1px; height: 1px;
-    overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  #formationApp .formation-retour { padding: 9px 11px; }
-}
+/* ⚠️ Les boutons de la barre du haut (retour, deconnexion) sont regles EN FIN
+   DE FICHIER, dans « retours du 14/10 » : une regle posee ici, a specificite
+   egale, perdait contre `#formationApp .btn` ecrit plus bas, et les boutons
+   restaient gros sans qu aucune erreur ne le dise. */
 
 /* ============================================================================
    ⛔ LA REMISE A ZERO, ET POURQUOI ELLE EST INDISPENSABLE
@@ -949,3 +947,48 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp .theme-btn{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--ink-soft);cursor:pointer}
 #formationApp .theme-btn:hover{border-color:var(--gold-line);color:var(--ink)}
 #formationApp .theme-btn svg{width:17px;height:17px}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RETOURS DE NADIR SUR L APERCU DU 14/10, NUIT (lot connexion quater)
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️ En fin de fichier, et c est voulu : ces regles corrigent des regles de la
+   maquette a specificite egale, et seule la position tranche. */
+
+/* ── La barre du haut, sur UNE ligne ─────────────────────────────────────────
+   « les deux boutons sont un peu trop gros, le menu est sur deux lignes, Mon
+   parcours se retrouve avec les deux mots l un au-dessus de l autre ».
+   Le libelle des deux boutons ne reste qu au-dela de 1200 px ; en dessous,
+   l icone seule, le libelle en info-bulle (`title` dans index.html). */
+#formationApp .top-in{flex-wrap:nowrap;gap:16px}
+#formationApp .nav{flex-shrink:0;gap:18px}
+#formationApp .nav button{white-space:nowrap}
+#formationApp .top-right{flex-shrink:0;gap:8px}
+#formationApp .xp-chip,#formationApp .xp-chip .xpt,#formationApp .xp-chip .lvl{white-space:nowrap}
+#formationApp .btn.formation-retour{padding:8px 13px;font-size:13px;gap:7px;white-space:nowrap;flex-shrink:0;line-height:1.2}
+#formationApp .btn.formation-retour svg{width:15px;height:15px;flex-shrink:0}
+@media (max-width:1200px){
+  #formationApp .btn.formation-retour span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  #formationApp .btn.formation-retour{padding:9px 11px}
+}
+
+/* ── L anneau de progression ───────────────────────────────────────────────
+   « en mode clair, du parcours est coupé ». Le texte « DU PARCOURS » en
+   12,5 px espace de .14em fait ~105 px, l interieur de l anneau en fait 102 :
+   il mordait sur la piste. En sombre la piste etait sombre, on ne voyait rien ;
+   en clair la piste (couleur ecrite en dur, corrigee en `var(--surface-3)`
+   dans supabase-formation.js) etait sombre sur fond clair, et le texte se
+   perdait dessus. L anneau passe a 140 px, le texte a 11 px / .1em (~87 px). */
+#formationApp .ring{width:140px;height:140px}
+#formationApp .ring .val span{font-size:11px;letter-spacing:.1em;margin-top:5px}
+@media (max-width:900px){
+  #formationApp .ring{width:118px;height:118px}
+  #formationApp .ring .val span{font-size:9.5px;letter-spacing:.08em}
+}
+
+/* ── Le survol des cartes en theme clair ───────────────────────────────────
+   « au passage de la souris sur les modules, ça devient totalement foncé ».
+   `.mod:hover` posait le fond sombre de la maquette, ecrit en couleur
+   litterale. En clair : la carte reste blanche, le lisere dore s allume. */
+#formationApp[data-theme="clair"] .mod:hover:not(.locked){background:#ffffff;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-wash),0 18px 40px -24px var(--gold-glow)}
+#formationApp[data-theme="clair"] .mod.current{background:rgba(255,255,255,.92)}
+#formationApp[data-theme="clair"] .mod--cert:hover:not(.locked){background:linear-gradient(135deg,rgba(232,184,75,.26),#ffffff 55%)}

@@ -1743,7 +1743,9 @@
         <div class="ring-row">
           <div class="ring" role="img" aria-label="${pct} % du parcours terminé">
             <svg viewBox="0 0 132 132"><defs><linearGradient id="rgFormation" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs>
-              <circle cx="66" cy="66" r="56" fill="none" stroke="#1b2028" stroke-width="10"/>
+              <!-- ⚠️ La piste suit le theme : en dur (#1b2028), elle restait sombre
+                   sur le theme clair et mangeait « du parcours ». Retour du 14/10. -->
+              <circle cx="66" cy="66" r="56" fill="none" style="stroke:var(--surface-3)" stroke-width="10"/>
               <circle id="ringArc" cx="66" cy="66" r="56" fill="none" stroke="url(#rgFormation)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" style="transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)"/></svg>
             <div class="val"><div><strong class="mono">${pct}<small style="font-size:.5em">%</small></strong><span>du parcours</span></div></div>
           </div>

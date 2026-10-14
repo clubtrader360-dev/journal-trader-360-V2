@@ -46,6 +46,44 @@ html[data-attente="formation"] #mainApp { display: none !important; }
    affiche, c est-a-dire APRES cette attente. ⛔ Il ne se montre donc que quand
    le journal ou l espace coach est a l ecran, les seuls qui le portent. */
 body:not(:has(#mainApp[style*="display: flex"], #coachApp[style*="display: flex"])) > .app-footer { display: none !important; }
+/* ⚠️ Et pendant l attente de l espace membre : `login()` a pose `#mainApp` en
+   flex (masque par la regle au-dessus), le pied de page se croyait donc dans le
+   journal et remontait seul, en bleu. Retour de Nadir du 14/10, deuxieme fois. */
+html[data-attente="formation"] .app-footer { display: none !important; }
+
+/* ── Le voile de chargement ──────────────────────────────────────────────────
+   « Il ne faut plus de pages entre deux ; je préfère un écran noir au
+   chargement » (Nadir, 14/10). `#cxVoile` est le premier enfant de `<body>` :
+   un fond sombre et la marque, par-dessus tout, des le premier rendu. Il tombe
+   des qu un ecran est reellement a l ecran. ⛔ Pendant l attente de l espace
+   membre, il reste meme si `#mainApp` est en flex : c est le cas qui laissait
+   voir le journal, puis le pied de page, le temps d une requete.
+   ⚠️ Un voile qui ne tomberait jamais serait pire qu un flash : le filet de
+   `index.html` (5 s) affiche l ecran de connexion si rien n est visible, et
+   cette regle le laisse passer. */
+.cx-voile {
+  position: fixed; inset: 0; z-index: 99990;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%);
+}
+.cx-voile__marque {
+  width: 180px; aspect-ratio: 1211 / 224; display: block;
+  background-color: #e8b84b; opacity: .9;
+  -webkit-mask: url('/assets/marque/t360-logo.svg') no-repeat center / contain;
+  mask: url('/assets/marque/t360-logo.svg') no-repeat center / contain;
+}
+body:has(#authScreen[style*="display: flex"]) .cx-voile,
+body:has(#choixEspace[style*="display: flex"]) .cx-voile,
+body:has(#mainApp[style*="display: flex"]) .cx-voile,
+body:has(#coachApp[style*="display: flex"]) .cx-voile,
+body[data-espace="formation"] .cx-voile { display: none; }
+/* ⚠️ `!important` et la double exclusion sont necessaires : la regle `:has`
+   au-dessus porte un identifiant, elle pese plus lourd que celle-ci ; et sans
+   l exclusion, un eleve non connecte dont le dernier espace etait la formation
+   verrait le voile par-dessus l ecran de connexion. */
+html[data-attente="formation"] body:not([data-espace="formation"]):not(:has(#authScreen[style*="display: flex"], #choixEspace[style*="display: flex"])) .cx-voile { display: grid !important; }
 
 #authScreen, #choixEspace, .auth-container {
   --cx-bg: #0a0a0d; --cx-surface: rgba(17, 19, 24, .88); --cx-surface-2: #161a20;
