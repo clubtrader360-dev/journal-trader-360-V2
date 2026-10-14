@@ -2258,6 +2258,7 @@
 <script src="/supabase-replays-student.js?v=20260523"></script>
 <!-- Espace formation : les donnees d abord, la logique ensuite. -->
 <script src="/supabase-acces.js"></script>
+<script src="/assets/connexion.js"></script>
 <script src="/supabase-demandes-journal.js"></script>
 <script src="/assets/formation-donnees.js"></script>
 <!-- Lot 18 : les quiz, engendres par outils/formation-quiz-import.mjs. Avant la logique. -->
@@ -3163,6 +3164,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     <!-- "Bourse à l'Aube" — tokens centraux puis couche DA (EN DERNIER, override propre, dual-theme) -->
     <link rel="stylesheet" href="/assets/tokens-aube.css">
     <link rel="stylesheet" href="/assets/aube.css">
+    <!-- Lot connexion (14/10/2026) : les deux ecrans partages, #authScreen et #choixEspace,
+         au style de l espace membre. ⛔ Ne touche ni #mainApp ni #coachApp. -->
+    <link rel="stylesheet" href="/assets/connexion.css">
     <!-- Espace formation. ⛔ Aucune valeur de couleur propre : il ne nomme que les
          jetons du journal, pour suivre les modes clair et sombre sans les redire. -->
     <link rel="stylesheet" href="/assets/formation.css">
@@ -3176,6 +3180,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     </div>
     <!-- Auth Screen -->
     <div id="authScreen" class="auth-container" role="main" aria-label="Authentification" style="display: none;">
+        <!-- Le graphique de fond : des chandeliers dessines une fois au canvas par
+             assets/connexion.js, le meme trace que l emplacement video de l espace membre. -->
+        <canvas id="cxChart" class="cx-chart" aria-hidden="true"></canvas>
         <div class="auth-card">
             <div class="logo">
                 <!-- OR, ET PAS LA COULEUR DU THÈME. La règle `.auth-card` de ce fichier
@@ -3206,11 +3213,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <div class="forgot-pw-row">
                         <button type="button" id="forgotPasswordLink" class="forgot-pw-link">Mot de passe oublié ?</button>
                     </div>
-                    <button type="submit" id="loginBtn" class="trader-btn w-full mb-4">Se connecter</button>
+                    <!-- Demande de Nadir du 14/10 : email, mot de passe, et DEUX boutons qui
+                         menent chacun directement dans son espace, sans ecran intermediaire.
+                         ⚠️ Les deux soumettent le meme formulaire : `Acces.vouloir()` retient
+                         l espace demande, `login()` ouvre la session, `Acces.orienter()` y entre.
+                         `#loginBtn` garde son identifiant : les sondes et `aube.js` le lisent. -->
+                    <button type="submit" id="loginBtn" class="trader-btn w-full" data-espace="journal"
+                            onclick="window.Acces && Acces.vouloir('journal')">Entrer dans le journal</button>
+                    <button type="submit" id="loginBtnFormation" class="trader-btn cx-btn-formation w-full" data-espace="formation"
+                            onclick="window.Acces && Acces.vouloir('formation')">Entrer dans la formation</button>
                 </form>
                 <button type="button" id="showRegisterBtn" data-action="showRegisterForm" class="trader-btn-secondary w-full mb-4">Créer un compte</button>
-                <button type="button" id="showCoachLoginBtn" data-action="showCoachLogin" class="trader-btn-secondary w-full">Connexion Coach</button>
                 <div id="loginError" class="text-red-500 text-sm mt-4 hidden" role="alert" aria-live="assertive"></div>
+                <!-- ⚠️ L acces coach reste, en discret : un lien texte sous la carte, pas un
+                     troisieme gros bouton qui attire les essais. -->
+                <button type="button" id="showCoachLoginBtn" data-action="showCoachLogin" class="cx-coach-lien">Accès coach</button>
             </div>
 
             <div id="registerForm" style="display: none;" role="region" aria-label="Inscription">
@@ -3260,6 +3277,16 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <button type="button" id="showLoginBtnCoach" class="trader-btn-secondary w-full" data-action="showLoginForm">Retour</button>
                 <div id="coachError" class="text-red-500 text-sm mt-4 hidden" role="alert" aria-live="assertive"></div>
             </div>
+        </div>
+        <!-- Les quatre liens legaux, obligatoires, en pied de l ecran de connexion. -->
+        <div class="cx-pied">
+            <nav aria-label="Informations légales">
+                <a href="/mentions-legales.html">Mentions légales</a>
+                <a href="/cgv.html">CGV</a>
+                <a href="/cgu.html">CGU</a>
+                <a href="/confidentialite.html">Confidentialité</a>
+            </nav>
+            <small>Le trading comporte un risque de perte en capital.</small>
         </div>
     </div>
 

@@ -1,0 +1,145 @@
+/* ============================================================================
+   L ECRAN DE CONNEXION ET L ECRAN DE CHOIX, AU STYLE DE L ESPACE MEMBRE
+   ============================================================================
+   Demande de Nadir du 14/10 : « on enlève le fond Bourse à l'Aube et on
+   applique les caractéristiques esthétiques de l'espace membre ».
+
+   ⛔ CE FICHIER NE TOUCHE QUE LES DEUX ECRANS PARTAGES, #authScreen et
+   #choixEspace : ce sont les seuls que la regle « le journal ne bouge pas »
+   laisse ouverts. Rien ici ne mord sur #mainApp ni #coachApp.
+   ⚠️ Il est charge APRES aube.css et ses regles portent `!important` parce
+   que aube.css pose la photographie de bureau en `!important` aussi.
+   La palette est celle de assets/formation.css, recopiee ici parce que ces
+   variables vivent sur #formationApp et pas sur ces ecrans.
+   ========================================================================== */
+
+/* ⚠️ Le tout premier rendu, avant toute feuille : plus de « fond bleu nuit »
+   pendant une connexion lente. Le journal repeint le body ensuite. */
+html { background: #0a0a0d; }
+
+#authScreen, #choixEspace, .auth-container {
+  --cx-bg: #0a0a0d; --cx-surface: rgba(17, 19, 24, .88); --cx-surface-2: #161a20;
+  --cx-ink: #f7f6f3; --cx-ink-soft: #bdbcb6; --cx-ink-mute: #9c9b94;
+  --cx-gold: #e8b84b; --cx-gold-2: #f3d585; --cx-gold-deep: #b98a2e;
+  --cx-gold-line: rgba(232, 184, 75, .35); --cx-gold-glow: rgba(232, 184, 75, .5);
+  --cx-line: #1e2128;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .10), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%) !important;
+  color: var(--cx-ink);
+  padding: 2rem 24px 120px !important;
+}
+
+/* ── La carte ───────────────────────────────────────────────────────────── */
+#authScreen .auth-card, #choixEspace .auth-card {
+  background: var(--cx-surface) !important;
+  border: 1px solid var(--cx-gold-line) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 30px 80px -30px var(--cx-gold-glow), 0 20px 60px rgba(0, 0, 0, .5) !important;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  color: var(--cx-ink) !important;
+  max-width: 460px !important;
+  padding: 1.6rem 2rem 1.4rem !important;
+}
+#authScreen .auth-card h2, #choixEspace .auth-card h2 {
+  color: var(--cx-ink) !important; text-shadow: none !important;
+  font-weight: 800; letter-spacing: -.02em;
+}
+#authScreen .auth-card .logo + div,
+#authScreen .auth-card div[style*="666"] {
+  color: var(--cx-gold) !important; font-size: 12.5px !important;
+  letter-spacing: .22em; text-transform: uppercase; font-weight: 700;
+}
+#authScreen .auth-card label { color: var(--cx-ink-soft) !important; font-size: 12.5px !important; letter-spacing: .06em; text-transform: uppercase; }
+#authScreen .auth-card, #authScreen .auth-card p, #choixEspace .auth-card p { color: var(--cx-ink-soft) !important; }
+
+/* ── Les champs ─────────────────────────────────────────────────────────── */
+#authScreen .auth-card .form-group input,
+#authScreen .auth-card .form-group select {
+  background: var(--cx-surface-2) !important;
+  color: var(--cx-ink) !important;
+  border: 1px solid var(--cx-line) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+#authScreen .auth-card .form-group input::placeholder { color: var(--cx-ink-mute) !important; }
+#authScreen .auth-card .form-group input:focus { border-color: var(--cx-gold-line) !important; box-shadow: 0 0 0 3px rgba(232, 184, 75, .15) !important; }
+#authScreen .auth-card .form-group input:-webkit-autofill,
+#authScreen .auth-card .form-group input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--cx-surface-2) inset !important;
+  -webkit-text-fill-color: var(--cx-ink) !important;
+}
+
+/* ── Les boutons : la forme des boutons de l espace membre (pilules) ─────── */
+#authScreen .auth-card .trader-btn, #choixEspace .formation-btn-or {
+  background: linear-gradient(180deg, var(--cx-gold-2), var(--cx-gold)) !important;
+  color: #120e07 !important; border: 1px solid transparent !important;
+  border-radius: 40px !important; font-weight: 700 !important;
+  box-shadow: 0 8px 30px -8px var(--cx-gold-glow) !important;
+  padding: .8rem 1rem !important; margin: 0 0 10px !important;
+}
+#authScreen .auth-card .trader-btn:hover, #choixEspace .formation-btn-or:hover { transform: translateY(-1px); filter: none !important; }
+#authScreen .auth-card .trader-btn-secondary, #choixEspace .formation-btn-fantome {
+  background: rgba(255, 255, 255, .03) !important;
+  color: var(--cx-ink) !important;
+  border: 1px solid var(--cx-line) !important;
+  border-radius: 40px !important; font-weight: 600 !important;
+  padding: .8rem 1rem !important; margin: 0 0 10px !important;
+}
+#authScreen .auth-card .trader-btn-secondary:hover, #choixEspace .formation-btn-fantome:hover { border-color: var(--cx-gold-line) !important; filter: none !important; }
+/* ⚠️ Le bouton vers l espace membre : dore mais creux, le journal reste plein.
+   Deux boutons l un sous l autre, meme largeur. */
+#authScreen .auth-card .trader-btn.cx-btn-formation {
+  background: transparent !important; color: var(--cx-gold) !important;
+  border-color: var(--cx-gold-line) !important; box-shadow: none !important;
+}
+#authScreen .auth-card .trader-btn.cx-btn-formation:hover { background: rgba(232, 184, 75, .08) !important; }
+#authScreen .forgot-pw-link { color: var(--cx-ink-mute) !important; }
+#authScreen .forgot-pw-link:hover { color: var(--cx-gold) !important; }
+#authScreen .auth-card .legal-consent-label, #authScreen .auth-card .legal-consent-label a { color: var(--cx-ink-soft) !important; }
+#authScreen .auth-card .legal-consent-label a { color: var(--cx-gold) !important; }
+#authScreen .aube-eye { color: var(--cx-ink-mute) !important; }
+#choixEspace .choix-message-retire, #choixEspace .choix-aucun { color: var(--cx-ink-soft) !important; }
+#choixEspace .choix-aucun a { color: var(--cx-gold) !important; }
+
+/* ── Le bandeau « Sécurité avancée… » est retire ; l horloge reste ────────── */
+#authScreen .aube-trust { display: none !important; }
+body:has(#authScreen[style*="display: flex"]) .aube-clock,
+body:has(#choixEspace[style*="display: flex"]) .aube-clock { color: var(--cx-ink-mute, #9c9b94) !important; opacity: 1; }
+
+/* ── Les mentions legales, en pied de page de la connexion ─────────────────
+   ⚠️ Fixe en bas, centre, sous l horloge qui est a droite. */
+.cx-pied {
+  position: fixed; left: 0; right: 0; bottom: 18px; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 0 110px 0 20px; pointer-events: none;
+}
+.cx-pied nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; pointer-events: auto; }
+.cx-pied a { color: #9c9b94; text-decoration: none; font-size: 13.5px; }
+.cx-pied a:hover { color: #e8b84b; text-decoration: underline; text-underline-offset: 3px; }
+.cx-pied small { color: #6f6e68; font-size: 12.5px; }
+@media (max-width: 640px) {
+  #authScreen, #choixEspace, .auth-container { padding: 1.25rem 16px 150px !important; }
+  #authScreen .auth-card, #choixEspace .auth-card { padding: 1.4rem 1.25rem 1.2rem !important; }
+  .cx-pied { padding: 0 16px; bottom: 44px; }
+  .aube-clock { bottom: 14px !important; right: 50% !important; transform: translateX(50%); }
+}
+
+/* ── Le graphique de fond (assets/connexion.js) ───────────────────────────── */
+#authScreen { position: relative; overflow: hidden; }
+#authScreen .cx-chart { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; }
+#authScreen .auth-card { position: relative; z-index: 1; }
+
+/* ── Les deux boutons d entree, l un sous l autre, et l acces coach discret ── */
+#authScreen .auth-card #loginBtn { margin-top: 4px !important; }
+#authScreen .auth-card #loginBtnFormation { margin-bottom: 14px !important; }
+#authScreen .auth-card #showRegisterBtn { margin-top: 2px !important; }
+#authScreen .cx-coach-lien {
+  display: block; margin: 14px auto 0; padding: 4px 8px;
+  background: none !important; border: 0 !important; box-shadow: none !important;
+  color: var(--cx-ink-mute) !important; font-size: 12.5px !important; letter-spacing: .04em;
+  text-decoration: none; cursor: pointer; opacity: .75;
+}
+#authScreen .cx-coach-lien:hover { color: var(--cx-gold) !important; opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
+#authScreen .cx-pied { z-index: 2; }

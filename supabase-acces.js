@@ -191,7 +191,38 @@
    * formation ». Elle a donc son propre conteneur de premier niveau,
    * `#formationApp`, et `showSection` ne la connait plus.
    */
+  /**
+   * ── ⚠️ L ESPACE DEMANDE SUR L ECRAN DE CONNEXION, ET LE DERNIER OUVERT ────
+   *
+   * Demande de Nadir du 14/10 : « deux boutons, et c est direct, il n y a pas
+   * d ecran intermediaire ». Le bouton presse retient l espace VOULU pour la
+   * session de navigateur ; `orienter()` le lit une fois et l efface. Et chaque
+   * entree retient le DERNIER espace ouvert : au rechargement, un eleve qui a
+   * les deux droits revient la ou il etait, sans qu on le lui redemande.
+   * ⛔ Ni l un ni l autre n ouvre quoi que ce soit : le droit est verifie dans
+   * `orienter()`, comme avant. Un espace voulu sans droit mene a l ecran qui
+   * l explique, pas a l espace.
+   */
+  const CLE_VOULU = 't360.espaceVoulu';
+  const CLE_DERNIER = 't360.dernierEspace';
+  const ESPACES = ['formation', 'journal'];
+  function vouloir(espace) {
+    if (!ESPACES.includes(espace)) return;
+    try { sessionStorage.setItem(CLE_VOULU, espace); } catch { /* navigation privee stricte : on continue sans */ }
+  }
+  function espaceVoulu() {
+    let v = null;
+    try { v = sessionStorage.getItem(CLE_VOULU); sessionStorage.removeItem(CLE_VOULU); } catch { v = null; }
+    return ESPACES.includes(v) ? v : null;
+  }
+  function dernierEspace() {
+    let v = null;
+    try { v = localStorage.getItem(CLE_DERNIER); } catch { v = null; }
+    return ESPACES.includes(v) ? v : null;
+  }
+
   function entrer(espace) {
+    try { localStorage.setItem(CLE_DERNIER, espace); } catch { /* rien */ }
     const coach = document.getElementById('coachApp');
     // ⚠️ On retient d'ou l'on vient AVANT de masquer : le chemin de retour de la
     // formation ne mene pas au meme endroit pour un coach et pour un eleve.
@@ -381,9 +412,25 @@
     // ⚠️ Un seul droit : on entre directement. Faire choisir entre une porte et
     // un mur serait une question dont on connaît déjà la réponse.
     if (d.formation !== d.journal) {
+      const voulu = espaceVoulu();
+      // ⛔ Sauf si l eleve a demande PRECISEMENT l autre : on lui montre
+      // pourquoi elle est fermee (et, pour le journal, comment la demander).
+      if (voulu && !d[voulu]) {
+        montrer('authScreen', false);
+        montrer('mainApp', false);
+        montrer('choixEspace', true);
+        appliquer();
+        return;
+      }
       entrer(d.formation ? 'formation' : 'journal');
       return;
     }
+
+    // ⚠️ Les deux droits : l espace demande sur l ecran de connexion, sinon le
+    // dernier ouvert, sinon seulement l ecran de choix. Demande de Nadir du
+    // 14/10 : « c est direct, il n y a pas d ecran intermediaire ».
+    const direct = espaceVoulu() || dernierEspace();
+    if (direct) { entrer(direct); return; }
 
     montrer('authScreen', false);
     montrer('mainApp', false);
@@ -474,6 +521,7 @@
     appliquer,
     orienter,
     entrer,
+    vouloir,
     etatJournal,
     rendreBoutonJournal,
     cliquerJournal,
