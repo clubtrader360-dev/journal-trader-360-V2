@@ -59,12 +59,25 @@
 
   let minuteur = null;
   window.addEventListener('resize', () => { clearTimeout(minuteur); minuteur = setTimeout(dessiner, 120); });
-  // ⚠️ L ecran de connexion est affiche par supabase-auth.js apres le
-  // chargement : on dessine quand il devient visible, pas seulement au depart.
-  const racine = document.getElementById('authScreen');
-  if (racine && window.MutationObserver) {
-    new MutationObserver(dessiner).observe(racine, { attributes: true, attributeFilter: ['style', 'class'] });
+
+  /**
+   * ⚠️ L ecran de connexion est affiche par supabase-auth.js APRES le
+   * chargement, une fois la session verifiee : on dessine quand il devient
+   * visible, pas seulement au depart.
+   * ⛔ CE FICHIER EST CHARGE DANS `<head>` : au moment ou il s execute,
+   * `#authScreen` n existe pas encore. La premiere version posait l observateur
+   * ici, sur `null`, sans erreur, et ne redessinait donc jamais : le canevas
+   * restait vide des que l ecran arrivait apres le premier trace. C est le motif
+   * « module ecrit, jamais cable » du depot. L observateur se pose quand le
+   * document est la.
+   */
+  function brancher() {
+    const racine = document.getElementById('authScreen');
+    if (racine && window.MutationObserver) {
+      new MutationObserver(dessiner).observe(racine, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+    dessiner();
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', dessiner);
-  else dessiner();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', brancher);
+  else brancher();
 })();

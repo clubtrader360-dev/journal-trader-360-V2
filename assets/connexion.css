@@ -13,9 +13,28 @@
    variables vivent sur #formationApp et pas sur ces ecrans.
    ========================================================================== */
 
-/* ⚠️ Le tout premier rendu, avant toute feuille : plus de « fond bleu nuit »
-   pendant une connexion lente. Le journal repeint le body ensuite. */
+/* ── Le fond de la page elle-meme, derriere tout ──────────────────────────
+   ⚠️ C est `<html>` qui se voit quand on tire la page au-dela de son bord
+   (le rebond de macOS et d iOS) : retour de Nadir du 14/10, « quand je swipe
+   en haut à gauche, ça laisse apparaître une petite ligne blanche ». Et c est
+   lui qu on voit entre deux ecrans, le temps d une requete : « un fond bleu
+   nuit » au chargement de l espace membre.
+   ⛔ aube.css peint `html:has(body.dark-mode)` en bleu nuit et `html` en creme,
+   et sa regle `:has` l emporte sur un simple `html`. Les notres ciblent donc
+   les ETATS ou l on n est pas dans le journal, avec `!important`, et le journal
+   garde son fond a lui : la regle ne mord que tant que ces etats sont la.
+   - l ecran de connexion ou l ecran de choix est affiche ;
+   - on attend l espace membre (`html[data-attente]`, pose par supabase-acces.js) ;
+   - on est dans l espace membre (`body[data-espace="formation"]`). */
 html { background: #0a0a0d; }
+html[data-attente="formation"],
+html:has(body[data-espace="formation"]),
+html:has(#authScreen[style*="display: flex"]),
+html:has(#choixEspace[style*="display: flex"]) { background: #0a0a0d !important; }
+/* ⚠️ Et le journal reste masque tant qu on attend l espace membre : c est lui
+   qui faisait le « fond bleu nuit », affiche par `login()` avant que les droits
+   soient lus. Specificite (1,1,1) : passe devant `#mainApp.flex` (1,1,0). */
+html[data-attente="formation"] #mainApp { display: none !important; }
 
 #authScreen, #choixEspace, .auth-container {
   --cx-bg: #0a0a0d; --cx-surface: rgba(17, 19, 24, .88); --cx-surface-2: #161a20;
@@ -126,20 +145,33 @@ body:has(#choixEspace[style*="display: flex"]) .aube-clock { color: var(--cx-ink
   .aube-clock { bottom: 14px !important; right: 50% !important; transform: translateX(50%); }
 }
 
-/* ── Le graphique de fond (assets/connexion.js) ───────────────────────────── */
-#authScreen { position: relative; overflow: hidden; }
+/* ── Le graphique de fond (assets/connexion.js) ─────────────────────────────
+   ⚠️ Pas d `overflow: hidden` sur l ecran : le canevas est fixe, il n en a pas
+   besoin, et un ecran qui ne defile plus coupe le formulaire d inscription sur
+   un petit telephone. Retour de Nadir du 14/10 : « tu as un peu bloqué le fond ». */
+#authScreen { position: relative; }
 #authScreen .cx-chart { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 0; }
 #authScreen .auth-card { position: relative; z-index: 1; }
 
-/* ── Les deux boutons d entree, l un sous l autre, et l acces coach discret ── */
+/* ── Les deux boutons d entree, l un sous l autre ─────────────────────────── */
 #authScreen .auth-card #loginBtn { margin-top: 4px !important; }
 #authScreen .auth-card #loginBtnFormation { margin-bottom: 14px !important; }
 #authScreen .auth-card #showRegisterBtn { margin-top: 2px !important; }
-#authScreen .cx-coach-lien {
-  display: block; margin: 14px auto 0; padding: 4px 8px;
-  background: none !important; border: 0 !important; box-shadow: none !important;
-  color: var(--cx-ink-mute) !important; font-size: 12.5px !important; letter-spacing: .04em;
-  text-decoration: none; cursor: pointer; opacity: .75;
-}
-#authScreen .cx-coach-lien:hover { color: var(--cx-gold) !important; opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
 #authScreen .cx-pied { z-index: 2; }
+
+/* ── L acces coach : « en bas à gauche, discret, un tout petit bouton marqué
+   admin » (Nadir, 14/10). Fixe au coin, gris, il ne se voit que si on le cherche. */
+#authScreen .cx-admin {
+  position: fixed; left: 14px; bottom: 14px; z-index: 6;
+  padding: 3px 9px; margin: 0;
+  background: transparent !important; border: 1px solid transparent !important; border-radius: 40px;
+  box-shadow: none !important; width: auto !important;
+  color: #6f6e68 !important; font-size: 11px !important; font-weight: 500; letter-spacing: .08em;
+  text-transform: lowercase; text-decoration: none; cursor: pointer; line-height: 1.4;
+}
+#authScreen .cx-admin:hover, #authScreen .cx-admin:focus-visible {
+  color: var(--cx-gold) !important; border-color: var(--cx-gold-line) !important; outline: none;
+}
+@media (max-width: 640px) {
+  #authScreen .cx-admin { left: 10px; bottom: 8px; }
+}

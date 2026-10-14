@@ -3225,9 +3225,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </form>
                 <button type="button" id="showRegisterBtn" data-action="showRegisterForm" class="trader-btn-secondary w-full mb-4">Créer un compte</button>
                 <div id="loginError" class="text-red-500 text-sm mt-4 hidden" role="alert" aria-live="assertive"></div>
-                <!-- ⚠️ L acces coach reste, en discret : un lien texte sous la carte, pas un
-                     troisieme gros bouton qui attire les essais. -->
-                <button type="button" id="showCoachLoginBtn" data-action="showCoachLogin" class="cx-coach-lien">Accès coach</button>
             </div>
 
             <div id="registerForm" style="display: none;" role="region" aria-label="Inscription">
@@ -3288,6 +3285,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </nav>
             <small>Le trading comporte un risque de perte en capital.</small>
         </div>
+        <!-- ⚠️ L acces coach : demande de Nadir du 14/10, « en bas à gauche, discret,
+             un tout petit bouton marqué admin ». Hors de la carte, fixe au coin.
+             `#showCoachLoginBtn` garde son identifiant : les deux attaches de ce
+             fichier (l. ~3069 et ~16201) le lisent et ouvrent `#coachLoginForm`. -->
+        <button type="button" id="showCoachLoginBtn" data-action="showCoachLogin" class="cx-admin"
+                aria-label="Accès coach">admin</button>
     </div>
 
     <!-- COACH APP -->
@@ -4071,16 +4074,18 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
          formation, je suis sur l espace formation ».
          ⚠️ Le contenu de `<main>` est rendu par `supabase-formation.js`, qui
          transpose les deux vues de la maquette sur les donnees REELLES.
-         ⚠️ `#t360lg` : l identifiant du degrade du logo est prefixe. La maquette
-         l appelait `lg`, et un `id` aussi court dans un document de 11 000 lignes
-         finit par heurter autre chose, sans erreur, en changeant une couleur. -->
+         ⚠️ Le logo de la maquette (hexagone + « TRADER360 », degrade `#t360lg`)
+         est remplace par la marque reelle, le 14/10, a la demande de Nadir. -->
     <div id="formationApp" class="formation-app" style="display: none;">
       <header class="top">
         <div class="top-in">
+          <!-- ⚠️ LE VRAI LOGO, et pas l hexagone de la maquette. Retour de Nadir
+               du 14/10 : « ce n est pas notre vrai logo qui est tout en haut ».
+               Le meme masque SVG que l ecran de connexion et les pages legales
+               (`assets/marque/t360-logo.svg`), en or de l espace membre. -->
           <a class="logo" href="#accueil" aria-label="Trader 360, accueil de l espace formation"
              onclick="event.preventDefault();Formation.aller('accueil')">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><defs><linearGradient id="t360lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d585"/><stop offset="1" stop-color="#b98a2e"/></linearGradient></defs><path d="M20 2.5 35.2 11.25v17.5L20 37.5 4.8 28.75v-17.5Z" fill="none" stroke="url(#t360lg)" stroke-width="2.2"/><path d="M12.5 14h15M20 14v15" stroke="url(#t360lg)" stroke-width="3" stroke-linecap="round"/></svg>
-            <span class="sep"></span><b>TRADER<span class="gold-text">360</span></b>
+            <span class="marque marque--verrou" role="img" aria-label="Trader 360"></span>
           </a>
           <nav class="nav" aria-label="Sections">
             <button type="button" data-go="accueil" aria-current="true">Mon parcours</button>

@@ -167,6 +167,7 @@
     // ⚠️ Le marqueur tombe des qu on quitte : les elements du journal
     // reviennent exactement comme avant.
     delete document.body.dataset.espace;
+    finAttente();
     montrer('choixEspace', false);
     montrer('authScreen', false);
     montrer('coachApp', false);
@@ -206,13 +207,45 @@
   const CLE_VOULU = 't360.espaceVoulu';
   const CLE_DERNIER = 't360.dernierEspace';
   const ESPACES = ['formation', 'journal'];
+
+  /**
+   * ── ⚠️ L ATTENTE DE L ESPACE MEMBRE, ET LE FOND BLEU NUIT ──────────────────
+   *
+   * Retour de Nadir du 14/10 : « au chargement de l espace membre, il y a des
+   * fois un petit décalage et on a un fond bleu nuit ». Mesure dans le code :
+   * `login()` et `restoreSession()` (supabase-auth.js) AFFICHENT `#mainApp`
+   * des que la session est ouverte, puis `orienter()` lit les droits en base et
+   * seulement alors entre dans la formation. Entre les deux, le journal et son
+   * fond bleu nuit sont a l ecran, le temps d une requete.
+   * Le marqueur `data-attente="formation"` sur `<html>` couvre cette fenetre :
+   * assets/connexion.css masque `#mainApp` et peint le fond sombre tant qu il
+   * est pose. ⚠️ Sur `<html>` et pas sur `<body>` : ce fichier est charge dans
+   * `<head>`, le corps n existe pas encore quand il s execute.
+   * ⛔ Il tombe a CHAQUE sortie d `orienter()` et dans `masquerTout()` : un
+   * marqueur qui resterait masquerait le journal a qui y a droit.
+   */
+  const racineHtml = document.documentElement;
+  function attendre(espace) {
+    if (espace === 'formation') racineHtml.dataset.attente = 'formation';
+    else delete racineHtml.dataset.attente;
+  }
+  function finAttente() { delete racineHtml.dataset.attente; }
+
   function vouloir(espace) {
     if (!ESPACES.includes(espace)) return;
     try { sessionStorage.setItem(CLE_VOULU, espace); } catch { /* navigation privee stricte : on continue sans */ }
+    // ⚠️ Des le clic : la fenetre a couvrir s ouvre avant meme la session.
+    attendre(espace);
   }
   function espaceVoulu() {
     let v = null;
     try { v = sessionStorage.getItem(CLE_VOULU); sessionStorage.removeItem(CLE_VOULU); } catch { v = null; }
+    return ESPACES.includes(v) ? v : null;
+  }
+  /** Lit l espace voulu SANS le consommer : pour poser l attente au chargement. */
+  function espaceVouluSansConsommer() {
+    let v = null;
+    try { v = sessionStorage.getItem(CLE_VOULU); } catch { v = null; }
     return ESPACES.includes(v) ? v : null;
   }
   function dernierEspace() {
@@ -220,6 +253,9 @@
     try { v = localStorage.getItem(CLE_DERNIER); } catch { v = null; }
     return ESPACES.includes(v) ? v : null;
   }
+  // ⚠️ Au chargement, si la derniere fois c etait la formation, on couvre tout
+  // de suite : `restoreSession()` affichera le journal avant qu on ait les droits.
+  attendre(espaceVouluSansConsommer() || dernierEspace());
 
   function entrer(espace) {
     try { localStorage.setItem(CLE_DERNIER, espace); } catch { /* rien */ }
@@ -349,8 +385,41 @@
     return window.currentUser || null;
   }
 
+  /**
+   * ⚠️ UNE ORIENTATION PAR SESSION, pas une par evenement. `onAuthStateChange`
+   * (supabase-auth.js) appelle `orienter()` a INITIAL_SESSION, a SIGNED_IN et a
+   * chaque TOKEN_REFRESHED, soit toutes les heures environ. Sans ce garde, un
+   * eleve en plein journal etait ramene au tableau de bord (ou, avant le 14/10,
+   * a l ecran de choix) au premier rafraichissement du jeton, sans rien avoir
+   * fait. On ne reoriente que si personne n est oriente, ou si la personne a
+   * change, ou si aucun espace n est a l ecran (apres une deconnexion).
+   */
+  let _orienteId = null;
+  function espaceAffiche() {
+    return ['formationApp', 'mainApp', 'coachApp'].some((id) => {
+      const el = document.getElementById(id);
+      return el && getComputedStyle(el).display !== 'none';
+    });
+  }
+
   async function orienter() {
+    // ⚠️ Le marqueur d attente tombe quoi qu il arrive a la sortie : voir
+    // `attendre()`. Un `return` oublie dans une branche ne peut plus le laisser.
+    try {
+      await orienterVraiment();
+    } finally {
+      finAttente();
+    }
+  }
+
+  async function orienterVraiment() {
     const u = await attendreSession();
+    const idSession = u ? (u.id || u.auth_id || u.email || null) : null;
+    if (u && idSession && _orienteId === idSession && espaceAffiche()) {
+      console.log('[ACCES] orientation deja faite pour cette session, rien a refaire');
+      return;
+    }
+    if (u) _orienteId = idSession;
 
     // ⛔ UN COACH N'EST PAS ORIENTÉ. Son interface est `#coachApp`, `restoreSession`
     // l'a déjà posée, et son entrée « Formation » vit dans sa propre barre

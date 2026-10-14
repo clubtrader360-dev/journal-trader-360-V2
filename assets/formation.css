@@ -180,9 +180,19 @@ body[data-espace="formation"] .aube-clock { display: none !important; }
 #formationApp .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(5,5,6,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 #formationApp .top-in{max-width:1200px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px}
 #formationApp .logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-#formationApp .logo svg{width:30px;height:30px}
-#formationApp .logo b{font-weight:600;letter-spacing:.18em;font-size:14px}
-#formationApp .logo .sep{width:1px;height:22px;background:var(--gold)}
+/* ⚠️ La marque reelle (masque SVG de assets/marque), en or de l espace membre.
+   `--marque-couleur` est pose ici parce que `.marque` (index.html) le lit, et
+   que sa valeur globale suit le mode sombre du JOURNAL, pas celui de cet espace. */
+/* ⛔ Tout est redit ici, masque compris : le `all: revert` ci-dessus annule les
+   regles `.marque` et `.marque--verrou` d index.html (0,1,0 contre 1,0,0), et un
+   `<span>` sans masque ne dessine rien, sans erreur. */
+#formationApp .logo .marque{
+  display:block;width:148px;aspect-ratio:1211/224;
+  background-color:var(--gold);
+  -webkit-mask:url('/assets/marque/t360-logo.svg') no-repeat center / contain;
+  mask:url('/assets/marque/t360-logo.svg') no-repeat center / contain;
+}
+@media (max-width:760px){#formationApp .logo .marque{width:118px}}
 #formationApp .nav{display:flex;gap:22px;margin-left:8px}
 #formationApp .nav button{background:none;border:0;padding:6px 0;color:var(--ink-soft);font-size:15px}
 #formationApp .nav button[aria-current="true"]{color:var(--ink)}
@@ -879,3 +889,63 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp .btn--attend:hover{transform:none;box-shadow:none}
 #formationApp .lesson-aide{margin:-6px 0 0;font-size:14.5px;color:var(--ink-soft)}
 #formationApp .lesson-aide[hidden]{display:none}
+
+/* ── La certification : une grande carte CENTREE, texte centre ───────────── */
+#formationApp .niveau--cert{display:grid;justify-items:center}
+#formationApp .mod--cert{width:100%;max-width:980px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:40px 36px}
+#formationApp .mod--cert .num,#formationApp .mod--cert h3,#formationApp .mod--cert p{grid-column:auto}
+#formationApp .mod--cert p{margin:0 auto}
+#formationApp .mod--cert .foot{width:100%;max-width:520px;margin-top:14px}
+#formationApp .mod--cert .pill{position:absolute;top:18px;right:18px;grid-column:auto;grid-row:auto}
+@media (max-width:760px){
+  #formationApp .mod--cert{padding:56px 22px 26px}
+  #formationApp .mod--cert .pill{top:14px;right:14px}
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE THEME CLAIR DE L ESPACE MEMBRE
+   ══════════════════════════════════════════════════════════════════════════
+   Demande de Nadir du 14/10 : « un thème clair pour les gens que ce fond noir
+   embête ». ⚠️ Il se pose par `data-theme="clair"` sur #formationApp, memorise
+   dans localStorage (une preference d affichage, pas une donnee : perdue, elle
+   se repose d un clic), et bascule par le bouton de l en-tete.
+   ⛔ Les surfaces de la maquette sont ecrites en couleurs litterales, pas en
+   variables : chacune est reprise ici, nommement. Ajouter une surface, c est
+   l ajouter ici aussi, sinon elle restera sombre sur fond clair. */
+#formationApp[data-theme="clair"]{
+  --bg:#f6f2ea; --surface:#ffffff; --surface-2:#f1ece1; --surface-3:#e7e0d1;
+  --ink:#17140f; --ink-soft:#4e483d; --ink-mute:#6e685b;
+  --gold:#b98a2e; --gold-2:#d3a73c; --gold-deep:#8f6a1f;
+  --gold-glow:rgba(185,138,46,.35); --gold-wash:rgba(185,138,46,.10); --gold-line:rgba(185,138,46,.40);
+  --line:#e2dbcc; --line-soft:#ebe5d8;
+  --ok:#0f9d6e; --ok-glow:#0b8a60; --ok-wash:rgba(15,157,110,.12);
+  --on-gold:#17140f;
+  color-scheme:light;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232,184,75,.22), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232,184,75,.14), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #faf7f1, #f3eee4 70%);
+}
+#formationApp[data-theme="clair"] .top{background:rgba(250,247,241,.78);border-bottom-color:var(--line)}
+#formationApp[data-theme="clair"] .mod,#formationApp[data-theme="clair"] .card,#formationApp[data-theme="clair"] .chap-list,
+#formationApp[data-theme="clair"] .dash,#formationApp[data-theme="clair"] .badge,#formationApp[data-theme="clair"] .note-card,
+#formationApp[data-theme="clair"] .intro-card,#formationApp[data-theme="clair"] .modal{background:rgba(255,255,255,.86)}
+#formationApp[data-theme="clair"] .lb-encart{background:linear-gradient(135deg,rgba(232,184,75,.18),rgba(255,255,255,.9) 60%)}
+#formationApp[data-theme="clair"] .mod--cert{background:linear-gradient(135deg,rgba(232,184,75,.20),rgba(255,255,255,.92) 55%)}
+#formationApp[data-theme="clair"] .btn-ghost,#formationApp[data-theme="clair"] .mnav__btn,#formationApp[data-theme="clair"] .niveau__etat,
+#formationApp[data-theme="clair"] .quiz__faute,#formationApp[data-theme="clair"] .xp-chip,#formationApp[data-theme="clair"] .cond__item{background:rgba(255,255,255,.7)}
+#formationApp[data-theme="clair"] .btn-gold{color:#17140f;background:linear-gradient(180deg,#e9c25a,#c9962f)}
+#formationApp[data-theme="clair"] .screen{background:#1a1712}
+#formationApp[data-theme="clair"] .screen .tag{color:#f7f6f3}
+#formationApp[data-theme="clair"] .screen .over small{color:#e8e4da}
+#formationApp[data-theme="clair"] .screen .over strong{color:#f7f6f3}
+#formationApp[data-theme="clair"] .scene-couche.calme::before{background:rgba(246,242,234,.82)}
+#formationApp[data-theme="clair"] .toast{background:#fff;border-color:var(--gold-line);color:var(--ink)}
+#formationApp[data-theme="clair"] .pill{background:var(--surface-2)}
+#formationApp[data-theme="clair"] .modal-bg{background:rgba(246,242,234,.8)}
+#formationApp[data-theme="clair"] .medal--silhouette{opacity:.55}
+#formationApp[data-theme="clair"] footer{color:var(--ink-mute)}
+/* Le bouton de theme, dans l en-tete, a cote de la pastille d XP. */
+#formationApp .theme-btn{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--ink-soft);cursor:pointer}
+#formationApp .theme-btn:hover{border-color:var(--gold-line);color:var(--ink)}
+#formationApp .theme-btn svg{width:17px;height:17px}
