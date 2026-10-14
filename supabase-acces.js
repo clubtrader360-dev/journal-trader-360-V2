@@ -342,6 +342,24 @@
     if (window.showSection) window.showSection('dashboard');
   }
 
+  /**
+   * Se deconnecter depuis l espace membre. ⚠️ Le lecteur est ferme d abord,
+   * pour que la position de lecture soit ecrite avant que `logout()` recharge
+   * la page ; sinon la derniere minute regardee serait perdue sans erreur.
+   * ⛔ `logout()` est celui du depot (supabase-auth.js) : un seul chemin de
+   * deconnexion, pas deux a tenir en accord.
+   */
+  async function deconnecter() {
+    try {
+      // ⚠️ On ATTEND l ecriture (au plus 600 ms + une requete) : `logout()`
+      // recharge la page, et un rechargement coupe une requete en vol.
+      if (window.Formation && window.Formation.quitter) await window.Formation.quitter();
+      else sortirDeLaFormation();
+    } catch (e) { console.warn('[ACCES] fermeture du lecteur avant deconnexion :', e); }
+    if (typeof window.logout === 'function') window.logout();
+    else console.error('[ACCES] ⛔ window.logout absent : supabase-auth.js non charge ?');
+  }
+
   /** Ramene le coach a son espace. ⛔ Ne touche pas aux droits : il n'en a pas. */
   function retourCoach() {
     sortirDeLaFormation();
@@ -598,6 +616,7 @@
     retourCoach,
     majRetour,
     retourJournal,
+    deconnecter,
     droits: () => _droits,
     aFormation: () => !!(_droits && _droits.formation),
     aJournal: () => !!(_droits && _droits.journal),

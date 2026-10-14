@@ -30,6 +30,13 @@
             integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- La connexion a Supabase s ouvre pendant que la page se lit, pas au premier
+         appel : c est lui qui decide quand l ecran apparait (getSession + profil).
+         Idem pour les deux CDN et Vimeo. Aucune donnee n est envoyee ici. -->
+    <link rel="preconnect" href="https://zgihbpgoorymomtsbxpz.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://player.vimeo.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- #35 : préchargement du logo pour le canvas de partage Instagram (évite le délai au 1er render).
          C'est le PNG DORÉ qui est préchargé, pas le SVG source : le canvas dessine un
@@ -4115,6 +4122,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
               <span>Revenir a l espace coach</span>
+            </button>
+            <!-- ⚠️ LA DECONNEXION, depuis l espace membre. Retour de Nadir du 14/10 :
+                 « la déconnexion ne peut se faire qu à partir du journal » ; un eleve
+                 « formation seule » n avait donc aucun moyen de se deconnecter.
+                 `Acces.deconnecter()` ferme d abord le lecteur (position ecrite),
+                 puis appelle le `logout()` du depot, qui recharge la page. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-deconnexion"
+                    onclick="Acces.deconnecter()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              <span>Se déconnecter</span>
             </button>
           </div>
         </div>

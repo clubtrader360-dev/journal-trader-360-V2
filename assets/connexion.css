@@ -36,6 +36,17 @@ html:has(#choixEspace[style*="display: flex"]) { background: #0a0a0d !important;
    soient lus. Specificite (1,1,1) : passe devant `#mainApp.flex` (1,1,0). */
 html[data-attente="formation"] #mainApp { display: none !important; }
 
+/* ── Le pied de page legal du journal, pendant le chargement ──────────────────
+   ⚠️ Retour de Nadir du 14/10 : « ça affiche une page CGV en haut, avec un
+   petit bandeau bleu, juste avant la transition ». C est `.app-footer`
+   (aube.css : bande bleu nuit, liens Mentions / CGV / CGU / Confidentialité),
+   enfant direct de `<body>`. Tant que la session se verifie, aucun espace n est
+   affiche, et ce pied de page est la SEULE chose a l ecran : il remonte en haut
+   d une page vide. aube.css ne le masque que quand l ecran de connexion est
+   affiche, c est-a-dire APRES cette attente. ⛔ Il ne se montre donc que quand
+   le journal ou l espace coach est a l ecran, les seuls qui le portent. */
+body:not(:has(#mainApp[style*="display: flex"], #coachApp[style*="display: flex"])) > .app-footer { display: none !important; }
+
 #authScreen, #choixEspace, .auth-container {
   --cx-bg: #0a0a0d; --cx-surface: rgba(17, 19, 24, .88); --cx-surface-2: #161a20;
   --cx-ink: #f7f6f3; --cx-ink-soft: #bdbcb6; --cx-ink-mute: #9c9b94;

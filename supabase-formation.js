@@ -3198,6 +3198,46 @@
     }
   }
 
+  /* ══ LE THEME CLAIR ═══════════════════════════════════════════════════════
+   *
+   * Demande de Nadir du 14/10. ⚠️ `localStorage`, comme le son : une
+   * preference d affichage, qui se repose d un clic si elle est perdue.
+   * ⛔ Independant du theme du journal : l espace a sa propre palette, et le
+   * journal garde ses deux modes intacts (voir l en-tete de formation.css).
+   */
+  const THEME_CLE = 'formationTheme';
+  const themeLu = () => { try { return localStorage.getItem(THEME_CLE) === 'clair' ? 'clair' : 'sombre'; } catch { return 'sombre'; } };
+  const ICONE_SOLEIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const ICONE_LUNE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  function appliquerTheme(theme) {
+    const racine = $('formationApp');
+    if (!racine) return;
+    if (theme === 'clair') racine.setAttribute('data-theme', 'clair'); else racine.removeAttribute('data-theme');
+    const b = document.querySelector('#formationApp [data-theme-btn]');
+    if (b) {
+      b.innerHTML = theme === 'clair' ? ICONE_LUNE : ICONE_SOLEIL;
+      b.setAttribute('aria-label', theme === 'clair' ? 'Passer en sombre' : 'Passer en clair');
+      b.title = b.getAttribute('aria-label');
+    }
+  }
+  function basculerTheme() {
+    const suivant = themeLu() === 'clair' ? 'sombre' : 'clair';
+    try { localStorage.setItem(THEME_CLE, suivant); } catch { /* rien */ }
+    appliquerTheme(suivant);
+  }
+  /** Pose le bouton dans l en-tete, une fois. ⚠️ Injecte ici : index.html ne bouge pas. */
+  function poserBoutonTheme() {
+    if (document.querySelector('#formationApp [data-theme-btn]')) { appliquerTheme(themeLu()); return; }
+    const droite = document.querySelector('#formationApp .top-right');
+    if (!droite) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'theme-btn';
+    b.setAttribute('data-theme-btn', '');
+    droite.insertBefore(b, droite.firstChild);
+    appliquerTheme(themeLu());
+  }
+
   /* ══ LE SON ═══════════════════════════════════════════════════════════════
    *
    * ── ⛔ IL PART DANS LE GESTE DE CLIC, ET SON ECHEC NE CASSE RIEN ─────────
@@ -3432,12 +3472,13 @@
   document.addEventListener('click', (e) => {
     const racine = $('formationApp');
     if (!racine || !racine.contains(e.target)) return;
-    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module],[data-rejouer]');
+    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module],[data-rejouer],[data-theme-btn]');
     if (!t) return;
     // ⛔ LA CARTE INTRODUCTION OUVRE LA VIDEO DE BIENVENUE, forcee : c est le
     // moyen d y revenir apres l avoir fermee a la premiere connexion.
     if (t.hasAttribute('data-bienvenue')) { montrerBienvenue(true); return; }
     if (t.hasAttribute('data-son')) { basculerSon(); return; }
+    if (t.hasAttribute('data-theme-btn')) { basculerTheme(); return; }
     /* ── Le lecteur et le quiz ─────────────────────────────────────────── */
     if (t.hasAttribute('data-lire')) {
       const m = mods()[_vueCourante.mi];
@@ -3493,6 +3534,7 @@
      * ne le signale.
      */
     async ouvrir() {
+      poserBoutonTheme();
       await charger();
       // ⚠️ Le texte des notes est necessaire des l accueil : la section « Mes
       // notes » y vit. ⛔ Sans cela elle serait vide alors que les notes
@@ -3520,7 +3562,12 @@
      * plan, et un eleve qui change d onglet pendant une video ne doit pas
      * la perdre. Quitter, c est revenir au journal ou a l espace coach.
      */
-    quitter() { arreterAnimations(); void fermerLecteur(); },
+    /**
+     * ⚠️ Rend la promesse de fermeture : `Acces.deconnecter()` l attend avant
+     * de recharger la page, sinon la position serait perdue dans le
+     * rechargement, sans erreur. Les autres appelants l ignorent.
+     */
+    quitter() { arreterAnimations(); return fermerLecteur(); },
     /**
      * ── ⛔ LA FENETRE DE BIENVENUE, EXPOSEE A L APPELANT ───────────────────
      *
