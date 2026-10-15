@@ -202,15 +202,22 @@
         ${kpi('fa-check-double', 'Tentatives', nb(liste.length), `${nb(reussis)} réussie${reussis > 1 ? 's' : ''} · ${nb(new Set(liste.map((q) => q.user_id)).size)} élève${liste.length > 1 ? 's' : ''}`)}
         ${kpi('fa-percent', 'Score moyen', `${moyenne} %`, 'toutes tentatives confondues')}
         ${kpi('fa-book', 'Quiz en service', nb(Object.keys(Q).length), 'un par module, 80 % pour réussir')}
+        ${kpi('fa-award', 'Certifiés', nb(new Set(liste.filter((q) => q.module_cle === '10' && q.reussi).map((q) => q.user_id)).size), `${nb(liste.filter((q) => q.module_cle === '10').length)} tentative${liste.filter((q) => q.module_cle === '10').length > 1 ? 's' : ''} à l examen final`)}
       </div>
       <div class="bo-carte">
         <div class="bo-carte__tete"><h2><b>${nb(visibles.length)}</b> Évaluation${visibles.length > 1 ? 's' : ''}</h2>
           <div class="am-filtres"><button type="button" data-eval-filtre="tous" aria-pressed="${_evalFiltre === 'tous'}">Toutes</button><button type="button" data-eval-filtre="reussis" aria-pressed="${_evalFiltre === 'reussis'}">Réussies</button><button type="button" data-eval-filtre="ratees" aria-pressed="${_evalFiltre === 'ratees'}">Non réussies</button></div></div>
         ${visibles.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Élève</th><th>Évaluation</th><th>Date</th><th>État</th><th>Score</th><th></th></tr></thead><tbody>
           ${visibles.map((q, i) => {
-            const def = Q[q.module_cle];
-            const detail = _evalOuvert === q.id && def ? `<tr class="am-quiz-detail"><td colspan="6"><ol class="am-reponses">${(q.reponses || []).map((r) => { const qq = (def.questions || []).find((x) => x.id === r.id); if (!qq) return `<li>${txt(r.id)}</li>`; const ok = r.choisie === r.bonne; return `<li class="${ok ? 'ok' : 'ko'}"><b>${txt(qq.enonce)}</b><br>Réponse : ${txt(qq.options[r.choisie] != null ? qq.options[r.choisie] : '(aucune)')}${ok ? '' : `<br><em>Attendu : ${txt(qq.options[r.bonne])}</em>`}</li>`; }).join('')}</ol></td></tr>` : '';
-            return `<tr><td><b>${txt(q.eleve.nom || 'Nom non renseigné')}</b><br><small style="color:var(--text-soft)">${txt(q.eleve.email)}</small></td><td>Quiz Trader 360 : Module ${txt(q.module_cle)}${def ? `<br><small style="color:var(--text-soft)">${txt(def.titre || '')}</small>` : ''}</td><td>${txt(dateFr(q.created_at, true))}</td><td><span class="bo-pill ${q.reussi ? 'bo-pill--ok' : 'bo-pill--non'}">${q.reussi ? 'Réussie' : 'Non réussie'}</span></td><td><b>${q.score} / ${q.total}</b> (${q.total ? Math.round(q.score / q.total * 100) : 0} %)</td><td><button type="button" class="bo-oeil" data-eval="${txt(q.id)}" title="Voir ses réponses">&#128065;</button></td></tr>${detail}`;
+            // ⚠️ La certification (module_cle '10', lot du 15/10) : ses reponses sont { questions, exercices }, pas une liste.
+            const cert = q.module_cle === '10';
+            const def = cert ? window.FORMATION_CERTIFICATION : Q[q.module_cle];
+            const repQ = cert ? ((q.reponses && q.reponses.questions) || []) : (q.reponses || []);
+            const repE = cert ? ((q.reponses && q.reponses.exercices) || []) : [];
+            const ligneQ = (r) => { const qq = ((def && def.questions) || []).find((x) => x.id === r.id); if (!qq) return `<li>${txt(r.id)}</li>`; const ok = r.choisie === r.bonne; return `<li class="${ok ? 'ok' : 'ko'}"><b>${txt(qq.enonce)}</b><br>Réponse : ${txt(qq.options[r.choisie] != null ? qq.options[r.choisie] : '(aucune)')}${ok ? '' : `<br><em>Attendu : ${txt(qq.options[r.bonne])}</em>`}</li>`; };
+            const ligneE = (r) => { const ex = ((def && def.exercices) || []).find((x) => x.id === r.id); const titre = ex ? ex.titre : r.id; const detailE = r.type === 'zone' ? `bande posée à ${txt(r.bande != null ? r.bande.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : '·')}, attendu ${txt(Number(r.attendu).toLocaleString('fr-FR', { minimumFractionDigits: 2 }))}` : `coché ${(r.coches || []).map((i) => (ex && ex.candidats.find((c) => c.i === i) || {}).lettre || i).join(', ') || 'rien'} · attendu ${(r.bons || []).map((i) => (ex && ex.candidats.find((c) => c.i === i) || {}).lettre || i).join(', ')}`; return `<li class="${r.ok ? 'ok' : 'ko'}"><b>${txt(titre)}</b> (${r.ok ? `${def ? def.points_par_exercice : 5} points` : '0 point'})<br>${detailE}</li>`; };
+            const detail = _evalOuvert === q.id && def ? `<tr class="am-quiz-detail"><td colspan="6">${cert ? `<p class="bo-source" style="margin:0 0 6px"><b>Exercices sur graphique</b></p><ol class="am-reponses">${repE.map(ligneE).join('')}</ol><p class="bo-source" style="margin:10px 0 6px"><b>Questions</b></p>` : ''}<ol class="am-reponses">${repQ.map(ligneQ).join('')}</ol></td></tr>` : '';
+            return `<tr><td><b>${txt(q.eleve.nom || 'Nom non renseigné')}</b><br><small style="color:var(--text-soft)">${txt(q.eleve.email)}</small></td><td>${cert ? 'Certification Trader 360 : examen final' : `Quiz Trader 360 : Module ${txt(q.module_cle)}`}${def && !cert ? `<br><small style="color:var(--text-soft)">${txt(def.titre || '')}</small>` : cert ? '<br><small style="color:var(--text-soft)">questions et exercices sur graphique</small>' : ''}</td><td>${txt(dateFr(q.created_at, true))}</td><td><span class="bo-pill ${q.reussi ? 'bo-pill--ok' : 'bo-pill--non'}">${q.reussi ? 'Réussie' : 'Non réussie'}</span></td><td><b>${q.score} / ${q.total}</b> (${q.total ? Math.round(q.score / q.total * 100) : 0} %)</td><td><button type="button" class="bo-oeil" data-eval="${txt(q.id)}" title="Voir ses réponses">&#128065;</button></td></tr>${detail}`;
           }).join('')}</tbody></table></div>` : '<p class="bo-vide">Aucune évaluation dans ce filtre.</p>'}
         <p class="bo-source">Les quiz du journal remplacent les évaluations LearnyBox, qui ne sont pas reprises. L'œil déplie les réponses question par question.</p>
       </div>`;
@@ -237,7 +244,8 @@
     const z = $('boDiplomes');
     const eleves = await lire('progression', () => BO('progression'));
     const tl = total();
-    const lignes = eleves.map((e) => ({ e, b: badgesDe(e.lecons) }));
+    // ⚠️ La certification se lit dans `certifie_le` (examen final reussi), pas dans les chapitres vus.
+    const lignes = eleves.map((e) => ({ e, b: { ...badgesDe(e.lecons), cert: !!e.certifie_le } }));
     const certifies = lignes.filter((x) => x.b.cert).length;
     const avecBadges = lignes.filter((x) => x.b.finis.length).length;
     const visibles = lignes.filter((x) => _diplFiltre === 'tous' || (_diplFiltre === 'certifies' ? x.b.cert : _diplFiltre === 'non' ? !x.b.cert : x.b.finis.length > 0));
@@ -254,10 +262,10 @@
           ${visibles.map(({ e, b }) => `<tr><td><b>${txt(e.nom || 'Nom non renseigné')}</b><br><small style="color:var(--text-soft)">${txt(e.email)}</small></td>
             <td><div class="bo-barre-prog"><i style="width:${tl ? Math.round(b.vus / tl * 100) : 0}%"></i></div><small style="color:var(--text-soft)">${b.vus} / ${tl} chapitres</small></td>
             <td>${b.finis.length ? b.finis.map((x) => `<span class="am-badge">${x.m.cle === '10' ? 'Certification' : `Module ${txt(x.m.numero)}`}</span>`).join(' ') : '<span style="color:var(--text-disabled)">aucun</span>'}</td>
-            <td><span class="bo-pill ${b.cert ? 'bo-pill--ok' : ''}">${b.cert ? 'Certifié Trader 360' : 'Non certifié'}</span></td>
+            <td><span class="bo-pill ${b.cert ? 'bo-pill--ok' : ''}">${b.cert ? 'Certifié Trader 360' : 'Non certifié'}</span>${b.cert ? `<br><small style="color:var(--text-soft)">le ${txt(dateFr(e.certifie_le))}</small>` : ''}</td>
             <td><a class="bo-oeil" href="#/academie/membres?fiche=${encodeURIComponent(e.email)}" title="Ouvrir la fiche">&#128065;</a></td></tr>`).join('')}
         </tbody></table></div>
-        <p class="bo-source">Un badge = un module terminé en entier (tous ses chapitres, quiz compris). La certification Trader 360 = le module 10 terminé ; il n'a pas encore de chapitres, personne n'est donc certifié pour l'instant. Le jour venu, un diplôme pourra aussi s'accorder ici à la main.</p>
+        <p class="bo-source">Un badge = un module terminé en entier (tous ses chapitres, quiz compris). La certification Trader 360 = l'examen final réussi (20 questions et 4 exercices sur graphique, 80 % et 3 exercices sur 4) ; la date est celle de la première réussite. Le diplôme PDF reste à accorder à la main, comme convenu.</p>
       </div>`;
   };
   document.addEventListener('click', (e) => {

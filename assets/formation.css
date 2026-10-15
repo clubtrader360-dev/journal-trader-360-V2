@@ -1059,3 +1059,73 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
    l iframe sur le lecteur, et `transparent=0` (supabase-formation.js) lui
    donne de toute facon un fond noir. */
 #formationApp iframe{color-scheme:light;border:0}
+
+/* ── L examen de certification : graphiques et exercices (15/10) ──────────
+   Le graphique est un SVG regenere a chaque mouvement de bande. Les bougies
+   haussieres sont en or, les baissieres en gris clair : ni vert ni rouge, la
+   charte les reserve aux resultats. */
+#formationApp .ex__consigne{margin:0;color:var(--ink-soft);line-height:1.55}
+#formationApp .ex__graph{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface-2)}
+#formationApp .ex__graph--corr{margin:10px 0}
+#formationApp .ex__svg{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none}
+#formationApp .ex__fond{fill:var(--surface-2)}
+#formationApp .ex__grille{stroke:var(--line);stroke-width:1}
+#formationApp .ex__axe{fill:var(--ink-mute);font-size:11px;font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+#formationApp .ex__etiq{fill:var(--ink-mute);font-size:11px;font-family:Inter,system-ui,sans-serif;font-weight:600}
+#formationApp .ex__etiq--or{fill:var(--gold)}
+#formationApp .ex__etiq--bande{fill:var(--ink)}
+#formationApp .ex__cv{stroke:var(--ink-soft);stroke-width:1.2;stroke-dasharray:5 4}
+#formationApp .ex__annonce{stroke:var(--ink-mute);stroke-width:1;stroke-dasharray:2 4}
+#formationApp .ex__mm20{fill:none;stroke:var(--gold-deep);stroke-width:1.4;opacity:.85}
+#formationApp .ex__zone{fill:var(--gold);opacity:.14;stroke:var(--gold-line);stroke-width:1}
+#formationApp .ex__bougie line{stroke-width:1.2}
+#formationApp .ex__bougie--h line,#formationApp .ex__bougie--h rect{stroke:#e8b84b;fill:#e8b84b}
+#formationApp .ex__bougie--b line,#formationApp .ex__bougie--b rect{stroke:#8d8c85;fill:#8d8c85}
+body:not(.dark-mode) #formationApp .ex__bougie--h line,body:not(.dark-mode) #formationApp .ex__bougie--h rect{stroke:#b98a2e;fill:#b98a2e}
+body:not(.dark-mode) #formationApp .ex__bougie--b line,body:not(.dark-mode) #formationApp .ex__bougie--b rect{stroke:#6e685b;fill:#6e685b}
+#formationApp .ex__bande{fill:var(--ink);opacity:.16;stroke:var(--ink-soft);stroke-width:1.2;cursor:grab}
+#formationApp .ex__bande-g:focus-visible .ex__bande{stroke:var(--gold);stroke-width:2;outline:none}
+#formationApp .ex__bande--attendue{fill:var(--gold);opacity:.22;stroke:var(--gold);cursor:default}
+#formationApp .ex__bande--ok{stroke:var(--gold);opacity:.22}
+#formationApp .ex__bande--rate{stroke:var(--ink-mute);opacity:.12;stroke-dasharray:4 3}
+#formationApp .ex__piege{stroke:var(--ink-mute);stroke-width:1;stroke-dasharray:2 3;opacity:.7}
+#formationApp .ex__cand{cursor:pointer}
+#formationApp .ex__cand line{stroke:var(--ink-mute);stroke-width:1}
+#formationApp .ex__cand circle{fill:var(--surface);stroke:var(--ink-soft);stroke-width:1.5}
+#formationApp .ex__cand text{fill:var(--ink);font-size:12px;font-weight:800;font-family:Inter,system-ui,sans-serif}
+#formationApp .ex__cand:hover circle,#formationApp .ex__cand:focus-visible circle{stroke:var(--gold);outline:none}
+#formationApp .ex__cand--coche circle{fill:var(--gold);stroke:var(--gold)}
+#formationApp .ex__cand--coche text{fill:var(--on-gold)}
+#formationApp .ex__cand--bon circle{stroke:var(--gold);stroke-width:2.5}
+#formationApp .ex__cand--faux circle{stroke:var(--ink-mute);stroke-dasharray:3 2}
+#formationApp .ex__outils{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#formationApp .ex__aide{font-size:13px;color:var(--ink-mute)}
+#formationApp .ex__fins{display:flex;gap:6px}
+#formationApp .ex__fin{padding:8px 14px;min-width:44px}
+#formationApp .ex__chips{display:flex;gap:8px;flex-wrap:wrap}
+#formationApp .ex__chip{border:1px solid var(--line);background:var(--surface-2);color:var(--ink-soft);border-radius:99px;padding:9px 14px;font-size:14px;cursor:pointer;transition:border-color .2s ease,background .2s ease}
+#formationApp .ex__chip b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);margin-right:6px;color:var(--ink);font-size:12px}
+#formationApp .ex__chip--coche{border-color:var(--gold);background:var(--gold-wash);color:var(--ink)}
+#formationApp .ex__chip--coche b{background:var(--gold);border-color:var(--gold);color:var(--on-gold)}
+#formationApp .ex__bilan{font-size:14px;color:var(--ink-mute)}
+#formationApp .ex__corrs{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+#formationApp .ex__corr{border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:grid;gap:8px;background:rgba(255,255,255,.02)}
+#formationApp .ex__corr--ok{border-color:var(--gold-line)}
+#formationApp .ex__corr-tete{display:flex;align-items:center;gap:10px}
+#formationApp .ex__corr-tete h4{margin:0;font-size:16px}
+#formationApp .ex__corr-tete h4 small{color:var(--ink-mute);font-weight:600;margin-left:8px;font-family:"JetBrains Mono",ui-monospace,monospace}
+#formationApp .ex__corr-verdict{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);color:var(--ink-mute)}
+#formationApp .ex__corr--ok .ex__corr-verdict{color:var(--on-gold);background:var(--gold);border-color:var(--gold)}
+#formationApp .ex__expl{margin:0;color:var(--ink);line-height:1.5}
+#formationApp .ex__expl--toi{color:var(--ink-soft)}
+#formationApp .ex__pieges{margin:0;padding:0 0 0 18px;color:var(--ink-soft);font-size:14px;display:grid;gap:4px}
+#formationApp .ex__pieges b{color:var(--ink);font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:600}
+#formationApp .ex__cands{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+#formationApp .ex__cands li{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;font-size:14px;color:var(--ink-soft);line-height:1.45;padding:8px 10px;border-radius:10px;border:1px solid transparent}
+#formationApp .ex__cands li span:last-child{grid-column:2}
+#formationApp .ex__cands-lettre{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);color:var(--ink);font-weight:800;font-size:12px;grid-row:span 2}
+#formationApp .ex__cands--bon .ex__cands-lettre{background:var(--gold);border-color:var(--gold);color:var(--on-gold)}
+#formationApp .ex__cands-verdict{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--ink-mute)}
+#formationApp .ex__cands--bon .ex__cands-verdict{color:var(--gold)}
+#formationApp .ex__cands--erreur{border-color:var(--gold-line);background:var(--gold-wash)}
+@media (max-width:640px){#formationApp .ex__fin{min-width:52px;padding:10px 14px}#formationApp .ex__aide{flex:1 1 100%}}

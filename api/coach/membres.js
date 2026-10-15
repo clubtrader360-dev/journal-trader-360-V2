@@ -601,13 +601,20 @@ async function boEvaluations(sb) {
 }
 
 async function boProgression(sb) {
-  const [{ data, error }, ids, acces] = await Promise.all([
+  const [{ data, error }, ids, acces, certs] = await Promise.all([
     sb.rpc('back_office_progression_par_eleve'),
     identites(sb),
     sb.from('acces_membre').select('user_id, formation_actif, niveau'),
+    // ⚠️ La certification (lot du 15/10) : une tentative reussie a l examen
+    // final, module_cle '10' dans formation_quiz_resultats. Ce n est pas une
+    // lecon vue, la progression par chapitre ne la connait pas.
+    sb.from('formation_quiz_resultats').select('user_id, created_at').eq('module_cle', '10').eq('reussi', true),
   ]);
   if (error) throw httpError(500, `progression illisible : ${error.message}`);
   if (acces.error) throw httpError(500, `droits illisibles : ${acces.error.message}`);
+  if (certs.error) throw httpError(500, `certifications illisibles : ${certs.error.message}`);
+  const certifieLe = new Map();
+  for (const c of certs.data || []) if (!certifieLe.has(c.user_id) || c.created_at < certifieLe.get(c.user_id)) certifieLe.set(c.user_id, c.created_at);
   const parAcces = new Map((acces.data || []).map((a) => [a.user_id, a]));
   const parProg = new Map((data || []).map((p) => [p.user_id, p]));
   // ⚠️ Tous les eleves, meme sans aucune progression : un diplome se lit aussi
@@ -617,7 +624,7 @@ async function boProgression(sb) {
     if (id.role !== 'student' || id.statut === 'revoked') continue;
     const p = parProg.get(uid);
     const a = parAcces.get(uid);
-    eleves.push({ ...id, lecons: (p && p.lecons) || [], derniere: (p && p.derniere) || null, formation: !!(a && a.formation_actif), niveau_coach: (a && a.niveau) || null });
+    eleves.push({ ...id, user_id: uid, lecons: (p && p.lecons) || [], derniere: (p && p.derniere) || null, formation: !!(a && a.formation_actif), niveau_coach: (a && a.niveau) || null, certifie_le: certifieLe.get(uid) || null });
   }
   eleves.sort((x, y) => String(x.nom || x.email).localeCompare(String(y.nom || y.email), 'fr'));
   return eleves;

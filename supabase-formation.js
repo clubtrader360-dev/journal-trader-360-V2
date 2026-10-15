@@ -1142,10 +1142,35 @@
    * l accueil l affiche hors de son module, il doit se suffire.
    */
   let _mods = null;
+  const CERT = () => window.FORMATION_CERTIFICATION || null;
   const mods = () => {
     if (_mods) return _mods;
     const Q = QUIZ();
     _mods = D().MODULES.map((m) => {
+      /**
+       * ── ⛔ LE MODULE 10 A UN SEUL CHAPITRE : L EXAMEN ──────────────────
+       * Pose depuis `assets/formation-certification.js` (lot certification,
+       * 15/10). Son identifiant est `m10-quiz` A DESSEIN : `estQuiz`,
+       * `cleDuQuiz` et `quizReussi` le lisent comme un quiz, et son resultat
+       * vit dans `formation_quiz_resultats` sous `module_cle = '10'`, sans
+       * table neuve. ⚠️ Seuls l ecran et la notation changent : c est
+       * `assets/formation-examen.js` qui les rend (`c.examen`).
+       */
+      if (m.certification && CERT() && CERT().questions && CERT().questions.length) {
+        const C = CERT();
+        return {
+          ...m,
+          lecons: [...m.lecons, {
+            id: `m${m.cle}-quiz`,
+            titre: 'Examen de certification',
+            quiz: true,
+            examen: true,
+            questions: C.questions.length + C.exercices.length * C.points_par_exercice,
+            seuil: C.seuil,
+            minutes: 30,
+          }],
+        };
+      }
       const q = Q[m.cle];
       if (!q || !q.questions || !q.questions.length) return m;
       return {
@@ -1744,6 +1769,7 @@
    *   doit etre visible, au retour d un module vers la grille.
    */
   function rendreAccueil(ancre, opts) {
+    if (window.FormationExamen) window.FormationExamen.arreter();
     _vueCourante = { nom: 'accueil' };
     void fermerLecteur();
     // ⚠️ Un quiz en cours est abandonne en quittant sa page : son minuteur de
@@ -2169,6 +2195,9 @@
    * @param {{seek?:number}} [opts] `seek` : ouvrir la video a cette seconde
    */
   async function rendreModule(mi, ci, opts) {
+    // ⚠️ Un examen en cours s arrete quand on change d ecran : ses ecouteurs
+    // (clic, pointeur, resize) ne doivent pas survivre a sa zone.
+    if (window.FormationExamen) window.FormationExamen.arreter();
     const M = mods();
     const m = M[mi];
     if (!m) return;
@@ -2446,6 +2475,7 @@
   /** L ecran d entree du quiz : verrouille, a passer, ou reussi. */
   function rendreQuiz(m, c, mi, ci) {
     _quizEtat = null;
+    if (window.FormationExamen) window.FormationExamen.arreter();
     const r = _quiz[m.cle] || null;
     const reussi = quizReussi(m.cle);
     const reste = videosRestantes(m);
@@ -2470,6 +2500,9 @@
           <p>Il t’en reste <b>${reste}</b> à terminer. Les ${c.questions} questions portent sur ce que les vidéos disent : regarde-les d’abord.</p>
           ${prochainCi >= 0 ? `<button type="button" class="btn btn-gold" data-open="${mi},${prochainCi}">Reprendre « ${txt(m.lecons[prochainCi].titre)} » ${I.arrow}</button>` : ''}
         </div>`;
+    } else if (c.examen && window.FormationExamen) {
+      // ⚠️ Le chapitre rapporte sa part (XP_MODULE sur un seul chapitre) PLUS la prime de certification : c est ce que xpTotal() ajoutera, le bouton dit le meme chiffre.
+      corps = window.FormationExamen.entree({ donnees: CERT(), xp: xpDe(c.id) + XP_CERT, dernier: r ? { score: r.score, total: r.total, date: dateCourte(r.derniere) } : null });
     } else {
       corps = `
         <div class="quiz__entree">
@@ -2481,7 +2514,7 @@
     }
     return `
       <div class="lesson-head">
-        <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length} · Quiz</div><h2>${txt(c.titre)}</h2></div>
+        <div><div class="eyebrow">${c.examen ? 'Certification Trader 360' : `Chapitre ${ci + 1} sur ${m.lecons.length} · Quiz`}</div><h2>${txt(c.titre)}</h2></div>
       </div>
       <div class="card quiz" id="quizZone" data-module="${txt(m.cle)}">${corps}</div>`;
   }
@@ -2490,6 +2523,7 @@
     const { mi, ci } = _vueCourante;
     const m = mods()[mi];
     const c = m && m.lecons[ci];
+    if (c && c.examen) { commencerExamen(mi, ci, m, c); return; }
     const Q = QUIZ()[m && m.cle];
     if (!c || !c.quiz || !Q) return;
     if (!quizOuvert(m) && !quizReussi(m.cle)) { toast(I.lock, 'Termine d’abord les chapitres vidéo.'); return; }
@@ -2607,10 +2641,60 @@
     }
   }
 
+  /**
+   * ── ⛔ L EXAMEN DE CERTIFICATION : MEME ETAT, MEME ECRITURE, AUTRE ECRAN ──
+   * `FormationExamen` rend les questions et les graphiques, calcule le score
+   * et appelle `onValider`. Ici on ecrit la ligne (module_cle '10', score et
+   * total en POINTS, les reponses detaillees en JSON), on met `_quiz['10']`
+   * a jour, et on pose `_quizEtat` pour que « Récupérer mes XP » (la scene),
+   * « réessayer l’enregistrement » et la delegation globale fonctionnent
+   * comme pour un quiz. ⚠️ `_quizEtat.examen` fait bifurquer `rendreResultat`
+   * et `reecrireQuiz` vers le moteur.
+   */
+  function contexteExamen() {
+    return {
+      donnees: CERT(),
+      leconDe: (id) => D().lecon(id),
+      ouDe: (id) => trouverLecon(id),
+    };
+  }
+  function commencerExamen(mi, ci, m, c) {
+    const zone = $('quizZone');
+    if (!zone || !window.FormationExamen || !CERT()) return;
+    if (!etatModule(m).ouvrable && !quizReussi(m.cle)) { toast(I.lock, 'Termine d’abord les neuf modules du parcours.'); return; }
+    _quizEtat = { mi, ci, cle: m.cle, examen: true, i: 0, choix: {}, questions: [] };
+    window.FormationExamen.commencer(zone, {
+      ...contexteExamen(),
+      onValider: async (res) => {
+        ouvrirAudio();
+        const av = { xp: xpTotal(), niveau: niveauCourant().cle, fini: moduleFini(m), badges: badges().filter((b) => b.ok()).map((b) => b.id) };
+        const ok = await ecrireQuiz(m.cle, res.score, res.total, res.reussi, res.reponses);
+        if (ok) {
+          const s = _quiz[m.cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
+          s.tentatives += 1;
+          s.reussi = s.reussi || res.reussi;
+          if (res.score / res.total >= s.score / Math.max(1, s.total)) { s.score = res.score; s.total = res.total; }
+          s.derniere = new Date().toISOString();
+          _quiz[m.cle] = s;
+        }
+        const e = _quizEtat && _quizEtat.examen ? _quizEtat : null;
+        if (e) {
+          e.resultat = { score: res.score, total: res.total, reussi: res.reussi, reponses: res.reponses, ok, av, detail: res };
+          if (res.reussi && ok && !av.fini) e.minuteurScene = setTimeout(() => { if (_quizEtat === e && !e.scenePartie) sceneQuiz(); }, 2500);
+        }
+        return { ok, dejaFini: av.fini };
+      },
+    });
+  }
+
   function rendreResultat() {
     const e = _quizEtat;
     const zone = $('quizZone');
     if (!e || !e.resultat || !zone) return;
+    if (e.examen && window.FormationExamen) {
+      window.FormationExamen.rendreResultat(zone, { ...contexteExamen(), resultat: e.resultat.detail, ok: e.resultat.ok, dejaFini: e.resultat.av.fini });
+      return;
+    }
     const m = mods()[e.mi];
     const c = m.lecons[e.ci];
     const { score, total, reussi, reponses, ok, av } = e.resultat;
@@ -3651,7 +3735,9 @@
       // ce que l ecran lit.
       mods, estVue, quizOuvert, videosRestantes, seuilDe, trouverLecon,
       videos: () => _videos, quiz: () => _quiz, lb: () => _lb, niveauAcquis, quizManquantsAvant,
-      pretAValider, secondesRequises, secondesVues, SEUIL_LECTURE },
+      pretAValider, secondesRequises, secondesVues, SEUIL_LECTURE,
+      // ⚠️ Lot certification (15/10) : le banc mesure la fin du module 10 et la prime.
+      moduleFini, certOuverte, totalChap },
   };
   window.Formation = Formation;
 })();
