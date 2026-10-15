@@ -190,3 +190,4 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-select { padding: 9px 12px; border-radius: 40px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13.5px; }
 .bo-table--compact td { padding: 8px 8px; font-size: 13px; }
 .bo-table--compact th { padding: 6px 8px 8px; }
+.bo-ligne--neutre td { opacity: .55; }
