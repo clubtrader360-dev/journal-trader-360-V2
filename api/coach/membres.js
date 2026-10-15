@@ -15,6 +15,7 @@
  *                  pas encore, sans mail
  *   fiche          tout ce qu on sait d une personne, pour l ecran « Fiche membre »
  *   accueil, ventes, evaluations, progression, transactions : le back-office (voir plus bas)
+ *   comptabilite   le classeur BUDGET TRADER 360 (Google Sheets, relie a Qonto), lecture seule
  *
  * ── ⛔ POURQUOI TOUT PASSE PAR ICI, AVEC LA CLE DE SERVICE ───────────────────
  *
@@ -35,6 +36,7 @@
  */
 import { requireCoach, httpError } from '../vimeo/_lib/coach-auth.js';
 import { getServiceClient } from '../tradovate/_lib/auth.js';
+import { getSheetsClient } from './_lib/sheets-client.js';
 
 const NIVEAUX = ['debutant', 'intermediaire', 'confirme'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -622,6 +624,89 @@ async function boProgression(sb) {
 }
 
 
+
+/* ══ LA COMPTABILITE : LE CLASSEUR « BUDGET TRADER 360 · V2 », EN LECTURE SEULE ══
+ * Demande de Nadir du 15/10 : le tableur de comptabilite, relie a Qonto par le
+ * connecteur de Manu, lu dans le back-office « beaucoup plus ameliore », par
+ * onglets. ⛔ LECTURE SEULE, et par le meme compte de service que le tableur
+ * membres (GOOGLE_SHEETS_SA_KEY) : il doit etre ajoute en « Lecteur » sur le
+ * classeur, sinon Google rend 403 et la route le dit.
+ * ⚠️ L identifiant du classeur n est pas un secret (c est l adresse du document)
+ * ; une variable d environnement SHEETS_BUDGET_ID peut le remplacer.
+ * Le serveur rend les lignes BRUTES de chaque onglet, plus une lecture du
+ * grand livre (onglet BUDGET) deja decoupee ; le navigateur fait le reste.
+ */
+const BUDGET_ID_DEFAUT = '1NgmzippM7Y6Mv8XxG-XdTm-B8r7wMRf_CNRWgNgvevk';
+const montant = (v) => {
+  if (v == null) return null;
+  const t = String(v).replace(/[\u20ac\s\u00a0\u202f]/g, '').replace(/\./g, '').replace(',', '.').replace(/[\u2212\u2013]/g, '-');
+  if (t === '' || t === '-') return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+const dateIso = (v) => {
+  const m = String(v || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
+};
+
+async function comptabilite() {
+  const sheets = getSheetsClient();
+  const spreadsheetId = process.env.SHEETS_BUDGET_ID || BUDGET_ID_DEFAUT;
+  let meta;
+  try {
+    meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'properties.title,sheets.properties(title,sheetId,index,hidden)' });
+  } catch (e) {
+    const code = e?.code || e?.response?.status;
+    if (code === 403 || code === 404) throw httpError(502, `Google refuse la lecture du classeur (${code}) : le compte de service doit être ajouté en Lecteur sur le classeur BUDGET.`);
+    throw httpError(502, `classeur illisible : ${e.message}`);
+  }
+  const onglets = (meta.data.sheets || []).filter((o) => !o.properties.hidden).map((o) => o.properties);
+  const batch = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId, ranges: onglets.map((o) => `'${o.title.replace(/'/g, "''")}'!A1:AZ2000`), valueRenderOption: 'FORMATTED_VALUE',
+  });
+  const feuilles = (batch.data.valueRanges || []).map((vr, i) => ({ titre: onglets[i].title, gid: onglets[i].sheetId, lignes: vr.values || [] }));
+
+  // Le grand livre : onglet BUDGET, de la ligne d en-tete « DATE » jusqu a la
+  // derniere ligne datee. Les blocs de droite (SYNTHESE, IS, VEHICULE) sont lus
+  // a part, par leur en-tete, sans supposer leur colonne.
+  const budget = feuilles.find((f) => /^budget$/i.test(f.titre)) || feuilles[0];
+  let livre = [], synthese = [], is = [], vehicule = { entete: [], lignes: [] }, maj = '';
+  if (budget) {
+    const L = budget.lignes;
+    maj = String((L[1] && L[1][0]) || '');
+    const iEntete = L.findIndex((r) => String(r[0] || '').trim().toUpperCase() === 'DATE');
+    if (iEntete >= 0) {
+      const entete = L[iEntete].map((c) => String(c || '').trim());
+      const col = (nom) => entete.findIndex((e) => e.toUpperCase() === nom);
+      const C = { date: col('DATE'), designation: col('DÉSIGNATION'), categorie: col('CATÉGORIE'), projet: col('PROJET'), via: col('PAYÉ VIA'), entree: col('ENTRÉE TTC'), depense: col('DÉPENSE TTC'), tvaCollectee: col('TVA COLLECTÉE'), tvaFacture: col('TVA SUR FACTURE'), tvaRecup: col('TVA RÉCUPÉRABLE ?'), tvaRecuperee: col('TVA RÉCUPÉRÉE'), man: col('MAN'), nad: col('NAD'), gui: col('GUI'), sie: col('SIE'), rembGln: col('REMB GLN'), justificatif: col('JUSTIFICATIF'), remarque: col('REMARQUE'), mois: col('MOIS'), idQonto: col('ID QONTO') };
+      const cell = (r, i) => (i >= 0 && r[i] != null ? String(r[i]).trim() : '');
+      for (const r of L.slice(iEntete + 1)) {
+        const d = cell(r, C.date);
+        if (!dateIso(d)) continue;
+        livre.push({
+          date: dateIso(d), designation: cell(r, C.designation), categorie: cell(r, C.categorie), projet: cell(r, C.projet), via: cell(r, C.via),
+          entree: montant(cell(r, C.entree)), depense: montant(cell(r, C.depense)),
+          tva_collectee: montant(cell(r, C.tvaCollectee)), tva_facture: montant(cell(r, C.tvaFacture)), tva_recuperable: cell(r, C.tvaRecup), tva_recuperee: montant(cell(r, C.tvaRecuperee)),
+          man: !!cell(r, C.man), nad: !!cell(r, C.nad), gui: !!cell(r, C.gui), sie: !!cell(r, C.sie), remb_gln: cell(r, C.rembGln),
+          justificatif: cell(r, C.justificatif), remarque: cell(r, C.remarque), mois: cell(r, C.mois), id_qonto: cell(r, C.idQonto),
+        });
+      }
+      // Les blocs de droite : SYNTHESE (libelle, valeur), IS ESTIME (libelle fusionne, valeur), AMORTISSEMENT VEHICULE (table).
+      const iSyn = entete.findIndex((e) => e.toUpperCase() === 'SYNTHÈSE');
+      if (iSyn >= 0) for (const r of L.slice(iEntete + 1, iEntete + 40)) { const k = cell(r, iSyn); if (k) synthese.push({ libelle: k, valeur: cell(r, iSyn + 1), nombre: montant(cell(r, iSyn + 1)) }); }
+      const iIs = entete.findIndex((e) => /^IS ESTIMÉ/i.test(e));
+      if (iIs >= 0) for (const r of L.slice(iEntete + 1, iEntete + 30)) { const k = cell(r, iIs); const v = [1, 2, 3, 4].map((d) => cell(r, iIs + d)).filter((x) => x && x !== k).pop() || ''; if (k && v && !/^Taux PME/i.test(k)) is.push({ libelle: k, valeur: v, nombre: montant(v) }); else if (/^Taux PME/i.test(k) && !is.some((x) => x.note)) is.push({ note: k }); }
+      const iVe = entete.findIndex((e) => /^AMORTISSEMENT/i.test(e));
+      if (iVe >= 0) {
+        vehicule.titre = entete[iVe];
+        const bloc = L.slice(iEntete + 1, iEntete + 30).map((r) => r.slice(iVe, iVe + 8).map((c) => String(c || '').trim()));
+        vehicule.lignes = bloc.filter((r) => r.some(Boolean));
+      }
+    }
+  }
+  return { titre: meta.data.properties.title, maj, onglets: feuilles.map((f) => ({ titre: f.titre, gid: f.gid, lignes: f.lignes, nb: f.lignes.length })), livre, synthese, is, vehicule, lu_le: new Date().toISOString() };
+}
+
 /* ══ HANDLER ═══════════════════════════════════════════════════════════════ */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -652,6 +737,7 @@ export default async function handler(req, res) {
     else if (action === 'evaluations') resultat = await boEvaluations(sb);
     else if (action === 'progression') resultat = await boProgression(sb);
     else if (action === 'transactions') resultat = await boTransactions(sb);
+    else if (action === 'comptabilite') resultat = await comptabilite();
     else return res.status(400).json({ ok: false, motif: 'action inconnue' });
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ ok: true, action, resultat });

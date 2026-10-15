@@ -185,3 +185,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ── Le bouton de theme, dans le pied de la barre ──────────────────────────── */
 .bo-theme { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .bo-theme i { color: var(--gold); }
+
+/* ── Comptabilite : selecteurs et table compacte ───────────────────────────── */
+.bo-select { padding: 9px 12px; border-radius: 40px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13.5px; }
+.bo-table--compact td { padding: 8px 8px; font-size: 13px; }
+.bo-table--compact th { padding: 6px 8px 8px; }

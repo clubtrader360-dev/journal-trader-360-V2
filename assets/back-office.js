@@ -96,7 +96,7 @@
     'accueil': 'Accueil', 'academie/formations': 'Académie · Formations', 'academie/membres': 'Académie · Membres',
     'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes',
     'marketing/tunnels': 'Marketing · Tunnels de vente', 'marketing/emails': 'Marketing · Emails marketing', 'marketing/webinaires': 'Marketing · Webinaires live',
-    'crm': 'CRM', 'ventes/offres': 'Ventes · Offres', 'ventes/commandes': 'Ventes · Commandes & factures', 'ventes/affiliation': 'Ventes · Affiliation',
+    'crm': 'CRM', 'ventes/offres': 'Ventes · Offres', 'ventes/commandes': 'Ventes · Commandes & factures', 'ventes/comptabilite': 'Ventes · Comptabilité', 'ventes/affiliation': 'Ventes · Affiliation',
   };
   const CHARGEURS = {};
   let _ecranCourant = null;
@@ -443,6 +443,117 @@
     if (!b) return;
     _cmdOnglet = b.dataset.cmdOnglet;
     CHARGEURS['ventes/commandes']();
+  });
+
+  /* ══ VENTES · COMPTABILITE (le classeur BUDGET, lecture seule) ══════════════ */
+  let _cptOnglet = 'livre';
+  const _cptFiltre = { q: '', categorie: '', via: '', mois: '' };
+  CHARGEURS['ventes/comptabilite'] = async () => {
+    const z = $('boCompta');
+    let c;
+    try { c = await lire('comptabilite', () => BO('comptabilite')); }
+    catch (e) {
+      z.innerHTML = `<div class="bo-carte"><h2>Le classeur n a pas pu être lu</h2><p class="bo-erreur">${txt(e.message)}</p><p class="bo-source">Le back-office lit le classeur « BUDGET TRADER 360 · V2 » avec le compte de service déjà utilisé pour le suivi membres du tableur. Il doit être ajouté en « Lecteur » sur ce classeur (Partager, puis l adresse du compte de service, celle qui finit par iam.gserviceaccount.com, visible dans le partage du tableur membres).</p></div>`;
+      return;
+    }
+    const livre = c.livre || [];
+    const autres = (c.onglets || []).filter((o) => !/^budget$/i.test(o.titre));
+    const ONGLETS = [['livre', 'Grand livre'], ['mois', 'Par mois'], ['categories', 'Par catégorie'], ['is', 'IS estimé'], ['vehicule', 'Véhicule'], ...autres.map((o) => [`feuille:${o.gid}`, o.titre])];
+    const entrees = livre.reduce((s, l) => s + (l.entree || 0), 0);
+    const depenses = livre.reduce((s, l) => s + (l.depense || 0), 0);
+    const synth = (c.synthese || []);
+    const trouve = (re) => synth.find((x) => re.test(x.libelle));
+    const kpis = [
+      ['fa-arrow-down', 'Entrées totales', trouve(/^Entrées totales/i), 'hors compte courant'],
+      ['fa-arrow-up', 'Dépenses totales', trouve(/^Dépenses totales/i), 'hors compte courant'],
+      ['fa-university', 'Solde réel Qonto', trouve(/^Solde réel Qonto/i), (trouve(/^Écart/i) || {}).valeur ? `écart ${trouve(/^Écart/i).valeur}` : ''],
+      ['fa-wallet', 'Cash réellement disponible', trouve(/^Cash réellement/i), 'après IS, TVA, dette GLN, frais fixes'],
+      ['fa-percent', 'TVA collectée', trouve(/^TVA collectée/i), (trouve(/^TVA déjà reversée/i) || {}).valeur ? `reversée ${trouve(/^TVA déjà reversée/i).valeur}` : ''],
+      ['fa-undo', 'Reste à reverser', trouve(/^Reste à reverser/i), (trouve(/^TVA récupérable/i) || {}).valeur ? `TVA récupérable ${trouve(/^TVA récupérable/i).valeur}` : ''],
+      ['fa-handshake', 'Commissions ambassadeurs', trouve(/^Commissions ambassadeurs/i), 'à devoir, HT'],
+      ['fa-file-alt', 'Justificatifs manquants', trouve(/^Justificatifs manquants/i), 'lignes sans pièce'],
+    ].filter((k) => k[2]);
+    let corps = '';
+    if (_cptOnglet === 'livre') {
+      const categories = [...new Set(livre.map((l) => l.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+      const vias = [...new Set(livre.map((l) => l.via).filter(Boolean))].sort();
+      const moisListe = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort().reverse();
+      const q = _cptFiltre.q.trim().toLowerCase();
+      const visibles = livre.filter((l) => (!q || `${l.designation} ${l.categorie} ${l.remarque} ${l.projet}`.toLowerCase().includes(q)) && (!_cptFiltre.categorie || l.categorie === _cptFiltre.categorie) && (!_cptFiltre.via || l.via === _cptFiltre.via) && (!_cptFiltre.mois || l.date.startsWith(_cptFiltre.mois))).sort((a, b) => b.date.localeCompare(a.date));
+      const tE = visibles.reduce((s, l) => s + (l.entree || 0), 0), tD = visibles.reduce((s, l) => s + (l.depense || 0), 0);
+      const qui = (l) => [l.man && 'MAN', l.nad && 'NAD', l.gui && 'GUI', l.sie && 'SIE'].filter(Boolean).join(' ');
+      corps = `<div class="bo-carte">
+        <div class="bo-carte__tete"><h2><b>${nb(visibles.length)}</b> Ligne${visibles.length > 1 ? 's' : ''} <small>${eur(tE)} d entrées · ${eur(tD)} de dépenses</small></h2>
+          <div class="am-outils" style="margin:0">
+            <input type="search" class="am-recherche" style="flex:1 1 200px" placeholder="Rechercher une désignation…" data-cpt-q value="${txt(_cptFiltre.q)}">
+            <select class="bo-select" data-cpt-categorie><option value="">Toutes les catégories</option>${categories.map((x) => `<option ${_cptFiltre.categorie === x ? 'selected' : ''}>${txt(x)}</option>`).join('')}</select>
+            <select class="bo-select" data-cpt-via><option value="">Payé via</option>${vias.map((x) => `<option ${_cptFiltre.via === x ? 'selected' : ''}>${txt(x)}</option>`).join('')}</select>
+            <select class="bo-select" data-cpt-mois><option value="">Tous les mois</option>${moisListe.map((x) => `<option value="${x}" ${_cptFiltre.mois === x ? 'selected' : ''}>${txt(moisFr(x))}</option>`).join('')}</select>
+          </div></div>
+        <div class="bo-enveloppe"><table class="bo-table bo-table--compact"><thead><tr><th>Date</th><th>Désignation</th><th>Catégorie</th><th>Via</th><th class="num">Entrée</th><th class="num">Dépense</th><th class="num">TVA</th><th>Qui</th><th>Justificatif</th><th>Remarque</th></tr></thead><tbody>
+          ${visibles.map((l) => `<tr><td class="mono" style="white-space:nowrap">${txt(l.date.split('-').reverse().join('/'))}</td><td><b>${txt(l.designation)}</b>${l.projet ? `<br><small style="color:var(--text-soft)">${txt(l.projet)}</small>` : ''}</td><td>${txt(l.categorie)}</td><td>${txt(l.via)}</td><td class="num" style="color:var(--gold)">${l.entree != null ? eur(l.entree) : ''}</td><td class="num">${l.depense != null ? eur(l.depense) : ''}</td><td class="num"><small>${l.tva_collectee != null ? `coll. ${eur(l.tva_collectee)}` : l.tva_facture != null ? `fact. ${eur(l.tva_facture)}` : txt(l.tva_recuperable)}</small></td><td><small>${txt(qui(l))}${l.remb_gln ? ` · GLN ${txt(l.remb_gln)}` : ''}</small></td><td><span class="bo-pill ${/manquant/i.test(l.justificatif) ? 'bo-pill--non' : 'bo-pill--ok'}">${txt(l.justificatif || '·')}</span></td><td><small style="color:var(--text-soft)">${txt(l.remarque)}</small></td></tr>`).join('')}
+        </tbody></table></div></div>`;
+    } else if (_cptOnglet === 'mois') {
+      corps = `<div class="bo-carte"><h2>Entrées et dépenses par mois</h2><div class="bo-graph" style="height:340px"><canvas id="gCptMois"></canvas></div><div class="bo-legende"><span style="--c:${OR}">Entrées</span><span style="--c:${GRIS}">Dépenses</span><span style="--c:${OR2}">Solde cumulé</span></div></div>`;
+    } else if (_cptOnglet === 'categories') {
+      const parCat = new Map(); livre.forEach((l) => { const k = l.categorie || 'Sans catégorie'; if (!parCat.has(k)) parCat.set(k, { entrees: 0, depenses: 0, n: 0 }); const x = parCat.get(k); x.entrees += l.entree || 0; x.depenses += l.depense || 0; x.n += 1; });
+      const lignes = [...parCat.entries()].sort((a, b) => (b[1].entrees + b[1].depenses) - (a[1].entrees + a[1].depenses));
+      corps = `<div class="bo-grille-2"><div class="bo-carte"><h2>Dépenses par catégorie</h2><div class="bo-graph"><canvas id="gCptCat"></canvas></div></div>
+        <div class="bo-carte"><h2>Catégories</h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Entrées</th><th class="num">Dépenses</th></tr></thead><tbody>${lignes.map(([k, x]) => `<tr><td>${txt(k)}</td><td class="num">${x.n}</td><td class="num" style="color:var(--gold)">${x.entrees ? eur(x.entrees) : ''}</td><td class="num">${x.depenses ? eur(x.depenses) : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+    } else if (_cptOnglet === 'is') {
+      const is = c.is || [];
+      corps = `<div class="bo-carte"><h2>IS estimé · exercice en cours</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${is.filter((x) => !x.note).map((x) => `<tr><td>${txt(x.libelle)}</td><td class="num"><b>${txt(x.valeur)}</b></td></tr>`).join('')}</tbody></table></div>${is.find((x) => x.note) ? `<p class="bo-source">${txt(is.find((x) => x.note).note)}</p>` : ''}<p class="bo-source">Estimation maison du classeur, à valider par le cabinet (ADALTA).</p></div>`;
+    } else if (_cptOnglet === 'vehicule') {
+      const v = c.vehicule || { lignes: [] };
+      corps = `<div class="bo-carte"><h2>${txt(v.titre || 'Amortissement véhicule')}</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${(v.lignes || []).map((r) => `<tr>${r.map((cell, i) => `<td class="${i > 0 && /€|^\d/.test(cell) ? 'num' : ''}">${txt(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="bo-source">Tel que calculé dans le classeur : amortissement comptable, part déductible, IS économisé, part de Manu.</p></div>`;
+    } else if (_cptOnglet.startsWith('feuille:')) {
+      const gid = _cptOnglet.slice(8);
+      const f = autres.find((o) => String(o.gid) === gid);
+      const lignes = (f && f.lignes) || [];
+      const iEntete = lignes.findIndex((r) => r.filter((x) => String(x || '').trim()).length >= 2);
+      const entete = iEntete >= 0 ? lignes[iEntete] : [];
+      const corpsL = iEntete >= 0 ? lignes.slice(iEntete + 1).filter((r) => r.some((x) => String(x || '').trim())) : [];
+      const large = Math.max(entete.length, ...corpsL.map((r) => r.length));
+      corps = `<div class="bo-carte"><h2>${txt(f ? f.titre : '')} <small>${corpsL.length} lignes</small></h2><div class="bo-enveloppe"><table class="bo-table bo-table--compact"><thead><tr>${Array.from({ length: large }, (_, i) => `<th>${txt(entete[i] || '')}</th>`).join('')}</tr></thead><tbody>${corpsL.map((r) => `<tr>${Array.from({ length: large }, (_, i) => `<td class="${/^-?[\d\s ]+,\d{2}\s?€$/.test(String(r[i] || '')) ? 'num' : ''}">${txt(r[i] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="bo-source">Onglet lu tel quel, en lecture seule.</p></div>`;
+    }
+    z.innerHTML = `
+      <div class="bo-carte__tete" style="margin-bottom:14px"><span class="bo-pill bo-pill--ok"><i class="fas fa-lock"></i> Lecture seule</span><span class="bo-pill">${txt(c.maj || 'Synchronisé Qonto')}</span><a class="bo-btn bo-btn--fantome" href="https://docs.google.com/spreadsheets/d/${txt(BUDGET_ID)}/edit" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Ouvrir le classeur</a></div>
+      <div class="bo-kpis">${kpis.map(([ic, k, x, s]) => kpi(ic, k, txt(x.valeur), s)).join('')}</div>
+      <nav class="am-onglets">${ONGLETS.map(([k, t]) => `<button type="button" data-cpt-onglet="${txt(k)}" aria-selected="${_cptOnglet === k}">${txt(t)}</button>`).join('')}</nav>${corps}
+      <p class="bo-source">Source : classeur « ${txt(c.titre)} », ${nb(livre.length)} lignes datées, ${eur(entrees)} d entrées et ${eur(depenses)} de dépenses sur le grand livre. Lu le ${txt(dateFr(c.lu_le, true))}.</p>`;
+    if (_cptOnglet === 'mois') {
+      const parMois = new Map(); livre.forEach((l) => { const m = l.date.slice(0, 7); if (!parMois.has(m)) parMois.set(m, { e: 0, d: 0 }); const x = parMois.get(m); x.e += l.entree || 0; x.d += l.depense || 0; });
+      const mois = [...parMois.keys()].sort(); let cumul = 0; const solde = mois.map((m) => { cumul += parMois.get(m).e - parMois.get(m).d; return Math.round(cumul); });
+      graph('gCptMois', { type: 'bar', data: { labels: mois.map(moisFr), datasets: [
+        { label: 'Entrées', data: mois.map((m) => Math.round(parMois.get(m).e)), backgroundColor: 'rgba(232,184,75,.75)', borderRadius: 6 },
+        { label: 'Dépenses', data: mois.map((m) => Math.round(parMois.get(m).d)), backgroundColor: GRIS, borderRadius: 6 },
+        { label: 'Solde cumulé', data: solde, type: 'line', borderColor: OR2, backgroundColor: OR2, tension: .35, pointRadius: 3 },
+      ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes({ ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }) } });
+    }
+    if (_cptOnglet === 'categories') {
+      const parCat = new Map(); livre.forEach((l) => { if (!l.depense) return; const k = l.categorie || 'Sans catégorie'; parCat.set(k, (parCat.get(k) || 0) + l.depense); });
+      const lignes = [...parCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+      graph('gCptCat', { type: 'bar', data: { labels: lignes.map((x) => x[0]), datasets: [{ data: lignes.map((x) => Math.round(x[1])), backgroundColor: 'rgba(232,184,75,.75)', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${eur(x.parsed.x)}` } } }, scales: { x: { grid: { color: LIGNE }, ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }, y: { grid: { display: false }, ticks: { color: GRIS } } } } });
+    }
+  };
+  const BUDGET_ID = '1NgmzippM7Y6Mv8XxG-XdTm-B8r7wMRf_CNRWgNgvevk';
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cpt-onglet]');
+    if (!b) return;
+    _cptOnglet = b.dataset.cptOnglet;
+    CHARGEURS['ventes/comptabilite']();
+  });
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.matches('[data-cpt-q]')) { _cptFiltre.q = t.value; clearTimeout(t._m); t._m = setTimeout(() => { const pos = t.selectionStart; CHARGEURS['ventes/comptabilite']().then(() => { const n = document.querySelector('[data-cpt-q]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }, 250); }
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.matches('[data-cpt-categorie]')) _cptFiltre.categorie = t.value;
+    else if (t.matches('[data-cpt-via]')) _cptFiltre.via = t.value;
+    else if (t.matches('[data-cpt-mois]')) _cptFiltre.mois = t.value;
+    else return;
+    CHARGEURS['ventes/comptabilite']();
   });
 
   /* ══ LE DEMARRAGE ══════════════════════════════════════════════════════════ */
