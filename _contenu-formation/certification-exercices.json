@@ -19,19 +19,96 @@
       "graine": 11,
       "n": 80,
       "cv": 6977.5,
-      "chemin": [[6958, 0], [6975.5, 10], [6966, 17], [6975.75, 25], [6960, 33], [6990, 42], [6968, 50], [6975.25, 57], [6963, 66], [6970, 72], [6961, 79]],
+      "chemin": [
+        [
+          6958,
+          0
+        ],
+        [
+          6975.5,
+          10
+        ],
+        [
+          6966,
+          17
+        ],
+        [
+          6975.75,
+          25
+        ],
+        [
+          6960,
+          33
+        ],
+        [
+          6990,
+          42
+        ],
+        [
+          6968,
+          50
+        ],
+        [
+          6975.25,
+          57
+        ],
+        [
+          6963,
+          66
+        ],
+        [
+          6970,
+          72
+        ],
+        [
+          6961,
+          79
+        ]
+      ],
       "bougies": {
-        "10": { "o": 6974.5, "h": 6975.5, "l": 6971.25, "c": 6972 },
-        "25": { "o": 6974.75, "h": 6975.75, "l": 6971.5, "c": 6972.25 },
-        "42": { "o": 6986, "h": 6990, "l": 6982.5, "c": 6983 },
-        "57": { "o": 6974.25, "h": 6975.5, "l": 6970.75, "c": 6971.5 }
+        "10": {
+          "o": 6974.5,
+          "h": 6975.5,
+          "l": 6971.25,
+          "c": 6972
+        },
+        "25": {
+          "o": 6974.75,
+          "h": 6975.75,
+          "l": 6971.5,
+          "c": 6972.25
+        },
+        "42": {
+          "o": 6986,
+          "h": 6990,
+          "l": 6982.5,
+          "c": 6983
+        },
+        "57": {
+          "o": 6974.25,
+          "h": 6975.5,
+          "l": 6970.75,
+          "c": 6971.5
+        }
       },
-      "bande": { "hauteur": 4, "depart": 6950 },
-      "attendu": { "centre": 6975.5, "marge": 1.5 },
+      "bande": {
+        "hauteur": 4,
+        "depart": 6950
+      },
+      "attendu": {
+        "centre": 6975.5,
+        "marge": 1.5
+      },
       "explication": "La zone des 6 975 : un sommet 4 heures repris deux fois en 30 minutes, trois rejets au même niveau, et la clôture de la veille à deux points. C'est la confluence que la méthode cherche.",
       "pieges": [
-        { "prix": 6990, "texte": "Le sommet de 6 990 n'a été touché qu'une fois : le marché n'y est jamais revenu. Un niveau travaillé une fois n'est pas une zone." },
-        { "prix": 6961, "texte": "Les creux entre 6 960 et 6 963 ne sont pas alignés : pas de double creux, pas de zone, et de toute façon ce serait une zone d'achat." }
+        {
+          "prix": 6990,
+          "texte": "Le sommet de 6 990 n'a été touché qu'une fois : le marché n'y est jamais revenu. Un niveau travaillé une fois n'est pas une zone."
+        },
+        {
+          "prix": 6961,
+          "texte": "Les creux entre 6 960 et 6 963 ne sont pas alignés : pas de double creux, pas de zone, et de toute façon ce serait une zone d'achat."
+        }
       ]
     },
     {
@@ -44,20 +121,101 @@
       "heure_debut": "Mar. 02:00",
       "graine": 23,
       "n": 80,
-      "cv": 6947.25,
-      "chemin": [[6955, 0], [6942, 8], [6951, 15], [6941.75, 22], [6953.5, 29], [6935, 36], [6947, 42], [6942.25, 48], [6958, 58], [6953, 63], [6962, 70], [6956, 79]],
+      "cv": 6943.75,
+      "chemin": [
+        [
+          6955,
+          0
+        ],
+        [
+          6942,
+          8
+        ],
+        [
+          6951,
+          15
+        ],
+        [
+          6941.75,
+          22
+        ],
+        [
+          6953.5,
+          29
+        ],
+        [
+          6935,
+          36
+        ],
+        [
+          6947,
+          42
+        ],
+        [
+          6942.25,
+          48
+        ],
+        [
+          6958,
+          58
+        ],
+        [
+          6953,
+          63
+        ],
+        [
+          6962,
+          70
+        ],
+        [
+          6956,
+          79
+        ]
+      ],
       "bougies": {
-        "8": { "o": 6943, "h": 6945.5, "l": 6942, "c": 6945 },
-        "22": { "o": 6942.75, "h": 6945.25, "l": 6941.75, "c": 6944.75 },
-        "36": { "o": 6938.5, "h": 6941, "l": 6935, "c": 6940.5 },
-        "48": { "o": 6943.5, "h": 6946, "l": 6942.25, "c": 6945.5 }
+        "8": {
+          "o": 6943,
+          "h": 6945.5,
+          "l": 6942,
+          "c": 6945
+        },
+        "22": {
+          "o": 6942.75,
+          "h": 6945.25,
+          "l": 6941.75,
+          "c": 6944.75
+        },
+        "36": {
+          "o": 6938.5,
+          "h": 6941,
+          "l": 6935,
+          "c": 6940.5
+        },
+        "48": {
+          "o": 6943.5,
+          "h": 6946,
+          "l": 6942.25,
+          "c": 6945.5
+        }
       },
-      "bande": { "hauteur": 4, "depart": 6962 },
-      "attendu": { "centre": 6942.25, "marge": 1.5 },
-      "explication": "La zone des 6 942 : deux creux au même niveau, puis un pullback qui est revenu s'y poser avant de repartir. Trois fois travaillée, c'est la zone d'achat du plan.",
+      "bande": {
+        "hauteur": 4,
+        "depart": 6962
+      },
+      "attendu": {
+        "centre": 6942.25,
+        "marge": 1.5
+      },
+      "explication": "La zone des 6 942 : deux creux au même niveau, puis un pullback qui est revenu s'y poser avant de repartir, et la clôture de la veille à 6 943,75 en confluence. Trois fois travaillée, c'est la zone d'achat du plan.",
       "pieges": [
-        { "prix": 6935, "texte": "Le plus bas absolu, 6 935, n'a été touché qu'une fois, sur une mèche. Le marché n'y est pas revenu : ce n'est pas une zone, c'est un extrême." },
-        { "prix": 6952, "texte": "Les sommets de 6 951 et 6 953,50 ne sont pas alignés, et ce seraient des zones de vente. L'énoncé demande la zone d'achat." }
+        {
+          "prix": 6935,
+          "texte": "Le plus bas absolu, 6 935, n'a été touché qu'une fois, sur une mèche. Le marché n'y est pas revenu : ce n'est pas une zone, c'est un extrême."
+        },
+        {
+          "prix": 6952,
+          "texte": "Les sommets de 6 951 et 6 953,50 ne sont pas alignés, et ce seraient des zones de vente. L'énoncé demande la zone d'achat."
+        }
       ]
     },
     {
@@ -71,21 +229,119 @@
       "graine": 37,
       "n": 70,
       "sens": "achat",
-      "zone": { "bas": 6961, "haut": 6964 },
-      "chemin": [[6975, 0], [6962.5, 14], [6971, 24], [6975, 30], [6966, 38], [6963, 44], [6970, 50], [6962, 57], [6966, 62], [6962, 66], [6968, 69]],
+      "zone": {
+        "bas": 6961,
+        "haut": 6964
+      },
+      "chemin": [
+        [
+          6975,
+          0
+        ],
+        [
+          6962.5,
+          14
+        ],
+        [
+          6971,
+          24
+        ],
+        [
+          6975,
+          30
+        ],
+        [
+          6966,
+          38
+        ],
+        [
+          6963,
+          44
+        ],
+        [
+          6970,
+          50
+        ],
+        [
+          6962,
+          57
+        ],
+        [
+          6966,
+          62
+        ],
+        [
+          6962,
+          66
+        ],
+        [
+          6968,
+          69
+        ]
+      ],
       "bougies": {
-        "14": { "o": 6962.75, "h": 6963.75, "l": 6958.5, "c": 6963.25 },
-        "30": { "o": 6975.25, "h": 6976, "l": 6972.5, "c": 6975.75 },
-        "44": { "o": 6961.5, "h": 6964.75, "l": 6961.25, "c": 6964.5 },
-        "57": { "o": 6963, "h": 6964, "l": 6953.25, "c": 6963.5 },
-        "66": { "o": 6962.25, "h": 6963.25, "l": 6959.5, "c": 6962.75 }
+        "14": {
+          "o": 6962.75,
+          "h": 6963.75,
+          "l": 6958.5,
+          "c": 6963.25
+        },
+        "30": {
+          "o": 6975.25,
+          "h": 6976,
+          "l": 6972.5,
+          "c": 6975.75
+        },
+        "44": {
+          "o": 6961.5,
+          "h": 6964.75,
+          "l": 6961.25,
+          "c": 6964.5
+        },
+        "57": {
+          "o": 6963,
+          "h": 6964,
+          "l": 6953.25,
+          "c": 6963.5
+        },
+        "66": {
+          "o": 6962.25,
+          "h": 6963.25,
+          "l": 6959.5,
+          "c": 6962.75
+        }
       },
       "candidats": [
-        { "i": 14, "lettre": "A", "bon": true, "texte": "Marteau dans la zone : entrée 0,25 au-dessus du corps à 6 963,50, stop 1,25 sous le plus bas à 6 957,25, soit 6,25 points. Dans la fourchette 2 à 8." },
-        { "i": 30, "lettre": "B", "bon": false, "texte": "Un marteau propre, mais douze points au-dessus de la zone. Pas de zone, pas de trade." },
-        { "i": 44, "lettre": "C", "bon": false, "texte": "Une grande bougie verte sans mèche basse : c'est une continuation, pas un retournement. Rien n'a été rejeté." },
-        { "i": 57, "lettre": "D", "bon": false, "texte": "Marteau dans la zone, mais sa mèche descend à 6 953,25 : stop à 6 952, soit 11,75 points sous l'entrée. Trop cher, pas de signal." },
-        { "i": 66, "lettre": "E", "bon": true, "texte": "Second retournement sur la même zone, après un retest : entrée 6 963, stop 6 958,25, 4,75 points. Le genre d'entrée que Manu prend « facilement »." }
+        {
+          "i": 14,
+          "lettre": "A",
+          "bon": true,
+          "texte": "Marteau dans la zone : entrée 0,25 au-dessus du corps à 6 963,50, stop 1,25 sous le plus bas à 6 957,25, soit 6,25 points. Dans la fourchette 2 à 8."
+        },
+        {
+          "i": 30,
+          "lettre": "B",
+          "bon": false,
+          "texte": "Un marteau propre, mais douze points au-dessus de la zone. Pas de zone, pas de trade."
+        },
+        {
+          "i": 44,
+          "lettre": "C",
+          "bon": false,
+          "texte": "Une grande bougie verte sans mèche basse : c'est une continuation, pas un retournement. Rien n'a été rejeté."
+        },
+        {
+          "i": 57,
+          "lettre": "D",
+          "bon": false,
+          "texte": "Marteau dans la zone, mais sa mèche descend à 6 953,25 : stop à 6 952, soit 11,75 points sous l'entrée. Trop cher, pas de signal."
+        },
+        {
+          "i": 66,
+          "lettre": "E",
+          "bon": true,
+          "texte": "Second retournement sur la même zone, après un retest : entrée 6 963, stop 6 958,25, 4,75 points. Le genre d'entrée que Manu prend « facilement »."
+        }
       ]
     },
     {
@@ -99,22 +355,127 @@
       "graine": 41,
       "n": 70,
       "sens": "vente",
-      "zone": { "bas": 7012, "haut": 7015 },
-      "annonce": { "i": 40, "texte": "Annonce 16 h 00" },
-      "chemin": [[7000, 0], [7013.5, 12], [7005, 20], [7003, 26], [7010, 34], [7013, 39], [7006, 41], [7009, 46], [7014, 52], [7008, 58], [7013.5, 64], [7004, 69]],
+      "zone": {
+        "bas": 7012,
+        "haut": 7015
+      },
+      "annonce": {
+        "i": 40,
+        "texte": "Annonce 16 h 00"
+      },
+      "chemin": [
+        [
+          7000,
+          0
+        ],
+        [
+          7013.5,
+          12
+        ],
+        [
+          7005,
+          20
+        ],
+        [
+          7003,
+          26
+        ],
+        [
+          7010,
+          34
+        ],
+        [
+          7013,
+          39
+        ],
+        [
+          7006,
+          41
+        ],
+        [
+          7009,
+          46
+        ],
+        [
+          7014,
+          52
+        ],
+        [
+          7008,
+          58
+        ],
+        [
+          7013.5,
+          64
+        ],
+        [
+          7004,
+          69
+        ]
+      ],
       "bougies": {
-        "12": { "o": 7012.75, "h": 7017.5, "l": 7012, "c": 7012.25 },
-        "26": { "o": 7003.5, "h": 7006.5, "l": 7002.75, "c": 7003 },
-        "40": { "o": 7014, "h": 7014.25, "l": 7005.5, "c": 7006 },
-        "52": { "o": 7013, "h": 7024, "l": 7012.25, "c": 7012.5 },
-        "64": { "o": 7013.25, "h": 7016, "l": 7011.5, "c": 7013.25 }
+        "12": {
+          "o": 7012.75,
+          "h": 7017.5,
+          "l": 7012,
+          "c": 7012.25
+        },
+        "26": {
+          "o": 7003.5,
+          "h": 7006.5,
+          "l": 7002.75,
+          "c": 7003
+        },
+        "40": {
+          "o": 7014,
+          "h": 7014.25,
+          "l": 7005.5,
+          "c": 7006
+        },
+        "52": {
+          "o": 7013,
+          "h": 7024,
+          "l": 7012.25,
+          "c": 7012.5
+        },
+        "64": {
+          "o": 7013.25,
+          "h": 7016,
+          "l": 7011.5,
+          "c": 7013.25
+        }
       },
       "candidats": [
-        { "i": 12, "lettre": "A", "bon": true, "texte": "Étoile filante dans la zone : entrée 0,25 sous le corps à 7 012, stop 1,25 au-dessus du plus haut à 7 018,75, soit 6,75 points." },
-        { "i": 26, "lettre": "B", "bon": false, "texte": "Une étoile filante, mais neuf points sous la zone, en plein « entre deux ». Pas de zone, pas de trade." },
-        { "i": 40, "lettre": "C", "bon": false, "texte": "La bougie de l'annonce de 16 h : une impulsion, pas un retournement, et on ne trade pas pendant une annonce à fort impact." },
-        { "i": 52, "lettre": "D", "bon": false, "texte": "Étoile filante dans la zone, mais la mèche monte à 7 024 : stop à 7 025,25, treize points au-dessus de l'entrée. Trop cher." },
-        { "i": 64, "lettre": "E", "bon": true, "texte": "Un doji dans la zone, après un retest : « c'est plus un doji, mais on a osé le prendre parce qu'on était sur une bonne zone » (5.7, exemple 6). Entrée 7 013, stop 7 017,25, 4,25 points." }
+        {
+          "i": 12,
+          "lettre": "A",
+          "bon": true,
+          "texte": "Étoile filante dans la zone : entrée 0,25 sous le corps à 7 012, stop 1,25 au-dessus du plus haut à 7 018,75, soit 6,75 points."
+        },
+        {
+          "i": 26,
+          "lettre": "B",
+          "bon": false,
+          "texte": "Une étoile filante, mais neuf points sous la zone, en plein « entre deux ». Pas de zone, pas de trade."
+        },
+        {
+          "i": 40,
+          "lettre": "C",
+          "bon": false,
+          "texte": "La bougie de l'annonce de 16 h : une impulsion, pas un retournement, et on ne trade pas pendant une annonce à fort impact."
+        },
+        {
+          "i": 52,
+          "lettre": "D",
+          "bon": false,
+          "texte": "Étoile filante dans la zone, mais la mèche monte à 7 024 : stop à 7 025,25, treize points au-dessus de l'entrée. Trop cher."
+        },
+        {
+          "i": 64,
+          "lettre": "E",
+          "bon": true,
+          "texte": "Un doji dans la zone, après un retest : « c'est plus un doji, mais on a osé le prendre parce qu'on était sur une bonne zone » (5.7, exemple 6). Entrée 7 013, stop 7 017,25, 4,25 points."
+        }
       ]
     }
   ]

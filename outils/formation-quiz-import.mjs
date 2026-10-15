@@ -23,12 +23,62 @@
  *     node outils/formation-quiz-import.mjs            essai a blanc
  *     node outils/formation-quiz-import.mjs --ecrire   pose assets/formation-quiz.js
  */
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 
 const ECRIRE = process.argv.includes('--ecrire');
 const SORTIE = 'assets/formation-quiz.js';
 const DOSSIER = '_contenu-formation';
 const SEUIL = 0.8;
+/**
+ * ── ⚠️ LES EXERCICES SUR GRAPHIQUE ET LES ILLUSTRATIONS (15/10) ────────────
+ * `quiz-exercices.json` ajoute a un quiz des exercices (zone, entrees, reperer,
+ * memes formes que la certification) et des illustrations sous certaines
+ * questions, par identifiant. Le quiz passe alors par le moteur d examen
+ * (voir `mods()` dans supabase-formation.js). Les controles sont ceux de
+ * `formation-certification-import.mjs` : chemin complet, bougies au tick,
+ * bande qui ne part pas sur la reponse, bons candidats dans la zone avec un
+ * stop de 2 a 8 points, cible d un repere presente parmi ses reperes.
+ */
+const JSON_EX = `${DOSSIER}/quiz-exercices.json`;
+const EXTRA = existsSync(JSON_EX) ? JSON.parse(readFileSync(JSON_EX, 'utf8')) : {};
+const tick = (v) => Math.abs(v * 4 - Math.round(v * 4)) < 1e-9;
+function verifierExercice(e, cle) {
+  const ou = `${cle} ${e.id}`;
+  if (!['zone', 'entrees', 'reperer'].includes(e.type)) throw new Error(`${ou} : type inconnu`);
+  if (!e.consigne || !e.titre) throw new Error(`${ou} : titre ou consigne absent`);
+  if (!Array.isArray(e.chemin) || e.chemin.length < 2) throw new Error(`${ou} : chemin trop court`);
+  if (e.chemin[0][1] !== 0 || e.chemin[e.chemin.length - 1][1] !== e.n - 1) throw new Error(`${ou} : le chemin doit aller de la bougie 0 a la bougie ${e.n - 1}`);
+  for (const [i, b] of Object.entries(e.bougies || {})) {
+    if (+i >= e.n) throw new Error(`${ou} : bougie ${i} hors du graphique`);
+    if (!(b.l <= Math.min(b.o, b.c) && b.h >= Math.max(b.o, b.c))) throw new Error(`${ou} : bougie ${i} incoherente`);
+    if (![b.o, b.h, b.l, b.c].every(tick)) throw new Error(`${ou} : bougie ${i} hors tick 0,25`);
+  }
+  if (e.type === 'zone') {
+    if (!e.bande || !e.attendu) throw new Error(`${ou} : bande ou attendu absent`);
+    if (Math.abs(e.bande.depart - e.attendu.centre) <= e.attendu.marge) throw new Error(`${ou} : la bande part sur la bonne zone`);
+  } else if (e.type === 'entrees') {
+    if (!e.zone || !Array.isArray(e.candidats) || e.candidats.length < 3) throw new Error(`${ou} : zone ou candidats absents`);
+    if (!e.candidats.some((c) => c.bon) || !e.candidats.some((c) => !c.bon)) throw new Error(`${ou} : il faut des bons ET des faux candidats`);
+    for (const c of e.candidats) {
+      if (!e.bougies || !e.bougies[c.i]) throw new Error(`${ou} : le candidat ${c.lettre} n a pas de bougie posee a la main`);
+      if (!c.texte) throw new Error(`${ou} : candidat ${c.lettre} sans explication`);
+      if (c.bon) {
+        const b = e.bougies[c.i];
+        const d = e.sens === 'achat' ? (Math.max(b.o, b.c) + 0.25) - (b.l - 1.25) : (b.h + 1.25) - (Math.min(b.o, b.c) - 0.25);
+        if (d < 2 || d > 8) throw new Error(`${ou} : candidat ${c.lettre} donne un stop de ${d} points`);
+        const dans = Math.max(b.o, b.c) >= e.zone.bas && Math.min(b.o, b.c) <= e.zone.haut;
+        if (!dans) throw new Error(`${ou} : candidat ${c.lettre} « bon » hors de la zone`);
+      }
+    }
+  } else {
+    if (!Array.isArray(e.reperes) || e.reperes.length < 2 || !e.cible) throw new Error(`${ou} : reperes ou cible absents`);
+    if (!e.reperes.some((r) => r.cle === e.cible)) throw new Error(`${ou} : la cible ${e.cible} n est pas parmi les reperes`);
+    const traces = new Set([...(e.indicateurs || []), ...(e.cv != null ? ['cv'] : []), ...(e.pivot != null ? ['pivot'] : [])]);
+    for (const r of e.reperes) if (!traces.has(r.cle)) throw new Error(`${ou} : le repere ${r.lettre} (${r.cle}) n est pas trace`);
+    const lettres = e.reperes.map((r) => r.lettre);
+    if (new Set(lettres).size !== lettres.length) throw new Error(`${ou} : lettres en double`);
+  }
+}
 
 /** « quiz-module-07bis.md » -> « 07bis », « quiz-module-01.md » -> « 01 ». */
 const cleDe = (f) => f.replace(/^quiz-module-/, '').replace(/\.md$/, '');
@@ -73,7 +123,18 @@ function lire(f) {
     };
   });
   if (annonce !== questions.length) throw new Error(`${f} : annonce ${annonce}, ${questions.length} lues`);
-  return { cle, titre, seuil: SEUIL, questions };
+  const extra = EXTRA[cle] || {};
+  for (const [id, il] of Object.entries(extra.illustrations || {})) {
+    const q = questions.find((x) => x.id === id);
+    if (!q) throw new Error(`${f} : illustration pour une question inconnue, ${id}`);
+    if (!['bougies', 'graphique', 'courbe'].includes(il.type)) throw new Error(`${f} : illustration ${id} de type inconnu`);
+    q.illustration = il;
+  }
+  const exercices = extra.exercices || [];
+  exercices.forEach((e) => verifierExercice(e, cle));
+  const ids = exercices.map((e) => e.id);
+  if (new Set(ids).size !== ids.length) throw new Error(`${f} : identifiants d exercice en double`);
+  return { cle, titre, seuil: SEUIL, questions, exercices, points_par_exercice: extra.points_par_exercice || 2 };
 }
 
 const fichiers = readdirSync(DOSSIER).filter((f) => /^quiz-module-.*\.md$/.test(f)).sort();
@@ -81,9 +142,10 @@ const quiz = {};
 let total = 0;
 for (const f of fichiers) {
   const q = lire(f);
-  quiz[q.cle] = { titre: q.titre, seuil: q.seuil, questions: q.questions };
+  quiz[q.cle] = { titre: q.titre, seuil: q.seuil, questions: q.questions, ...(q.exercices.length ? { exercices: q.exercices, points_par_exercice: q.points_par_exercice, exercices_minimum: 0 } : {}) };
   total += q.questions.length;
-  console.log(`  ${q.cle.padEnd(6)} ${String(q.questions.length).padStart(2)} questions   ${q.titre}`);
+  const nbIl = q.questions.filter((x) => x.illustration).length;
+  console.log(`  ${q.cle.padEnd(6)} ${String(q.questions.length).padStart(2)} questions${q.exercices.length ? `, ${q.exercices.length} exercice${q.exercices.length > 1 ? 's' : ''} x ${q.points_par_exercice} pts` : ''}${nbIl ? `, ${nbIl} illustree${nbIl > 1 ? 's' : ''}` : ''}   ${q.titre}`);
 }
 console.log(`  ${fichiers.length} quiz, ${total} questions`);
 
@@ -123,6 +185,7 @@ function sonder(texte) {
   for (const f of fichiers) {
     const md = readFileSync(`${DOSSIER}/${f}`, 'utf8');
     const cle = cleDe(f);
+    for (const e of Q[cle].exercices || []) { comptes += 1; if (!readFileSync(JSON_EX, 'utf8').includes(JSON.stringify(e.consigne))) { ecart += 1; console.log(`  ⛔ consigne absente du json : ${cle} ${e.id}`); } }
     for (const q of Q[cle].questions) {
       comptes += 1;
       if (!md.includes(`**${q.enonce}**`)) { ecart += 1; console.log(`  ⛔ enonce absent du md : ${q.id}`); }

@@ -1173,15 +1173,26 @@
       }
       const q = Q[m.cle];
       if (!q || !q.questions || !q.questions.length) return m;
+      /**
+       * ⚠️ Un quiz qui porte des exercices sur graphique ou des questions
+       * illustrees (quiz-exercices.json, 15/10) passe par le moteur d examen
+       * (`moteur`), comme la certification : meme ecran, meme notation en
+       * points (questions 1 point, exercices `points_par_exercice`), meme
+       * ligne dans formation_quiz_resultats. `questions` devient le TOTAL en
+       * points, c est ce que `seuilDe` lit.
+       */
+      const nbEx = (q.exercices || []).length;
+      const moteur = nbEx > 0 || q.questions.some((x) => x.illustration);
       return {
         ...m,
         lecons: [...m.lecons, {
           id: `m${m.cle}-quiz`,
           titre: `Quiz du module ${m.numero}`,
           quiz: true,
-          questions: q.questions.length,
+          moteur,
+          questions: q.questions.length + nbEx * (q.points_par_exercice || 0),
           seuil: q.seuil,
-          minutes: Math.max(3, Math.round(q.questions.length * 0.6)),
+          minutes: Math.max(3, Math.round(q.questions.length * 0.6 + nbEx * 2)),
         }],
       };
     });
@@ -2502,7 +2513,9 @@
         </div>`;
     } else if (c.examen && window.FormationExamen) {
       // ⚠️ Le chapitre rapporte sa part (XP_MODULE sur un seul chapitre) PLUS la prime de certification : c est ce que xpTotal() ajoutera, le bouton dit le meme chiffre.
-      corps = window.FormationExamen.entree({ donnees: CERT(), xp: xpDe(c.id) + XP_CERT, dernier: r ? { score: r.score, total: r.total, date: dateCourte(r.derniere) } : null });
+      corps = window.FormationExamen.entree({ donnees: CERT(), certification: true, xp: xpDe(c.id) + XP_CERT, dernier: r ? { score: r.score, total: r.total, date: dateCourte(r.derniere) } : null });
+    } else if (c.moteur && window.FormationExamen) {
+      corps = window.FormationExamen.entree({ donnees: QUIZ()[m.cle], xp: xpDe(c.id), dernier: r ? { score: r.score, total: r.total, date: dateCourte(r.derniere) } : null });
     } else {
       corps = `
         <div class="quiz__entree">
@@ -2526,6 +2539,11 @@
     if (c && c.examen) { commencerExamen(mi, ci, m, c); return; }
     const Q = QUIZ()[m && m.cle];
     if (!c || !c.quiz || !Q) return;
+    if (c.moteur) {
+      if (!quizOuvert(m) && !quizReussi(m.cle)) { toast(I.lock, 'Termine d’abord les chapitres vidéo.'); return; }
+      commencerMoteur(mi, ci, m, c, Q, false);
+      return;
+    }
     if (!quizOuvert(m) && !quizReussi(m.cle)) { toast(I.lock, 'Termine d’abord les chapitres vidéo.'); return; }
     _quizEtat = {
       mi, ci, cle: m.cle, i: 0, choix: {},
@@ -2659,12 +2677,18 @@
     };
   }
   function commencerExamen(mi, ci, m, c) {
-    const zone = $('quizZone');
-    if (!zone || !window.FormationExamen || !CERT()) return;
+    if (!CERT()) return;
     if (!etatModule(m).ouvrable && !quizReussi(m.cle)) { toast(I.lock, 'Termine d’abord les neuf modules du parcours.'); return; }
-    _quizEtat = { mi, ci, cle: m.cle, examen: true, i: 0, choix: {}, questions: [] };
+    commencerMoteur(mi, ci, m, c, CERT(), true);
+  }
+  /** Le moteur d examen, pour la certification ET les quiz a exercices : memes ecrans, meme ecriture. */
+  function commencerMoteur(mi, ci, m, c, donnees, certification) {
+    const zone = $('quizZone');
+    if (!zone || !window.FormationExamen || !donnees) return;
+    _quizEtat = { mi, ci, cle: m.cle, examen: true, certification, i: 0, choix: {}, questions: [] };
     window.FormationExamen.commencer(zone, {
       ...contexteExamen(),
+      donnees,
       onValider: async (res) => {
         ouvrirAudio();
         const av = { xp: xpTotal(), niveau: niveauCourant().cle, fini: moduleFini(m), badges: badges().filter((b) => b.ok()).map((b) => b.id) };
@@ -2682,7 +2706,7 @@
           e.resultat = { score: res.score, total: res.total, reussi: res.reussi, reponses: res.reponses, ok, av, detail: res };
           if (res.reussi && ok && !av.fini) e.minuteurScene = setTimeout(() => { if (_quizEtat === e && !e.scenePartie) sceneQuiz(); }, 2500);
         }
-        return { ok, dejaFini: av.fini };
+        return { ok, dejaFini: av.fini, certification, numero: m.numero };
       },
     });
   }
@@ -2692,7 +2716,8 @@
     const zone = $('quizZone');
     if (!e || !e.resultat || !zone) return;
     if (e.examen && window.FormationExamen) {
-      window.FormationExamen.rendreResultat(zone, { ...contexteExamen(), resultat: e.resultat.detail, ok: e.resultat.ok, dejaFini: e.resultat.av.fini });
+      const m = mods()[e.mi];
+      window.FormationExamen.rendreResultat(zone, { ...contexteExamen(), donnees: e.certification ? CERT() : QUIZ()[m.cle], certification: !!e.certification, numero: m.numero, resultat: e.resultat.detail, ok: e.resultat.ok, dejaFini: e.resultat.av.fini });
       return;
     }
     const m = mods()[e.mi];

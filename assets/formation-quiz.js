@@ -466,7 +466,103 @@
      "de": 10,
      "a": 11
     },
-    "conseil": "Une résistance franchie puis retestée devient un support. Et l'inverse vaut pour un support cassé."
+    "conseil": "Une résistance franchie puis retestée devient un support. Et l'inverse vaut pour un support cassé.",
+    "illustration": {
+     "type": "bougies",
+     "niveau": 6950,
+     "niveau_texte": "Résistance 30 min",
+     "bougies": [
+      {
+       "o": 6942,
+       "h": 6946,
+       "l": 6941,
+       "c": 6945.5
+      },
+      {
+       "o": 6945.5,
+       "h": 6950,
+       "l": 6944.5,
+       "c": 6946.5
+      },
+      {
+       "o": 6946.5,
+       "h": 6948,
+       "l": 6943,
+       "c": 6943.5
+      },
+      {
+       "o": 6943.5,
+       "h": 6950,
+       "l": 6943,
+       "c": 6947
+      },
+      {
+       "o": 6947,
+       "h": 6948.5,
+       "l": 6944,
+       "c": 6944.5
+      },
+      {
+       "o": 6944.5,
+       "h": 6949.5,
+       "l": 6944,
+       "c": 6949
+      },
+      {
+       "o": 6949,
+       "h": 6956,
+       "l": 6948.5,
+       "c": 6955.5
+      },
+      {
+       "o": 6955.5,
+       "h": 6957,
+       "l": 6953,
+       "c": 6953.5
+      },
+      {
+       "o": 6953.5,
+       "h": 6954,
+       "l": 6950,
+       "c": 6950.5
+      },
+      {
+       "o": 6950.5,
+       "h": 6952.5,
+       "l": 6950,
+       "c": 6952
+      },
+      {
+       "o": 6952,
+       "h": 6956,
+       "l": 6951.5,
+       "c": 6955.5
+      }
+     ],
+     "surligne": [
+      8,
+      9
+     ],
+     "etiquettes": [
+      {
+       "i": 1,
+       "texte": "touchée"
+      },
+      {
+       "i": 3,
+       "texte": "touchée"
+      },
+      {
+       "i": 6,
+       "texte": "cassée"
+      },
+      {
+       "i": 9,
+       "texte": "revient se poser"
+      }
+     ],
+     "legende": "Le niveau a été touché deux fois par en dessous, puis dépassé, puis le prix est revenu se poser dessus."
+    }
    },
    {
     "id": "q02-11",
@@ -484,7 +580,52 @@
      "de": 3,
      "a": 6
     },
-    "conseil": "C'est le piège classique des débutants. La grande mèche basse dit que les acheteurs ont rejeté la baisse dans l'unité de temps. Rouge ou verte, le marteau est acheteur ; le marteau inversé est vendeur."
+    "conseil": "C'est le piège classique des débutants. La grande mèche basse dit que les acheteurs ont rejeté la baisse dans l'unité de temps. Rouge ou verte, le marteau est acheteur ; le marteau inversé est vendeur.",
+    "illustration": {
+     "type": "bougies",
+     "bougies": [
+      {
+       "o": 6971,
+       "h": 6971.5,
+       "l": 6966,
+       "c": 6966.5
+      },
+      {
+       "o": 6966.5,
+       "h": 6967.5,
+       "l": 6963,
+       "c": 6963.5
+      },
+      {
+       "o": 6963.5,
+       "h": 6964.25,
+       "l": 6956.75,
+       "c": 6963
+      },
+      {
+       "o": 6963,
+       "h": 6967.5,
+       "l": 6962.5,
+       "c": 6967
+      },
+      {
+       "o": 6967,
+       "h": 6971,
+       "l": 6966.5,
+       "c": 6970.5
+      }
+     ],
+     "surligne": [
+      2
+     ],
+     "etiquettes": [
+      {
+       "i": 2,
+       "texte": "cette bougie"
+      }
+     ],
+     "legende": "La bougie surlignée : un petit corps rouge, une grande mèche en bas, presque rien en haut."
+    }
    },
    {
     "id": "q02-12",
@@ -668,7 +809,61 @@
      "de": 4,
      "a": 5
     },
-    "conseil": "Les bandes mesurent la volatilité. Resserrées, c'est le calme qui précède la tempête, et le marché n'aime pas rester sur le même niveau. Écartées, c'est l'élastique tendu, proche d'un retournement."
+    "conseil": "Les bandes mesurent la volatilité. Resserrées, c'est le calme qui précède la tempête, et le marché n'aime pas rester sur le même niveau. Écartées, c'est l'élastique tendu, proche d'un retournement.",
+    "illustration": {
+     "type": "graphique",
+     "n": 60,
+     "graine": 61,
+     "ut": "1 min",
+     "symbole": "ES",
+     "indicateurs": [
+      "bollinger",
+      "mm20"
+     ],
+     "chemin": [
+      [
+       6930,
+       0
+      ],
+      [
+       6936,
+       10
+      ],
+      [
+       6931,
+       20
+      ],
+      [
+       6933,
+       26
+      ],
+      [
+       6932.5,
+       32
+      ],
+      [
+       6933.25,
+       38
+      ],
+      [
+       6932.75,
+       44
+      ],
+      [
+       6933,
+       48
+      ],
+      [
+       6944,
+       56
+      ],
+      [
+       6943,
+       59
+      ]
+     ],
+     "legende": "Les deux bandes se rapprochent de plus en plus pendant une trentaine de bougies, puis le prix sort d'un coup."
+    }
    },
    {
     "id": "q03-7",
@@ -720,7 +915,52 @@
      "de": 3,
      "a": 5
     },
-    "conseil": "Une VWAP plate n'est pas un signal assez fort, il faut même l'écarter. Elle s'utilise dans un flux avec une vraie tendance et de la volatilité, et jamais seule."
+    "conseil": "Une VWAP plate n'est pas un signal assez fort, il faut même l'écarter. Elle s'utilise dans un flux avec une vraie tendance et de la volatilité, et jamais seule.",
+    "illustration": {
+     "type": "graphique",
+     "n": 60,
+     "graine": 63,
+     "ut": "1 min",
+     "symbole": "ES",
+     "indicateurs": [
+      "vwap"
+     ],
+     "chemin": [
+      [
+       6900,
+       0
+      ],
+      [
+       6904,
+       8
+      ],
+      [
+       6897,
+       16
+      ],
+      [
+       6903,
+       24
+      ],
+      [
+       6898,
+       32
+      ],
+      [
+       6902,
+       40
+      ],
+      [
+       6899,
+       48
+      ],
+      [
+       6901,
+       59
+      ]
+     ],
+     "legende": "La ligne pointillée dorée, c'est la VWAP : ici elle est plate, le prix la traverse dans les deux sens."
+    }
    },
    {
     "id": "q03-10",
@@ -776,7 +1016,157 @@
     },
     "conseil": "Ouverture US à 15 h 30, fermeture à 22 h, heure française. Et attention aux jours fériés : le POC reste celui de la dernière séance réelle, pas de la veille calendaire."
    }
-  ]
+  ],
+  "exercices": [
+   {
+    "id": "R1",
+    "type": "reperer",
+    "titre": "Repère la VWAP",
+    "consigne": "Quatre tracés sur ce graphique 1 minute, chacun avec une lettre : moyenne mobile 20, bandes de Bollinger, VWAP et clôture de la veille. Clique sur la lettre de la VWAP.",
+    "ut": "1 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "15:30",
+    "graine": 71,
+    "n": 70,
+    "indicateurs": [
+     "mm20",
+     "bollinger",
+     "vwap"
+    ],
+    "cv": 6873.5,
+    "chemin": [
+     [
+      6880,
+      0
+     ],
+     [
+      6886,
+      10
+     ],
+     [
+      6878,
+      20
+     ],
+     [
+      6888,
+      32
+     ],
+     [
+      6882,
+      40
+     ],
+     [
+      6892,
+      52
+     ],
+     [
+      6887,
+      60
+     ],
+     [
+      6894,
+      69
+     ]
+    ],
+    "reperes": [
+     {
+      "lettre": "A",
+      "cle": "mm20",
+      "texte": "La moyenne mobile 20 colle au prix : elle suit chaque vague avec un petit retard."
+     },
+     {
+      "lettre": "B",
+      "cle": "bollinger",
+      "texte": "Les bandes de Bollinger enveloppent le prix de part et d'autre, à deux écarts types de la MM20."
+     },
+     {
+      "lettre": "C",
+      "cle": "vwap",
+      "texte": "La VWAP part de l'ouverture et s'aplatit avec le volume : c'est le prix moyen pondéré de la séance, en pointillé doré."
+     },
+     {
+      "lettre": "D",
+      "cle": "cv",
+      "texte": "La clôture de la veille est une ligne horizontale, fixe toute la journée."
+     }
+    ],
+    "cible": "vwap",
+    "explication": "La VWAP est la seule ligne qui part de l'ouverture et se stabilise au fil de la séance : elle pondère par le volume, elle ne suit pas le prix comme une moyenne mobile."
+   },
+   {
+    "id": "R2",
+    "type": "reperer",
+    "titre": "Repère le point pivot",
+    "consigne": "Trois tracés et deux lignes horizontales. Clique sur la lettre du point pivot journalier.",
+    "ut": "1 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "15:30",
+    "graine": 73,
+    "n": 70,
+    "indicateurs": [
+     "mm20",
+     "vwap"
+    ],
+    "cv": 6912.25,
+    "pivot": 6919.5,
+    "chemin": [
+     [
+      6910,
+      0
+     ],
+     [
+      6916,
+      12
+     ],
+     [
+      6911,
+      22
+     ],
+     [
+      6921,
+      36
+     ],
+     [
+      6917,
+      46
+     ],
+     [
+      6923,
+      58
+     ],
+     [
+      6919,
+      69
+     ]
+    ],
+    "reperes": [
+     {
+      "lettre": "A",
+      "cle": "pivot",
+      "texte": "Le point pivot est une ligne horizontale fixe, calculée sur le plus haut, le plus bas et la clôture de la veille : ici 6 919,50."
+     },
+     {
+      "lettre": "B",
+      "cle": "cv",
+      "texte": "La clôture de la veille est aussi une ligne fixe, mais en pointillé, et c'est le niveau de 21 h 30 de la veille : 6 912,25."
+     },
+     {
+      "lettre": "C",
+      "cle": "mm20",
+      "texte": "La moyenne mobile 20 bouge avec le prix."
+     },
+     {
+      "lettre": "D",
+      "cle": "vwap",
+      "texte": "La VWAP, en pointillé doré, part de l'ouverture et se stabilise."
+     }
+    ],
+    "cible": "pivot",
+    "explication": "Deux lignes sont fixes : la clôture de la veille (pointillé) et le point pivot (trait plein). Le pivot n'est pas un niveau de la veille à lui seul, c'est une moyenne du plus haut, du plus bas et de la clôture."
+   }
+  ],
+  "points_par_exercice": 2,
+  "exercices_minimum": 0
  },
  "04": {
   "titre": "Prendre en main ta plateforme de trading",
@@ -1120,7 +1510,54 @@
      "de": 3,
      "a": 5
     },
-    "conseil": "Hors zone, ce n'est plus du trading, c'est du pari. Trois choix seulement : zone d'achat avec bon contexte, j'achète ; zone de vente avec bon contexte, je vends ; hors zone, je ne trade pas."
+    "conseil": "Hors zone, ce n'est plus du trading, c'est du pari. Trois choix seulement : zone d'achat avec bon contexte, j'achète ; zone de vente avec bon contexte, je vends ; hors zone, je ne trade pas.",
+    "illustration": {
+     "type": "graphique",
+     "n": 50,
+     "graine": 81,
+     "ut": "1 min",
+     "symbole": "ES",
+     "sens": "achat",
+     "zone": {
+      "bas": 6830,
+      "haut": 6833
+     },
+     "chemin": [
+      [
+       6848,
+       0
+      ],
+      [
+       6841,
+       14
+      ],
+      [
+       6846,
+       22
+      ],
+      [
+       6840.5,
+       30
+      ],
+      [
+       6847,
+       40
+      ],
+      [
+       6845,
+       49
+      ]
+     ],
+     "bougies": {
+      "30": {
+       "o": 6841,
+       "h": 6841.5,
+       "l": 6836.5,
+       "c": 6841.25
+      }
+     },
+     "legende": "Le marteau se dessine à 6 841, la zone d'achat du plan est entre 6 830 et 6 833."
+    }
    },
    {
     "id": "q05-5",
@@ -1172,7 +1609,48 @@
      "de": 2,
      "a": 4
     },
-    "conseil": "Le stop se décide avant et ne bouge jamais, surtout pas quand il est perdant. Si tu t'es trompé de niveau, tu assumes la perte prévue, tu ne l'agrandis pas."
+    "conseil": "Le stop se décide avant et ne bouge jamais, surtout pas quand il est perdant. Si tu t'es trompé de niveau, tu assumes la perte prévue, tu ne l'agrandis pas.",
+    "illustration": {
+     "type": "bougies",
+     "niveau": 6798.75,
+     "niveau_texte": "Ton stop, 1,25 sous le plus bas",
+     "bougies": [
+      {
+       "o": 6802,
+       "h": 6806,
+       "l": 6800,
+       "c": 6805.5
+      },
+      {
+       "o": 6805.5,
+       "h": 6807,
+       "l": 6803,
+       "c": 6804
+      },
+      {
+       "o": 6804,
+       "h": 6804.5,
+       "l": 6801,
+       "c": 6801.5
+      },
+      {
+       "o": 6801.5,
+       "h": 6802.5,
+       "l": 6799.75,
+       "c": 6800.25
+      },
+      {
+       "o": 6800.25,
+       "h": 6801,
+       "l": 6799.5,
+       "c": 6800
+      }
+     ],
+     "surligne": [
+      4
+     ],
+     "legende": "Tu es acheteur depuis la première bougie. Le prix revient à un point de ton stop."
+    }
    },
    {
     "id": "q05-8",
@@ -1318,7 +1796,220 @@
     },
     "conseil": "« J'ai fait 500 $ aujourd'hui, je suis un bon trader », c'est le trader amateur. Le seul indicateur valable, c'est le respect du process, mesuré sur une série."
    }
-  ]
+  ],
+  "exercices": [
+   {
+    "id": "Z1",
+    "type": "zone",
+    "titre": "Poser la zone de vente",
+    "consigne": "Graphique 30 minutes, clôture de la veille en pointillé. Glisse la bande sur la zone de vente la plus travaillée.",
+    "ut": "30 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "Jeu. 02:00",
+    "graine": 91,
+    "n": 80,
+    "cv": 6885.75,
+    "chemin": [
+     [
+      6866,
+      0
+     ],
+     [
+      6884.25,
+      11
+     ],
+     [
+      6874,
+      19
+     ],
+     [
+      6884.5,
+      28
+     ],
+     [
+      6869,
+      37
+     ],
+     [
+      6897,
+      45
+     ],
+     [
+      6877,
+      53
+     ],
+     [
+      6884,
+      60
+     ],
+     [
+      6871,
+      68
+     ],
+     [
+      6878,
+      74
+     ],
+     [
+      6868,
+      79
+     ]
+    ],
+    "bougies": {
+     "11": {
+      "o": 6883.25,
+      "h": 6884.25,
+      "l": 6880,
+      "c": 6880.75
+     },
+     "28": {
+      "o": 6883.5,
+      "h": 6884.5,
+      "l": 6880.25,
+      "c": 6881
+     },
+     "45": {
+      "o": 6893.5,
+      "h": 6897,
+      "l": 6890,
+      "c": 6890.5
+     },
+     "60": {
+      "o": 6883,
+      "h": 6884.25,
+      "l": 6879.5,
+      "c": 6880.25
+     }
+    },
+    "bande": {
+     "hauteur": 4,
+     "depart": 6858
+    },
+    "attendu": {
+     "centre": 6884.25,
+     "marge": 1.5
+    },
+    "explication": "La zone des 6 884 : trois rejets au même niveau, à un point et demi de la clôture de la veille. Le sommet de 6 897 n'a été touché qu'une fois.",
+    "pieges": [
+     {
+      "prix": 6897,
+      "texte": "Un sommet touché une seule fois : le marché n'y est jamais revenu, ce n'est pas une zone."
+     },
+     {
+      "prix": 6868,
+      "texte": "Les creux du bas ne sont pas alignés, et ce seraient des zones d'achat."
+     }
+    ]
+   },
+   {
+    "id": "E1",
+    "type": "entrees",
+    "titre": "Repérer l'entrée à l'achat",
+    "consigne": "Graphique 1 minute, ta zone d'achat du plan en bande dorée, moyenne mobile 20 tracée. Quatre bougies sont marquées : coche celles que tu prendrais à l'achat. Chaque candidat se juge seul.",
+    "ut": "1 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "15:40",
+    "graine": 93,
+    "n": 60,
+    "sens": "achat",
+    "zone": {
+     "bas": 6902,
+     "haut": 6905
+    },
+    "chemin": [
+     [
+      6915,
+      0
+     ],
+     [
+      6903.5,
+      12
+     ],
+     [
+      6911,
+      20
+     ],
+     [
+      6914,
+      26
+     ],
+     [
+      6906,
+      34
+     ],
+     [
+      6903,
+      40
+     ],
+     [
+      6909,
+      48
+     ],
+     [
+      6903.5,
+      54
+     ],
+     [
+      6908,
+      59
+     ]
+    ],
+    "bougies": {
+     "12": {
+      "o": 6903.75,
+      "h": 6904.5,
+      "l": 6899.75,
+      "c": 6904.25
+     },
+     "26": {
+      "o": 6914.25,
+      "h": 6915,
+      "l": 6911.5,
+      "c": 6914.75
+     },
+     "40": {
+      "o": 6903.25,
+      "h": 6904,
+      "l": 6894.5,
+      "c": 6903.75
+     },
+     "54": {
+      "o": 6903.5,
+      "h": 6904.25,
+      "l": 6900.5,
+      "c": 6904
+     }
+    },
+    "candidats": [
+     {
+      "i": 12,
+      "lettre": "A",
+      "bon": true,
+      "texte": "Marteau dans la zone : entrée 6 904,50, stop 6 898,50, six points. Bon."
+     },
+     {
+      "i": 26,
+      "lettre": "B",
+      "bon": false,
+      "texte": "Un marteau, mais dix points au-dessus de la zone. Pas de zone, pas de trade."
+     },
+     {
+      "i": 40,
+      "lettre": "C",
+      "bon": false,
+      "texte": "Dans la zone, mais la mèche descend à 6 894,50 : stop à 6 893,25, plus de dix points. Trop cher."
+     },
+     {
+      "i": 54,
+      "lettre": "D",
+      "bon": true,
+      "texte": "Second retournement sur la zone : entrée 6 904,25, stop 6 899,25, cinq points. Bon."
+     }
+    ]
+   }
+  ],
+  "points_par_exercice": 2,
+  "exercices_minimum": 0
  },
  "06": {
   "titre": "Renforcer ta psychologie de trader",
@@ -1412,7 +2103,47 @@
      "de": 5,
      "a": 7
     },
-    "conseil": "Pas bien réveillé, préoccupé, pas lucide : tu ne trades pas. Ce n'est pas aux coachs de t'y obliger, c'est à toi d'en prendre conscience."
+    "conseil": "Pas bien réveillé, préoccupé, pas lucide : tu ne trades pas. Ce n'est pas aux coachs de t'y obliger, c'est à toi d'en prendre conscience.",
+    "illustration": {
+     "type": "courbe",
+     "base": 50000,
+     "points": [
+      50000,
+      50125,
+      50000,
+      49875,
+      49750,
+      49750,
+      49500,
+      49250,
+      49125
+     ],
+     "etapes": [
+      {
+       "i": 1,
+       "texte": "un gain"
+      },
+      {
+       "i": 3,
+       "texte": "perte 1"
+      },
+      {
+       "i": 4,
+       "texte": "perte 2"
+      },
+      {
+       "i": 6,
+       "texte": "3e trade, en colère",
+       "rouge": true
+      },
+      {
+       "i": 8,
+       "texte": "taille doublée",
+       "rouge": true
+      }
+     ],
+     "legende": "Une courbe de capital de séance : deux pertes propres, puis un troisième trade pris dans la colère, puis la taille doublée pour se refaire."
+    }
    },
    {
     "id": "q06-6",
@@ -1428,7 +2159,35 @@
      "de": 6,
      "a": 8
     },
-    "conseil": "Souffler, revenir présent, éviter le tilt. Les pauses devraient être obligatoires, et certains en ont pris d'une ou deux semaines."
+    "conseil": "Souffler, revenir présent, éviter le tilt. Les pauses devraient être obligatoires, et certains en ont pris d'une ou deux semaines.",
+    "illustration": {
+     "type": "courbe",
+     "base": 50000,
+     "points": [
+      50000,
+      49875,
+      49875,
+      49875,
+      50000,
+      50125,
+      50250
+     ],
+     "etapes": [
+      {
+       "i": 1,
+       "texte": "perte"
+      },
+      {
+       "i": 3,
+       "texte": "deux minutes de pause"
+      },
+      {
+       "i": 6,
+       "texte": "retour au plan"
+      }
+     ],
+     "legende": "La même séance, avec la pause : la perte est acceptée, et le plan reprend."
+    }
    },
    {
     "id": "q06-7",

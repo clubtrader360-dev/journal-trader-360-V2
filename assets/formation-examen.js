@@ -87,6 +87,14 @@
     return out;
   }
   const mm20 = (B) => B.map((_, i) => { const d = B.slice(Math.max(0, i - 19), i + 1); return d.reduce((s, b) => s + b.c, 0) / d.length; });
+  /** Bandes de Bollinger : MM20 plus ou moins deux ecarts types des clotures (3.2). */
+  const bollinger = (B) => B.map((_, i) => { const d = B.slice(Math.max(0, i - 19), i + 1); const m = d.reduce((s, b) => s + b.c, 0) / d.length; const v = d.reduce((s, b) => s + (b.c - m) ** 2, 0) / d.length; const e = Math.sqrt(v); return { m, h: m + 2 * e, b: m - 2 * e }; });
+  /** VWAP : prix moyen pondere par un volume engendre (plus fort sur les grandes bougies), cumule depuis la premiere bougie. */
+  const vwap = (B, ex) => { const alea = graine((ex.graine || 1) + 101); let pv = 0, vv = 0; return B.map((b) => { const t = (b.h + b.l + b.c) / 3; const vol = 50 + Math.round(alea() * 60) + Math.round(Math.abs(b.c - b.o) * 40); pv += t * vol; vv += vol; return pv / vv; }); };
+  /** Les indicateurs a tracer : ceux demandes, ou la MM20 seule pour un exercice d entrees. */
+  const indicateursDe = (ex) => (ex.indicateurs ? ex.indicateurs : (ex.type === 'entrees' ? ['mm20'] : []));
+  const NOMS_IND = { mm20: 'Moyenne mobile 20', bollinger: 'Bandes de Bollinger', vwap: 'VWAP', pivot: 'Point pivot', cv: 'Clôture de la veille', mm100: 'Moyenne mobile 100' };
+  const mm100 = (B) => B.map((_, i) => { const d = B.slice(Math.max(0, i - 99), i + 1); return d.reduce((s, b) => s + b.c, 0) / d.length; });
 
   /* ── Le graphique en SVG ────────────────────────────────────────────── */
   /**
@@ -124,15 +132,22 @@
     [0, Math.floor(ex.n / 2), ex.n - 1].forEach((i, k) => S.push(`<text x="${x(i).toFixed(1)}" y="${H - 8}" class="ex__axe" text-anchor="${k === 0 ? 'start' : k === 2 ? 'end' : 'middle'}">${k === 0 ? txt(ex.heure_debut || '') : k === 2 ? txt(ex.ut) : ''}</text>`));
     // La zone du plan (type entrees) : bande doree.
     if (ex.zone) S.push(`<rect x="${M.g}" y="${y(ex.zone.haut).toFixed(1)}" width="${pw}" height="${(y(ex.zone.bas) - y(ex.zone.haut)).toFixed(1)}" class="ex__zone"/><text x="${W - M.d - 6}" y="${(ex.sens === 'vente' ? y(ex.zone.bas) + 14 : y(ex.zone.haut) - 6).toFixed(1)}" class="ex__etiq ex__etiq--or" text-anchor="end">Zone ${ex.sens === 'vente' ? 'de vente' : 'd’achat'} du plan · ${prixFr(ex.zone.bas)} à ${prixFr(ex.zone.haut)}</text>`);
-    // La cloture de la veille.
-    if (ex.cv != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(ex.cv).toFixed(1)}" y2="${y(ex.cv).toFixed(1)}" class="ex__cv"/><text x="${W - M.d - 6}" y="${(y(ex.cv) - 5).toFixed(1)}" class="ex__etiq" text-anchor="end">CV ${prixFr(ex.cv)}</text>`);
+    // La cloture de la veille (etiquetee, sauf quand c est elle qu il faut reperer).
+    const muet = ex.type === 'reperer';
+    if (ex.cv != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(ex.cv).toFixed(1)}" y2="${y(ex.cv).toFixed(1)}" class="ex__cv"/>${muet ? '' : `<text x="${W - M.d - 6}" y="${(y(ex.cv) - 5).toFixed(1)}" class="ex__etiq" text-anchor="end">CV ${prixFr(ex.cv)}</text>`}`);
+    if (ex.pivot != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(ex.pivot).toFixed(1)}" y2="${y(ex.pivot).toFixed(1)}" class="ex__pivot"/>${muet ? '' : `<text x="${W - M.d - 6}" y="${(y(ex.pivot) + 13).toFixed(1)}" class="ex__etiq" text-anchor="end">Pivot ${prixFr(ex.pivot)}</text>`}`);
     // L annonce.
     if (ex.annonce) S.push(`<line x1="${x(ex.annonce.i).toFixed(1)}" x2="${x(ex.annonce.i).toFixed(1)}" y1="${M.h}" y2="${H - M.b}" class="ex__annonce"/><text x="${(x(ex.annonce.i) + 6).toFixed(1)}" y="${M.h + 12}" class="ex__etiq">${txt(ex.annonce.texte)}</text>`);
-    // La moyenne mobile 20 (type entrees).
-    if (ex.type === 'entrees') {
-      const m = mm20(B);
-      S.push(`<path d="${m.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')}" class="ex__mm20"/>`);
-    }
+    // Les indicateurs traces : chacun garde son y de fin, pour y poser une lettre (type reperer).
+    const trace = (serie, classe) => `<path d="${serie.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')}" class="${classe}"/>`;
+    const finDe = {};
+    const inds = indicateursDe(ex);
+    if (inds.includes('bollinger')) { const bb = bollinger(B); S.push(trace(bb.map((v) => v.h), 'ex__bb')); S.push(trace(bb.map((v) => v.b), 'ex__bb')); finDe.bollinger = y(bb[bb.length - 1].h); }
+    if (inds.includes('mm100')) { const m = mm100(B); S.push(trace(m, 'ex__mm100')); finDe.mm100 = y(m[m.length - 1]); }
+    if (inds.includes('mm20')) { const m = mm20(B); S.push(trace(m, 'ex__mm20')); finDe.mm20 = y(m[m.length - 1]); }
+    if (inds.includes('vwap')) { const v = vwap(B, ex); S.push(trace(v, 'ex__vwap')); finDe.vwap = y(v[v.length - 1]); }
+    if (ex.cv != null) finDe.cv = y(ex.cv);
+    if (ex.pivot != null) finDe.pivot = y(ex.pivot);
     // Les bougies.
     B.forEach((b, i) => {
       const up = b.c >= b.o;
@@ -150,6 +165,20 @@
         if (coche) classe += ' ex__cand--coche';
         if (opts.correction) classe += c.bon ? ' ex__cand--bon' : ' ex__cand--faux';
         S.push(`<g class="${classe}" ${opts.interactif ? `role="checkbox" tabindex="0" aria-checked="${coche ? 'true' : 'false'}" data-ex-cand="${c.i}"` : ''} aria-label="Candidat ${txt(c.lettre)}"><line x1="${x(c.i).toFixed(1)}" x2="${x(c.i).toFixed(1)}" y1="${(dessous ? y(b.l) + 2 : y(b.h) - 2).toFixed(1)}" y2="${(dessous ? cy - 11 : cy + 11).toFixed(1)}"/><circle cx="${x(c.i).toFixed(1)}" cy="${cy.toFixed(1)}" r="11"/><text x="${x(c.i).toFixed(1)}" y="${(cy + 4).toFixed(1)}" text-anchor="middle">${txt(c.lettre)}</text></g>`);
+      });
+    }
+    // Les reperes (type reperer) : une lettre au bout de chaque trace, a cliquer.
+    if (ex.type === 'reperer') {
+      // ⚠️ Deux lettres au meme y se chevaucheraient : on les ecarte d au moins 24 px, dans l ordre du y.
+      const places = ex.reperes.map((r) => ({ r, cy: finDe[r.cle] != null ? finDe[r.cle] : H / 2 })).sort((a, b) => a.cy - b.cy);
+      for (let k = 1; k < places.length; k += 1) if (places[k].cy - places[k - 1].cy < 24) places[k].cy = places[k - 1].cy + 24;
+      places.forEach(({ r, cy }) => {
+        const cx = W - M.d - 14;
+        const choisi = opts.choix === r.cle;
+        let classe = 'ex__cand ex__rep';
+        if (choisi) classe += ' ex__cand--coche';
+        if (opts.correction) classe += r.cle === ex.cible ? ' ex__cand--bon' : ' ex__cand--faux';
+        S.push(`<g class="${classe}" ${opts.interactif ? `role="radio" tabindex="0" aria-checked="${choisi ? 'true' : 'false'}" data-ex-ind="${txt(r.cle)}"` : ''} aria-label="Repère ${txt(r.lettre)}"><line x1="${(cx - 11).toFixed(1)}" x2="${(cx - 30).toFixed(1)}" y1="${cy.toFixed(1)}" y2="${(finDe[r.cle] != null ? finDe[r.cle] : cy).toFixed(1)}"/><circle cx="${cx}" cy="${cy.toFixed(1)}" r="11"/><text x="${cx}" y="${(cy + 4).toFixed(1)}" text-anchor="middle">${txt(r.lettre)}</text></g>`);
       });
     }
     // La bande (type zone) : celle de l eleve, et en correction celle attendue.
@@ -177,6 +206,10 @@
       const ok = c != null && Math.abs(c - ex.attendu.centre) <= ex.attendu.marge;
       return { ok, bande: c, attendu: ex.attendu.centre, ecart: c != null ? Math.abs(c - ex.attendu.centre) : null };
     }
+    if (ex.type === 'reperer') {
+      const choix = rep && rep.choix != null ? rep.choix : null;
+      return { ok: choix === ex.cible, choix, cible: ex.cible };
+    }
     const coches = new Set((rep && rep.coches) || []);
     const bons = new Set(ex.candidats.filter((c) => c.bon).map((c) => c.i));
     const ok = coches.size === bons.size && [...bons].every((i) => coches.has(i));
@@ -203,7 +236,7 @@
     if (_etat && _etat.nettoyer) _etat.nettoyer();
     const alea = graine(Date.now() % 100000 + 7);
     _etat = { zone, D, opts, partie: 'questions', i: 0, choix: {}, reponses: {}, perms: D.questions.map((q) => melanger(q.options.length, alea)) };
-    D.exercices.forEach((ex) => { _etat.reponses[ex.id] = ex.type === 'zone' ? { bande: ex.bande.depart } : { coches: [] }; });
+    D.exercices.forEach((ex) => { _etat.reponses[ex.id] = ex.type === 'zone' ? { bande: ex.bande.depart } : ex.type === 'reperer' ? { choix: null } : { coches: [] }; });
     brancher(zone);
     rendre();
   }
@@ -211,9 +244,10 @@
   function brancher(zone) {
     const e = _etat;
     const surClic = (ev) => {
-      const t = ev.target.closest('[data-ex-rep],[data-ex-suiv],[data-ex-prec],[data-ex-cand],[data-ex-chip],[data-ex-haut],[data-ex-bas]');
+      const t = ev.target.closest('[data-ex-rep],[data-ex-suiv],[data-ex-prec],[data-ex-cand],[data-ex-chip],[data-ex-ind],[data-ex-haut],[data-ex-bas]');
       if (!t || !zone.contains(t)) return;
       if (t.dataset.exRep != null) { repondre(Number(t.dataset.exRep)); return; }
+      if (t.dataset.exInd != null) { choisirRepere(t.dataset.exInd); return; }
       if (t.hasAttribute('data-ex-suiv')) { suivant(); return; }
       if (t.hasAttribute('data-ex-prec')) { precedent(); return; }
       if (t.dataset.exCand != null) { basculerCandidat(Number(t.dataset.exCand)); return; }
@@ -222,12 +256,12 @@
       if (t.hasAttribute('data-ex-bas')) { deplacerBande(ev.shiftKey ? -1 : -0.25); }
     };
     const surTouche = (ev) => {
-      const t = ev.target.closest('[data-ex-bande],[data-ex-cand]');
+      const t = ev.target.closest('[data-ex-bande],[data-ex-cand],[data-ex-ind]');
       if (!t || !zone.contains(t)) return;
       if (t.hasAttribute('data-ex-bande')) {
         if (ev.key === 'ArrowUp') { ev.preventDefault(); deplacerBande(ev.shiftKey ? 1 : 0.25); }
         if (ev.key === 'ArrowDown') { ev.preventDefault(); deplacerBande(ev.shiftKey ? -1 : -0.25); }
-      } else if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); basculerCandidat(Number(t.dataset.exCand)); }
+      } else if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); if (t.dataset.exInd != null) choisirRepere(t.dataset.exInd); else basculerCandidat(Number(t.dataset.exCand)); }
     };
     // ⚠️ Le glisser : pointeur unifie, souris et doigt. On attrape la bande
     // la ou on appuie, ou on l amene sous le doigt si on appuie a cote.
@@ -297,6 +331,7 @@
       <div class="quiz__barre" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${etapeCourante(e) + 1}"><i style="width:${(etapeCourante(e) / n) * 100}%"></i></div>
       <div class="quiz__sur">Question ${e.i + 1} sur ${e.D.questions.length}${lecon ? ` · <span>${txt(lecon.titre)}</span>` : ''}</div>
       <h3 class="quiz__enonce">${txt(q.enonce)}</h3>
+      ${q.illustration ? `<div class="ex__graph ex__illu">${illustrer(q.illustration, Math.max(300, Math.min(640, e.zone.clientWidth - 52)))}</div>` : ''}
       <div class="quiz__opts" role="radiogroup" aria-label="Réponses">
         ${perm.map((k, pos) => `<button type="button" class="quiz__opt" role="radio" data-ex-rep="${k}" aria-checked="${choisi === k ? 'true' : 'false'}"><span class="quiz__lettre mono">${String.fromCharCode(65 + pos)}</span><span>${txt(q.options[k])}</span></button>`).join('')}
       </div>
@@ -312,10 +347,10 @@
     const ex = e.D.exercices[e.i];
     const rep = e.reponses[ex.id];
     const largeur = Math.max(320, Math.min(760, e.zone.clientWidth - 52));
-    const g = graphique(ex, { largeur, bande: ex.type === 'zone' ? rep.bande : null, coches: ex.type === 'entrees' ? new Set(rep.coches) : null, interactif: true });
+    const g = graphique(ex, { largeur, bande: ex.type === 'zone' ? rep.bande : null, coches: ex.type === 'entrees' ? new Set(rep.coches) : null, choix: ex.type === 'reperer' ? rep.choix : null, interactif: true });
     e.geo = g;
     const dernier = e.i === e.D.exercices.length - 1;
-    const complet = ex.type === 'zone' || rep.coches.length > 0;
+    const complet = ex.type === 'zone' || (ex.type === 'reperer' ? rep.choix != null : rep.coches.length > 0);
     e.zone.innerHTML = `
       <div class="quiz__barre" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${etapeCourante(e) + 1}"><i style="width:${(etapeCourante(e) / n) * 100}%"></i></div>
       <div class="quiz__sur">Exercice ${e.i + 1} sur ${e.D.exercices.length} · <span>${txt(ex.symbole)} · ${txt(ex.ut)}</span></div>
@@ -324,7 +359,9 @@
       <div class="ex__graph" id="exGraph">${g.html}</div>
       ${ex.type === 'zone'
         ? `<div class="ex__outils"><span class="ex__aide">Glisse la bande avec la souris ou le doigt, ou appuie là où tu veux la poser.</span><span class="ex__fins"><button type="button" class="btn btn-ghost ex__fin" data-ex-haut aria-label="Monter la bande d’un quart de point">▲</button><button type="button" class="btn btn-ghost ex__fin" data-ex-bas aria-label="Descendre la bande d’un quart de point">▼</button></span></div>`
-        : `<div class="ex__chips" role="group" aria-label="Candidats">${ex.candidats.map((c) => `<button type="button" class="ex__chip ${rep.coches.includes(c.i) ? 'ex__chip--coche' : ''}" data-ex-chip="${c.i}" aria-pressed="${rep.coches.includes(c.i) ? 'true' : 'false'}"><b>${txt(c.lettre)}</b> ${rep.coches.includes(c.i) ? 'je prends' : 'je passe'}</button>`).join('')}</div>`}
+        : ex.type === 'reperer'
+          ? `<div class="ex__chips" role="radiogroup" aria-label="Repères">${ex.reperes.map((r) => `<button type="button" class="ex__chip ${rep.choix === r.cle ? 'ex__chip--coche' : ''}" data-ex-ind="${txt(r.cle)}" role="radio" aria-checked="${rep.choix === r.cle ? 'true' : 'false'}"><b>${txt(r.lettre)}</b> ${rep.choix === r.cle ? 'c’est celle-là' : 'celle-là ?'}</button>`).join('')}</div>`
+          : `<div class="ex__chips" role="group" aria-label="Candidats">${ex.candidats.map((c) => `<button type="button" class="ex__chip ${rep.coches.includes(c.i) ? 'ex__chip--coche' : ''}" data-ex-chip="${c.i}" aria-pressed="${rep.coches.includes(c.i) ? 'true' : 'false'}"><b>${txt(c.lettre)}</b> ${rep.coches.includes(c.i) ? 'je prends' : 'je passe'}</button>`).join('')}</div>`}
       <div class="quiz__pied">
         <button type="button" class="btn btn-ghost" data-ex-prec>${I.back} Précédent</button>
         <button type="button" class="btn btn-gold" data-ex-suiv ${complet ? '' : 'disabled'}>${dernier ? 'Valider mon examen' : 'Suivant'} ${I.arrow}</button>
@@ -360,6 +397,14 @@
     if (ex.type !== 'zone') return;
     poserBande(e.reponses[ex.id].bande + d);
   }
+  function choisirRepere(cle) {
+    const e = _etat;
+    if (!e || e.partie !== 'exercices') return;
+    const ex = e.D.exercices[e.i];
+    if (ex.type !== 'reperer' || !ex.reperes.some((r) => r.cle === cle)) return;
+    e.reponses[ex.id].choix = cle;
+    rendreExercice();
+  }
   function basculerCandidat(i) {
     const e = _etat;
     if (!e || e.partie !== 'exercices') return;
@@ -380,6 +425,7 @@
     }
     const ex = e.D.exercices[e.i];
     if (ex.type === 'entrees' && !e.reponses[ex.id].coches.length) return;
+    if (ex.type === 'reperer' && e.reponses[ex.id].choix == null) return;
     if (e.i < e.D.exercices.length - 1) { e.i += 1; rendre(); return; }
     valider();
   }
@@ -416,6 +462,7 @@
       const ou = ctx.ouDe ? ctx.ouDe(q.renvoi.lecon) : null;
       return `<li class="quiz__faute">
         <p class="quiz__faute-q">${txt(q.enonce)}</p>
+        ${q.illustration ? `<div class="ex__graph ex__illu ex__illu--petite">${illustrer(q.illustration, Math.min(420, largeur))}</div>` : ''}
         <p class="quiz__faute-r"><span>Ta réponse</span>${x.choisie == null ? 'Sans réponse' : txt(q.options[x.choisie])}</p>
         <p class="quiz__faute-b"><span>La bonne</span>${txt(q.options[q.bonne])}</p>
         <p class="quiz__faute-c">${txt(q.conseil)}</p>
@@ -426,10 +473,14 @@
       const ex = D.exercices.find((y) => y.id === x.id);
       const g = ex.type === 'zone'
         ? graphique(ex, { largeur, bande: x.bande, correction: { attendu: x.attendu, ok: x.ok } })
-        : graphique(ex, { largeur, coches: new Set(x.coches), correction: { candidats: true } });
+        : ex.type === 'reperer'
+          ? graphique(ex, { largeur, choix: x.choix, correction: { cible: ex.cible } })
+          : graphique(ex, { largeur, coches: new Set(x.coches), correction: { candidats: true } });
       const detail = ex.type === 'zone'
         ? `<p class="ex__expl">${txt(ex.explication)}</p>${x.ok ? '' : `<p class="ex__expl ex__expl--toi">Ta bande était à ${x.ecart != null ? prixFr(x.ecart) : '·'} point${x.ecart > 1 ? 's' : ''} du centre attendu, pour une marge de ${prixFr(ex.attendu.marge)}.</p>`}<ul class="ex__pieges">${(ex.pieges || []).map((p) => `<li><b>${prixFr(p.prix)}</b> ${txt(p.texte)}</li>`).join('')}</ul>`
-        : `<ul class="ex__cands">${ex.candidats.map((c) => { const coche = x.coches.includes(c.i); return `<li class="${c.bon ? 'ex__cands--bon' : 'ex__cands--faux'} ${coche === c.bon ? '' : 'ex__cands--erreur'}"><span class="ex__cands-lettre">${txt(c.lettre)}</span><span class="ex__cands-verdict">${c.bon ? 'à prendre' : 'à laisser'}${coche === c.bon ? '' : (coche ? ' · tu l’as pris' : ' · tu l’as laissé')}</span><span>${txt(c.texte)}</span></li>`; }).join('')}</ul>`;
+        : ex.type === 'reperer'
+          ? `<p class="ex__expl">${txt(ex.explication || '')}</p><ul class="ex__cands">${ex.reperes.map((r) => `<li class="${r.cle === ex.cible ? 'ex__cands--bon' : 'ex__cands--faux'} ${(x.choix === r.cle) !== (r.cle === ex.cible) ? 'ex__cands--erreur' : ''}"><span class="ex__cands-lettre">${txt(r.lettre)}</span><span class="ex__cands-verdict">${txt(NOMS_IND[r.cle] || r.cle)}${r.cle === ex.cible ? ' · la bonne' : ''}${x.choix === r.cle && r.cle !== ex.cible ? ' · ton choix' : ''}</span><span>${txt(r.texte || '')}</span></li>`).join('')}</ul>`
+          : `<ul class="ex__cands">${ex.candidats.map((c) => { const coche = x.coches.includes(c.i); return `<li class="${c.bon ? 'ex__cands--bon' : 'ex__cands--faux'} ${coche === c.bon ? '' : 'ex__cands--erreur'}"><span class="ex__cands-lettre">${txt(c.lettre)}</span><span class="ex__cands-verdict">${c.bon ? 'à prendre' : 'à laisser'}${coche === c.bon ? '' : (coche ? ' · tu l’as pris' : ' · tu l’as laissé')}</span><span>${txt(c.texte)}</span></li>`; }).join('')}</ul>`;
       return `<li class="ex__corr ${x.ok ? 'ex__corr--ok' : 'ex__corr--rate'}">
         <div class="ex__corr-tete"><span class="ex__corr-verdict">${x.ok ? I.check : I.croix}</span><h4>${txt(ex.titre)} <small>${x.ok ? `${D.points_par_exercice} / ${D.points_par_exercice}` : `0 / ${D.points_par_exercice}`}</small></h4></div>
         <div class="ex__graph ex__graph--corr">${g.html}</div>
@@ -437,13 +488,16 @@
       </li>`;
     });
     const nonEcrit = ctx.ok === false ? `<p class="quiz__non-ecrit">⚠️ Ce résultat n’a pas pu être enregistré. Vérifie ta connexion, puis <button type="button" class="quiz__lien" data-quiz-reecrire>réessaie l’enregistrement</button>.</p>` : '';
-    const bilan = `<p class="ex__bilan">Questions : <b>${r.points_questions} / ${D.questions.length}</b> · Exercices : <b>${r.exercices_reussis} / ${D.exercices.length}</b> réussis · Il faut ${r.seuil} points sur ${r.total} et ${D.exercices_minimum} exercices.</p>`;
+    const cert = !!ctx.certification;
+    const bilan = `<p class="ex__bilan">Questions : <b>${r.points_questions} / ${D.questions.length}</b> · Exercices : <b>${r.exercices_reussis} / ${D.exercices.length}</b> réussis · Il faut ${r.seuil} points sur ${r.total}${D.exercices_minimum ? ` et ${D.exercices_minimum} exercices` : ''}.</p>`;
     if (r.reussi) {
       zone.innerHTML = `
         <div class="quiz__resultat quiz__resultat--ok">
-          <div class="quiz__score"><strong class="mono">${r.score}<small>/ ${r.total}</small></strong><span>Certifié</span></div>
-          <h3>${ctx.dejaFini ? 'Toujours certifié.' : 'Trader 360 certifié.'}</h3>
-          <p>${ctx.dejaFini ? 'Ton certificat, ton badge et tes XP étaient déjà acquis : ce passage comptait pour réviser.' : 'La méthode entière, questions et graphiques. Ton badge de certification et tes 1 000 XP t’attendent.'}</p>
+          <div class="quiz__score"><strong class="mono">${r.score}<small>/ ${r.total}</small></strong><span>${cert ? 'Certifié' : 'Réussi'}</span></div>
+          <h3>${cert ? (ctx.dejaFini ? 'Toujours certifié.' : 'Trader 360 certifié.') : (ctx.dejaFini ? 'Toujours là.' : `Module ${txt(ctx.numero || '')} validé.`)}</h3>
+          <p>${cert
+            ? (ctx.dejaFini ? 'Ton certificat, ton badge et tes XP étaient déjà acquis : ce passage comptait pour réviser.' : 'La méthode entière, questions et graphiques. Ton badge de certification et tes XP t’attendent.')
+            : (ctx.dejaFini ? 'Ton badge et tes XP étaient déjà acquis : ce passage comptait pour réviser.' : `Il fallait ${r.seuil} points, tu en as ${r.score}. Ton badge t’attend.`)}</p>
           ${bilan}${nonEcrit}
           <div class="row">
             ${!ctx.dejaFini && ctx.ok !== false ? `<button type="button" class="btn btn-gold" data-quiz-scene>Récupérer mes XP ${I.arrow}</button>` : `<button type="button" class="btn btn-gold" data-go="modules">Tous les modules ${I.arrow}</button>`}
@@ -456,7 +510,7 @@
         <div class="quiz__resultat quiz__resultat--rate">
           <div class="quiz__score"><strong class="mono">${r.score}<small>/ ${r.total}</small></strong><span>Pas encore</span></div>
           <h3>${r.score >= r.seuil ? `Il fallait ${D.exercices_minimum} exercices réussis sur ${D.exercices.length}.` : `Il fallait ${r.seuil} points.`}</h3>
-          <p>Rien n’est perdu : chaque exercice est corrigé ci-dessous, graphique à l’appui, et chaque question te renvoie au passage de la vidéo. Revois, puis réessaie.</p>
+          <p>${r.score >= r.seuil ? '' : `Il t’en manque ${r.seuil - r.score}. `}Rien n’est perdu : chaque exercice est corrigé ci-dessous, graphique à l’appui, et chaque question te renvoie au passage de la vidéo. Revois, puis réessaie.</p>
           ${bilan}${nonEcrit}
           <ul class="ex__corrs">${exercices.join('')}</ul>
           ${fautes.length ? `<ul class="quiz__fautes">${fautes.join('')}</ul>` : ''}
@@ -469,21 +523,78 @@
     zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  /** L ecran d entree, rendu par supabase-formation.js dans sa carte. */
+  /* ── Les illustrations des questions ───────────────────────────────── */
+  /**
+   * Une question peut porter un dessin : `illustration: { type, ... }`.
+   *   bougies    { bougies: [{o,h,l,c}], surligne: [indices], etiquettes: [{i, texte}], niveau: prix, legende }
+   *              quelques chandeliers, grands, pour lire une forme (marteau, doji, continuation).
+   *   graphique  { ...un exercice sans interaction : chemin, n, graine, bougies, indicateurs, cv, pivot, zone }
+   *              le meme moteur que les exercices, en lecture seule (bandes qui se resserrent, retest).
+   *   courbe     { points: [valeurs], etapes: [{i, texte}], legende }
+   *              une courbe de capital, pour la psychologie (le trade revanchard, la serie).
+   */
+  function illustrer(il, largeur) {
+    const W = Math.max(280, Math.round(largeur || 520));
+    if (il.type === 'graphique') return graphique({ type: 'illustration', n: il.n, graine: il.graine, chemin: il.chemin, bougies: il.bougies, indicateurs: il.indicateurs, cv: il.cv, pivot: il.pivot, zone: il.zone, sens: il.sens, ut: il.ut || '', symbole: il.symbole || '', heure_debut: il.heure_debut || '' }, { largeur: W }).html + (il.legende ? `<p class="ex__legende">${txt(il.legende)}</p>` : '');
+    if (il.type === 'bougies') {
+      const B = il.bougies;
+      const H = 220, M = { g: 16, d: 16, h: 18, b: 22 };
+      const pw = W - M.g - M.d, ph = H - M.h - M.b;
+      let haut = Math.max(...B.map((b) => b.h)), bas = Math.min(...B.map((b) => b.l));
+      if (il.niveau != null) { haut = Math.max(haut, il.niveau); bas = Math.min(bas, il.niveau); }
+      const marge = (haut - bas) * 0.12 || 1; haut += marge; bas -= marge;
+      const y = (p) => M.h + (haut - p) / (haut - bas) * ph;
+      const pas = pw / B.length, x = (i) => M.g + pas * (i + 0.5), lc = Math.min(28, pas * 0.5);
+      const S = [`<svg class="ex__svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(il.legende || 'Chandeliers')}"><rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`];
+      if (il.niveau != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(il.niveau).toFixed(1)}" y2="${y(il.niveau).toFixed(1)}" class="ex__cv"/>${il.niveau_texte ? `<text x="${W - M.d - 4}" y="${(y(il.niveau) - 5).toFixed(1)}" class="ex__etiq" text-anchor="end">${txt(il.niveau_texte)}</text>` : ''}`);
+      B.forEach((b, i) => {
+        const up = b.c >= b.o, yo = y(b.o), yc = y(b.c);
+        const sur = (il.surligne || []).includes(i);
+        S.push(`<g class="ex__bougie ${up ? 'ex__bougie--h' : 'ex__bougie--b'} ${sur ? 'ex__bougie--sur' : ''}"><line x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${y(b.h).toFixed(1)}" y2="${y(b.l).toFixed(1)}"/><rect x="${(x(i) - lc / 2).toFixed(1)}" y="${Math.min(yo, yc).toFixed(1)}" width="${lc.toFixed(1)}" height="${Math.max(2, Math.abs(yo - yc)).toFixed(1)}"/></g>`);
+        if (sur) S.push(`<circle cx="${x(i).toFixed(1)}" cy="${(y(b.h) - 12).toFixed(1)}" r="4" class="ex__point"/>`);
+      });
+      (il.etiquettes || []).forEach((t) => S.push(`<text x="${x(t.i).toFixed(1)}" y="${H - 8}" class="ex__etiq ex__etiq--or" text-anchor="middle">${txt(t.texte)}</text>`));
+      S.push('</svg>');
+      return S.join('') + (il.legende ? `<p class="ex__legende">${txt(il.legende)}</p>` : '');
+    }
+    if (il.type === 'courbe') {
+      const P = il.points;
+      const H = 220, M = { g: 16, d: 16, h: 18, b: 30 };
+      const pw = W - M.g - M.d, ph = H - M.h - M.b;
+      const haut = Math.max(...P) + 1, bas = Math.min(...P) - 1;
+      const y = (v) => M.h + (haut - v) / (haut - bas) * ph;
+      const x = (i) => M.g + (pw * i) / Math.max(1, P.length - 1);
+      const S = [`<svg class="ex__svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(il.legende || 'Courbe')}"><rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`];
+      if (il.base != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(il.base).toFixed(1)}" y2="${y(il.base).toFixed(1)}" class="ex__grille"/>`);
+      S.push(`<path d="${P.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')}" class="ex__courbe"/>`);
+      (il.etapes || []).forEach((t, k) => { S.push(`<circle cx="${x(t.i).toFixed(1)}" cy="${y(P[t.i]).toFixed(1)}" r="5" class="ex__point ${t.rouge ? 'ex__point--mal' : ''}"/><text x="${x(t.i).toFixed(1)}" y="${(k % 2 ? y(P[t.i]) + 20 : y(P[t.i]) - 12).toFixed(1)}" class="ex__etiq ${t.rouge ? '' : 'ex__etiq--or'}" text-anchor="${t.i === 0 ? 'start' : t.i === P.length - 1 ? 'end' : 'middle'}">${txt(t.texte)}</text>`); });
+      S.push('</svg>');
+      return S.join('') + (il.legende ? `<p class="ex__legende">${txt(il.legende)}</p>` : '');
+    }
+    return '';
+  }
+
+  /** L ecran d entree, rendu par supabase-formation.js dans sa carte. `ctx.certification` change le registre. */
   function entree(ctx) {
     const D = ctx.donnees;
-    const total = D.questions.length + D.exercices.length * D.points_par_exercice;
+    const nbEx = (D.exercices || []).length;
+    const total = D.questions.length + nbEx * (D.points_par_exercice || 0);
     const seuil = Math.ceil(total * (D.seuil || 0.8));
+    const mini = D.exercices_minimum || 0;
+    const titre = nbEx ? `${D.questions.length} questions et ${nbEx} exercice${nbEx > 1 ? 's' : ''} sur graphique, ${seuil} points sur ${total} pour ${ctx.certification ? 'être certifié' : 'valider'}.` : `${D.questions.length} questions, ${seuil} bonnes réponses pour valider.`;
+    const corps = ctx.certification
+      ? `C’est l’examen de sortie : il porte sur toute la méthode. Les questions te mettent en situation de séance ; les exercices te donnent un graphique, et c’est toi qui poses la zone ou qui choisis l’entrée. Il faut 80 % des points${mini ? ` et au moins ${mini} exercices réussis sur ${nbEx}` : ''}. Tu peux le repasser autant de fois que tu veux, et chaque exercice est corrigé graphique à l’appui.`
+      : `C’est 80 %. Une question par écran, puis ${nbEx > 1 ? 'les exercices' : 'l’exercice'} sur graphique, et tu valides à la fin. Pour chaque mauvaise réponse tu auras le conseil et le passage de la vidéo à revoir, et chaque exercice est corrigé graphique à l’appui. Tu peux le repasser autant de fois que tu veux.`;
     return `
       <div class="quiz__entree">
-        <h3>${D.questions.length} questions et ${D.exercices.length} exercices sur graphique, ${seuil} points sur ${total} pour être certifié.</h3>
-        <p>C’est l’examen de sortie : il porte sur toute la méthode. Les questions te mettent en situation de séance ; les exercices te donnent un graphique, et c’est toi qui poses la zone ou qui choisis l’entrée. Il faut 80 % des points et au moins ${D.exercices_minimum} exercices réussis sur ${D.exercices.length}. Tu peux le repasser autant de fois que tu veux, et chaque exercice est corrigé graphique à l’appui.</p>
+        <h3>${titre}</h3>
+        <p>${corps}</p>
         ${ctx.dernier ? `<p class="quiz__dernier">Dernier essai : <b>${ctx.dernier.score} / ${ctx.dernier.total}</b>${ctx.dernier.date ? `, le ${txt(ctx.dernier.date)}` : ''}.</p>` : ''}
-        <button type="button" class="btn btn-gold" data-quiz-commencer>Commencer l’examen <span class="mono" style="opacity:.75">+${ctx.xp || 1000} XP</span></button>
+        <button type="button" class="btn btn-gold" data-quiz-commencer>${ctx.certification ? 'Commencer l’examen' : ctx.refaire ? 'Refaire le quiz' : 'Commencer le quiz'} <span class="mono" style="opacity:.75">+${ctx.xp || 0} XP</span></button>
       </div>`;
   }
 
   function arreter() { if (_etat && _etat.nettoyer) _etat.nettoyer(); _etat = null; }
 
-  racine.FormationExamen = { commencer, rendreResultat, entree, arreter, _calcul: { bougiesDe, graphique, noter, noterExercice, mm20 } };
+  racine.FormationExamen = { commencer, rendreResultat, entree, arreter, illustrer, _calcul: { bougiesDe, graphique, noter, noterExercice, mm20, bollinger, vwap } };
 })();

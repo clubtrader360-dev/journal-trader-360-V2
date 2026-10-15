@@ -493,7 +493,7 @@
    "heure_debut": "Mar. 02:00",
    "graine": 23,
    "n": 80,
-   "cv": 6947.25,
+   "cv": 6943.75,
    "chemin": [
     [
      6955,
@@ -578,7 +578,7 @@
     "centre": 6942.25,
     "marge": 1.5
    },
-   "explication": "La zone des 6 942 : deux creux au même niveau, puis un pullback qui est revenu s'y poser avant de repartir. Trois fois travaillée, c'est la zone d'achat du plan.",
+   "explication": "La zone des 6 942 : deux creux au même niveau, puis un pullback qui est revenu s'y poser avant de repartir, et la clôture de la veille à 6 943,75 en confluence. Trois fois travaillée, c'est la zone d'achat du plan.",
    "pieges": [
     {
      "prix": 6935,

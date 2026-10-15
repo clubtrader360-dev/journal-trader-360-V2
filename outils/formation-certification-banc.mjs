@@ -155,4 +155,42 @@ dire(e2.length === 2 && e2[1].score === 25 && e2[1].reussi === false && verifier
 dire(C.quiz()['10'].reussi && C.quiz()['10'].score === 40, 'synthese : reste certifie, meilleur score 40');
 // temoin negatif : une chaine absente
 dire(!/CHAINE_ABSENTE_DU_RENDU/.test(h), 'temoin negatif : une chaine etrangere est bien absente');
+/* ── 3. Un quiz de module par le moteur : module 03, 12 questions + 2 reperes ── */
+console.log('quiz de module par le moteur (03 : reperer ; 02 : questions illustrees)');
+const Q3 = window.FORMATION_QUIZ['03'], Q2 = window.FORMATION_QUIZ['02'];
+dire(Q3.exercices && Q3.exercices.length === 2 && Q3.exercices.every((x) => x.type === 'reperer') && Q3.points_par_exercice === 2, 'FORMATION_QUIZ.03 : 2 exercices reperer a 2 points');
+dire(Q2.questions.filter((q) => q.illustration).length === 2 && !Q2.exercices, 'FORMATION_QUIZ.02 : 2 questions illustrees, pas d exercice');
+const m3 = C.mods().find((m) => m.cle === '03'), q3 = m3.lecons.find((l) => l.quiz);
+dire(q3.moteur && q3.questions === 16 && C.seuilDe(q3) === 13, 'chapitre quiz 03 : moteur, 16 points, seuil 13', `${q3.questions} / ${C.seuilDe(q3)}`);
+for (const ex of Q3.exercices) {
+  const g = E._calcul.graphique(ex, { largeur: 680, choix: null, interactif: true });
+  dire((g.html.match(/data-ex-ind=/g) || []).length === ex.reperes.length && /ex__vwap/.test(g.html) && (ex.cible !== 'pivot' || /ex__pivot/.test(g.html)), `${ex.id} : ${ex.reperes.length} reperes cliquables, traces presents`);
+  dire(!new RegExp(`CV ${(ex.cv || 0).toLocaleString('fr-FR')}`).test(g.html), `${ex.id} : la CV n est pas etiquetee (ce serait la reponse)`);
+  dire(E._calcul.noterExercice(ex, { choix: ex.cible }).ok && !E._calcul.noterExercice(ex, { choix: ex.reperes.find((r) => r.cle !== ex.cible).cle }).ok && !E._calcul.noterExercice(ex, { choix: null }).ok, `${ex.id} : notation (cible, autre, rien)`);
+}
+for (const q of Q2.questions.filter((x) => x.illustration)) { const svg = E.illustrer(q.illustration, 520); dire(/<svg/.test(svg) && (q.illustration.type !== 'bougies' || (svg.match(/ex__bougie /g) || []).length === q.illustration.bougies.length), `${q.id} : illustration ${q.illustration.type} rendue`); }
+for (const q of window.FORMATION_QUIZ['06'].questions.filter((x) => x.illustration)) { const svg = E.illustrer(q.illustration, 520); dire(/ex__courbe/.test(svg) && (svg.match(/ex__point/g) || []).length >= q.illustration.etapes.length, `${q.id} : courbe de capital rendue avec ses etapes`); }
+for (const q of window.FORMATION_QUIZ['03'].questions.filter((x) => x.illustration)) { const svg = E.illustrer(q.illustration, 520); dire(/ex__bb|ex__vwap/.test(svg), `${q.id} : graphique illustre avec ses indicateurs`); }
+// parcours : le quiz 03 par les clics
+rendus.length = 0; ecritures.length = 0; F.ouvrirLecon('m03-quiz'); await new Promise((r) => setTimeout(r, 40));
+h = rendus.find((r) => r.id === 'formation')?.html || '';
+dire(/quiz__fait/.test(h) || /quiz__entree/.test(h), 'quiz 03 ouvert (deja reussi dans ce banc, ecran « reussi »)');
+await clic({ 'data-quiz-commencer': '' });
+h = derniereZone();
+dire(/Question 1 sur 12/.test(h) && (h.match(/data-ex-rep=/g) || []).length >= 2, 'moteur : question 1 sur 12');
+for (let i = 0; i < 12; i += 1) {
+  if (Q3.questions[i].illustration) { h = derniereZone(); dire(/ex__illu/.test(h) && /<svg/.test(h), `question ${i + 1} : illustree a l ecran`); }
+  await clic({ 'data-ex-rep': String(Q3.questions[i].bonne) }); await clic({ 'data-ex-suiv': '' });
+}
+h = derniereZone(); dire(/Exercice 1 sur 2/.test(h) && /Repère la VWAP/.test(h) && /disabled/.test(h), 'exercice 1 : reperer, suivant desactive');
+await clic({ 'data-ex-ind': 'vwap' });
+h = derniereZone(); dire(/c’est celle-là/.test(h) && !/data-ex-suiv disabled/.test(h), 'C choisi : suivant actif');
+await clic({ 'data-ex-suiv': '' });
+await clic({ 'data-ex-ind': 'cv' }); // faux : la CV au lieu du pivot
+rendus.length = 0; await clic({ 'data-ex-suiv': '' }); await new Promise((r) => setTimeout(r, 60));
+h = derniereZone();
+dire(/quiz__resultat--ok/.test(h) && /14<small>\/ 16/.test(h) && /Module 03 validé|Toujours là/.test(h) && !/Certifié/.test(h), 'resultat : 14 / 16, reussi, registre « module », pas « certifie »');
+dire(/ex__corr--rate/.test(h) && /ton choix/.test(h) && /la bonne/.test(h), 'le repere faux est corrige, lettre par lettre');
+const e3 = ecritures.find((x) => x.module_cle === '03');
+dire(e3 && e3.score === 14 && e3.total === 16 && e3.reussi === true && e3.reponses.exercices[1].choix === 'cv' && verifierContrainte(e3), 'ecriture 03 : 14 / 16, reponses { questions, exercices }');
 console.log(process.exitCode ? '\n⛔ des defauts' : '\nbanc vert');

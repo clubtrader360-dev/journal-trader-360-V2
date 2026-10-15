@@ -1129,3 +1129,17 @@ body:not(.dark-mode) #formationApp .ex__bougie--b line,body:not(.dark-mode) #for
 #formationApp .ex__cands--bon .ex__cands-verdict{color:var(--gold)}
 #formationApp .ex__cands--erreur{border-color:var(--gold-line);background:var(--gold-wash)}
 @media (max-width:640px){#formationApp .ex__fin{min-width:52px;padding:10px 14px}#formationApp .ex__aide{flex:1 1 100%}}
+/* Les indicateurs traces, les reperes et les illustrations de questions (lot exercices dans les quiz, 15/10) */
+#formationApp .ex__bb{fill:none;stroke:var(--ink-mute);stroke-width:1.1;opacity:.75}
+#formationApp .ex__mm100{fill:none;stroke:var(--ink-soft);stroke-width:1.3;opacity:.8}
+#formationApp .ex__vwap{fill:none;stroke:var(--gold-2);stroke-width:1.3;stroke-dasharray:6 3;opacity:.9}
+#formationApp .ex__pivot{stroke:var(--ink);stroke-width:1;opacity:.7}
+#formationApp .ex__rep line{stroke:var(--ink-mute);stroke-width:1}
+#formationApp .ex__illu{margin:2px 0 4px}
+#formationApp .ex__illu--petite{max-width:420px}
+#formationApp .ex__legende{margin:0;padding:8px 12px 10px;font-size:13px;color:var(--ink-mute);line-height:1.45}
+#formationApp .ex__courbe{fill:none;stroke:var(--gold);stroke-width:2;stroke-linejoin:round}
+#formationApp .ex__point{fill:var(--gold);stroke:var(--surface-2);stroke-width:2}
+#formationApp .ex__point--mal{fill:var(--ink-mute)}
+#formationApp .ex__bougie--sur line{stroke-width:2.2}
+#formationApp .ex__bougie--sur rect{stroke-width:1.5}

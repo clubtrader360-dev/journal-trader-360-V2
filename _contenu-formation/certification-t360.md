@@ -297,7 +297,10 @@ considérer comme faux ».
   deux fois en 30 minutes), à deux points de la clôture de la veille. Les pièges :
   un sommet isolé plus haut, touché une seule fois, et des creux non alignés en
   bas du graphique.
-- **A2, zone d'achat.** Deux creux et un pullback sur le même niveau. Les pièges :
+- **A2, zone d'achat.** Deux creux et un pullback sur le même niveau, la clôture
+  de la veille en confluence (retour de Nadir du 15/10 : une CV posée cinq
+  points au-dessus faisait une seconde zone d'achat, le graphique devenait
+  ambigu ; la CV est maintenant dans la zone, comme en A1). Les pièges :
   le plus bas absolu du graphique (touché une seule fois, sur une mèche, le marché
   n'y est jamais revenu) et des sommets non alignés au-dessus, qui seraient de
   toute façon des zones de vente.
