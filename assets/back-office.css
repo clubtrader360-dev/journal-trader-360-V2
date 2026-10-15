@@ -17,17 +17,34 @@
   --f-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
   --r-card: 18px; --r-pill: 40px;
   --barre: 264px;
+  --verre: rgba(10, 10, 13, .72); --carte: rgba(17, 19, 24, .88); --fond-sombre: #0a0a0d;
+  --fond:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .10), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%);
   color-scheme: dark;
 }
+/* ── Le theme clair : celui de l espace membre, « aube claire » (15/10) ────── */
+body:not(.dark-mode) {
+  --bg: #f6f2ea; --surface: #ffffff; --surface-2: #f1ece1; --surface-3: #e7e0d1;
+  --text: #17140f; --text-strong: #0d0b07; --text-muted: #4e483d; --text-soft: #6e685b; --text-disabled: #a39d8f;
+  --border: #e2dbcc; --border-strong: #d2c9b5;
+  --gold: #b98a2e; --gold-2: #d3a73c; --gold-deep: #8f6a1f;
+  --gold-line: rgba(185, 138, 46, .40); --gold-glow: rgba(185, 138, 46, .35); --gold-wash: rgba(185, 138, 46, .10);
+  --verre: rgba(250, 247, 241, .78); --carte: rgba(255, 255, 255, .86); --fond-sombre: #f6f2ea;
+  --fond:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .22), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .14), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #faf7f1, #f3eee4 70%);
+  color-scheme: light;
+}
+html:has(body:not(.dark-mode)) { background: #f6f2ea; }
 *, *::before, *::after { box-sizing: border-box; }
 html { background: #0a0a0d; }
 body {
   margin: 0; min-height: 100vh; color: var(--text); font-family: var(--f-ui); font-size: 15px; line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-  background:
-    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
-    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .10), transparent 60%),
-    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%);
+  background: var(--fond);
   background-attachment: fixed;
 }
 a { color: inherit; }
@@ -41,7 +58,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 
 /* ── Le voile de chargement ──────────────────────────────────────────────── */
-.bo-voile { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: #0a0a0d; }
+.bo-voile { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: var(--fond-sombre); }
 .bo-voile .marque { width: 180px; opacity: .9; }
 .bo-voile[hidden] { display: none; }
 
@@ -50,7 +67,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo[hidden] { display: none; }
 .bo-barre {
   width: var(--barre); flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
-  background: rgba(10, 10, 13, .72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  background: var(--verre); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border-right: 1px solid var(--border); display: flex; flex-direction: column; scrollbar-width: none;
 }
 .bo-barre::-webkit-scrollbar { display: none; }
@@ -69,7 +86,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-barre__pied small { font-size: 12px; color: var(--text-soft); text-align: center; word-break: break-all; }
 
 .bo-contenu { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.bo-haut { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 14px 28px; background: rgba(10, 10, 13, .72); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--border); }
+.bo-haut { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 14px 28px; background: var(--verre); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--border); }
 .bo-fil { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--text-soft); font-weight: 600; }
 .bo-recharger { margin-left: auto; }
 .bo-burger { display: none; background: none; border: 1px solid var(--border); border-radius: 10px; width: 38px; height: 38px; }
@@ -88,10 +105,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .bo-btn:hover { transform: translateY(-1px); }
 .bo-btn--or { background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: #120e07; box-shadow: 0 8px 30px -8px var(--gold-glow); }
-.bo-btn--fantome { background: rgba(255, 255, 255, .03); border-color: var(--border); color: var(--text); }
+.bo-btn--fantome { background: var(--surface-2); border-color: var(--border); color: var(--text); }
 .bo-btn--fantome:hover { border-color: var(--gold-line); }
 .bo-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-.bo-carte { background: rgba(17, 19, 24, .88); border: 1px solid var(--border); border-radius: var(--r-card); padding: 22px 24px; margin-bottom: 18px; box-shadow: 0 20px 60px -40px rgba(0, 0, 0, .7); }
+.bo-carte { background: var(--carte); border: 1px solid var(--border); border-radius: var(--r-card); padding: 22px 24px; margin-bottom: 18px; box-shadow: 0 20px 60px -40px rgba(0, 0, 0, .7); }
 .bo-carte h2 { margin: 0 0 14px; font-size: 19px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: baseline; gap: 10px; }
 .bo-carte h2 b { color: var(--gold); }
 .bo-carte h2 small { font-size: 13px; font-weight: 500; color: var(--text-soft); }
@@ -107,7 +124,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
 .bo-table th { text-align: left; font-size: 11.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); padding: 8px 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .bo-table td { padding: 11px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.bo-table tr:hover td { background: rgba(255, 255, 255, .02); }
+.bo-table tr:hover td { background: var(--gold-wash); }
 .bo-table td.num, .bo-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .bo-enveloppe { overflow-x: auto; }
 .bo-barre-prog { height: 6px; border-radius: 6px; background: var(--surface-3); overflow: hidden; min-width: 90px; }
@@ -116,7 +133,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ── Les indicateurs ───────────────────────────────────────────────────────── */
 .bo-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 18px; }
-.bo-kpi { background: rgba(17, 19, 24, .88); border: 1px solid var(--border); border-radius: var(--r-card); padding: 18px 20px; display: grid; gap: 6px; }
+.bo-kpi { background: var(--carte); border: 1px solid var(--border); border-radius: var(--r-card); padding: 18px 20px; display: grid; gap: 6px; }
 .bo-kpi__ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--gold-wash); color: var(--gold); margin-bottom: 6px; }
 .bo-kpi__k { font-size: 13px; color: var(--text-muted); }
 .bo-kpi__k b { display: block; font-size: 12px; color: var(--text-soft); font-weight: 500; }
@@ -132,15 +149,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ── Les ecrans a venir : une carte qui dit ce qui vient ───────────────────── */
 .bo-avenir { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-.bo-avenir__carte { background: rgba(17, 19, 24, .88); border: 1px dashed var(--gold-line); border-radius: var(--r-card); padding: 20px; }
+.bo-avenir__carte { background: var(--carte); border: 1px dashed var(--gold-line); border-radius: var(--r-card); padding: 20px; }
 .bo-avenir__carte h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; }
 .bo-avenir__carte p { margin: 0; color: var(--text-muted); font-size: 14px; }
 
 /* ── Les modeles d emails ──────────────────────────────────────────────────── */
 .bo-modeles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
-.bo-modele { background: rgba(17, 19, 24, .88); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; display: grid; grid-template-rows: 150px auto; transition: border-color .2s ease, transform .2s ease; }
+.bo-modele { background: var(--carte); border: 1px solid var(--border); border-radius: var(--r-card); overflow: hidden; display: grid; grid-template-rows: 150px auto; transition: border-color .2s ease, transform .2s ease; }
 .bo-modele:hover { border-color: var(--gold-line); transform: translateY(-2px); }
-.bo-modele__apercu { background: #0a0a0d; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.bo-modele__apercu { background: var(--fond-sombre); padding: 16px; display: grid; gap: 6px; align-content: start; }
 .bo-modele__apercu i { display: block; height: 8px; border-radius: 4px; background: var(--surface-3); }
 .bo-modele__apercu i.or { background: var(--gold); width: 44%; }
 .bo-modele__apercu i.titre { height: 14px; width: 70%; background: var(--text-muted); }
@@ -151,7 +168,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-modele--libre .bo-modele__apercu { display: grid; place-items: center; font-size: 34px; color: var(--gold); }
 
 /* ── Le toast ──────────────────────────────────────────────────────────────── */
-.bo-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 9000; background: #14171d; border: 1px solid var(--gold-line); color: var(--text); padding: 12px 18px; border-radius: 14px; font-size: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); transition: transform .25s ease, opacity .25s ease; max-width: min(90vw, 520px); }
+.bo-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 9000; background: var(--surface); border: 1px solid var(--gold-line); color: var(--text); padding: 12px 18px; border-radius: 14px; font-size: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); transition: transform .25s ease, opacity .25s ease; max-width: min(90vw, 520px); }
 .bo-toast.on { transform: translate(-50%, 0); opacity: 1; }
 .bo-toast.erreur { border-color: rgba(239, 68, 68, .5); }
 
@@ -164,3 +181,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .bo-haut { padding: 12px 14px; }
   .bo-kpi__v { font-size: 22px; }
 }
+
+/* ── Le bouton de theme, dans le pied de la barre ──────────────────────────── */
+.bo-theme { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.bo-theme i { color: var(--gold); }

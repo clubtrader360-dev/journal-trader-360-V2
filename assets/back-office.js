@@ -23,7 +23,15 @@
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + (heure ? ` à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '');
   };
   const moisFr = (ym) => { const [a, m] = String(ym).split('-'); const d = new Date(Number(a), Number(m) - 1, 1); return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }); };
-  const OR = '#e8b84b', OR2 = '#f3d585', ORD = '#b98a2e', GRIS = '#9c9b94', LIGNE = '#1e2128';
+  // ⚠️ Les couleurs des graphiques se LISENT dans le theme au moment du trace :
+  // en dur, un graphique dessine en sombre resterait sombre sur le theme clair.
+  const sombre = () => document.body.classList.contains('dark-mode');
+  const C = () => sombre()
+    ? { OR: '#e8b84b', OR2: '#f3d585', ORD: '#b98a2e', GRIS: '#9c9b94', LIGNE: '#1e2128', FOND: '#0a0a0d', VIDE: '#2a2e37' }
+    : { OR: '#b98a2e', OR2: '#d3a73c', ORD: '#8f6a1f', GRIS: '#6e685b', LIGNE: '#e2dbcc', FOND: '#f6f2ea', VIDE: '#d2c9b5' };
+  let OR = '#e8b84b', OR2 = '#f3d585', ORD = '#b98a2e', GRIS = '#9c9b94', LIGNE = '#1e2128';
+  function couleurs() { ({ OR, OR2, ORD, GRIS, LIGNE } = C()); }
+  couleurs();
 
   /* ══ Le toast (supabase-coach-membres.js appelle window.showNotification) ══ */
   let _toastMinuteur = null;
@@ -71,6 +79,7 @@
   function graph(id, config) {
     const cv = $(id);
     if (!cv || !window.Chart) return;
+    couleurs();
     if (_graphs.has(id)) { _graphs.get(id).destroy(); _graphs.delete(id); }
     Chart.defaults.color = GRIS;
     Chart.defaults.font.family = '"Inter", system-ui, sans-serif';
@@ -151,8 +160,8 @@
       { label: 'Élèves actifs', data: serie(a.eleves_actifs_par_mois), type: 'line', borderColor: GRIS, backgroundColor: GRIS, tension: .35, pointRadius: 3, yAxisID: 'y2' },
     ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { ...axes(), y2: { position: 'right', grid: { display: false }, ticks: { color: GRIS }, beginAtZero: true } } } });
     const pn = a.par_niveau || {};
-    graph('gNiveaux', { type: 'doughnut', data: { labels: ['Débutant', 'Intermédiaire', 'Confirmé'], datasets: [{ data: [pn.debutant || 0, pn.intermediaire || 0, pn.confirme || 0], backgroundColor: [ORD, OR, OR2], borderColor: '#0a0a0d', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } } });
-    graph('gAvancement', { type: 'bar', data: { labels: ['Rien', 'Moins de la moitié', 'Plus de la moitié', 'Terminé'], datasets: [{ data: seaux, backgroundColor: ['#2a2e37', ORD, OR, OR2], borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axes() } });
+    graph('gNiveaux', { type: 'doughnut', data: { labels: ['Débutant', 'Intermédiaire', 'Confirmé'], datasets: [{ data: [pn.debutant || 0, pn.intermediaire || 0, pn.confirme || 0], backgroundColor: [ORD, OR, OR2], borderColor: C().FOND, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } } });
+    graph('gAvancement', { type: 'bar', data: { labels: ['Rien', 'Moins de la moitié', 'Plus de la moitié', 'Terminé'], datasets: [{ data: seaux, backgroundColor: [C().VIDE, ORD, OR, OR2], borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axes() } });
   };
 
   /* ══ ACADEMIE · FORMATIONS ═════════════════════════════════════════════════ */
@@ -426,7 +435,7 @@
     }
     if (_cmdOnglet === 'statistiques') {
       const pt = v.par_type || [];
-      graph('gTypes', { type: 'doughnut', data: { labels: pt.map((x) => x.type), datasets: [{ data: pt.map((x) => Number(x.montant)), backgroundColor: [OR, OR2, ORD, GRIS, '#2a2e37'], borderColor: '#0a0a0d', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '66%', plugins: { legend: { position: 'right', labels: { color: GRIS } }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${eur(c.parsed)}` } } } } });
+      graph('gTypes', { type: 'doughnut', data: { labels: pt.map((x) => x.type), datasets: [{ data: pt.map((x) => Number(x.montant)), backgroundColor: [OR, OR2, ORD, GRIS, C().VIDE], borderColor: C().FOND, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '66%', plugins: { legend: { position: 'right', labels: { color: GRIS } }, tooltip: { callbacks: { label: (c) => ` ${c.label} : ${eur(c.parsed)}` } } } } });
     }
   };
   document.addEventListener('click', (e) => {
@@ -452,6 +461,15 @@
     window.addEventListener('hashchange', router);
     $('boBurger').addEventListener('click', () => $('bo').classList.toggle('barre-ouverte'));
     $('boRecharger').addEventListener('click', () => { _cache.clear(); router(); dire('Données relues.'); });
+    // Le theme : memorise, et les graphiques se redessinent dans les bonnes couleurs.
+    const majTheme = () => { const b = $('boTheme'); if (!b) return; const clair = !sombre(); b.querySelector('i').className = `fas ${clair ? 'fa-moon' : 'fa-sun'}`; b.querySelector('span').textContent = clair ? 'Thème sombre' : 'Thème clair'; };
+    majTheme();
+    $('boTheme').addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      try { localStorage.setItem('t360.backOfficeTheme', sombre() ? 'sombre' : 'clair'); } catch { /* rien */ }
+      majTheme();
+      router();
+    });
     $('boDeconnexion').addEventListener('click', async () => { try { await cli().auth.signOut({ scope: 'local' }); } catch { /* rien */ } location.href = '/index.html'; });
     if (!location.hash) location.hash = '#/accueil';
     await router();
