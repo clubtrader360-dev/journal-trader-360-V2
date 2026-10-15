@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Trader 360 - Journal de Trading Professionnel</title>
+    <!-- ⚠️ Un lien de mot de passe qui atterrit ICI au lieu de /reset-password.html
+         (15/10, cas Philippe) : Supabase remplace l adresse de retour par l URL du
+         site quand elle n est pas dans sa liste d adresses autorisees (www. absent,
+         sous-domaine d apercu...). Le jeton est alors dans le fragment de cette page,
+         que personne ne lit, et l eleve tape son nouveau mot de passe dans le
+         formulaire de connexion : « Email ou mot de passe incorrect ». Quel que soit
+         le reglage Supabase, un jeton de type recovery est route vers la page qui
+         sait le lire, fragment intact. Avant tout autre script : le client principal
+         ne lit pas l URL (detectSessionInUrl:false) et ne doit pas le voir. -->
+    <script>
+    (function () {
+        var h = window.location.hash || '';
+        // Jeton OU erreur (lien expire) : la page de reinitialisation sait dire les deux.
+        if (/type=recovery/.test(h) && !/^\/reset-password\.html/.test(window.location.pathname)) {
+            window.location.replace('/reset-password.html' + h);
+        }
+    })();
+    </script>
     <!-- 
     VERSION V46 DEBUG - Trade Duration Performance
     

@@ -405,6 +405,7 @@
       else if (t.matches('[data-onglet]')) { _ongletFiche = t.dataset.onglet; rendreFiche(); }
       else if (t.matches('[data-quiz-detail]')) { const i = Number(t.dataset.quizDetail); _quizOuvert = _quizOuvert === i ? null : i; rendreFiche(); }
       else if (t.matches('[data-fiche-mail]')) renvoyerMailFiche(t);
+      else if (t.matches('[data-fiche-mdp]')) poserMotDePasse(t);
       else if (t.matches('[data-fiche-journal]')) voirJournalFiche();
       else if (t.matches('[data-mail]')) renvoyerMail(t);
       else if (t.matches('[data-voir]')) voirJournal(t);
@@ -531,7 +532,7 @@
         </div>
         <p class="am-fiche__actif ${d.absent ? 'am-absent' : ''}">${derniere ? `Actif ${txt(d.t)}` : 'Jamais venu'}</p>
         <div class="am-fiche__actions">
-          ${f.compte ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-mail title="Renvoyer le mail de première connexion"><i class="fas fa-envelope"></i> Mail</button>` : ''}
+          ${f.compte ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-mail title="Renvoyer le mail de première connexion"><i class="fas fa-envelope"></i> Mail</button><button type="button" class="am-btn am-btn--fantome" data-fiche-mdp title="Poser un mot de passe provisoire, à transmettre toi-même"><i class="fas fa-key"></i> Mot de passe</button>` : ''}
           ${f.compte && f.acces && f.acces.journal_actif ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-journal title="Ouvrir son journal en lecture seule"><i class="fas fa-book"></i> Journal</button>` : ''}
         </div>
         ${m && !m.sans_compte ? `
@@ -639,6 +640,21 @@
     return '';
   }
 
+  /**
+   * Un mot de passe provisoire pose par le coach (15/10, cas Philippe). Le
+   * coach le tape, il part UNE fois au serveur, rien ne le garde ici : pas de
+   * variable, pas de toast qui le repete, et le champ est vide a la fermeture.
+   */
+  async function poserMotDePasse(bouton) {
+    if (!_fiche || !_fiche.compte) return;
+    const mdp = window.prompt(`Mot de passe provisoire pour ${_fiche.compte.email} (douze caractères minimum). Tu le transmets toi-même ; il le changera dans son espace.`);
+    if (mdp == null) return;
+    if (String(mdp).length < 12) { dire('Douze caractères minimum.', 'error'); return; }
+    bouton.disabled = true;
+    try { await appeler('mot_de_passe', { user_id: _fiche.compte.user_id, mot_de_passe: mdp }); dire(`Mot de passe provisoire posé pour ${_fiche.compte.email}. Transmets-le lui.`); }
+    catch (e) { dire(e.message, 'error'); }
+    finally { bouton.disabled = false; }
+  }
   async function renvoyerMailFiche(bouton) {
     if (!_fiche || !_fiche.compte) return;
     if (!window.confirm(`Envoyer à ${_fiche.compte.email} le mail de première connexion ?`)) return;

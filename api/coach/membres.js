@@ -11,6 +11,7 @@
  *                  envoyer le mail de premiere connexion (lien pour choisir son
  *                  mot de passe)
  *   renvoyer_mail  renvoyer ce mail a un compte existant
+ *   mot_de_passe   poser un mot de passe provisoire (coach), jamais journalise
  *   creer_manquants  un compte pour chaque membre LearnyBox actif qui n en a
  *                  pas encore, sans mail
  *   fiche          tout ce qu on sait d une personne, pour l ecran « Fiche membre »
@@ -439,6 +440,28 @@ async function renvoyerMail(sb, corps, coach, origine) {
   return { user_id: cible, email, mail_id: id };
 }
 
+/* ══ UN MOT DE PASSE PROVISOIRE, POSE PAR LE COACH ═════════════════════════
+ * Demande de Nadir du 15/10 (cas Philippe, dont le lien de reinitialisation
+ * revenait sur la page de connexion) : « lui donner l acces directement avec
+ * un mot de passe que moi je definis, et lui changera son mot de passe ».
+ * ⚠️ Le mot de passe transite une fois, du coach au serveur, et n est ecrit
+ * nulle part : ni journal, ni reponse, ni console. Le coach le transmet par
+ * son canal, l eleve le change ensuite dans son espace. Douze caracteres
+ * minimum : c est provisoire, pas faible. */
+async function motDePasse(sb, corps, coach) {
+  const cible = String(corps.user_id || '').trim();
+  const mdp = String(corps.mot_de_passe || '');
+  if (!UUID.test(cible)) throw httpError(400, 'user_id absent ou mal forme');
+  if (mdp.length < 12) throw httpError(400, 'mot de passe provisoire trop court : douze caracteres minimum');
+  const { data, error } = await sb.auth.admin.getUserById(cible);
+  if (error || !data?.user?.email) throw httpError(404, 'compte introuvable');
+  const { error: e2 } = await sb.auth.admin.updateUserById(cible, { password: mdp });
+  if (e2) throw httpError(502, `mot de passe non pose : ${e2.message}`);
+  await journaliserMail(sb, { user_id: cible, email: data.user.email, type: 'mot_de_passe_provisoire', sujet: 'Mot de passe provisoire pose par le coach (non envoye par mail)', envoye_par: coach.email });
+  console.log(`[MEMBRES] ✅ mot de passe provisoire pose pour ${data.user.email} par ${coach.email}`);
+  return { user_id: cible, email: data.user.email };
+}
+
 /* ══ LA FICHE D UN MEMBRE ══════════════════════════════════════════════════ */
 /**
  * Tout ce qu on sait d une personne, en une lecture, pour l ecran « Fiche
@@ -792,6 +815,7 @@ export default async function handler(req, res) {
     else if (action === 'niveau') resultat = await niveau(sb, corps, coach);
     else if (action === 'creer') resultat = await creer(sb, corps, coach, origine);
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
+    else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
     else if (action === 'fiche') resultat = await fiche(sb, corps);
     else if (action === 'accueil') resultat = await boAccueil(sb);
