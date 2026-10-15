@@ -1023,3 +1023,39 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp .mnav__btn svg{width:16px;height:16px}
 #formationApp .mnav__btn--grille{padding:13px 24px}
 #formationApp .mnav__btn--grille b{font-size:15px}
+
+/* ── Retours du 15/10 sur l accueil ────────────────────────────────────────── */
+/* « Module 01 » sur les cartes et la pastille d etat : deux crans au-dessus. */
+#formationApp .mod .num{font-size:16px;letter-spacing:.16em}
+#formationApp .pill{font-size:14px;padding:5px 12px}
+#formationApp .mod{padding-top:26px}
+
+/* La pastille d XP n est plus un bouton : « on a tendance à cliquer dessus ».
+   Le niveau de l eleve s y lit en texte dore, precede d un point, sans fond. */
+#formationApp .xp-chip{padding:8px 14px;gap:12px;cursor:default}
+#formationApp .xp-chip .lvl{background:none;box-shadow:none;padding:0 0 0 12px;color:var(--gold);font-weight:700;position:relative;border-radius:0}
+#formationApp .xp-chip .lvl::before{content:"";position:absolute;left:0;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold-glow)}
+#formationApp .xp-chip .lvl.allume{animation:f-palier 1.4s cubic-bezier(.2,.8,.2,1)}
+
+/* Les XP par module, a la place des paliers. */
+#formationApp .xpm{border:1px solid var(--line);border-radius:14px;padding:16px;background:rgba(255,255,255,.02)}
+#formationApp .xpm .head{margin-bottom:10px;align-items:center}
+#formationApp .xpm .head b{font-size:15px;font-weight:700;color:var(--ink)}
+#formationApp .xpm__liste{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+#formationApp .xpm__ligne{display:grid;grid-template-columns:104px 1fr auto;align-items:center;gap:12px;font-size:14px;color:var(--ink-soft)}
+#formationApp .xpm__nom{font-weight:600;color:var(--ink-soft);white-space:nowrap}
+#formationApp .xpm__ligne.courant .xpm__nom{color:var(--gold)}
+#formationApp .xpm__ligne.done .xpm__nom{color:var(--ink)}
+#formationApp .xpm__ligne .bar{margin:0}
+#formationApp .xpm__xp{font-size:13px;color:var(--ink-mute);white-space:nowrap;justify-self:end}
+#formationApp .xpm__xp b{color:var(--ink);font-weight:700}
+#formationApp .xpm__ligne.done .xpm__xp{color:var(--ink-soft)}
+@media (max-width:420px){#formationApp .xpm__ligne{grid-template-columns:86px 1fr auto;gap:8px;font-size:13px}}
+
+/* Le liseré blanc autour de la video, en theme sombre seulement : Chrome rend
+   OPAQUE, sur fond blanc, une iframe dont le `color-scheme` differe de celui
+   de la page, et #formationApp declare `color-scheme:dark`. Le lecteur Vimeo,
+   lui, est en clair : ses marges transparentes devenaient blanches. On aligne
+   l iframe sur le lecteur, et `transparent=0` (supabase-formation.js) lui
+   donne de toute facon un fond noir. */
+#formationApp iframe{color-scheme:light;border:0}

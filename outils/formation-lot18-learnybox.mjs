@@ -56,3 +56,19 @@ dire(/quiz__entree/.test(h) && !/quiz__verrou/.test(h),'page du quiz 05 : ecran 
 const a3 = (rendus.length=0, await F.ouvrir(), rendus.find(r=>r.id==='formation').html);
 dire(/passer au niveau Confirmé/.test(a3) && (a3.match(/lb-encart__btn/g)||[]).length===5,'intermediaire : encart « passer au niveau Confirmé », 5 quiz (01, 02, 04, 05, 06)');
 dire(/locked/.test(a3.slice(a3.lastIndexOf('<button', a3.indexOf('data-carte-module="07"')), a3.indexOf('data-carte-module="07"'))) && /Niveau Confirmé/.test(a3),'intermediaire : le 07 reste ferme (niveau confirme)');
+// ── 15/10 : le niveau de l eleve et les XP par module, a la place des paliers ──
+dire(C.niveauCourant().cle==='intermediaire','niveauCourant : intermediaire (acquis LearnyBox)',C.niveauCourant().cle);
+dire(/Ton niveau/.test(a3) && /class="big">Intermédiaire</.test(a3),'accueil : « Ton niveau » puis Intermédiaire',(a3.match(/class="big">[^<]*/)||[])[0]);
+dire(!/Prochain palier/.test(a3) && /XP par module/.test(a3),'accueil : plus de palier, « XP par module »');
+dire((a3.match(/xpm__ligne/g)||[]).length===9,'9 lignes d XP : 01 a 08 et 7 bis (ni intro, ni bonus, ni certification sans chapitre)',(a3.match(/xpm__ligne/g)||[]).length);
+dire(!/xpm__nom">Certification</.test(a3) && !/xpm__nom">Module 09</.test(a3),'ni la certification (sans chapitre, 0 XP) ni le bonus');
+const x05 = C.xpDuModule(M.find(m=>m.cle==='05'));
+dire(x05.max===350 && x05.gagne===0,'xpDuModule 05 : 0 / 350 (100 chapitres + 250 de prime)',JSON.stringify(x05));
+dire(C.xpDuModule(M.find(m=>m.cle==='10')).max===0,'certification sans chapitre : 0, comme xpMaximum (le jour ou elle en aura, 1100)',C.xpDuModule(M.find(m=>m.cle==='10')).max);
+dire(C.xpDuModule(M.find(m=>m.cle==='05')).max + 8*0 > 0 && M.filter(m=>C.xpDuModule(m).max>0).reduce((t,m)=>t+C.xpDuModule(m).max,0)===C.xpMaximum(),'TEMOIN : la somme des max par module VAUT xpMaximum');
+dire(C.xpDuModule(M.find(m=>m.cle==='09')).max===0,'TEMOIN : le bonus vaut zero');
+tables.formation_niveau_learnybox = [];
+rendus.length=0; await F.ouvrir();
+dire(C.niveauCourant().cle==='debutant','TEMOIN : sans LearnyBox ni quiz, niveauCourant = debutant',C.niveauCourant().cle);
+dire(/class="big">Débutant</.test(rendus.find(r=>r.id==='formation').html),'accueil : Débutant');
+dire(lvl.textContent==='Débutant','la pastille du haut dit Débutant',lvl.textContent);

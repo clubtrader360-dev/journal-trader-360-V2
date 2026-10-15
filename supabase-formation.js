@@ -439,7 +439,9 @@
   const INTRO_ID = 'm00-l0';
   const videoDe = (leconId) => _videos[leconId] || null;
   function urlVimeo(v, autoplay) {
-    const p = new URLSearchParams({ h: v.hash, dnt: '1', title: '0', byline: '0', portrait: '0' });
+    // ⚠️ `transparent: '0'` : le lecteur porte un fond noir au lieu de marges
+    // transparentes, que Chrome rendait BLANCHES en theme sombre (voir formation.css).
+    const p = new URLSearchParams({ h: v.hash, dnt: '1', title: '0', byline: '0', portrait: '0', transparent: '0' });
     if (autoplay) p.set('autoplay', '1');
     return `https://player.vimeo.com/video/${encodeURIComponent(v.vimeo_id)}?${p}`;
   }
@@ -1305,6 +1307,42 @@
     return i;
   }
 
+  /**
+   * ── ⚠️ LE NIVEAU DE L ELEVE : DEBUTANT, INTERMEDIAIRE, CONFIRME ──────────
+   *
+   * Retour de Nadir du 15/10 : les sept paliers d XP (Découvrir, Psychologie…)
+   * « c est plutôt pour le site, l élève n y prêtera pas attention » ; ce qu il
+   * veut lire, c est SON niveau, celui qui ouvre les modules. Il se derive de
+   * la meme source que les cadenas : le plus haut niveau de NIVEAUX_PARCOURS
+   * qui est ouvert, par acquis (LearnyBox ou coach) ou par les conditions.
+   * ⛔ `niveaux()` et `niveauDe()` restent : ils servent encore aux bancs et au
+   * calcul, mais plus rien ne les affiche.
+   */
+  function niveauCourant() {
+    const N = D().NIVEAUX_PARCOURS;
+    let courant = N[0];
+    for (const niv of N) {
+      const ouvert = niv.cle === 'debutant' || niveauAcquis(niv) || conditionsNiveau(niv).ouvert;
+      if (ouvert) courant = niv; else break;
+    }
+    return courant;
+  }
+
+  /**
+   * Les XP gagnes et atteignables d un module : ses chapitres (100 repartis)
+   * plus la prime de fin (XP_MOD, ou XP_CERT pour la certification).
+   * ⚠️ Zero sur zero pour l introduction et le bonus : ils ne rapportent rien.
+   */
+  function xpDuModule(m) {
+    if (m.introduction || m.bonus || !m.lecons.length) return { gagne: 0, max: 0 };
+    const parts = partsXp(m.lecons.length);
+    let gagne = 0;
+    m.lecons.forEach((l, i) => { if (estVue(l.id)) gagne += parts[i]; });
+    const prime = estCert(m) ? XP_CERT : XP_MOD;
+    if (moduleFini(m)) gagne += prime;
+    return { gagne, max: XP_MODULE + prime };
+  }
+
   /** La date de visionnage d une lecon, ou null. ⚠️ Sert la serie de semaines. */
   function quandVue(id) {
     const p = _progression[id];
@@ -1579,7 +1617,7 @@
     const a = $('chipXp');
     const b = $('chipLvl');
     if (a) a.textContent = `${x.toLocaleString('fr-FR')} XP`;
-    if (b) b.textContent = niveaux()[niveauDe(x)].nom;
+    if (b) b.textContent = niveauCourant().nom;
   }
 
   function animerBarres() {
@@ -1716,11 +1754,8 @@
     const faites = nbFaites();
     const pct = total ? Math.round((faites / total) * 100) : 0;
     const x = xpTotal();
-    const li = niveauDe(x);
-    const N = niveaux();
-    const niv = N[li];
-    const suiv = N[li + 1];
-    const pctNiv = suiv ? Math.round(((x - niv.xp) / (suiv.xp - niv.xp)) * 100) : 100;
+    const nivEleve = niveauCourant();
+    const xpMax = xpMaximum();
     const modsOk = M.filter(moduleFini).length;
     const pr = prochain();
     const st = serie();
@@ -1773,38 +1808,37 @@
             <div class="val"><div><strong class="mono">${pct}<small style="font-size:.5em">%</small></strong><span>du parcours</span></div></div>
           </div>
           <div class="ring-side">
-            <div class="eyebrow" style="font-size:11px">Niveau ${li + 1} / ${N.length}</div>
-            <div class="big">${txt(niv.nom)}</div>
+            <div class="eyebrow" style="font-size:11px">Ton niveau</div>
+            <div class="big">${txt(nivEleve.nom)}</div>
             <div class="small">${faites ? `${faites} chapitre${faites > 1 ? 's' : ''} terminé${faites > 1 ? 's' : ''}` : 'Rien de commencé'}</div>
           </div>
         </div>
         <!--
-          ── ⛔ LE PROCHAIN PALIER EST NOMME, CHIFFRE ET DESSINE ───────────────
-
-          ⚠️ Il tenait en une ligne : « 525 XP avant Psychologie ». Nadir l a
-          accepte le 14/10 mais a du REFLECHIR pour comprendre que c etait le
-          prochain palier : un chiffre seul n a pas d echelle, et « avant »
-          pouvait se lire comme une date.
-
-          ⛔ Trois choses, donc, et dans cet ordre : le NOM de ce qui vient, ce
-          qu il RESTE, et une BARRE qui montre ou on en est entre les deux
-          paliers. ⚠️ Les deux bornes sont ecrites sous la barre : sans elles,
-          un remplissage ne dit pas de quoi il est la fraction.
+          ── ⚠️ LES XP PAR MODULE, A LA PLACE DES PALIERS ──────────────────────
+          Retour de Nadir du 15/10 : « garde le rail avec les XP, mais au lieu
+          de mettre les étapes, divise par module ». Une ligne par module qui
+          rapporte : son nom, son rail, ses XP gagnes sur ses XP possibles.
+          ⛔ Le total se derive de la meme source que ses parts (xpMaximum) :
+          aucun chiffre ecrit en dur. L introduction et le bonus, a zero XP,
+          n y figurent pas ; la certification y est, avec sa prime.
         -->
-        <div class="lvl-bar palier" data-palier>
+        <div class="lvl-bar xpm" data-xp-modules>
           <div class="head">
-            <span class="palier-eyebrow">Prochain palier</span>
-            <b>${suiv ? txt(suiv.nom) : 'Dernier niveau atteint'}</b>
+            <span class="palier-eyebrow">XP par module</span>
+            <b class="mono" data-xp-total>${x.toLocaleString('fr-FR')} / ${xpMax.toLocaleString('fr-FR')} XP</b>
           </div>
-          ${suiv ? `<div class="palier-reste">Il te reste
-            <b class="mono" data-palier-reste>${(suiv.xp - x).toLocaleString('fr-FR')} XP</b></div>` : ''}
-          <div class="bar"><i data-w="${pctNiv}" data-palier-bar></i></div>
-          <div class="palier-bornes">
-            <span>${txt(niv.nom)}<em class="mono">${niv.xp.toLocaleString('fr-FR')}</em></span>
-            <span class="mono" data-palier-xp>${x.toLocaleString('fr-FR')} XP</span>
-            ${suiv ? `<span>${txt(suiv.nom)}<em class="mono">${suiv.xp.toLocaleString('fr-FR')}</em></span>` : ''}
-          </div>
-          <div class="ladder" aria-hidden="true">${N.map((l, k) => `<span class="${k <= li ? 'on' : ''}" data-palier-cran="${k}" title="${txt(l.nom)}"></span>`).join('')}</div>
+          <ul class="xpm__liste">
+            ${M.filter((m) => xpDuModule(m).max > 0).map((m) => {
+              const e = xpDuModule(m);
+              const pctM = e.max ? Math.round((e.gagne / e.max) * 100) : 0;
+              const courant = pr && M[pr[0]] === m;
+              return `<li class="xpm__ligne ${moduleFini(m) ? 'done' : ''} ${courant ? 'courant' : ''}" data-xpm="${txt(m.cle)}">
+                <span class="xpm__nom">${estCert(m) ? 'Certification' : `Module ${txt(m.numero)}`}</span>
+                <span class="bar thin ${moduleFini(m) ? 'done' : ''}"><i data-w="${pctM}" data-xpm-rail="${txt(m.cle)}"></i></span>
+                <span class="mono xpm__xp"><b data-xpm-xp="${txt(m.cle)}">${e.gagne.toLocaleString('fr-FR')}</b> / ${e.max.toLocaleString('fr-FR')} XP</span>
+              </li>`;
+            }).join('')}
+          </ul>
         </div>
         <div class="stat-row">
           <div class="stat"><div class="k">Chapitres</div><div class="v">${faites}<span style="color:var(--ink-mute);font-weight:400">/${total}</span></div></div>
@@ -2547,7 +2581,7 @@
      * `terminer()` : la scene est une DIFFERENCE. ⚠️ Et il est lu meme en cas
      * d echec, sans servir.
      */
-    const av = { xp: xpTotal(), niveau: niveauDe(xpTotal()), fini: moduleFini(m), badges: badges().filter((b) => b.ok()).map((b) => b.id) };
+    const av = { xp: xpTotal(), niveau: niveauCourant().cle, fini: moduleFini(m), badges: badges().filter((b) => b.ok()).map((b) => b.id) };
     const zone = $('quizZone');
     if (zone) zone.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     const ok = await ecrireQuiz(m.cle, score, total, reussi, reponses);
@@ -3065,7 +3099,7 @@
     const c = m.lecons[ci];
     const gain = xpDe(c.id);
     const xpApres = xpTotal();
-    const nivApres = niveauDe(xpApres);
+    const nivApres = niveauCourant();
     const finiMaintenant = !av.fini && moduleFini(m);
 
     _scene = { enCours: true, saute: false, nettoyages: [] };
@@ -3126,11 +3160,13 @@
        * ⚠️ On n est pas sur l accueil quand on termine un chapitre : le cran
        * a allumer n y est pas. ⛔ On le dit donc la ou l eleve regarde, sur
        * la pastille de niveau, et le rail de paliers s allume au retour. */
-      const palier = nivApres > av.niveau;
+      // ⚠️ Depuis le 15/10, le « palier » est un NIVEAU qui s ouvre
+      // (Débutant → Intermédiaire → Confirmé), plus un seuil d XP.
+      const palier = nivApres.cle !== av.niveau;
       if (palier) {
         const chip = $('chipLvl');
         if (chip) {
-          chip.textContent = niveaux()[nivApres].nom;
+          chip.textContent = nivApres.nom;
           chip.classList.add('allume');
           setTimeout(() => chip.classList.remove('allume'), 1400);
         }
@@ -3144,7 +3180,7 @@
           const ancre = document.querySelector(`#formationApp [data-ancre-badge="${m.cle}"]`);
           await scenerBadge(b, ancre,
             estCert(m) ? 'Parcours validé' : `Module ${m.numero} terminé`,
-            palier ? `${b.d} , et tu passes au niveau ${niveaux()[nivApres].nom}.` : b.d);
+            palier ? `${b.d} , et tu passes au niveau ${nivApres.nom}.` : b.d);
           return;   // ⚠️ `scenerBadge` a deja rendu l accueil.
         }
       }
@@ -3175,13 +3211,14 @@
     const m = M[mi];
     const c = m.lecons[ci];
     const finiMaintenant = !av.fini && moduleFini(m);
-    const nivApres = niveauDe(xpTotal());
+    const nivApres = niveauCourant();
     const b = finiMaintenant ? badgeDeModule(m.cle) : null;
     const bouts = [];
     if (xpDe(c.id)) bouts.push(`+${xpDe(c.id)} XP`);
     if (b) bouts.push(`badge « ${b.t} » obtenu`);
-    if (nivApres > av.niveau) bouts.push(`niveau ${niveaux()[nivApres].nom}`);
-    if (finiMaintenant || nivApres > av.niveau) rendreAccueil(b ? 'badges' : 'accueil');
+    const palier = nivApres.cle !== av.niveau;
+    if (palier) bouts.push(`niveau ${nivApres.nom}`);
+    if (finiMaintenant || palier) rendreAccueil(b ? 'badges' : 'accueil');
     else {
       const nx = m.lecons.findIndex((ch, k) => k > ci && !estVue(ch.id));
       await rendreModule(mi, nx > -1 ? nx : ci);
@@ -3366,7 +3403,7 @@
      */
     const av = {
       xp: xpTotal(),
-      niveau: niveauDe(xpTotal()),
+      niveau: niveauCourant().cle,
       fini: moduleFini(m),
       badges: badges().filter((b) => b.ok()).map((b) => b.id),
     };
@@ -3605,7 +3642,7 @@
     // ⚠️ Exposes pour les sondes : elles doivent pouvoir lire le CALCUL, pas le
     // deviner. ⛔ Aucun d eux n ECRIT quoi que ce soit.
     _calcul: { xpTotal, niveauDe, badges, serie, niveaux, xpMaximum, conditionsNiveau,
-      CONDITIONS, XP_MODULE, partsXp, xpDe, XP_MOD, XP_CERT,
+      CONDITIONS, XP_MODULE, partsXp, xpDe, XP_MOD, XP_CERT, niveauCourant, xpDuModule,
       // ⚠️ Pour que la sonde lise le BUDGET de la scene au lieu de le deviner.
       // ⛔ Un budget devine par la sonde mesurerait son propre chiffre.
       etatModule, badgeDeModule, METAUX, SCENE, budgetChapitre, BUDGET_CHAPITRE_MAX, tempsLecture,
