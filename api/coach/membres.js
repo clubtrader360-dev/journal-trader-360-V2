@@ -62,7 +62,7 @@ async function lister(sb) {
   const [pub, acces, lb, prog, quiz, vus] = await Promise.all([
     sb.from('users').select('uuid, name, email, role, status, created_at'),
     sb.from('acces_membre').select('user_id, formation_actif, journal_actif, journal_demande_le, journal_retire_le, niveau'),
-    sb.from('formation_niveau_learnybox').select('email, niveau, progression_pct, actif'),
+    sb.from('formation_niveau_learnybox').select('learnybox_id, email, prenom, nom, niveau, progression_pct, actif, inscrit_le, derniere_activite'),
     sb.from('formation_progression').select('user_id, vue, last_watched_at'),
     sb.from('formation_quiz_resultats').select('user_id, module_cle, reussi'),
     sb.from('formation_parcours_vu').select('user_id, vue_le'),
@@ -112,10 +112,50 @@ async function lister(sb) {
       niveau_coach: (a && a.niveau) || null,
       niveau_learnybox: (l && l.niveau) || null,
       learnybox_pct: l && l.progression_pct != null ? l.progression_pct : null,
+      learnybox_actif: l ? !!l.actif : null,
       lecons_vues: pr.vues,
       quiz_reussis: Array.from(quizReussis.get(c.id) || []).sort(),
+      sans_compte: false,
     };
   });
+
+  /**
+   * ── ⚠️ LES MEMBRES LEARNYBOX SANS COMPTE FONT PARTIE DE LA LISTE ──────────
+   *
+   * Retour de Nadir du 15/10 : « ils ont accès à LearnyBox et à leur formation,
+   * ils doivent apparaître dans ce tableau, sinon nous n avons pas la main
+   * dessus et on va devoir ajouter manuellement à chaque fois ». Ils arrivent
+   * donc ici, marques `sans_compte`, avec ce que LearnyBox sait d eux ; et le
+   * bouton « Créer le compte » de leur ligne part de ces donnees-la.
+   * ⛔ Pas de `user_id` : il n existe pas encore. La correspondance se fait
+   * par email, insensible a la casse, comme partout ailleurs.
+   */
+  const emailsAvecCompte = new Set(comptes.map((c) => String(c.email || '').toLowerCase()));
+  for (const l of lb.data || []) {
+    const email = String(l.email || '').toLowerCase();
+    if (!email || emailsAvecCompte.has(email)) continue;
+    membres.push({
+      user_id: null,
+      learnybox_id: l.learnybox_id,
+      email: l.email,
+      prenom: l.prenom || '',
+      nom: [l.prenom, l.nom].filter(Boolean).join(' '),
+      nom_famille: l.nom || '',
+      role: 'student',
+      statut: 'sans_compte',
+      cree_le: l.inscrit_le || null,
+      derniere_connexion: null,
+      derniere_activite: l.derniere_activite || null,
+      formation: false, journal: false,
+      journal_demande_le: null, journal_retire_le: null,
+      niveau_coach: null,
+      niveau_learnybox: l.niveau || null,
+      learnybox_pct: l.progression_pct != null ? l.progression_pct : null,
+      learnybox_actif: !!l.actif,
+      lecons_vues: 0, quiz_reussis: [],
+      sans_compte: true,
+    });
+  }
   // ⚠️ Les coachs sont listes aussi, en queue : ils ont des droits a gerer
   // comme les autres (leur ligne existe), mais ce ne sont pas des eleves.
   membres.sort((x, y) => (x.role === 'student') === (y.role === 'student')
@@ -258,14 +298,29 @@ async function creer(sb, corps, coach, origine) {
     .upsert({ user_id: uid, formation_actif: formation, journal_actif: journal, niveau: n, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
   if (accErr) throw httpError(500, `droits non ecrits : ${accErr.message}`);
 
+  /**
+   * ⚠️ LA PROGRESSION LEARNYBOX SUIT LE COMPTE. Si cet email a une ligne dans
+   * `formation_niveau_learnybox`, ses chapitres pointes la-bas sont reportes
+   * ici tout de suite : `appliquer_progression_learnybox()` est rejouable,
+   * joint par email, ne coche que « terminee » et n ecrase jamais une vue.
+   * ⛔ Sans cet appel, un ancien eleve repartirait de zero sans erreur.
+   */
+  let progression = null;
+  const { data: ligneLb } = await sb.from('formation_niveau_learnybox').select('learnybox_id').ilike('email', email).limit(1);
+  if (ligneLb && ligneLb.length) {
+    const { data: r, error: rErr } = await sb.rpc('appliquer_progression_learnybox');
+    if (rErr) console.error('[MEMBRES] ⚠️ progression LearnyBox non appliquee :', rErr.message);
+    else progression = Array.isArray(r) ? r[0] : r;
+  }
+
   let mail = null;
   if (envoyer) {
     const lien = await lienDeConnexion(sb, email, origine);
     const { sujet, html } = mailPremiereConnexion({ prenom, lien, origine });
     mail = await envoyerMail({ to: email, sujet, html });
   }
-  console.log(`[MEMBRES] ✅ compte cree ${email} (${uid}) par ${coach.email}, mail ${mail ? 'envoye' : 'non envoye'}`);
-  return { user_id: uid, email, mail_envoye: !!mail };
+  console.log(`[MEMBRES] ✅ compte cree ${email} (${uid}) par ${coach.email}, mail ${mail ? 'envoye' : 'non envoye'}, progression LearnyBox ${progression ? 'appliquee' : 'sans objet'}`);
+  return { user_id: uid, email, mail_envoye: !!mail, learnybox: !!(ligneLb && ligneLb.length), progression };
 }
 
 /* ══ RENVOYER LE MAIL ══════════════════════════════════════════════════════ */

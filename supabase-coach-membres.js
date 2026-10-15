@@ -34,6 +34,9 @@
     active: { t: 'Actif', c: 'ok' }, approved: { t: 'Actif', c: 'ok' },
     pending: { t: 'En attente', c: 'attend' }, revoked: { t: 'Révoqué', c: 'non' },
     sans_profil: { t: 'Sans profil', c: 'attend' },
+    // ⚠️ Un membre LearnyBox qui n a pas encore de compte dans le journal
+    // (retour de Nadir du 15/10 : ils doivent etre dans ce tableau).
+    sans_compte: { t: 'Sans compte', c: 'attend' },
   };
 
   let _membres = [];
@@ -87,6 +90,10 @@
       if (q && !`${m.nom} ${m.email}`.toLowerCase().includes(q)) return false;
       if (_filtre === 'coachs') return m.role !== 'student';
       if (m.role !== 'student') return false;
+      if (_filtre === 'sans_compte') return !!m.sans_compte;
+      // ⚠️ « Sans journal » / « Sans formation » parlent des droits d un compte :
+      // un membre sans compte n a pas de droits a montrer, il a son propre filtre.
+      if ((_filtre === 'sans_journal' || _filtre === 'sans_formation' || _filtre === 'demandes') && m.sans_compte) return false;
       if (_filtre === 'sans_journal' && m.journal) return false;
       if (_filtre === 'sans_formation' && m.formation) return false;
       if (_filtre === 'demandes' && !m.journal_demande_le) return false;
@@ -96,7 +103,31 @@
   }
 
   /* ══ LE RENDU ══════════════════════════════════════════════════════════════ */
+  /** La ligne d un membre LearnyBox sans compte : ce qu on sait, et le bouton. */
+  function ligneSansCompte(m) {
+    const d = depuis(m.derniere_activite);
+    return `<tr data-lb="${txt(m.learnybox_id)}" class="cm-sans-compte">
+      <td class="cm-qui">
+        <b>${txt(m.nom || 'Nom non renseigné')}</b>
+        <span>${txt(m.email)}</span>
+        <small class="cm-statut cm-statut--attend">Sans compte${m.learnybox_actif === false ? ' · inactif LearnyBox' : ''}</small>
+      </td>
+      <td class="cm-niveau">
+        <span class="cm-niveau-fixe">${m.niveau_learnybox ? txt(NIVEAUX[m.niveau_learnybox] || m.niveau_learnybox) : 'Non posé'}</span>
+        <small>LearnyBox${m.learnybox_pct != null ? ` · ${m.learnybox_pct} %` : ''}</small>
+      </td>
+      <td class="cm-droit"><small>Aucun compte dans le journal : ses droits se posent à la création.</small></td>
+      <td class="cm-avance"><small>Sa progression LearnyBox sera reportée à la création du compte.</small></td>
+      <td class="cm-quiz">·</td>
+      <td class="cm-visite ${d.absent ? 'cm-absent' : ''}">${txt(d.t)}</td>
+      <td class="cm-actions">
+        <button type="button" class="cm-actions__or" data-creer-depuis title="Créer son compte à partir de LearnyBox">Créer le compte</button>
+      </td>
+    </tr>`;
+  }
+
   function ligne(m) {
+    if (m.sans_compte) return ligneSansCompte(m);
     const st = STATUTS[m.statut] || { t: m.statut, c: 'attend' };
     const niv = niveauEffectif(m);
     const tl = totalLecons();
@@ -142,7 +173,9 @@
     if (!zone) return;
     const liste = visibles();
     const compteur = $('coachMembresCompte');
-    if (compteur) compteur.textContent = `${liste.length} sur ${_membres.filter((m) => m.role === 'student').length} élèves`;
+    const eleves = _membres.filter((m) => m.role === 'student');
+    const sansCompte = eleves.filter((m) => m.sans_compte).length;
+    if (compteur) compteur.textContent = `${liste.length} sur ${eleves.length} membres${sansCompte ? ` (${sansCompte} sans compte)` : ''}`;
     if (!liste.length) {
       zone.innerHTML = '<p class="cm-vide">Personne ne correspond.</p>';
       return;
@@ -218,12 +251,26 @@
   }
 
   /* ══ LA CREATION ═══════════════════════════════════════════════════════════ */
-  function ouvrirCreation() {
+  /**
+   * @param {object} [depuis] un membre LearnyBox sans compte : le formulaire
+   *   part de ce qu on sait de lui (prenom, nom, email, niveau), rien a resaisir.
+   */
+  function ouvrirCreation(depuis) {
     const f = $('coachMembreCreer');
     if (!f) return;
     f.hidden = false;
-    f.querySelector('form').reset();
-    const e = f.querySelector('[name=prenom]');
+    const form = f.querySelector('form');
+    form.reset();
+    if (depuis) {
+      form.elements.prenom.value = depuis.prenom || '';
+      form.elements.nom.value = depuis.nom_famille || '';
+      form.elements.email.value = depuis.email || '';
+      // ⚠️ Le niveau reste « Non posé » : LearnyBox le fournit par l email, et
+      // un niveau pose ici l emporterait sur lui pour toujours.
+      form.elements.niveau.value = '';
+    }
+    f.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const e = form.elements[depuis ? 'email' : 'prenom'];
     if (e) setTimeout(() => e.focus(), 30);
   }
   function fermerCreation() { const f = $('coachMembreCreer'); if (f) f.hidden = true; }
@@ -244,7 +291,8 @@
     b.disabled = true; b.textContent = 'Création…';
     try {
       const r = await appeler('creer', corps);
-      dire(`Compte créé pour ${r.email}${r.mail_envoye ? ', mail de connexion envoyé' : ', sans mail'}.`);
+      const prog = r.progression && r.progression.chapitres_coches != null ? `, progression LearnyBox reportée` : '';
+      dire(`Compte créé pour ${r.email}${r.mail_envoye ? ', mail de connexion envoyé' : ', sans mail'}${prog}.`);
       fermerCreation();
       await charger(true);
     } catch (e) {
@@ -285,6 +333,11 @@
       if (!t) return;
       if (t.matches('[data-mail]')) renvoyerMail(t);
       else if (t.matches('[data-voir]')) voirJournal(t);
+      else if (t.matches('[data-creer-depuis]')) {
+        const tr = t.closest('tr[data-lb]');
+        const m = tr ? _membres.find((x) => x.sans_compte && String(x.learnybox_id) === tr.dataset.lb) : null;
+        if (m) ouvrirCreation(m);
+      }
       else if (t.matches('[data-filtre]')) {
         _filtre = t.dataset.filtre;
         racine.querySelectorAll('[data-filtre]').forEach((b) => b.setAttribute('aria-pressed', b === t ? 'true' : 'false'));
