@@ -96,7 +96,7 @@
 
     const { data, error } = await cli()
       .from('acces_membre')
-      .select('formation_actif, journal_actif, journal_demande_le, journal_retire_le')
+      .select('formation_actif, journal_actif, journal_demande_le, journal_retire_le, niveau')
       .eq('user_id', uid)
       .maybeSingle();
 
@@ -121,6 +121,8 @@
       journal: !!(data && data.journal_actif),
       demandeLe: (data && data.journal_demande_le) || null,
       retireLe: (data && data.journal_retire_le) || null,
+      // ⚠️ Le niveau pose par le coach (#54). NULL : le niveau LearnyBox fait foi.
+      niveau: (data && data.niveau) || null,
       connu: true,
       motif: data ? 'lu en base' : 'aucune ligne',
     };

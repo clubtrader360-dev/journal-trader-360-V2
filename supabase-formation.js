@@ -233,6 +233,14 @@
     } catch (e) {
       console.warn('[FORMATION] niveau LearnyBox illisible :', e);
     }
+    /**
+     * ⚠️ LE NIVEAU POSE PAR LE COACH L EMPORTE (tache #54, 15/10). Il vient de
+     * `acces_membre.niveau`, deja lu par `Acces.charger()` avant d entrer ici.
+     * NULL : rien ne change, LearnyBox fait foi. ⛔ Pas une seconde requete :
+     * la ligne est en memoire, et deux lectures finiraient par diverger.
+     */
+    const d = window.Acces && window.Acces.droits && window.Acces.droits();
+    if (d && d.niveau) _lb = Object.assign({}, _lb || {}, { niveau: d.niveau, source: 'coach' });
   }
 
   /* ══ LA FENETRE DE BIENVENUE ═══════════════════════════════════════════ */
@@ -1869,7 +1877,7 @@
           <div class="lb-encart__texte">
             <div class="eyebrow">Niveau ${txt(niv ? niv.nom : '')} · acquis</div>
             <h3>Tes modules sont ouverts. Il reste les quiz.</h3>
-            <p>Tu as déjà avancé sur LearnyBox, et ton niveau est repris ici. Pour ${suivant ? `passer au niveau ${txt(suivant.nom)}` : 'obtenir ta certification'}, valide le quiz de chaque module que tu as suivi, à 80 % ou plus. Dans l’ordre que tu veux.</p>
+            <p>${_lb.source === 'coach' ? 'Ton coach a posé ton niveau, tes modules sont ouverts.' : 'Tu as déjà avancé sur LearnyBox, et ton niveau est repris ici.'} Pour ${suivant ? `passer au niveau ${txt(suivant.nom)}` : 'obtenir ta certification'}, valide le quiz de chaque module que tu as suivi, à 80 % ou plus. Dans l’ordre que tu veux.</p>
           </div>
           <div class="lb-encart__quiz">
             ${manquants.map((m) => { const ou = trouverLecon(`m${m.cle}-quiz`); const r = _quiz[m.cle];

@@ -2267,6 +2267,7 @@
 <script src="/supabase-acces.js"></script>
 <script src="/assets/connexion.js"></script>
 <script src="/supabase-demandes-journal.js"></script>
+<script src="/supabase-coach-membres.js"></script>
 <script src="/assets/formation-donnees.js"></script>
 <!-- Lot 18 : les quiz, engendres par outils/formation-quiz-import.mjs. Avant la logique. -->
 <script src="/assets/formation-quiz.js"></script>
@@ -3180,6 +3181,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     <!-- Le journal au style de l espace membre (14/10) : une peau, chargee en DERNIER,
          qui ne touche ni a la structure ni a l interieur des cartes. -->
     <link rel="stylesheet" href="/assets/journal-or.css">
+    <link rel="stylesheet" href="/assets/coach-membres.css">
 </head>
 <body>
     <!-- ⚠️ LE VOILE DE CHARGEMENT. Demande de Nadir du 14/10 : « il ne faut plus de
@@ -3367,6 +3369,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
                 <div class="sidebar-item" id="coachNavReplays" onclick="showCoachSection('coachReplays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
+                </div>
+                <!-- Tache #54 (15/10) : le back-office des membres. Droits, niveau,
+                     avancement, quiz, creation de compte. Rendu par supabase-coach-membres.js,
+                     ecritures par /api/coach/membres. -->
+                <div class="sidebar-item" id="coachNavMembres" onclick="showCoachSection('coachMembres')">
+                    <i class="fas fa-id-badge mr-3"></i>Membres
                 </div>
             </nav>
 
@@ -3868,6 +3876,58 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <div id="coachAllUsers">
                         <p class="text-gray-500 text-center py-4">Aucun élève</p>
                     </div>
+                </div>
+            </div>
+
+            <!-- Membres (tache #54) -->
+            <div id="coachMembres" class="section hidden">
+                <div class="section-header">
+                    <h1>Membres</h1>
+                    <p class="text-gray-600">Droits, niveau, avancement et comptes, pour chaque membre</p>
+                </div>
+                <div class="trader-card cm-carte">
+                    <div class="cm-outils">
+                        <input type="search" id="coachMembresRecherche" class="cm-recherche" placeholder="Rechercher un nom ou un email…" aria-label="Rechercher un membre">
+                        <div class="cm-filtres" role="group" aria-label="Filtrer">
+                            <button type="button" data-filtre="tous" aria-pressed="true">Tous</button>
+                            <button type="button" data-filtre="demandes" aria-pressed="false">Demandes de journal</button>
+                            <button type="button" data-filtre="sans_journal" aria-pressed="false">Sans journal</button>
+                            <button type="button" data-filtre="sans_formation" aria-pressed="false">Sans formation</button>
+                            <button type="button" data-filtre="absents" aria-pressed="false">Absents (21 j)</button>
+                            <button type="button" data-filtre="coachs" aria-pressed="false">Coachs</button>
+                        </div>
+                        <span id="coachMembresCompte" class="cm-compte"></span>
+                        <button type="button" class="cm-btn cm-btn--fantome" data-recharger title="Relire la liste"><i class="fas fa-sync-alt"></i></button>
+                        <button type="button" class="cm-btn cm-btn--or" data-ouvrir-creation><i class="fas fa-user-plus"></i> Ajouter un membre</button>
+                    </div>
+                    <div id="coachMembreCreer" class="cm-creer" hidden>
+                        <form autocomplete="off">
+                            <div class="cm-creer__grille">
+                                <label>Prénom <input name="prenom" required></label>
+                                <label>Nom <input name="nom"></label>
+                                <label>Email <input name="email" type="email" required inputmode="email"></label>
+                                <label>Niveau
+                                    <select name="niveau">
+                                        <option value="">Non posé (module 1)</option>
+                                        <option value="debutant">Débutant</option>
+                                        <option value="intermediaire">Intermédiaire</option>
+                                        <option value="confirme">Confirmé</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="cm-creer__droits">
+                                <label class="cm-switch"><input type="checkbox" name="formation" checked><i></i><span>Formation</span></label>
+                                <label class="cm-switch"><input type="checkbox" name="journal" checked><i></i><span>Journal</span></label>
+                                <label class="cm-switch"><input type="checkbox" name="envoyer_mail" checked><i></i><span>Envoyer le mail de première connexion</span></label>
+                            </div>
+                            <p class="cm-creer__note">Le compte est créé sans mot de passe : le mail contient un lien pour le choisir. Sans mail, utilise « Mail » sur sa ligne plus tard.</p>
+                            <div class="cm-creer__actions">
+                                <button type="button" class="cm-btn cm-btn--fantome" data-fermer-creation>Annuler</button>
+                                <button type="submit" class="cm-btn cm-btn--or">Créer le compte</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="coachMembresListe"><p class="cm-vide">Chargement…</p></div>
                 </div>
             </div>
 
@@ -14939,6 +14999,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 window.loadCoachReplays && window.loadCoachReplays();
             } else if (sectionName === 'coachMembersTable') {
                 window.loadCoachMembersTable && window.loadCoachMembersTable();
+            } else if (sectionName === 'coachMembres') {
+                window.CoachMembres && window.CoachMembres.charger();
             }
         }
         
