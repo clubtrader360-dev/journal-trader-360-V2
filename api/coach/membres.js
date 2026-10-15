@@ -12,7 +12,8 @@
  *                  mot de passe)
  *   renvoyer_mail  renvoyer ce mail a un compte existant
  *   creer_manquants  un compte pour chaque membre LearnyBox actif qui n en a
- *                  pas encore, les deux droits ouverts, sans mail
+ *                  pas encore, sans mail
+ *   fiche          tout ce qu on sait d une personne, pour l ecran « Fiche membre »
  *
  * ── ⛔ POURQUOI TOUT PASSE PAR ICI, AVEC LA CLE DE SERVICE ───────────────────
  *
@@ -61,34 +62,43 @@ async function lister(sb) {
     if (!data?.users || data.users.length < 200) break;
   }
 
-  const [pub, acces, lb, prog, quiz, vus] = await Promise.all([
+  /**
+   * ── ⛔ LA PROGRESSION S AGREGE EN BASE, ELLE NE SE LIT PAS LIGNE A LIGNE ──
+   *
+   * ⚠️ DEFAUT VU PAR NADIR LE 15/10 : « beaucoup d eleves a 0 sur 64 alors
+   * qu ils ont progresse ». La route lisait `formation_progression` en entier
+   * et comptait ici ; PostgREST rend 1000 lignes au plus, la table en a 4169.
+   * Les eleves au-dela de la millieme ligne tombaient a zero, sans erreur, et
+   * leur pourcentage LearnyBox a cote rendait l ecart visible.
+   * ⛔ C est le meme motif que le tableau de bord coach (281 requetes puis une
+   * vue) : ce qui depend du nombre de lignes finit par mentir. La fonction
+   * `coach_progression_resume()` compte en base, quel que soit le volume.
+   * ⚠️ Elle est reservee a la cle de service : un eleve ne peut pas l appeler.
+   */
+  const [pub, acces, lb, prog, vus] = await Promise.all([
     sb.from('users').select('uuid, name, email, role, status, created_at'),
     sb.from('acces_membre').select('user_id, formation_actif, journal_actif, journal_demande_le, journal_retire_le, niveau'),
     sb.from('formation_niveau_learnybox').select('learnybox_id, email, prenom, nom, niveau, progression_pct, actif, inscrit_le, derniere_activite'),
-    sb.from('formation_progression').select('user_id, vue, last_watched_at'),
-    sb.from('formation_quiz_resultats').select('user_id, module_cle, reussi'),
+    sb.rpc('coach_progression_resume'),
     sb.from('formation_parcours_vu').select('user_id, vue_le'),
   ]);
-  for (const r of [pub, acces, lb, prog, quiz, vus]) {
+  for (const r of [pub, acces, lb, prog, vus]) {
     if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
+  }
+  // ⚠️ Temoin : si une de ces tables depasse un jour 1000 lignes, on le dit
+  // plutot que de rendre une liste tronquee en silence.
+  for (const [nom, r] of [['users', pub], ['acces_membre', acces], ['formation_niveau_learnybox', lb], ['formation_parcours_vu', vus]]) {
+    if ((r.data || []).length >= 1000) console.warn(`[MEMBRES] ⚠️ ${nom} rend 1000 lignes : plafond PostgREST probablement atteint, liste incomplete`);
   }
 
   const parUuid = new Map((pub.data || []).map((u) => [u.uuid, u]));
   const parAcces = new Map((acces.data || []).map((a) => [a.user_id, a]));
   const parEmailLB = new Map((lb.data || []).map((l) => [String(l.email || '').toLowerCase(), l]));
   const progression = new Map();
-  for (const p of prog.data || []) {
-    const e = progression.get(p.user_id) || { vues: 0, derniere: null };
-    if (p.vue) e.vues += 1;
-    if (p.last_watched_at && (!e.derniere || p.last_watched_at > e.derniere)) e.derniere = p.last_watched_at;
-    progression.set(p.user_id, e);
-  }
   const quizReussis = new Map();
-  for (const q of quiz.data || []) {
-    if (!q.reussi) continue;
-    const s = quizReussis.get(q.user_id) || new Set();
-    s.add(q.module_cle);
-    quizReussis.set(q.user_id, s);
+  for (const p of prog.data || []) {
+    progression.set(p.user_id, { vues: Number(p.lecons_vues) || 0, derniere: p.derniere_lecture || null });
+    quizReussis.set(p.user_id, new Set(p.quiz_reussis || []));
   }
   const ouvertures = new Map((vus.data || []).map((v) => [v.user_id, v.vue_le]));
 
@@ -250,6 +260,18 @@ async function envoyerMail({ to, sujet, html }) {
   return d.id;
 }
 
+/**
+ * ⚠️ CHAQUE MAIL QUE NOUS ENVOYONS EST JOURNALISE dans `mails_envoyes` : c est
+ * l onglet « Emails » de la fiche membre. Un echec est journalise aussi, avec
+ * son motif : un mail parti sans trace et un mail jamais parti se ressemblent.
+ */
+async function journaliserMail(sb, { user_id, email, type, sujet, fournisseur_id, envoye_par, erreur }) {
+  const { error } = await sb.from('mails_envoyes').insert({
+    user_id: user_id || null, email, type, sujet, fournisseur_id: fournisseur_id || null, envoye_par: envoye_par || null, erreur: erreur || null,
+  });
+  if (error) console.error('[MEMBRES] ⚠️ mail non journalise :', error.message);
+}
+
 async function lienDeConnexion(sb, email, origine) {
   const { data, error } = await sb.auth.admin.generateLink({
     type: 'recovery',
@@ -319,7 +341,13 @@ async function creer(sb, corps, coach, origine) {
   if (envoyer) {
     const lien = await lienDeConnexion(sb, email, origine);
     const { sujet, html } = mailPremiereConnexion({ prenom, lien, origine });
-    mail = await envoyerMail({ to: email, sujet, html });
+    try {
+      mail = await envoyerMail({ to: email, sujet, html });
+      await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, fournisseur_id: mail, envoye_par: coach.email });
+    } catch (e) {
+      await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, envoye_par: coach.email, erreur: e.message });
+      throw e;
+    }
   }
   console.log(`[MEMBRES] ✅ compte cree ${email} (${uid}) par ${coach.email}, mail ${mail ? 'envoye' : 'non envoye'}, progression LearnyBox ${progression ? 'appliquee' : 'sans objet'}`);
   return { user_id: uid, email, mail_envoye: !!mail, learnybox: !!(ligneLb && ligneLb.length), progression };
@@ -363,8 +391,15 @@ async function creerManquants(sb, corps, coach) {
     const { error: pubErr } = await sb.from('users')
       .upsert({ uuid: uid, email, name: nomComplet, role: 'student', status: 'active' }, { onConflict: 'uuid' });
     if (pubErr) console.error('[MEMBRES] ⚠️ profil public non ecrit pour', email, ':', pubErr.message);
+    /**
+     * ⚠️ FORMATION OUVERTE, JOURNAL FERME A LA CREATION. Arbitrage de Nadir du
+     * 15/10 : « si ces comptes n ont pas de journal, tu me decoches journal ».
+     * C est le report de progression, juste apres, qui ouvre le journal a ceux
+     * qui ont vu le chapitre 5.10 sur LearnyBox : le declencheur
+     * `ouvrir_journal_apres_chapitre` fait exactement cela, et rien d autre.
+     */
     const { error: accErr } = await sb.from('acces_membre')
-      .upsert({ user_id: uid, formation_actif: true, journal_actif: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      .upsert({ user_id: uid, formation_actif: true, journal_actif: false, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (accErr) { echecs.push({ email, motif: `droits non ecrits : ${accErr.message}` }); continue; }
     crees.push({ email, user_id: uid });
   }
@@ -389,9 +424,110 @@ async function renvoyerMail(sb, corps, coach, origine) {
   const prenom = String((p && p.name) || (data.user.user_metadata && data.user.user_metadata.name) || '').split(' ')[0];
   const lien = await lienDeConnexion(sb, email, origine);
   const { sujet, html } = mailPremiereConnexion({ prenom, lien, origine });
-  const id = await envoyerMail({ to: email, sujet, html });
+  let id;
+  try {
+    id = await envoyerMail({ to: email, sujet, html });
+    await journaliserMail(sb, { user_id: cible, email, type: 'premiere_connexion', sujet, fournisseur_id: id, envoye_par: coach.email });
+  } catch (e) {
+    await journaliserMail(sb, { user_id: cible, email, type: 'premiere_connexion', sujet, envoye_par: coach.email, erreur: e.message });
+    throw e;
+  }
   console.log(`[MEMBRES] ✅ mail de connexion renvoye a ${email} par ${coach.email}`);
   return { user_id: cible, email, mail_id: id };
+}
+
+/* ══ LA FICHE D UN MEMBRE ══════════════════════════════════════════════════ */
+/**
+ * Tout ce qu on sait d une personne, en une lecture, pour l ecran « Fiche
+ * membre » (demande de Nadir du 15/10, sur le modele de la fiche CRM
+ * LearnyBox). Par `user_id` (compte du journal) ou par `email` (membre
+ * LearnyBox sans compte). ⚠️ Chaque onglet dit d ou vient sa donnee ; ce qui
+ * n est pas encore importe (transactions LearnyBox, sondage de candidature)
+ * revient vide avec `source`, jamais invente.
+ */
+async function fiche(sb, corps) {
+  const uid = String(corps.user_id || '').trim();
+  let email = String(corps.email || '').trim().toLowerCase();
+  if (uid && !UUID.test(uid)) throw httpError(400, 'user_id mal forme');
+  if (!uid && !EMAIL.test(email)) throw httpError(400, 'user_id ou email attendu');
+
+  let compte = null;
+  if (uid) {
+    const { data, error } = await sb.auth.admin.getUserById(uid);
+    if (error || !data?.user) throw httpError(404, 'compte introuvable');
+    compte = data.user;
+    email = String(compte.email || '').toLowerCase();
+  }
+  const [pub, acces, lbNiveau, lbProfil, mails, transactions] = await Promise.all([
+    uid ? sb.from('users').select('uuid, name, email, role, status, created_at, legal_accepted_at').eq('uuid', uid).maybeSingle() : Promise.resolve({ data: null }),
+    uid ? sb.from('acces_membre').select('*').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null }),
+    sb.from('formation_niveau_learnybox').select('*').ilike('email', email).limit(1),
+    sb.from('membres_profil_learnybox').select('*').ilike('email', email).limit(1),
+    sb.from('mails_envoyes').select('type, sujet, envoye_le, erreur, envoye_par').ilike('email', email).order('envoye_le', { ascending: false }).limit(100),
+    sb.from('membres_transactions').select('*').ilike('email', email).order('date_transaction', { ascending: false }).limit(100),
+  ]);
+  for (const r of [pub, acces, lbNiveau, lbProfil, mails, transactions]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
+
+  let formation = { progression: [], quiz: [], notes: 0, parcours_vu_le: null };
+  let journal = { trades: 0, dernier_trade: null, entrees: 0, derniere_entree: null, comptes: 0 };
+  let activites = [];
+  if (uid) {
+    const [prog, quiz, notes, vu, trades, entrees, comptes] = await Promise.all([
+      sb.from('formation_progression').select('lecon_id, vue, progress_seconds, secondes_vues, last_watched_at').eq('user_id', uid),
+      sb.from('formation_quiz_resultats').select('module_cle, score, total, reussi, reponses, created_at').eq('user_id', uid).order('created_at', { ascending: false }),
+      sb.from('formation_notes').select('lecon_id, updated_at').eq('user_id', uid),
+      sb.from('formation_parcours_vu').select('vue_le').eq('user_id', uid).maybeSingle(),
+      sb.from('trades').select('id, trade_date, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(2000),
+      sb.from('journal_entries').select('id, entry_date, created_at').eq('user_id', uid).order('entry_date', { ascending: false }).limit(2000),
+      sb.from('accounts').select('id, name, active').eq('user_id', uid),
+    ]);
+    for (const r of [prog, quiz, notes, vu, trades, entrees, comptes]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
+    formation = {
+      progression: prog.data || [],
+      quiz: quiz.data || [],
+      notes: (notes.data || []).length,
+      parcours_vu_le: vu.data ? vu.data.vue_le : null,
+    };
+    journal = {
+      trades: (trades.data || []).length,
+      dernier_trade: trades.data && trades.data[0] ? (trades.data[0].trade_date || trades.data[0].created_at) : null,
+      entrees: (entrees.data || []).length,
+      derniere_entree: entrees.data && entrees.data[0] ? entrees.data[0].entry_date : null,
+      comptes: (comptes.data || []).filter((c) => c.active !== false).length,
+    };
+    /**
+     * ⚠️ LES ACTIVITES : une ligne par evenement date, toutes sources
+     * confondues, les plus recentes d abord. Chapitres vus, quiz, notes,
+     * trades (par jour), entrees de journal, mails, connexions.
+     */
+    for (const p of formation.progression) if (p.vue && p.last_watched_at) activites.push({ quand: p.last_watched_at, type: 'chapitre', detail: p.lecon_id });
+    for (const q of formation.quiz) activites.push({ quand: q.created_at, type: 'quiz', detail: `Module ${q.module_cle} : ${q.score} / ${q.total}${q.reussi ? ', réussi' : ''}` });
+    for (const n of notes.data || []) activites.push({ quand: n.updated_at, type: 'note', detail: n.lecon_id });
+    const joursTrades = new Map();
+    for (const t of trades.data || []) { const j = String(t.trade_date || t.created_at || '').slice(0, 10); if (j) joursTrades.set(j, (joursTrades.get(j) || 0) + 1); }
+    for (const [j, n] of joursTrades) activites.push({ quand: `${j}T12:00:00Z`, type: 'trades', detail: `${n} trade${n > 1 ? 's' : ''}` });
+    for (const e of entrees.data || []) activites.push({ quand: `${e.entry_date}T12:00:00Z`, type: 'journal', detail: 'Entrée de journal' });
+    if (compte && compte.last_sign_in_at) activites.push({ quand: compte.last_sign_in_at, type: 'connexion', detail: 'Dernière connexion' });
+    if (compte && compte.created_at) activites.push({ quand: compte.created_at, type: 'compte', detail: 'Compte créé' });
+  }
+  for (const m of mails.data || []) activites.push({ quand: m.envoye_le, type: 'mail', detail: m.sujet + (m.erreur ? ' (échec)' : '') });
+  for (const t of transactions.data || []) if (t.date_transaction) activites.push({ quand: t.date_transaction, type: 'transaction', detail: `${t.produit || ''} ${t.montant != null ? `${t.montant} ${t.devise || 'EUR'}` : ''}`.trim() });
+  const lbN = lbNiveau.data && lbNiveau.data[0];
+  if (lbN && lbN.inscrit_le) activites.push({ quand: lbN.inscrit_le, type: 'learnybox', detail: 'Inscription LearnyBox' });
+  activites.sort((a, b) => String(b.quand).localeCompare(String(a.quand)));
+
+  return {
+    compte: compte ? { user_id: compte.id, email: compte.email, cree_le: compte.created_at, derniere_connexion: compte.last_sign_in_at, confirme: !!compte.email_confirmed_at } : null,
+    profil: pub.data || null,
+    acces: acces.data || null,
+    learnybox: lbN || null,
+    learnybox_profil: (lbProfil.data && lbProfil.data[0]) || null,
+    formation,
+    journal,
+    mails: mails.data || [],
+    transactions: { lignes: transactions.data || [], source: 'learnybox', importe: (transactions.data || []).length > 0 },
+    activites: activites.slice(0, 300),
+  };
 }
 
 /* ══ HANDLER ═══════════════════════════════════════════════════════════════ */
@@ -418,6 +554,7 @@ export default async function handler(req, res) {
     else if (action === 'creer') resultat = await creer(sb, corps, coach, origine);
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
+    else if (action === 'fiche') resultat = await fiche(sb, corps);
     else return res.status(400).json({ ok: false, motif: 'action inconnue' });
     return res.status(200).json({ ok: true, action, resultat });
   } catch (e) {

@@ -3893,10 +3893,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <h1>Accès membres formation</h1>
                     <p class="text-gray-600">Qui entre dans la formation et dans le journal, à quel niveau, et où chacun en est</p>
                 </div>
-                <div class="trader-card cm-carte">
-                    <div class="cm-outils">
-                        <input type="search" id="coachMembresRecherche" class="cm-recherche" placeholder="Rechercher un nom ou un email…" aria-label="Rechercher un membre">
-                        <div class="cm-filtres" role="group" aria-label="Filtrer">
+                <div class="trader-card am-carte">
+                    <div class="am-outils">
+                        <input type="search" id="coachMembresRecherche" class="am-recherche" placeholder="Rechercher un nom ou un email…" aria-label="Rechercher un membre">
+                        <div class="am-filtres" role="group" aria-label="Filtrer">
                             <button type="button" data-filtre="tous" aria-pressed="true">Tous</button>
                             <button type="button" data-filtre="sans_compte" aria-pressed="false">Sans compte</button>
                             <button type="button" data-filtre="demandes" aria-pressed="false">Demandes de journal</button>
@@ -3905,14 +3905,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <button type="button" data-filtre="absents" aria-pressed="false">Absents (21 j)</button>
                             <button type="button" data-filtre="coachs" aria-pressed="false">Coachs</button>
                         </div>
-                        <span id="coachMembresCompte" class="cm-compte"></span>
-                        <button type="button" class="cm-btn cm-btn--fantome" data-recharger title="Relire la liste"><i class="fas fa-sync-alt"></i></button>
-                        <button type="button" class="cm-btn cm-btn--fantome" id="coachMembresCreerManquants" data-creer-manquants hidden title="Un compte pour chaque membre LearnyBox actif sans compte, sans mail"><i class="fas fa-users"></i> Créer les <span>0</span> comptes manquants</button>
-                        <button type="button" class="cm-btn cm-btn--or" data-ouvrir-creation><i class="fas fa-user-plus"></i> Ajouter un membre</button>
+                        <span id="coachMembresCompte" class="am-compte"></span>
+                        <button type="button" class="am-btn am-btn--fantome" data-recharger title="Relire la liste"><i class="fas fa-sync-alt"></i></button>
+                        <button type="button" class="am-btn am-btn--fantome" id="coachMembresCreerManquants" data-creer-manquants hidden title="Un compte pour chaque membre LearnyBox actif sans compte : formation ouverte, journal selon le chapitre 5.10, sans mail"><i class="fas fa-users"></i> Créer les <span>0</span> comptes manquants</button>
+                        <button type="button" class="am-btn am-btn--or" data-ouvrir-creation><i class="fas fa-user-plus"></i> Ajouter un membre</button>
                     </div>
-                    <div id="coachMembreCreer" class="cm-creer" hidden>
+                    <div id="coachMembreCreer" class="am-creer" hidden>
                         <form autocomplete="off">
-                            <div class="cm-creer__grille">
+                            <div class="am-creer__grille">
                                 <label>Prénom <input name="prenom" required></label>
                                 <label>Nom <input name="nom"></label>
                                 <label>Email <input name="email" type="email" required inputmode="email"></label>
@@ -3925,19 +3925,21 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                                     </select>
                                 </label>
                             </div>
-                            <div class="cm-creer__droits">
-                                <label class="cm-switch"><input type="checkbox" name="formation" checked><i></i><span>Formation</span></label>
-                                <label class="cm-switch"><input type="checkbox" name="journal" checked><i></i><span>Journal</span></label>
-                                <label class="cm-switch"><input type="checkbox" name="envoyer_mail" checked><i></i><span>Envoyer le mail de première connexion</span></label>
+                            <div class="am-creer__droits">
+                                <label class="am-switch"><input type="checkbox" name="formation" checked><i></i><span>Formation</span></label>
+                                <label class="am-switch"><input type="checkbox" name="journal" checked><i></i><span>Journal</span></label>
+                                <label class="am-switch"><input type="checkbox" name="envoyer_mail" checked><i></i><span>Envoyer le mail de première connexion</span></label>
                             </div>
-                            <p class="cm-creer__note">Le compte est créé sans mot de passe : le mail contient un lien pour le choisir. Sans mail, utilise « Mail » sur sa ligne plus tard.</p>
-                            <div class="cm-creer__actions">
-                                <button type="button" class="cm-btn cm-btn--fantome" data-fermer-creation>Annuler</button>
-                                <button type="submit" class="cm-btn cm-btn--or">Créer le compte</button>
+                            <p class="am-creer__note">Le compte est créé sans mot de passe : le mail contient un lien pour le choisir. Sans mail, utilise « Mail » sur sa ligne plus tard.</p>
+                            <div class="am-creer__actions">
+                                <button type="button" class="am-btn am-btn--fantome" data-fermer-creation>Annuler</button>
+                                <button type="submit" class="am-btn am-btn--or">Créer le compte</button>
                             </div>
                         </form>
                     </div>
-                    <div id="coachMembresListe"><p class="cm-vide">Chargement…</p></div>
+                    <!-- La fiche d un membre (15/10) : remplace la liste tant qu elle est ouverte. -->
+                    <div id="coachMembreFiche" class="am-fiche-zone"></div>
+                    <div id="coachMembresListe"><p class="am-vide">Chargement…</p></div>
                 </div>
             </div>
 
@@ -15146,7 +15148,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const visibleRest = oc.rest.filter(c => _cmVisibleCols.has(c.letter));
 
             // THEAD : # + [Statut, Prénom, Nom] gelés + reste visible
-            let thead = '<tr>' + cmTh('#', '#', 'cm-sticky cm-c-num');
+            // Fiche membre (15/10) : un oeil en tete de chaque ligne ouvre la fiche
+            // (ecran « Acces membres formation »), par l email de la ligne.
+            let thead = '<tr><th class="cm-sticky cm-c-fiche" title="Fiche membre">Fiche</th>' + cmTh('#', '#', 'cm-sticky cm-c-num');
             oc.stickyDefs.forEach(d => { thead += cmTh(d.col.letter, d.col.name, 'cm-sticky ' + d.cls); });
             visibleRest.forEach(c => { thead += cmTh(c.letter, c.name, ''); });
             thead += '</tr>';
@@ -15176,11 +15180,23 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             let tb = '';
             rows.forEach(m => {
                 tb += `<tr data-member-row="${m.row}">`;
+                const mailFiche = String(cmVal(m, oc.mail) || '').trim();
+                tb += `<td class="cm-sticky cm-c-fiche">${mailFiche ? `<button type="button" class="cm-fiche-btn" data-fiche-email="${cmEsc(mailFiche)}" title="Ouvrir la fiche de ${cmEsc(mailFiche)}" aria-label="Fiche membre">&#128065;</button>` : ''}</td>`;
                 tb += `<td class="cm-sticky cm-c-num">${m.row}</td>`;
                 oc.stickyDefs.forEach(d => { tb += `<td class="cm-sticky ${d.cls}">${cmCellHtml(d.col.name, m[d.col.name])}</td>`; });
                 visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.name, m[c.name])}</td>`; });
                 tb += '</tr>';
             });
+            const tbodyEl = document.getElementById('cmTbody');
+            if (tbodyEl && !tbodyEl.dataset.ficheBranchee) {
+                tbodyEl.dataset.ficheBranchee = '1';
+                tbodyEl.addEventListener('click', (ev) => {
+                    const b = ev.target.closest('[data-fiche-email]');
+                    if (!b) return;
+                    ev.stopPropagation();
+                    if (window.CoachMembres && window.CoachMembres.ouvrirFicheParEmail) window.CoachMembres.ouvrirFicheParEmail(b.dataset.ficheEmail);
+                });
+            }
             document.getElementById('cmTbody').innerHTML = tb ||
                 '<tr><td colspan="99" style="padding:24px;text-align:center;color:rgba(15,28,61,0.5)">Aucun membre ne correspond aux filtres</td></tr>';
 
