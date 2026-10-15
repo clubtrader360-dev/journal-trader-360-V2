@@ -458,15 +458,24 @@ async function fiche(sb, corps) {
     compte = data.user;
     email = String(compte.email || '').toLowerCase();
   }
-  const [pub, acces, lbNiveau, lbProfil, mails, transactions] = await Promise.all([
+  const [pub, acces, lbNiveau, lbProfil, mails] = await Promise.all([
     uid ? sb.from('users').select('uuid, name, email, role, status, created_at, legal_accepted_at').eq('uuid', uid).maybeSingle() : Promise.resolve({ data: null }),
     uid ? sb.from('acces_membre').select('*').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('formation_niveau_learnybox').select('*').ilike('email', email).limit(1),
     sb.from('membres_profil_learnybox').select('*').ilike('email', email).limit(1),
     sb.from('mails_envoyes').select('type, sujet, envoye_le, erreur, envoye_par').ilike('email', email).order('envoye_le', { ascending: false }).limit(100),
-    sb.from('membres_transactions').select('*').ilike('email', email).order('date_transaction', { ascending: false }).limit(100),
   ]);
-  for (const r of [pub, acces, lbNiveau, lbProfil, mails, transactions]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
+  for (const r of [pub, acces, lbNiveau, lbProfil, mails]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
+  /**
+   * ⚠️ LES TRANSACTIONS SE CHERCHENT PAR EMAIL ET PAR IDENTIFIANT LEARNYBOX.
+   * Mesure a l import du 15/10 : une transaction porte « flyinh.gwen », la
+   * membre s appelle « flying.gwen » ; l identifiant LearnyBox est le meme.
+   * Par l email seul, sa fiche n aurait montre aucun paiement, sans erreur.
+   */
+  const idLb = lbNiveau.data && lbNiveau.data[0] ? lbNiveau.data[0].learnybox_id : null;
+  const filtreTx = idLb ? `email.ilike.${email},learnybox_id.eq.${idLb}` : `email.ilike.${email}`;
+  const transactions = await sb.from('membres_transactions').select('*').or(filtreTx).order('date_transaction', { ascending: false }).limit(100);
+  if (transactions.error) throw httpError(500, `lecture impossible : ${transactions.error.message}`);
 
   let formation = { progression: [], quiz: [], notes: 0, parcours_vu_le: null };
   let journal = { trades: 0, dernier_trade: null, entrees: 0, derniere_entree: null, comptes: 0 };
