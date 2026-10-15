@@ -53,7 +53,9 @@
     if (!r.ok || !c.ok) throw new Error(c.motif || `réponse ${r.status}`);
     return c.resultat;
   }
-  const BO = (action, corps) => appeler('/api/coach/back-office', action, corps);
+  // ⚠️ Une seule route coach pour tout le back-office : le plan Hobby de Vercel
+  // plafonne a 12 fonctions, voir api/coach/membres.js.
+  const BO = (action, corps) => appeler('/api/coach/membres', action, corps);
 
   /* ══ Le cache par ecran : « Recharger » le vide ═══════════════════════════ */
   const _cache = new Map();
