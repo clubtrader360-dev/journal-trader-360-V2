@@ -130,3 +130,4 @@ body:not(.dark-mode) #coachMembres { --cm-or: #b98a2e; --cm-or-2: #d3a73c; --cm-
 .cm-niveau-fixe { display: inline-block; font-size: 13.5px; color: var(--text, #f7f6f3); }
 .cm-actions .cm-actions__or { background: linear-gradient(180deg, var(--cm-or-2), var(--cm-or)); color: #120e07; border-color: transparent; }
 .cm-actions .cm-actions__or:hover { color: #120e07; filter: brightness(1.05); }
+.cm-btn[hidden] { display: none; }

@@ -176,6 +176,8 @@
     const eleves = _membres.filter((m) => m.role === 'student');
     const sansCompte = eleves.filter((m) => m.sans_compte).length;
     if (compteur) compteur.textContent = `${liste.length} sur ${eleves.length} membres${sansCompte ? ` (${sansCompte} sans compte)` : ''}`;
+    const bm = $('coachMembresCreerManquants');
+    if (bm) { const n = eleves.filter((m) => m.sans_compte && m.learnybox_actif !== false).length; bm.hidden = n === 0; bm.querySelector('span').textContent = String(n); }
     if (!liste.length) {
       zone.innerHTML = '<p class="cm-vide">Personne ne correspond.</p>';
       return;
@@ -300,6 +302,23 @@
     } finally { b.disabled = false; b.textContent = 'Créer le compte'; }
   }
 
+  /* ══ TOUS LES COMPTES MANQUANTS D UN COUP ══════════════════════════════════ */
+  async function creerManquants(bouton) {
+    const n = _membres.filter((m) => m.sans_compte && m.learnybox_actif !== false).length;
+    if (!n) { dire('Tout le monde a déjà un compte.'); return; }
+    const ok = window.confirm(`Créer ${n} compte${n > 1 ? 's' : ''} pour les membres LearnyBox actifs qui n en ont pas ?\n\nFormation et journal ouverts, progression LearnyBox reportée, AUCUN mail envoyé : tu les préviens quand tu veux.`);
+    if (!ok) return;
+    bouton.disabled = true;
+    try {
+      const r = await appeler('creer_manquants', {});
+      dire(`${r.crees.length} compte${r.crees.length > 1 ? 's' : ''} créé${r.crees.length > 1 ? 's' : ''}${r.echecs.length ? `, ${r.echecs.length} échec${r.echecs.length > 1 ? 's' : ''} (voir la console)` : ''}.`, r.echecs.length ? 'error' : 'success');
+      if (r.echecs.length) console.warn('[MEMBRES] échecs de création :', r.echecs);
+      await charger(true);
+    } catch (e) {
+      dire(`La création n a pas abouti : ${e.message}`, 'error');
+    } finally { bouton.disabled = false; }
+  }
+
   /* ══ LE CHARGEMENT ═════════════════════════════════════════════════════════ */
   async function charger(force) {
     const zone = $('coachMembresListe');
@@ -343,6 +362,7 @@
         racine.querySelectorAll('[data-filtre]').forEach((b) => b.setAttribute('aria-pressed', b === t ? 'true' : 'false'));
         rendre();
       } else if (t.matches('[data-ouvrir-creation]')) ouvrirCreation();
+      else if (t.matches('[data-creer-manquants]')) creerManquants(t);
       else if (t.matches('[data-fermer-creation]')) fermerCreation();
       else if (t.matches('[data-recharger]')) charger(true);
     });

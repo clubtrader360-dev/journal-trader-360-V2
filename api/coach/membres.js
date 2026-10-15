@@ -11,6 +11,8 @@
  *                  envoyer le mail de premiere connexion (lien pour choisir son
  *                  mot de passe)
  *   renvoyer_mail  renvoyer ce mail a un compte existant
+ *   creer_manquants  un compte pour chaque membre LearnyBox actif qui n en a
+ *                  pas encore, les deux droits ouverts, sans mail
  *
  * ── ⛔ POURQUOI TOUT PASSE PAR ICI, AVEC LA CLE DE SERVICE ───────────────────
  *
@@ -323,6 +325,59 @@ async function creer(sb, corps, coach, origine) {
   return { user_id: uid, email, mail_envoye: !!mail, learnybox: !!(ligneLb && ligneLb.length), progression };
 }
 
+/* ══ CREER TOUS LES COMPTES MANQUANTS ══════════════════════════════════════ */
+/**
+ * Arbitrage de Nadir du 15/10 : « tu me les mets tous avec un compte, ceux qui
+ * ont accès à la formation sur LearnyBox, et tu me mets déjà les lignes ». Un
+ * compte par membre LearnyBox actif sans compte, formation ET journal ouverts
+ * (le coach ferme ce qu il veut d un interrupteur), SANS mail : ils seront
+ * prevenus au moment choisi, par « Mail » sur leur ligne ou par la bascule.
+ * ⚠️ La progression LearnyBox est reportee une fois a la fin, pour tous.
+ * ⛔ Les inactifs LearnyBox ne sont pas crees sauf demande explicite.
+ */
+async function creerManquants(sb, corps, coach) {
+  const inclureInactifs = corps.inclure_inactifs === true;
+  const comptes = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw httpError(500, `liste des comptes illisible : ${error.message}`);
+    comptes.push(...(data?.users || []));
+    if (!data?.users || data.users.length < 200) break;
+  }
+  const emailsAvecCompte = new Set(comptes.map((c) => String(c.email || '').toLowerCase()));
+  const { data: lb, error: lbErr } = await sb.from('formation_niveau_learnybox').select('learnybox_id, email, prenom, nom, actif');
+  if (lbErr) throw httpError(500, `LearnyBox illisible : ${lbErr.message}`);
+  const aCreer = (lb || []).filter((l) => l.email && !emailsAvecCompte.has(String(l.email).toLowerCase()) && (inclureInactifs || l.actif));
+
+  const crees = [], echecs = [];
+  for (const l of aCreer) {
+    const email = String(l.email).trim().toLowerCase();
+    if (!EMAIL.test(email)) { echecs.push({ email: l.email, motif: 'email mal forme' }); continue; }
+    const nomComplet = [l.prenom, l.nom].filter(Boolean).join(' ').trim();
+    const motDePasse = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, '0')).join('');
+    const { data: cree, error: creeErr } = await sb.auth.admin.createUser({
+      email, password: motDePasse, email_confirm: true, user_metadata: { name: nomComplet },
+    });
+    if (creeErr) { echecs.push({ email, motif: creeErr.message }); continue; }
+    const uid = cree.user.id;
+    const { error: pubErr } = await sb.from('users')
+      .upsert({ uuid: uid, email, name: nomComplet, role: 'student', status: 'active' }, { onConflict: 'uuid' });
+    if (pubErr) console.error('[MEMBRES] ⚠️ profil public non ecrit pour', email, ':', pubErr.message);
+    const { error: accErr } = await sb.from('acces_membre')
+      .upsert({ user_id: uid, formation_actif: true, journal_actif: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (accErr) { echecs.push({ email, motif: `droits non ecrits : ${accErr.message}` }); continue; }
+    crees.push({ email, user_id: uid });
+  }
+  let progression = null;
+  if (crees.length) {
+    const { data: r, error: rErr } = await sb.rpc('appliquer_progression_learnybox');
+    if (rErr) console.error('[MEMBRES] ⚠️ progression LearnyBox non appliquee :', rErr.message);
+    else progression = Array.isArray(r) ? r[0] : r;
+  }
+  console.log(`[MEMBRES] ✅ ${crees.length} compte(s) cree(s) sans mail par ${coach.email}, ${echecs.length} echec(s)`);
+  return { a_creer: aCreer.length, crees, echecs, progression };
+}
+
 /* ══ RENVOYER LE MAIL ══════════════════════════════════════════════════════ */
 async function renvoyerMail(sb, corps, coach, origine) {
   const cible = String(corps.user_id || '').trim();
@@ -362,6 +417,7 @@ export default async function handler(req, res) {
     else if (action === 'niveau') resultat = await niveau(sb, corps, coach);
     else if (action === 'creer') resultat = await creer(sb, corps, coach, origine);
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
+    else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
     else return res.status(400).json({ ok: false, motif: 'action inconnue' });
     return res.status(200).json({ ok: true, action, resultat });
   } catch (e) {
