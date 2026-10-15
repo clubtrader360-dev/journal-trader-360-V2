@@ -478,8 +478,9 @@
     }
   };
   // Les colonnes MAN / NAD / GUI / SIE du classeur : qui est a l origine de la ligne.
-  // ⚠️ Les codes sont ceux du classeur ; SIE est garde tel quel (non interprete).
-  const QUI = [['man', 'MAN', 'Manu'], ['nad', 'NAD', 'Nadir'], ['gui', 'GUI', 'Guillaume'], ['sie', 'SIE', 'SIE']];
+  // SIE = la societe elle-meme : le bloc « PAR PERSONNE / SOCIETE » du classeur
+  // a quatre colonnes, Manu, Nadir, Guillaume, Societe (releve du 15/10).
+  const QUI = [['man', 'MAN', 'Manu'], ['nad', 'NAD', 'Nadir'], ['gui', 'GUI', 'Guillaume'], ['sie', 'SIE', 'Société']];
   const quiDe = (l) => QUI.filter(([k]) => l[k]).map(([, code]) => code);
   /**
    * ── ⚠️ CE QUI COMPTE, ET CE QUI NE COMPTE PAS (Nadir, 15/10) ─────────────
@@ -516,7 +517,24 @@
     }
     const livre = c.livre || [];
     const autres = (c.onglets || []).filter((o) => !/^budget$/i.test(o.titre));
-    const ONGLETS = [['livre', 'Grand livre'], ['coachs', 'Par coach'], ['mois', 'Par mois'], ['categories', 'Par catégorie'], ['previsionnel', 'Prévisionnel'], ['is', 'IS estimé'], ['vehicule', 'Véhicule'], ...autres.map((o) => [`feuille:${o.gid}`, o.titre])];
+    /**
+     * ── ⚠️ LES BLOCS DU CLASSEUR SONT LA SOURCE DE VERITE ──────────────────
+     * Sous la SYNTHESE, Manu empile ses tableaux : FRAIS FIXES PAR MOIS,
+     * REMBOURSEMENT GLN, COUT PAR PROJET, PAR PERSONNE / SOCIETE, LEGENDE.
+     * Le 15/10, ma repartition par coach donnait 12 k pour Manu la ou le
+     * classeur dit 8 037,18 € : je comptais chaque ligne partagee en plein chez
+     * chacun, les frais avances par GLN comme ses depenses au lieu de les lui
+     * deduire, et j ignorais ses apports. Depuis, les chiffres affiches sont
+     * ceux du classeur, tels quels ; mes calculs ne servent qu au detail
+     * (par categorie, par mois) et suivent les memes regles que lui.
+     */
+    const blocs = c.blocs || [];
+    const bloc = (cle) => blocs.find((b) => b.cle === cle);
+    const estNombre = (v) => /\d/.test(String(v || '')) && /€|^-?[\d\s\u00a0\u202f.,]+$/.test(String(v || '').trim());
+    const tableBloc = (b, entete) => `<div class="bo-enveloppe"><table class="bo-table bo-table--compact">${entete ? `<thead><tr>${entete.map((h) => `<th class="${/€|\d/.test(h) ? 'num' : ''}">${txt(h)}</th>`).join('')}</tr></thead>` : ''}<tbody>${b.lignes.filter((r) => r !== entete).map((r) => `<tr class="${/^(total|montant pris|co[ûu]t net|cash max|reste d[ûu])/i.test(r[0]) ? 'bo-ligne--total' : ''}">${r.map((cell, i) => `<td class="${i > 0 && estNombre(cell) ? 'num' : ''}">${txt(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    const ONGLETS = [['livre', 'Grand livre'], ['coachs', 'Par coach'], ['mois', 'Par mois'], ['categories', 'Par catégorie'], ['previsionnel', 'Prévisionnel'], ...(bloc('cout_par_projet') ? [['projets', 'Par projet']] : []), ['is', 'IS estimé'], ['vehicule', 'Véhicule'], ...autres.map((o) => [`feuille:${o.gid}`, o.titre])];
+    const gln = bloc('remboursement_gln');
+    const glnVal = (re) => { const r = gln && gln.lignes.find((x) => re.test(x[0])); return r ? (/\d/.test(r[1] || '') ? eur(montantFr(r[1])) : r[1]) : ''; };
     const entrees = livre.reduce((s, l) => s + entreeDe(l), 0);
     const depenses = livre.reduce((s, l) => s + depenseDe(l), 0);
     const gainIsTotal = livre.reduce((s, l) => s + gainIs(l), 0);
@@ -535,7 +553,7 @@
       ['fa-undo', 'Reste à reverser', trouve(/^Reste à reverser/i), (trouve(/^TVA récupérable/i) || {}).valeur ? `TVA récupérable ${trouve(/^TVA récupérable/i).valeur}` : '', 'is_onglet'],
       ['fa-handshake', 'Commissions ambassadeurs', trouve(/^Commissions ambassadeurs/i), 'à devoir, HT', 'ambassadeurs'],
       ['fa-file-alt', 'Justificatifs manquants', trouve(/^Justificatifs manquants/i), 'lignes sans pièce', 'justificatifs'],
-      ['fa-building', 'Avancé par GLN', { valeur: eur(avanceGlnTotal) }, `société de Manu · ${eur(duGlnTotal)} à lui rembourser`, 'gln'],
+      ['fa-building', 'Avancé par GLN', { valeur: glnVal(/^Total frais avanc/i) || eur(avanceGlnTotal) }, gln ? `société de Manu · remboursé ${txt(glnVal(/^D[ée]j[àa] rembours/i) || '0 €')} · reste dû ${txt(glnVal(/^Reste d/i) || '·')}` : `société de Manu · ${eur(duGlnTotal)} à lui rembourser`, 'gln'],
       ['fa-exchange-alt', 'Compte courant de Manu', { valeur: eur(compteCourantEntrees - compteCourantSorties) }, `${eur(compteCourantEntrees)} apportés · ${eur(compteCourantSorties)} remis · hors des totaux`, 'compte_courant'],
       ['fa-piggy-bank', 'Gain d IS estimé', { valeur: eur(gainIsTotal) }, `${Math.round(TAUX_IS * 100)} % des dépenses HT déductibles`, 'is'],
     ].filter((k) => k[2]);
@@ -561,31 +579,52 @@
           </div></div>
         <div class="bo-enveloppe"><table class="bo-table bo-table--compact"><thead><tr><th>Date</th><th>Désignation</th><th>Catégorie</th><th>Via</th><th class="num">Entrée</th><th class="num">Dépense</th><th class="num">TVA</th><th class="num">Gain IS</th><th>Qui</th><th>Justificatif</th><th>Remarque</th></tr></thead><tbody>
           ${visibles.map((l) => `<tr class="${horsTotaux(l) ? 'bo-ligne--neutre' : ''}"><td class="mono" style="white-space:nowrap">${txt(l.date.split('-').reverse().join('/'))}</td><td><b>${txt(l.designation)}</b>${l.projet ? `<br><small style="color:var(--text-soft)">${txt(l.projet)}</small>` : ''}${compteCourant(l) ? '<br><small style="color:var(--text-soft)">compte courant, hors totaux</small>' : voiture(l) ? '<br><small style="color:var(--text-soft)">voiture, côté Manu, hors totaux (voir Véhicule)</small>' : ''}</td><td>${txt(l.categorie)}</td><td>${avanceGln(l) ? `<span class="bo-pill" title="Avancé par GLN, la société de Manu">GLN${duAGln(l) ? ' · à rembourser' : ''}</span>` : txt(l.via)}</td><td class="num" style="color:var(--gold)">${l.entree != null ? eur(l.entree) : ''}</td><td class="num">${l.depense != null ? eur(l.depense) : ''}</td><td class="num"><small>${l.tva_collectee != null ? `coll. ${eur(l.tva_collectee)}` : l.tva_facture != null ? `fact. ${eur(l.tva_facture)}` : txt(l.tva_recuperable)}</small></td><td class="num"><small>${gainIs(l) ? eur(gainIs(l)) : ''}</small></td><td><small>${txt(qui(l))}</small></td><td><span class="bo-pill ${/manquant/i.test(l.justificatif) ? 'bo-pill--non' : 'bo-pill--ok'}">${txt(l.justificatif || '·')}</span></td><td><small style="color:var(--text-soft)">${txt(l.remarque)}</small></td></tr>`).join('')}
-        </tbody></table></div></div>`;
+        </tbody></table></div>${bloc('legende') ? `<p class="bo-source"><b>${txt(bloc('legende').titre)}</b> ${bloc('legende').lignes.map((r) => `<b>${txt(r[0])}</b> : ${txt(r.slice(1).filter(Boolean).join(' '))}`).join(' · ')}</p>` : ''}</div>`;
     } else if (_cptOnglet === 'coachs') {
+      const pp = bloc('par_personne');
+      // Le detail par categorie suit les regles du bloc : une ligne cochee pour
+      // deux personnes compte moitie chacune ; les entrees cochees (apports)
+      // se deduisent ; le compte courant est neutre.
+      const partDe = (l, k) => { const n = quiDe(l).length; return l[k] && n ? 1 / n : 0; };
       const parQui = QUI.map(([k, code, nom]) => {
         const lignes = livre.filter((l) => l[k] && !horsTotaux(l));
-        const dep = lignes.reduce((s, l) => s + depenseDe(l), 0), ent = lignes.reduce((s, l) => s + entreeDe(l), 0);
-        const is = lignes.reduce((s, l) => s + gainIs(l), 0);
-        const gln = lignes.filter(avanceGln).reduce((s, l) => s + depenseDe(l), 0);
-        const remb = lignes.filter(duAGln).reduce((s, l) => s + depenseDe(l), 0);
-        const cats = new Map(); lignes.forEach((l) => { const c = l.categorie || 'Sans catégorie'; const x = cats.get(c) || { dep: 0, is: 0 }; x.dep += depenseDe(l); x.is += gainIs(l); cats.set(c, x); });
-        const vias = new Map(); lignes.forEach((l) => { const v = avanceGln(l) ? 'GLN (société de Manu)' : (l.via || '·'); vias.set(v, (vias.get(v) || 0) + depenseDe(l)); });
+        const dep = lignes.reduce((s, l) => s + depenseDe(l) * partDe(l, k), 0), ent = lignes.reduce((s, l) => s + entreeDe(l) * partDe(l, k), 0);
+        const is = lignes.reduce((s, l) => s + gainIs(l) * partDe(l, k), 0);
+        const glnAv = lignes.filter(avanceGln).reduce((s, l) => s + depenseDe(l), 0);
+        const cats = new Map(); lignes.forEach((l) => { const c = l.categorie || 'Sans catégorie'; const x = cats.get(c) || { dep: 0, is: 0, n: 0 }; x.dep += depenseDe(l) * partDe(l, k); x.is += gainIs(l) * partDe(l, k); x.n += 1; cats.set(c, x); });
         const justifManquants = lignes.filter((l) => /manquant/i.test(l.justificatif)).length;
-        return { k, code, nom, lignes, dep, ent, is, gln, remb, cats: [...cats.entries()].sort((a, b) => b[1].dep - a[1].dep), vias: [...vias.entries()].sort((a, b) => b[1] - a[1]), justifManquants };
+        return { k, code, nom, lignes, dep, ent, is, glnAv, cats: [...cats.entries()].sort((a, b) => b[1].dep - a[1].dep), justifManquants };
       });
       const sansQui = livre.filter((l) => !quiDe(l).length && !horsTotaux(l));
-      const totalDep = depenses;
-      corps = `<div class="bo-kpis">${parQui.map((p) => kpi('fa-user', p.nom, eur(p.dep), `${nb(p.lignes.length)} ligne${p.lignes.length > 1 ? 's' : ''} · ${totalDep ? Math.round(p.dep / totalDep * 100) : 0} % des dépenses · gain d IS ${eur(p.is)}${p.remb ? ` · ${eur(p.remb)} dus à GLN` : ''}${p.justifManquants ? ` · ${p.justifManquants} justificatif${p.justifManquants > 1 ? 's' : ''} manquant${p.justifManquants > 1 ? 's' : ''}` : ''}`, p.code !== p.nom ? p.code : '')).join('')}${kpi('fa-question', 'Personne de coché', eur(sansQui.reduce((s, l) => s + depenseDe(l), 0)), `${nb(sansQui.length)} lignes sans MAN / NAD / GUI / SIE`)}</div>
-        <div class="bo-grille-3">
-          <div class="bo-carte"><h2>Dépenses par mois et par coach</h2><div class="bo-graph" style="height:320px"><canvas id="gCptQuiMois"></canvas></div><div class="bo-legende">${QUI.map(([, code, nom], i) => `<span style="--c:${[OR, OR2, ORD, GRIS][i]}">${nom}</span>`).join('')}</div></div>
-          <div class="bo-carte"><h2>Part de chacun</h2><div class="bo-graph bo-graph--petit"><canvas id="gCptQui"></canvas></div><div class="bo-legende">${QUI.map(([, code, nom], i) => `<span style="--c:${[OR, OR2, ORD, GRIS][i]}">${nom}</span>`).join('')}</div>
-          <h2 style="margin-top:18px">Gain d IS par coach</h2><div class="bo-graph bo-graph--petit"><canvas id="gCptQuiIs"></canvas></div></div>
-        </div>
-        <div class="bo-grille-2">${parQui.map((p) => `<div class="bo-carte"><div class="bo-carte__tete"><h2>${p.nom} <small>${eur(p.dep)} de dépenses${p.ent ? ` · ${eur(p.ent)} d entrées` : ''}</small></h2><button type="button" class="bo-btn bo-btn--fantome" data-cpt-voir-qui="${p.k}">Voir ses lignes</button></div>
-          <div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Dépenses</th><th class="num">Part</th><th class="num">Gain IS</th></tr></thead><tbody>${p.cats.filter(([, v]) => v.dep).slice(0, 8).map(([c, v]) => `<tr><td>${txt(c)}</td><td class="num">${eur(v.dep)}</td><td class="num">${p.dep ? Math.round(v.dep / p.dep * 100) : 0} %</td><td class="num">${eur(v.is)}</td></tr>`).join('') || '<tr><td colspan="4" class="bo-vide">Aucune dépense</td></tr>'}</tbody></table></div>
-          <p class="bo-source">Payé via : ${p.vias.filter(([, v]) => v).map(([v, m]) => `${txt(v)} ${eur(m)}`).join(' · ') || '·'}${p.gln ? `. Avancé par GLN : ${eur(p.gln)}, dont ${eur(p.remb)} à rembourser.` : ''}</p></div>`).join('')}</div>
-        <p class="bo-source">Qui est à l'origine de chaque ligne : les colonnes MAN, NAD, GUI et SIE du classeur, telles que cochées. Une ligne à plusieurs coches compte chez chacun. Le compte courant de Manu est hors de ces totaux. Le gain d IS d une dépense = sa part HT (TVA récupérée déduite) × ${Math.round(TAUX_IS * 100)} %, estimation maison.</p>`;
+      // ⚠️ La voiture (BYD ATTO 3) : exception demandee par Nadir le 15/10. Elle
+      // est hors du « montant pris » du classeur (amortie, part de l annee
+      // seulement) mais c est Manu qui l a prise : on la montre sous lui, en
+      // grise, sans toucher au classeur. « Au final, c est comme s il avait
+      // pris 30 000 euros de plus que moi. »
+      const voitureLignes = livre.filter(voiture);
+      const voitureTtc = voitureLignes.reduce((s, l) => s + (l.depense || 0), 0);
+      const vTotal = ((c.vehicule && c.vehicule.lignes) || []).find((r) => /^total$/i.test(r[0] || '')) || [];
+      const vNet = ((c.vehicule && c.vehicule.lignes) || []).find((r) => /co[ûu]t net/i.test(r[0] || '')) || [];
+      const voitureIs = montantFr(vTotal[4]), voiturePartManu = montantFr(vNet.filter(Boolean).pop());
+      const estManu = (nom) => /manu/i.test(nom || '');
+      const voitureSous = voitureTtc ? `voiture ${eur(voitureTtc)} prise par lui, en plus` : '';
+      let enTete = '';
+      if (pp) {
+        const noms = pp.lignes[0] || [];
+        const ligne = (re) => pp.lignes.find((r) => re.test(r[0])) || [];
+        const pris = ligne(/^Montant pris/i), net = ligne(/^Co[ûu]t net r[ée]el/i), nbl = ligne(/^Nb de lignes/i), cash = ligne(/^Cash max/i), ecart = ligne(/^[ÉE]cart co[ûu]t net/i);
+        enTete = `<div class="bo-kpis">${noms.slice(1).map((nom, j) => { const i = j + 1; return nom ? kpi('fa-user', nom, txt(net[i] || pris[i] || '·'), `coût net réel · montant pris ${txt(pris[i] || '·')}${nbl[i] ? ` · ${txt(nbl[i])} lignes` : ''}${cash[i] ? ` · cash max ${txt(cash[i])}` : ''}${ecart[i] && !/^0+ ?€$/.test(ecart[i].replace(/\s/g, '')) ? ` · écart ${txt(ecart[i])}` : ''}${estManu(nom) && voitureSous ? `<br><span class="bo-grise">+ ${voitureSous}</span>` : ''}`) : ''; }).join('')}</div>
+          <div class="bo-grille-3">
+            <div class="bo-carte"><h2>Montant pris et coût net réel <small>par personne, d après le classeur</small></h2><div class="bo-graph" style="height:300px"><canvas id="gCptQui"></canvas></div><div class="bo-legende"><span style="--c:${GRIS}">Montant pris (TTC, après GLN)</span><span style="--c:${OR}">Coût net réel (après TVA, IS et GLN)</span></div></div>
+            <div class="bo-carte"><h2>${txt(pp.titre)}</h2>${tableBloc(pp, noms)}${pp.notes.map((n) => `<p class="bo-source">${txt(n)}</p>`).join('')}</div>
+          </div>`;
+      }
+      corps = `${enTete || `<div class="bo-kpis">${parQui.map((p) => kpi('fa-user', p.nom, eur(p.dep - p.ent), `${nb(p.lignes.length)} lignes · part des lignes cochées, apports déduits · gain d IS ${eur(p.is)}`)).join('')}</div><div class="bo-carte"><h2>Part de chacun</h2><div class="bo-graph bo-graph--petit"><canvas id="gCptQui"></canvas></div></div>`}
+        <div class="bo-carte"><h2>Dépenses par mois et par personne <small>part des lignes cochées, compte courant et voiture exclus</small></h2><div class="bo-graph" style="height:320px"><canvas id="gCptQuiMois"></canvas></div><div class="bo-legende">${QUI.map(([, code, nom], i) => `<span style="--c:${[OR, OR2, ORD, GRIS][i]}">${nom}</span>`).join('')}</div></div>
+        <div class="bo-grille-2">${parQui.map((p) => `<div class="bo-carte"><div class="bo-carte__tete"><h2>${p.nom} <small>${eur(p.dep)} de dépenses${p.ent ? ` · ${eur(p.ent)} d apports` : ''}${p.glnAv ? ` · ${eur(p.glnAv)} avancés par GLN` : ''}</small></h2><button type="button" class="bo-btn bo-btn--fantome" data-cpt-voir-qui="${p.k}">Voir ses lignes</button></div>
+          <div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Sa part</th><th class="num">Gain IS</th></tr></thead><tbody>${p.cats.filter(([, v]) => v.dep).slice(0, 8).map(([c, v]) => `<tr><td>${txt(c)}</td><td class="num">${v.n}</td><td class="num">${eur(v.dep)}</td><td class="num">${eur(v.is)}</td></tr>`).join('') || '<tr><td colspan="4" class="bo-vide">Aucune dépense</td></tr>'}${p.k === 'man' && voitureTtc ? `<tr class="bo-ligne--neutre"><td>Voiture BYD ATTO 3, prise par Manu<br><small style="color:var(--text-soft)">hors du montant pris du classeur : amortie sur 5 ans${voiturePartManu ? `, part Manu ${eur(voiturePartManu)} nette d IS` : ''}</small></td><td class="num">${voitureLignes.length}</td><td class="num">${eur(voitureTtc)}</td><td class="num">${voitureIs ? eur(voitureIs) : ''}</td></tr>` : ''}</tbody></table></div>
+          ${p.justifManquants ? `<p class="bo-source">${p.justifManquants} justificatif${p.justifManquants > 1 ? 's' : ''} manquant${p.justifManquants > 1 ? 's' : ''} sur ses lignes.</p>` : ''}</div>`).join('')}${sansQui.length ? `<div class="bo-carte"><h2>Personne de coché <small>${nb(sansQui.length)} lignes · ${eur(sansQui.reduce((s, l) => s + depenseDe(l), 0))} de dépenses</small></h2><p class="bo-source">Des lignes sans MAN, NAD, GUI ni SIE : à cocher dans le classeur pour qu elles entrent dans la répartition.</p><button type="button" class="bo-btn bo-btn--fantome" data-cpt-voir-qui="aucun">Voir ces lignes</button></div>` : ''}</div>
+        <p class="bo-source">${pp ? 'Les chiffres par personne sont ceux du bloc « PAR PERSONNE / SOCIÉTÉ » du classeur, repris tels quels (lignes cochées, partagées si plusieurs coches, GLN déduit à Manu, apports déduits, voiture et IS selon le classeur). ' : ''}Le détail par catégorie suit les mêmes règles : une ligne cochée pour deux compte moitié chacun, le compte courant et la voiture restent dehors. Le gain d IS d une dépense = sa part HT × ${Math.round(TAUX_IS * 100)} %, estimation maison.</p>`;
     } else if (_cptOnglet === 'mois') {
       corps = `<div class="bo-carte"><h2>Entrées et dépenses par mois</h2><div class="bo-graph" style="height:340px"><canvas id="gCptMois"></canvas></div><div class="bo-legende"><span style="--c:${OR}">Entrées</span><span style="--c:${GRIS}">Dépenses</span><span style="--c:${OR2}">Solde cumulé</span></div></div>`;
     } else if (_cptOnglet === 'categories') {
@@ -595,47 +634,68 @@
         <div class="bo-carte"><h2>Catégories</h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Entrées</th><th class="num">Dépenses</th><th class="num">Gain IS</th></tr></thead><tbody>${lignes.map(([k, x]) => `<tr class="${x.cc ? 'bo-ligne--neutre' : ''}"><td>${txt(k)}${x.cc ? '<br><small style="color:var(--text-soft)">hors totaux</small>' : ''}</td><td class="num">${x.n}</td><td class="num" style="color:var(--gold)">${x.entrees ? eur(x.entrees) : ''}</td><td class="num">${x.depenses ? eur(x.depenses) : ''}</td><td class="num">${x.is ? eur(x.is) : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
     } else if (_cptOnglet === 'previsionnel') {
       /**
-       * ⚠️ LE PREVISIONNEL, C EST LES FRAIS FIXES (Nadir, 15/10 : « on a a peu
-       * pres 800 euros de charges par mois »). La premiere version projetait
-       * TOUTES les depenses, TVA reversee, commissions et achats compris : faux.
-       * Ici : les lignes de categorie « Frais fixes », regroupees par
-       * fournisseur (la designation, debarrassee de « (PAYE PAR GLN) » et des
-       * numeros), moyenne mensuelle sur les six derniers mois pleins, projetee.
-       * Les autres depenses sont montrees a part, par categorie, sans etre
-       * projetees : elles ne reviennent pas tous les mois.
+       * ⚠️ LE PREVISIONNEL, C EST LE BLOC « FRAIS FIXES PAR MOIS » DU CLASSEUR
+       * (Nadir, 15/10 : « on a a peu pres 800 euros de charges par mois »,
+       * le classeur dit 761,30 € de moyenne et 694,65 € prevus). Manu y tient
+       * la liste des postes (Qonto, ADALTA, loyer, LearnyBox, Vimeo, Supabase,
+       * Claude, ChatGPT...), mois par mois, avec une colonne « Prevu / mois »
+       * qu il ajuste a la main. On l affiche tel quel. Ma premiere version
+       * projetait toutes les depenses, TVA reversee et commissions comprises.
        */
+      const ff = bloc('frais_fixes');
       const moisTous = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
       const moisCourant = new Date().toISOString().slice(0, 7);
       const pleins = moisTous.filter((m) => m < moisCourant).slice(-6);
       const nbMois = pleins.length || 1;
-      const fixe = (l) => !horsTotaux(l) && depenseDe(l) > 0 && /frais fixes/i.test(l.categorie || '');
-      const fournisseur = (l) => String(l.designation || '').replace(/\(pay[ée] par gln\)/i, '').replace(/\(\s*\d+\s*\/\s*\d+\s*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase() || 'Sans désignation';
-      const parF = new Map();
-      livre.filter((l) => fixe(l) && pleins.includes(l.date.slice(0, 7))).forEach((l) => { const k = fournisseur(l); const x = parF.get(k) || { total: 0, n: 0, mois: new Set(), gln: 0, dernier: '' }; x.total += depenseDe(l); x.n += 1; x.mois.add(l.date.slice(0, 7)); if (avanceGln(l)) x.gln += depenseDe(l); if (l.date > x.dernier) x.dernier = l.date; parF.set(k, x); });
-      const fixes = [...parF.entries()].map(([k, x]) => ({ k, mois: x.total / nbMois, an: x.total / nbMois * 12, presence: x.mois.size, n: x.n, gln: x.gln, dernier: x.dernier })).sort((a, b) => b.an - a.an);
-      const totalMois = fixes.reduce((s, x) => s + x.mois, 0), totalAn = totalMois * 12;
-      const parMoisFixe = moisTous.map((m) => Math.round(livre.filter((l) => fixe(l) && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l), 0)));
-      const autres = new Map();
-      livre.filter((l) => !horsTotaux(l) && depenseDe(l) > 0 && !fixe(l)).forEach((l) => { const k = l.categorie || 'Sans catégorie'; const x = autres.get(k) || { total: 0, n: 0, six: 0 }; x.total += depenseDe(l); x.n += 1; if (pleins.includes(l.date.slice(0, 7))) x.six += depenseDe(l); autres.set(k, x); });
-      const autresL = [...autres.entries()].sort((a, b) => b[1].total - a[1].total);
       const entreesMois = livre.filter((l) => !horsTotaux(l) && pleins.includes(l.date.slice(0, 7))).reduce((s, l) => s + entreeDe(l), 0) / nbMois;
       const isLigne = (c.is || []).find((x) => /^IS estimé en cours/i.test(x.libelle || ''));
-      const vehiculeLigne = ((c.vehicule && c.vehicule.lignes) || []).find((r) => /^2027$/.test(r[0] || ''));
-      const amortAn = vehiculeLigne ? montantFr(vehiculeLigne[1]) : 0;
-      corps = `<div class="bo-kpis">
-          ${kpi('fa-calendar-alt', 'Frais fixes par mois', eur(totalMois), `moyenne des ${nbMois} derniers mois pleins (${pleins.map(moisFr).join(', ')})`)}
-          ${kpi('fa-calendar', 'Frais fixes sur 12 mois', eur(totalAn), `${fixes.length} fournisseurs récurrents`)}
-          ${kpi('fa-arrow-down', 'Entrées moyennes par mois', eur(entreesMois), `${eur(entreesMois * 12)} sur 12 mois au même rythme`)}
-          ${kpi('fa-balance-scale', 'Marge mensuelle sur les frais fixes', eur(entreesMois - totalMois), 'entrées moins frais fixes, avant les autres charges et l IS')}
-          ${isLigne ? kpi('fa-landmark', 'IS estimé en cours', txt(isLigne.valeur), 'bloc IS du classeur, exercice en cours') : ''}
-          ${amortAn ? kpi('fa-car', 'Voiture : amortissement par an', eur(amortAn), 'côté Manu, bloc véhicule du classeur') : ''}
-        </div>
-        <div class="bo-grille-3">
-          <div class="bo-carte"><h2>Frais fixes par fournisseur <small>par mois et sur 12 mois</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Fournisseur</th><th class="num">Par mois</th><th class="num">Sur 12 mois</th><th class="num">Mois vus / ${nbMois}</th><th>Dernier</th><th class="num">Gain IS / an</th></tr></thead><tbody>${fixes.map((x) => `<tr><td><b>${txt(x.k)}</b>${x.gln ? '<br><small style="color:var(--text-soft)">avancé par GLN</small>' : ''}</td><td class="num">${eur(x.mois)}</td><td class="num"><b>${eur(x.an)}</b></td><td class="num">${x.presence}</td><td>${txt(x.dernier.split('-').reverse().join('/'))}</td><td class="num">${eur(x.an / 1.2 * TAUX_IS)}</td></tr>`).join('')}<tr><td><b>Total frais fixes</b></td><td class="num"><b>${eur(totalMois)}</b></td><td class="num"><b>${eur(totalAn)}</b></td><td></td><td></td><td class="num"><b>${eur(totalAn / 1.2 * TAUX_IS)}</b></td></tr></tbody></table></div></div>
-          <div class="bo-carte"><h2>Frais fixes mois par mois</h2><div class="bo-graph"><canvas id="gCptPrev"></canvas></div><div class="bo-legende"><span style="--c:${OR}">Mois retenus</span><span style="--c:${GRIS}">Autres mois</span><span style="--c:${OR2}">Moyenne</span></div></div>
-        </div>
-        <div class="bo-carte"><h2>Les autres charges <small>non récurrentes, pas projetées</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Depuis le début</th><th class="num">Sur les ${nbMois} derniers mois</th><th class="num">Soit par mois</th></tr></thead><tbody>${autresL.map(([k, x]) => `<tr><td>${txt(k)}</td><td class="num">${x.n}</td><td class="num">${eur(x.total)}</td><td class="num">${eur(x.six)}</td><td class="num">${eur(x.six / nbMois)}</td></tr>`).join('')}</tbody></table></div><p class="bo-source">TVA reversée, commissions, présentiels, achats : elles existent mais ne tombent pas tous les mois. Le prévisionnel ne retient que les frais fixes ; ces montants servent de repère.</p></div>
-        <p class="bo-source">Estimation maison : la moyenne des frais fixes des derniers mois pleins, projetée sur douze mois. Le gain d IS suppose une TVA à 20 % récupérable et le taux d IS du classeur (${Math.round(TAUX_IS * 100)} %). Le cabinet reste la référence.</p>`;
+      const autresCat = new Map();
+      const fixe = (l) => !horsTotaux(l) && depenseDe(l) > 0 && /frais fixes/i.test(l.categorie || '');
+      livre.filter((l) => !horsTotaux(l) && depenseDe(l) > 0 && !fixe(l)).forEach((l) => { const k = l.categorie || 'Sans catégorie'; const x = autresCat.get(k) || { total: 0, n: 0, six: 0 }; x.total += depenseDe(l); x.n += 1; if (pleins.includes(l.date.slice(0, 7))) x.six += depenseDe(l); autresCat.set(k, x); });
+      const autresL = [...autresCat.entries()].sort((a, b) => b[1].total - a[1].total);
+      const autresHtml = `<div class="bo-carte"><h2>Les autres charges <small>non récurrentes, pas projetées</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Depuis le début</th><th class="num">Sur les ${nbMois} derniers mois</th><th class="num">Soit par mois</th></tr></thead><tbody>${autresL.map(([k, x]) => `<tr><td>${txt(k)}</td><td class="num">${x.n}</td><td class="num">${eur(x.total)}</td><td class="num">${eur(x.six)}</td><td class="num">${eur(x.six / nbMois)}</td></tr>`).join('')}</tbody></table></div><p class="bo-source">TVA reversée, commissions, présentiels, achats : elles existent mais ne tombent pas tous les mois. Le prévisionnel ne retient que les frais fixes ; ces montants servent de repère.</p></div>`;
+      if (ff) {
+        const ent = ff.lignes[0] || [];
+        const iMoy = ent.findIndex((h) => /^moy/i.test(h)), iPrevM = ent.findIndex((h) => /pr[ée]vu ?\/ ?mois/i.test(h)), iPrevA = ent.findIndex((h) => /pr[ée]vu ?\/ ?an/i.test(h));
+        const iMois = ent.map((h, i) => (i > 0 && (iMoy < 0 || i < iMoy) && /^[a-zéû]+\.? ?\d{2}$/i.test(h) ? i : -1)).filter((i) => i >= 0);
+        const total = ff.lignes.find((r) => /^total$/i.test(r[0])) || [];
+        const postes = ff.lignes.slice(1).filter((r) => !/^total$/i.test(r[0]));
+        const prevM = montantFr(total[iPrevM]), prevA = montantFr(total[iPrevA]), moy = montantFr(total[iMoy]);
+        corps = `<div class="bo-kpis">
+            ${kpi('fa-calendar-alt', 'Frais fixes prévus par mois', eur(prevM), `colonne « Prévu / mois » du classeur · moyenne réelle ${eur(moy)} sur 12 mois`)}
+            ${kpi('fa-calendar', 'Frais fixes prévus sur 12 mois', eur(prevA), `${postes.filter((r) => montantFr(r[iPrevM])).length} poste${postes.filter((r) => montantFr(r[iPrevM])).length > 1 ? 's' : ''} récurrent${postes.filter((r) => montantFr(r[iPrevM])).length > 1 ? 's' : ''}`)}
+            ${kpi('fa-arrow-down', 'Entrées moyennes par mois', eur(entreesMois), `${eur(entreesMois * 12)} sur 12 mois au même rythme (${nbMois} derniers mois pleins)`)}
+            ${kpi('fa-balance-scale', 'Marge mensuelle sur les frais fixes', eur(entreesMois - prevM), 'entrées moins frais fixes prévus, avant les autres charges et l IS')}
+            ${isLigne ? kpi('fa-landmark', 'IS estimé en cours', txt(isLigne.valeur), 'bloc IS du classeur, exercice en cours') : ''}
+          </div>
+          <div class="bo-grille-3">
+            <div class="bo-carte"><h2>Frais fixes par poste <small>${txt(ff.titre)}</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Poste</th><th class="num">${txt(ent[iMoy] || 'Moyenne')}</th><th class="num">${txt(ent[iPrevM] || 'Prévu / mois')}</th><th class="num">${txt(ent[iPrevA] || 'Prévu / an')}</th><th class="num">Gain IS / an</th></tr></thead><tbody>${postes.map((r) => `<tr class="${!montantFr(r[iPrevM]) ? 'bo-ligne--neutre' : ''}"><td><b>${txt(r[0])}</b></td><td class="num">${txt(r[iMoy] || '')}</td><td class="num"><b>${txt(r[iPrevM] || '')}</b></td><td class="num">${txt(r[iPrevA] || '')}</td><td class="num">${montantFr(r[iPrevA]) ? eur(montantFr(r[iPrevA]) / 1.2 * TAUX_IS) : ''}</td></tr>`).join('')}<tr class="bo-ligne--total"><td><b>Total</b></td><td class="num"><b>${txt(total[iMoy] || '')}</b></td><td class="num"><b>${txt(total[iPrevM] || '')}</b></td><td class="num"><b>${txt(total[iPrevA] || '')}</b></td><td class="num"><b>${eur(prevA / 1.2 * TAUX_IS)}</b></td></tr></tbody></table></div>${ff.notes.map((n) => `<p class="bo-source">${txt(n)}</p>`).join('')}</div>
+            <div class="bo-carte"><h2>Frais fixes mois par mois <small>réel, d après le classeur</small></h2><div class="bo-graph"><canvas id="gCptPrev"></canvas></div><div class="bo-legende"><span style="--c:${OR}">Frais fixes du mois</span><span style="--c:${OR2}">Prévu / mois</span></div></div>
+          </div>
+          ${autresHtml}
+          <p class="bo-source">Bloc « FRAIS FIXES PAR MOIS » du classeur, repris tel quel : la colonne « Prévu / mois » est celle que Manu ajuste à la main. Le gain d IS suppose une TVA à 20 % récupérable et le taux d IS du classeur (${Math.round(TAUX_IS * 100)} %). Le cabinet reste la référence.</p>`;
+        _cptPrevGraph = { labels: iMois.map((i) => ent[i]), valeurs: iMois.map((i) => montantFr(total[i])), prevu: prevM };
+      } else {
+        // Sans le bloc (classeur remanie) : les lignes « Frais fixes » du grand livre, par fournisseur.
+        const fournisseur = (l) => String(l.designation || '').replace(/\(pay[ée] par gln\)/i, '').replace(/\(\s*\d+\s*\/\s*\d+\s*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase() || 'Sans désignation';
+        const parF = new Map();
+        livre.filter((l) => fixe(l) && pleins.includes(l.date.slice(0, 7))).forEach((l) => { const k = fournisseur(l); const x = parF.get(k) || { total: 0, n: 0 }; x.total += depenseDe(l); x.n += 1; parF.set(k, x); });
+        const fixes = [...parF.entries()].map(([k, x]) => ({ k, mois: x.total / nbMois, an: x.total / nbMois * 12, n: x.n })).sort((a, b) => b.an - a.an);
+        const totalMois = fixes.reduce((s, x) => s + x.mois, 0);
+        corps = `<div class="bo-kpis">${kpi('fa-calendar-alt', 'Frais fixes par mois', eur(totalMois), `moyenne des ${nbMois} derniers mois pleins, lignes « Frais fixes » du grand livre`)}${kpi('fa-calendar', 'Sur 12 mois', eur(totalMois * 12), `${fixes.length} fournisseurs`)}${kpi('fa-arrow-down', 'Entrées moyennes par mois', eur(entreesMois), '')}</div>
+          <div class="bo-carte"><h2>Frais fixes par fournisseur</h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Fournisseur</th><th class="num">Lignes</th><th class="num">Par mois</th><th class="num">Sur 12 mois</th></tr></thead><tbody>${fixes.map((x) => `<tr><td><b>${txt(x.k)}</b></td><td class="num">${x.n}</td><td class="num">${eur(x.mois)}</td><td class="num"><b>${eur(x.an)}</b></td></tr>`).join('')}</tbody></table></div><p class="bo-source">Le bloc « FRAIS FIXES PAR MOIS » du classeur n a pas été trouvé : estimation depuis le grand livre.</p></div>${autresHtml}`;
+        const charges = moisTous.map((m) => livre.filter((l) => fixe(l) && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l), 0));
+        _cptPrevGraph = { labels: moisTous.map(moisFr), valeurs: charges, prevu: totalMois };
+      }
+    } else if (_cptOnglet === 'projets') {
+      const cp = bloc('cout_par_projet');
+      const ent = cp.lignes[0] || [];
+      const iNet = ent.findIndex((h) => /^net/i.test(h)), iDep = ent.findIndex((h) => /^d[ée]penses/i.test(h)), iEnt = ent.findIndex((h) => /^entr/i.test(h));
+      const projets = cp.lignes.slice(1).filter((r) => r[0] && !/^total$/i.test(r[0]));
+      _cptProjetsGraph = { labels: projets.map((r) => r[0]), net: projets.map((r) => montantFr(r[iNet])), dep: projets.map((r) => montantFr(r[iDep])), ent: projets.map((r) => montantFr(r[iEnt])) };
+      corps = `<div class="bo-kpis">${kpi('fa-map-marker-alt', 'Projets', String(projets.length), 'événements et séminaires suivis dans le classeur')}${kpi('fa-arrow-up', 'Dépenses des projets', eur(projets.reduce((s, r) => s + montantFr(r[iDep]), 0)), 'TTC')}${kpi('fa-balance-scale', 'Net des projets', eur(projets.reduce((s, r) => s + montantFr(r[iNet]), 0)), 'entrées moins dépenses, TVA récupérée comprise')}</div>
+        <div class="bo-grille-3"><div class="bo-carte"><h2>Net par projet</h2><div class="bo-graph"><canvas id="gCptProjets"></canvas></div></div><div class="bo-carte"><h2>${txt(cp.titre)}</h2>${tableBloc(cp, ent)}${cp.notes.map((n) => `<p class="bo-source">${txt(n)}</p>`).join('')}</div></div>
+        <p class="bo-source">Bloc « COÛT PAR PROJET » du classeur, repris tel quel. Les lignes d un projet se retrouvent dans le grand livre par la colonne Projet (recherche).</p>`;
     } else if (_cptOnglet === 'is') {
       const is = c.is || [];
       corps = `<div class="bo-carte"><h2>IS estimé · exercice en cours</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${is.filter((x) => !x.note).map((x) => `<tr><td>${txt(x.libelle)}</td><td class="num"><b>${txt(x.valeur)}</b></td></tr>`).join('')}</tbody></table></div>${is.find((x) => x.note) ? `<p class="bo-source">${txt(is.find((x) => x.note).note)}</p>` : ''}<p class="bo-source">Estimation maison du classeur, à valider par le cabinet (ADALTA).</p></div>`;
@@ -674,21 +734,28 @@
         { label: 'Solde cumulé', data: solde, type: 'line', borderColor: OR2, backgroundColor: OR2, tension: .35, pointRadius: 3 },
       ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes({ ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }) } });
     }
-    if (_cptOnglet === 'previsionnel') {
-      const moisTous = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
-      const moisCourant = new Date().toISOString().slice(0, 7);
-      const pleins = moisTous.filter((m) => m < moisCourant).slice(-6);
-      const fixe = (l) => !horsTotaux(l) && depenseDe(l) > 0 && /frais fixes/i.test(l.categorie || '');
-      const charges = moisTous.map((m) => Math.round(livre.filter((l) => fixe(l) && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l), 0)));
-      const moyenne = pleins.length ? Math.round(pleins.reduce((s, m) => s + charges[moisTous.indexOf(m)], 0) / pleins.length) : 0;
-      graph('gCptPrev', { type: 'bar', data: { labels: moisTous.map(moisFr), datasets: [{ label: 'Frais fixes du mois', data: charges, backgroundColor: moisTous.map((m) => pleins.includes(m) ? 'rgba(232,184,75,.75)' : GRIS), borderRadius: 6 }, { label: 'Moyenne retenue', data: moisTous.map(() => moyenne), type: 'line', borderColor: OR2, borderDash: [6, 4], pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes() } });
+    if (_cptOnglet === 'previsionnel' && _cptPrevGraph) {
+      const g = _cptPrevGraph;
+      graph('gCptPrev', { type: 'bar', data: { labels: g.labels, datasets: [{ label: 'Frais fixes du mois', data: g.valeurs.map(Math.round), backgroundColor: 'rgba(232,184,75,.75)', borderRadius: 6 }, { label: 'Prévu / mois', data: g.labels.map(() => Math.round(g.prevu)), type: 'line', borderColor: OR2, borderDash: [6, 4], pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes() } });
+    }
+    if (_cptOnglet === 'projets' && _cptProjetsGraph) {
+      const g = _cptProjetsGraph;
+      graph('gCptProjets', { type: 'bar', data: { labels: g.labels, datasets: [{ label: 'Net', data: g.net.map(Math.round), backgroundColor: g.net.map((v) => v >= 0 ? 'rgba(232,184,75,.75)' : GRIS), borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` Net : ${eur(x.parsed.x)}` } } }, scales: { x: { grid: { color: LIGNE }, ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }, y: { grid: { display: false }, ticks: { color: GRIS } } } } });
     }
     if (_cptOnglet === 'coachs') {
       const mois = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
       const couleursQui = [OR, OR2, ORD, GRIS];
-      graph('gCptQuiMois', { type: 'bar', data: { labels: mois.map(moisFr), datasets: QUI.map(([k, code, nom], i) => ({ label: nom, data: mois.map((m) => Math.round(livre.filter((l) => l[k] && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l), 0))), backgroundColor: couleursQui[i], borderRadius: 4, stack: 'dep' })) }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: { x: { stacked: true, grid: { display: false }, ticks: { color: GRIS } }, y: { stacked: true, grid: { color: LIGNE }, ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` }, beginAtZero: true } } } });
-      graph('gCptQui', { type: 'doughnut', data: { labels: QUI.map(([, , nom]) => nom), datasets: [{ data: QUI.map(([k]) => Math.round(livre.filter((l) => l[k]).reduce((s, l) => s + depenseDe(l), 0))), backgroundColor: couleursQui, borderColor: C().FOND, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '66%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.label} : ${eur(x.parsed)}` } } } } });
-      graph('gCptQuiIs', { type: 'bar', data: { labels: QUI.map(([, , nom]) => nom), datasets: [{ data: QUI.map(([k]) => Math.round(livre.filter((l) => l[k]).reduce((s, l) => s + gainIs(l), 0))), backgroundColor: couleursQui, borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${eur(x.parsed.y)}` } } }, scales: axes() } });
+      const partDe = (l, k) => { const n = quiDe(l).length; return l[k] && n ? 1 / n : 0; };
+      graph('gCptQuiMois', { type: 'bar', data: { labels: mois.map(moisFr), datasets: QUI.map(([k, code, nom], i) => ({ label: nom, data: mois.map((m) => Math.round(livre.filter((l) => l[k] && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l) * partDe(l, k), 0))), backgroundColor: couleursQui[i], borderRadius: 4, stack: 'dep' })) }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: { x: { stacked: true, grid: { display: false }, ticks: { color: GRIS } }, y: { stacked: true, grid: { color: LIGNE }, ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` }, beginAtZero: true } } } });
+      const pp = bloc('par_personne');
+      if (pp) {
+        const noms = (pp.lignes[0] || []).slice(1);
+        const ligne = (re) => (pp.lignes.find((r) => re.test(r[0])) || []).slice(1);
+        const pris = ligne(/^Montant pris/i).map(montantFr), net = ligne(/^Co[ûu]t net r[ée]el/i).map(montantFr);
+        graph('gCptQui', { type: 'bar', data: { labels: noms, datasets: [{ label: 'Montant pris', data: pris.map(Math.round), backgroundColor: GRIS, borderRadius: 6 }, { label: 'Coût net réel', data: net.map(Math.round), backgroundColor: 'rgba(232,184,75,.85)', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes({ ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }) } });
+      } else {
+        graph('gCptQui', { type: 'doughnut', data: { labels: QUI.map(([, , nom]) => nom), datasets: [{ data: QUI.map(([k]) => Math.round(livre.filter((l) => l[k]).reduce((s, l) => s + (depenseDe(l) - entreeDe(l)) * partDe(l, k), 0))), backgroundColor: couleursQui, borderColor: C().FOND, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '66%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.label} : ${eur(x.parsed)}` } } } } });
+      }
     }
     if (_cptOnglet === 'categories') {
       const parCat = new Map(); livre.forEach((l) => { if (!depenseDe(l)) return; const k = l.categorie || 'Sans catégorie'; parCat.set(k, (parCat.get(k) || 0) + depenseDe(l)); });
@@ -697,6 +764,7 @@
     }
   };
   const BUDGET_ID = '1NgmzippM7Y6Mv8XxG-XdTm-B8r7wMRf_CNRWgNgvevk';
+  let _cptPrevGraph = null, _cptProjetsGraph = null;
   function montantFr(v) { const t = String(v || '').replace(/[\u20ac\s\u00a0\u202f]/g, '').replace(/\./g, '').replace(',', '.').replace(/[\u2212\u2013]/g, '-'); const n = Number(t); return Number.isFinite(n) && t !== '' ? n : 0; }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-cpt-onglet], [data-cpt-voir-qui], [data-cpt-carte], [data-cpt-special-off]');
@@ -705,7 +773,7 @@
     else if (b.hasAttribute('data-cpt-special-off')) _cptFiltre.special = '';
     else if (b.dataset.cptCarte) {
       const c = b.dataset.cptCarte;
-      if (c === 'mois' || c === 'previsionnel') _cptOnglet = c;
+      if (c === 'mois' || c === 'previsionnel' || c === 'projets') _cptOnglet = c;
       else if (c === 'is_onglet') _cptOnglet = 'is';
       else poserFiltreCarte(c);
     }

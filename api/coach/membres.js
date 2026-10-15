@@ -649,6 +649,49 @@ const dateIso = (v) => {
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
 };
 
+// Cle stable d un bloc du classeur, a partir de son titre : « PAR PERSONNE / SOCIÉTÉ (lignes
+// cochées...) » -> par_personne. Le front s y accroche ; un titre reformule par Manu ne
+// casse rien tant que ses premiers mots restent.
+function cleBloc(titre) {
+  const t = String(titre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  if (/^SYNTHESE/.test(t)) return 'synthese';
+  if (/^FRAIS FIXES/.test(t)) return 'frais_fixes';
+  if (/^REMBOURSEMENT GLN/.test(t)) return 'remboursement_gln';
+  if (/^COUT PAR PROJET/.test(t)) return 'cout_par_projet';
+  if (/^PAR PERSONNE/.test(t)) return 'par_personne';
+  if (/^LEGENDE/.test(t)) return 'legende';
+  return t.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'bloc';
+}
+
+// Les blocs empiles sous une colonne (voir comptabilite()). Pure, testable.
+function lireBlocs(L, iEntete, iCol) {
+  const cell = (r, i) => (r && i >= 0 && r[i] != null ? String(r[i]).trim() : '');
+  const estNote = (r) => r[0].length > 60 && !r.slice(1).some(Boolean);
+  // Une ligne « pleine » porte au moins une valeur dans les 40 colonnes a
+  // droite de la colonne lue : la ligne des prenoms de PAR PERSONNE commence
+  // par une cellule vide (U59 vide, V59 = Manu), elle fait pourtant partie du bloc.
+  const plein = (r) => Array.from({ length: 40 }, (_, d) => cell(r, iCol + d)).some(Boolean);
+  const blocs = [];
+  const fin = Math.min(L.length, iEntete + 300);
+  let i = iEntete;
+  while (i < fin) {
+    if (!cell(L[i], iCol)) { i++; continue; }
+    const debut = i;
+    while (i < fin && plein(L[i])) i++;
+    const lignesBloc = L.slice(debut, i);
+    // Largeur : jusqu a deux colonnes vides d affilee (une seule colonne vide
+    // peut etre un mois sans charge ; trois colonnes vides separent les blocs
+    // IS et VEHICULE de la SYNTHESE).
+    let larg = 1, vides = 0;
+    for (let d = 1; d < 40 && vides < 2; d++) { if (lignesBloc.some((r) => cell(r, iCol + d))) { larg = d + 1; vides = 0; } else vides++; }
+    const grille = lignesBloc.map((r) => Array.from({ length: larg }, (_, d) => cell(r, iCol + d))).filter((r) => r.some(Boolean));
+    const titre = grille[0][0];
+    const corps = grille.slice(1);
+    blocs.push({ titre, cle: cleBloc(titre), lignes: corps.filter((r) => !estNote(r)), notes: corps.filter(estNote).map((r) => r[0]) });
+  }
+  return blocs;
+}
+
 async function comptabilite() {
   const sheets = getSheetsClient();
   const spreadsheetId = process.env.SHEETS_BUDGET_ID || BUDGET_ID_DEFAUT;
@@ -670,7 +713,7 @@ async function comptabilite() {
   // derniere ligne datee. Les blocs de droite (SYNTHESE, IS, VEHICULE) sont lus
   // a part, par leur en-tete, sans supposer leur colonne.
   const budget = feuilles.find((f) => /^budget$/i.test(f.titre)) || feuilles[0];
-  let livre = [], synthese = [], is = [], vehicule = { entete: [], lignes: [] }, maj = '';
+  let livre = [], synthese = [], is = [], vehicule = { entete: [], lignes: [] }, maj = '', blocs = [];
   if (budget) {
     const L = budget.lignes;
     maj = String((L[1] && L[1][0]) || '');
@@ -691,9 +734,21 @@ async function comptabilite() {
           justificatif: cell(r, C.justificatif), remarque: cell(r, C.remarque), mois: cell(r, C.mois), id_qonto: cell(r, C.idQonto),
         });
       }
-      // Les blocs de droite : SYNTHESE (libelle, valeur), IS ESTIME (libelle fusionne, valeur), AMORTISSEMENT VEHICULE (table).
+      // Les blocs de droite. Sous la colonne SYNTHESE, Manu empile plusieurs
+      // tableaux separes par une ligne vide : SYNTHESE, FRAIS FIXES PAR MOIS,
+      // REMBOURSEMENT GLN, COUT PAR PROJET, PAR PERSONNE / SOCIETE, LEGENDE...
+      // (releve du 15/10). Ils sont la source de verite : on les lit tous,
+      // tels quels, sans en recalculer un seul. Un bloc = les lignes
+      // contigues non vides de cette colonne ; sa largeur = les colonnes
+      // contigues qui portent au moins une valeur dans le bloc (les blocs
+      // IS et VEHICULE, plus a droite et separes par une colonne vide,
+      // restent a part). La premiere ligne est le titre.
       const iSyn = entete.findIndex((e) => e.toUpperCase() === 'SYNTHÈSE');
-      if (iSyn >= 0) for (const r of L.slice(iEntete + 1, iEntete + 40)) { const k = cell(r, iSyn); if (k) synthese.push({ libelle: k, valeur: cell(r, iSyn + 1), nombre: montant(cell(r, iSyn + 1)) }); }
+      if (iSyn >= 0) {
+        blocs = lireBlocs(L, iEntete, iSyn);
+        const syn = blocs.find((b) => b.cle === 'synthese');
+        if (syn) synthese = syn.lignes.map((r) => ({ libelle: r[0], valeur: r[1] || '', nombre: montant(r[1] || '') }));
+      }
       const iIs = entete.findIndex((e) => /^IS ESTIMÉ/i.test(e));
       if (iIs >= 0) for (const r of L.slice(iEntete + 1, iEntete + 30)) { const k = cell(r, iIs); const v = [1, 2, 3, 4].map((d) => cell(r, iIs + d)).filter((x) => x && x !== k).pop() || ''; if (k && v && !/^Taux PME/i.test(k)) is.push({ libelle: k, valeur: v, nombre: montant(v) }); else if (/^Taux PME/i.test(k) && !is.some((x) => x.note)) is.push({ note: k }); }
       const iVe = entete.findIndex((e) => /^AMORTISSEMENT/i.test(e));
@@ -704,7 +759,7 @@ async function comptabilite() {
       }
     }
   }
-  return { titre: meta.data.properties.title, maj, onglets: feuilles.map((f) => ({ titre: f.titre, gid: f.gid, lignes: f.lignes, nb: f.lignes.length })), livre, synthese, is, vehicule, lu_le: new Date().toISOString() };
+  return { titre: meta.data.properties.title, maj, onglets: feuilles.map((f) => ({ titre: f.titre, gid: f.gid, lignes: f.lignes, nb: f.lignes.length })), livre, synthese, blocs, is, vehicule, lu_le: new Date().toISOString() };
 }
 
 /* ══ HANDLER ═══════════════════════════════════════════════════════════════ */

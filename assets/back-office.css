@@ -196,3 +196,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-kpi--btn:hover { border-color: var(--gold-line); transform: translateY(-2px); }
 .bo-kpi__fleche { position: absolute; right: 14px; top: 14px; color: var(--text-disabled); font-size: 12px; }
 .bo-kpi--btn:hover .bo-kpi__fleche { color: var(--gold); }
+.bo-ligne--total td { font-weight: 700; border-top: 1px solid var(--gold-line); }
+.bo-grise { color: var(--text-disabled); font-style: italic; }
