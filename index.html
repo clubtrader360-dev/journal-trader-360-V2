@@ -3345,15 +3345,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </button>
             </div>
             
-            <nav class="mt-6">
+            <!-- ⚠️ DEUX PARTIES, et c est Nadir qui les nomme (15/10) : la partie TRADING
+                 (le journal de trading vu du coach : tableau de bord, eleves, comptabilite,
+                 inscriptions, replays) et le BACK OFFICE (les acces, les offres a venir).
+                 Les identifiants de sections et de routes ne bougent pas. -->
+            <nav class="mt-6" aria-label="Trading">
+                <div class="sidebar-group-title">Trading</div>
                 <div class="sidebar-item coach-active" id="coachNavDashboard" onclick="showCoachSection('coachDashboard')">
                     <i class="fas fa-chart-line mr-3"></i>Dashboard Global
                 </div>
                 <div class="sidebar-item" id="coachNavStudents" onclick="showCoachSection('coachStudents')">
                     <i class="fas fa-users mr-3"></i>Mes Élèves
-                </div>
-                <div class="sidebar-item" id="coachNavMembersTable" onclick="showCoachSection('coachMembersTable')">
-                    <i class="fas fa-clipboard-list mr-3"></i>Suivi Membres
                 </div>
                 <div class="sidebar-item" id="coachNavAccounting" onclick="showCoachSection('coachAccounting')">
                     <i class="fas fa-euro-sign mr-3"></i>Comptabilité
@@ -3370,11 +3372,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" id="coachNavReplays" onclick="showCoachSection('coachReplays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
                 </div>
-                <!-- Tache #54 (15/10) : le back-office des membres. Droits, niveau,
-                     avancement, quiz, creation de compte. Rendu par supabase-coach-membres.js,
-                     ecritures par /api/coach/membres. -->
+            </nav>
+            <nav class="mt-4" aria-label="Back office">
+                <div class="sidebar-group-title">Back office</div>
+                <!-- Tache #54 (15/10) : les acces a la formation et au journal, le niveau,
+                     la creation de compte. Rendu par supabase-coach-membres.js,
+                     ecritures par /api/coach/membres. Les offres (LearnyBox) viendront ici. -->
                 <div class="sidebar-item" id="coachNavMembres" onclick="showCoachSection('coachMembres')">
-                    <i class="fas fa-id-badge mr-3"></i>Membres
+                    <i class="fas fa-id-badge mr-3"></i>Accès membres formation
+                </div>
+                <div class="sidebar-item" id="coachNavMembersTable" onclick="showCoachSection('coachMembersTable')">
+                    <i class="fas fa-clipboard-list mr-3"></i>Suivi membres (tableur)
                 </div>
             </nav>
 
@@ -3882,8 +3890,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             <!-- Membres (tache #54) -->
             <div id="coachMembres" class="section hidden">
                 <div class="section-header">
-                    <h1>Membres</h1>
-                    <p class="text-gray-600">Droits, niveau, avancement et comptes, pour chaque membre</p>
+                    <h1>Accès membres formation</h1>
+                    <p class="text-gray-600">Qui entre dans la formation et dans le journal, à quel niveau, et où chacun en est</p>
                 </div>
                 <div class="trader-card cm-carte">
                     <div class="cm-outils">
