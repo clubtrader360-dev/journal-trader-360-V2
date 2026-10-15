@@ -191,3 +191,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-table--compact td { padding: 8px 8px; font-size: 13px; }
 .bo-table--compact th { padding: 6px 8px 8px; }
 .bo-ligne--neutre td { opacity: .55; }
+/* Les cartes qui menent quelque part (comptabilite) */
+.bo-kpi--btn { position: relative; text-align: left; cursor: pointer; font: inherit; color: inherit; transition: border-color .2s ease, transform .2s ease; }
+.bo-kpi--btn:hover { border-color: var(--gold-line); transform: translateY(-2px); }
+.bo-kpi__fleche { position: absolute; right: 14px; top: 14px; color: var(--text-disabled); font-size: 12px; }
+.bo-kpi--btn:hover .bo-kpi__fleche { color: var(--gold); }

@@ -447,7 +447,36 @@
 
   /* ══ VENTES · COMPTABILITE (le classeur BUDGET, lecture seule) ══════════════ */
   let _cptOnglet = 'livre';
-  const _cptFiltre = { q: '', categorie: '', via: '', mois: '', qui: '' };
+  const _cptFiltre = { q: '', categorie: '', via: '', mois: '', qui: '', type: '', special: '' };
+  // Les cartes du haut menent au grand livre deja filtre (Nadir, 15/10 : « quand
+  // on clique sur le cadre, ca nous amene sur la liste »).
+  const FILTRES_CARTES = {
+    entrees: { type: 'entrees', libelle: 'Toutes les entrées' },
+    depenses: { type: 'depenses', libelle: 'Toutes les dépenses' },
+    gln: { special: 'gln', libelle: 'Avancé par GLN' },
+    compte_courant: { special: 'compte_courant', libelle: 'Compte courant de Manu' },
+    justificatifs: { special: 'justificatifs', libelle: 'Justificatifs manquants' },
+    tva_collectee: { type: 'entrees', libelle: 'Entrées avec TVA collectée' },
+    is: { type: 'depenses', libelle: 'Dépenses avec gain d IS' },
+    ambassadeurs: { special: 'ambassadeurs', libelle: 'Commissions ambassadeurs' },
+    voiture: { special: 'voiture', libelle: 'Voiture' },
+  };
+  function poserFiltreCarte(cle) {
+    const f = FILTRES_CARTES[cle];
+    if (!f) return;
+    Object.assign(_cptFiltre, { q: '', categorie: '', via: '', mois: '', qui: '', type: f.type || '', special: f.special || '' });
+    _cptOnglet = 'livre';
+  }
+  const passeSpecial = (l) => {
+    switch (_cptFiltre.special) {
+      case 'gln': return avanceGln(l);
+      case 'compte_courant': return compteCourant(l);
+      case 'justificatifs': return /manquant/i.test(l.justificatif || '');
+      case 'ambassadeurs': return /ambassad|commission/i.test(`${l.categorie} ${l.designation}`);
+      case 'voiture': return voiture(l);
+      default: return true;
+    }
+  };
   // Les colonnes MAN / NAD / GUI / SIE du classeur : qui est a l origine de la ligne.
   // ⚠️ Les codes sont ceux du classeur ; SIE est garde tel quel (non interprete).
   const QUI = [['man', 'MAN', 'Manu'], ['nad', 'NAD', 'Nadir'], ['gui', 'GUI', 'Guillaume'], ['sie', 'SIE', 'SIE']];
@@ -498,17 +527,17 @@
     const synth = (c.synthese || []);
     const trouve = (re) => synth.find((x) => re.test(x.libelle));
     const kpis = [
-      ['fa-arrow-down', 'Entrées totales', trouve(/^Entrées totales/i), 'hors compte courant'],
-      ['fa-arrow-up', 'Dépenses totales', trouve(/^Dépenses totales/i), 'hors compte courant'],
-      ['fa-university', 'Solde réel Qonto', trouve(/^Solde réel Qonto/i), (trouve(/^Écart/i) || {}).valeur ? `écart ${trouve(/^Écart/i).valeur}` : ''],
-      ['fa-wallet', 'Cash réellement disponible', trouve(/^Cash réellement/i), 'après IS, TVA, dette GLN, frais fixes'],
-      ['fa-percent', 'TVA collectée', trouve(/^TVA collectée/i), (trouve(/^TVA déjà reversée/i) || {}).valeur ? `reversée ${trouve(/^TVA déjà reversée/i).valeur}` : ''],
-      ['fa-undo', 'Reste à reverser', trouve(/^Reste à reverser/i), (trouve(/^TVA récupérable/i) || {}).valeur ? `TVA récupérable ${trouve(/^TVA récupérable/i).valeur}` : ''],
-      ['fa-handshake', 'Commissions ambassadeurs', trouve(/^Commissions ambassadeurs/i), 'à devoir, HT'],
-      ['fa-file-alt', 'Justificatifs manquants', trouve(/^Justificatifs manquants/i), 'lignes sans pièce'],
-      ['fa-building', 'Avancé par GLN', { valeur: eur(avanceGlnTotal) }, `société de Manu · ${eur(duGlnTotal)} à lui rembourser`],
-      ['fa-exchange-alt', 'Compte courant de Manu', { valeur: eur(compteCourantEntrees - compteCourantSorties) }, `${eur(compteCourantEntrees)} apportés · ${eur(compteCourantSorties)} remis · hors des totaux`],
-      ['fa-piggy-bank', 'Gain d IS estimé', { valeur: eur(gainIsTotal) }, `${Math.round(TAUX_IS * 100)} % des dépenses HT déductibles`],
+      ['fa-arrow-down', 'Entrées totales', trouve(/^Entrées totales/i), 'hors compte courant', 'entrees'],
+      ['fa-arrow-up', 'Dépenses totales', trouve(/^Dépenses totales/i), 'hors compte courant', 'depenses'],
+      ['fa-university', 'Solde réel Qonto', trouve(/^Solde réel Qonto/i), (trouve(/^Écart/i) || {}).valeur ? `écart ${trouve(/^Écart/i).valeur}` : '', 'mois'],
+      ['fa-wallet', 'Cash réellement disponible', trouve(/^Cash réellement/i), 'après IS, TVA, dette GLN, frais fixes', 'previsionnel'],
+      ['fa-percent', 'TVA collectée', trouve(/^TVA collectée/i), (trouve(/^TVA déjà reversée/i) || {}).valeur ? `reversée ${trouve(/^TVA déjà reversée/i).valeur}` : '', 'tva_collectee'],
+      ['fa-undo', 'Reste à reverser', trouve(/^Reste à reverser/i), (trouve(/^TVA récupérable/i) || {}).valeur ? `TVA récupérable ${trouve(/^TVA récupérable/i).valeur}` : '', 'is_onglet'],
+      ['fa-handshake', 'Commissions ambassadeurs', trouve(/^Commissions ambassadeurs/i), 'à devoir, HT', 'ambassadeurs'],
+      ['fa-file-alt', 'Justificatifs manquants', trouve(/^Justificatifs manquants/i), 'lignes sans pièce', 'justificatifs'],
+      ['fa-building', 'Avancé par GLN', { valeur: eur(avanceGlnTotal) }, `société de Manu · ${eur(duGlnTotal)} à lui rembourser`, 'gln'],
+      ['fa-exchange-alt', 'Compte courant de Manu', { valeur: eur(compteCourantEntrees - compteCourantSorties) }, `${eur(compteCourantEntrees)} apportés · ${eur(compteCourantSorties)} remis · hors des totaux`, 'compte_courant'],
+      ['fa-piggy-bank', 'Gain d IS estimé', { valeur: eur(gainIsTotal) }, `${Math.round(TAUX_IS * 100)} % des dépenses HT déductibles`, 'is'],
     ].filter((k) => k[2]);
     let corps = '';
     if (_cptOnglet === 'livre') {
@@ -516,7 +545,7 @@
       const vias = [...new Set(livre.map((l) => l.via).filter(Boolean))].sort();
       const moisListe = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort().reverse();
       const q = _cptFiltre.q.trim().toLowerCase();
-      const visibles = livre.filter((l) => (!q || `${l.designation} ${l.categorie} ${l.remarque} ${l.projet}`.toLowerCase().includes(q)) && (!_cptFiltre.categorie || l.categorie === _cptFiltre.categorie) && (!_cptFiltre.via || l.via === _cptFiltre.via) && (!_cptFiltre.mois || l.date.startsWith(_cptFiltre.mois)) && (!_cptFiltre.qui || (_cptFiltre.qui === 'aucun' ? !quiDe(l).length : l[_cptFiltre.qui]))).sort((a, b) => b.date.localeCompare(a.date));
+      const visibles = livre.filter((l) => (!q || `${l.designation} ${l.categorie} ${l.remarque} ${l.projet}`.toLowerCase().includes(q)) && (!_cptFiltre.categorie || l.categorie === _cptFiltre.categorie) && (!_cptFiltre.via || l.via === _cptFiltre.via) && (!_cptFiltre.mois || l.date.startsWith(_cptFiltre.mois)) && (!_cptFiltre.qui || (_cptFiltre.qui === 'aucun' ? !quiDe(l).length : l[_cptFiltre.qui])) && (!_cptFiltre.type || (_cptFiltre.type === 'entrees' ? l.entree != null : l.depense != null)) && passeSpecial(l)).sort((a, b) => b.date.localeCompare(a.date));
       const tE = visibles.reduce((s, l) => s + entreeDe(l), 0), tD = visibles.reduce((s, l) => s + depenseDe(l), 0), tIs = visibles.reduce((s, l) => s + gainIs(l), 0);
       const qui = (l) => quiDe(l).join(' ');
       corps = `<div class="bo-carte">
@@ -526,6 +555,8 @@
             <select class="bo-select" data-cpt-categorie><option value="">Toutes les catégories</option>${categories.map((x) => `<option ${_cptFiltre.categorie === x ? 'selected' : ''}>${txt(x)}</option>`).join('')}</select>
             <select class="bo-select" data-cpt-via><option value="">Payé via</option>${vias.map((x) => `<option ${_cptFiltre.via === x ? 'selected' : ''}>${txt(x)}</option>`).join('')}</select>
             <select class="bo-select" data-cpt-mois><option value="">Tous les mois</option>${moisListe.map((x) => `<option value="${x}" ${_cptFiltre.mois === x ? 'selected' : ''}>${txt(moisFr(x))}</option>`).join('')}</select>
+            <select class="bo-select" data-cpt-type><option value="">Entrées et dépenses</option><option value="entrees" ${_cptFiltre.type === 'entrees' ? 'selected' : ''}>Entrées seulement</option><option value="depenses" ${_cptFiltre.type === 'depenses' ? 'selected' : ''}>Dépenses seulement</option></select>
+            ${_cptFiltre.special ? `<button type="button" class="bo-btn bo-btn--fantome" data-cpt-special-off title="Retirer ce filtre">${txt((Object.values(FILTRES_CARTES).find((x) => x.special === _cptFiltre.special) || {}).libelle || _cptFiltre.special)} &times;</button>` : ''}
             <select class="bo-select" data-cpt-qui><option value="">Qui</option>${QUI.map(([k, code, nom]) => `<option value="${k}" ${_cptFiltre.qui === k ? 'selected' : ''}>${nom}${nom !== code ? ` (${code})` : ''}</option>`).join('')}<option value="aucun" ${_cptFiltre.qui === 'aucun' ? 'selected' : ''}>Personne de coché</option></select>
           </div></div>
         <div class="bo-enveloppe"><table class="bo-table bo-table--compact"><thead><tr><th>Date</th><th>Désignation</th><th>Catégorie</th><th>Via</th><th class="num">Entrée</th><th class="num">Dépense</th><th class="num">TVA</th><th class="num">Gain IS</th><th>Qui</th><th>Justificatif</th><th>Remarque</th></tr></thead><tbody>
@@ -564,37 +595,47 @@
         <div class="bo-carte"><h2>Catégories</h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Entrées</th><th class="num">Dépenses</th><th class="num">Gain IS</th></tr></thead><tbody>${lignes.map(([k, x]) => `<tr class="${x.cc ? 'bo-ligne--neutre' : ''}"><td>${txt(k)}${x.cc ? '<br><small style="color:var(--text-soft)">hors totaux</small>' : ''}</td><td class="num">${x.n}</td><td class="num" style="color:var(--gold)">${x.entrees ? eur(x.entrees) : ''}</td><td class="num">${x.depenses ? eur(x.depenses) : ''}</td><td class="num">${x.is ? eur(x.is) : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
     } else if (_cptOnglet === 'previsionnel') {
       /**
-       * ⚠️ LE PREVISIONNEL DES CHARGES : une estimation maison, posee sur ce que
-       * le classeur a deja vu. Par categorie de depense (hors compte courant et
-       * hors creation de societe, qui ne reviendra pas) : la moyenne mensuelle
-       * des six derniers mois pleins, projetee sur douze mois. Plus
-       * l amortissement de la voiture (du cote de Manu, bloc du classeur) et
-       * l IS estime du classeur. ⛔ Rien ici n est une prevision du cabinet.
+       * ⚠️ LE PREVISIONNEL, C EST LES FRAIS FIXES (Nadir, 15/10 : « on a a peu
+       * pres 800 euros de charges par mois »). La premiere version projetait
+       * TOUTES les depenses, TVA reversee, commissions et achats compris : faux.
+       * Ici : les lignes de categorie « Frais fixes », regroupees par
+       * fournisseur (la designation, debarrassee de « (PAYE PAR GLN) » et des
+       * numeros), moyenne mensuelle sur les six derniers mois pleins, projetee.
+       * Les autres depenses sont montrees a part, par categorie, sans etre
+       * projetees : elles ne reviennent pas tous les mois.
        */
       const moisTous = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
       const moisCourant = new Date().toISOString().slice(0, 7);
       const pleins = moisTous.filter((m) => m < moisCourant).slice(-6);
-      const parCat = new Map();
-      livre.filter((l) => !horsTotaux(l) && depenseDe(l) && !/création société/i.test(l.categorie || '') && pleins.includes(l.date.slice(0, 7))).forEach((l) => { const k = l.categorie || 'Sans catégorie'; parCat.set(k, (parCat.get(k) || 0) + depenseDe(l)); });
-      const lignes = [...parCat.entries()].map(([k, v]) => ({ k, mois: v / (pleins.length || 1), an: v / (pleins.length || 1) * 12 })).sort((a, b) => b.an - a.an);
-      const totalMois = lignes.reduce((s, x) => s + x.mois, 0), totalAn = totalMois * 12;
-      const entreesMois = livre.filter((l) => !horsTotaux(l) && pleins.includes(l.date.slice(0, 7))).reduce((s, l) => s + entreeDe(l), 0) / (pleins.length || 1);
+      const nbMois = pleins.length || 1;
+      const fixe = (l) => !horsTotaux(l) && depenseDe(l) > 0 && /frais fixes/i.test(l.categorie || '');
+      const fournisseur = (l) => String(l.designation || '').replace(/\(pay[ée] par gln\)/i, '').replace(/\(\s*\d+\s*\/\s*\d+\s*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase() || 'Sans désignation';
+      const parF = new Map();
+      livre.filter((l) => fixe(l) && pleins.includes(l.date.slice(0, 7))).forEach((l) => { const k = fournisseur(l); const x = parF.get(k) || { total: 0, n: 0, mois: new Set(), gln: 0, dernier: '' }; x.total += depenseDe(l); x.n += 1; x.mois.add(l.date.slice(0, 7)); if (avanceGln(l)) x.gln += depenseDe(l); if (l.date > x.dernier) x.dernier = l.date; parF.set(k, x); });
+      const fixes = [...parF.entries()].map(([k, x]) => ({ k, mois: x.total / nbMois, an: x.total / nbMois * 12, presence: x.mois.size, n: x.n, gln: x.gln, dernier: x.dernier })).sort((a, b) => b.an - a.an);
+      const totalMois = fixes.reduce((s, x) => s + x.mois, 0), totalAn = totalMois * 12;
+      const parMoisFixe = moisTous.map((m) => Math.round(livre.filter((l) => fixe(l) && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l), 0)));
+      const autres = new Map();
+      livre.filter((l) => !horsTotaux(l) && depenseDe(l) > 0 && !fixe(l)).forEach((l) => { const k = l.categorie || 'Sans catégorie'; const x = autres.get(k) || { total: 0, n: 0, six: 0 }; x.total += depenseDe(l); x.n += 1; if (pleins.includes(l.date.slice(0, 7))) x.six += depenseDe(l); autres.set(k, x); });
+      const autresL = [...autres.entries()].sort((a, b) => b[1].total - a[1].total);
+      const entreesMois = livre.filter((l) => !horsTotaux(l) && pleins.includes(l.date.slice(0, 7))).reduce((s, l) => s + entreeDe(l), 0) / nbMois;
       const isLigne = (c.is || []).find((x) => /^IS estimé en cours/i.test(x.libelle || ''));
       const vehiculeLigne = ((c.vehicule && c.vehicule.lignes) || []).find((r) => /^2027$/.test(r[0] || ''));
       const amortAn = vehiculeLigne ? montantFr(vehiculeLigne[1]) : 0;
       corps = `<div class="bo-kpis">
-          ${kpi('fa-calendar-alt', 'Charges prévues par mois', eur(totalMois), `moyenne des ${pleins.length} derniers mois pleins (${pleins.map(moisFr).join(', ')})`)}
-          ${kpi('fa-calendar', 'Charges prévues sur 12 mois', eur(totalAn), 'hors compte courant et création de société')}
+          ${kpi('fa-calendar-alt', 'Frais fixes par mois', eur(totalMois), `moyenne des ${nbMois} derniers mois pleins (${pleins.map(moisFr).join(', ')})`)}
+          ${kpi('fa-calendar', 'Frais fixes sur 12 mois', eur(totalAn), `${fixes.length} fournisseurs récurrents`)}
           ${kpi('fa-arrow-down', 'Entrées moyennes par mois', eur(entreesMois), `${eur(entreesMois * 12)} sur 12 mois au même rythme`)}
-          ${kpi('fa-balance-scale', 'Résultat mensuel au rythme actuel', eur(entreesMois - totalMois), 'entrées moins charges, avant IS')}
+          ${kpi('fa-balance-scale', 'Marge mensuelle sur les frais fixes', eur(entreesMois - totalMois), 'entrées moins frais fixes, avant les autres charges et l IS')}
           ${isLigne ? kpi('fa-landmark', 'IS estimé en cours', txt(isLigne.valeur), 'bloc IS du classeur, exercice en cours') : ''}
           ${amortAn ? kpi('fa-car', 'Voiture : amortissement par an', eur(amortAn), 'côté Manu, bloc véhicule du classeur') : ''}
         </div>
         <div class="bo-grille-3">
-          <div class="bo-carte"><h2>Charges prévues par catégorie <small>par mois et sur 12 mois</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Par mois</th><th class="num">Sur 12 mois</th><th class="num">Part</th><th class="num">Gain IS sur 12 mois</th></tr></thead><tbody>${lignes.map((x) => `<tr><td>${txt(x.k)}</td><td class="num">${eur(x.mois)}</td><td class="num"><b>${eur(x.an)}</b></td><td class="num">${totalAn ? Math.round(x.an / totalAn * 100) : 0} %</td><td class="num">${eur(x.an / 1.2 * TAUX_IS)}</td></tr>`).join('')}<tr><td><b>Total</b></td><td class="num"><b>${eur(totalMois)}</b></td><td class="num"><b>${eur(totalAn)}</b></td><td class="num">100 %</td><td class="num"><b>${eur(totalAn / 1.2 * TAUX_IS)}</b></td></tr></tbody></table></div></div>
-          <div class="bo-carte"><h2>Charges mensuelles observées</h2><div class="bo-graph"><canvas id="gCptPrev"></canvas></div><div class="bo-legende"><span style="--c:${GRIS}">Charges du mois</span><span style="--c:${OR}">Moyenne retenue</span></div></div>
+          <div class="bo-carte"><h2>Frais fixes par fournisseur <small>par mois et sur 12 mois</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Fournisseur</th><th class="num">Par mois</th><th class="num">Sur 12 mois</th><th class="num">Mois vus / ${nbMois}</th><th>Dernier</th><th class="num">Gain IS / an</th></tr></thead><tbody>${fixes.map((x) => `<tr><td><b>${txt(x.k)}</b>${x.gln ? '<br><small style="color:var(--text-soft)">avancé par GLN</small>' : ''}</td><td class="num">${eur(x.mois)}</td><td class="num"><b>${eur(x.an)}</b></td><td class="num">${x.presence}</td><td>${txt(x.dernier.split('-').reverse().join('/'))}</td><td class="num">${eur(x.an / 1.2 * TAUX_IS)}</td></tr>`).join('')}<tr><td><b>Total frais fixes</b></td><td class="num"><b>${eur(totalMois)}</b></td><td class="num"><b>${eur(totalAn)}</b></td><td></td><td></td><td class="num"><b>${eur(totalAn / 1.2 * TAUX_IS)}</b></td></tr></tbody></table></div></div>
+          <div class="bo-carte"><h2>Frais fixes mois par mois</h2><div class="bo-graph"><canvas id="gCptPrev"></canvas></div><div class="bo-legende"><span style="--c:${OR}">Mois retenus</span><span style="--c:${GRIS}">Autres mois</span><span style="--c:${OR2}">Moyenne</span></div></div>
         </div>
-        <p class="bo-source">Estimation maison : la moyenne des derniers mois pleins, projetée. Le gain d IS sur 12 mois suppose une TVA à 20 % récupérable et le taux d IS du classeur (${Math.round(TAUX_IS * 100)} %). Le cabinet reste la référence.</p>`;
+        <div class="bo-carte"><h2>Les autres charges <small>non récurrentes, pas projetées</small></h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Depuis le début</th><th class="num">Sur les ${nbMois} derniers mois</th><th class="num">Soit par mois</th></tr></thead><tbody>${autresL.map(([k, x]) => `<tr><td>${txt(k)}</td><td class="num">${x.n}</td><td class="num">${eur(x.total)}</td><td class="num">${eur(x.six)}</td><td class="num">${eur(x.six / nbMois)}</td></tr>`).join('')}</tbody></table></div><p class="bo-source">TVA reversée, commissions, présentiels, achats : elles existent mais ne tombent pas tous les mois. Le prévisionnel ne retient que les frais fixes ; ces montants servent de repère.</p></div>
+        <p class="bo-source">Estimation maison : la moyenne des frais fixes des derniers mois pleins, projetée sur douze mois. Le gain d IS suppose une TVA à 20 % récupérable et le taux d IS du classeur (${Math.round(TAUX_IS * 100)} %). Le cabinet reste la référence.</p>`;
     } else if (_cptOnglet === 'is') {
       const is = c.is || [];
       corps = `<div class="bo-carte"><h2>IS estimé · exercice en cours</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${is.filter((x) => !x.note).map((x) => `<tr><td>${txt(x.libelle)}</td><td class="num"><b>${txt(x.valeur)}</b></td></tr>`).join('')}</tbody></table></div>${is.find((x) => x.note) ? `<p class="bo-source">${txt(is.find((x) => x.note).note)}</p>` : ''}<p class="bo-source">Estimation maison du classeur, à valider par le cabinet (ADALTA).</p></div>`;
@@ -621,7 +662,7 @@
     }
     z.innerHTML = `
       <div class="bo-carte__tete" style="margin-bottom:14px"><span class="bo-pill bo-pill--ok"><i class="fas fa-lock"></i> Lecture seule</span><span class="bo-pill">${txt(c.maj || 'Synchronisé Qonto')}</span><a class="bo-btn bo-btn--fantome" href="https://docs.google.com/spreadsheets/d/${txt(BUDGET_ID)}/edit" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Ouvrir le classeur</a></div>
-      <div class="bo-kpis">${kpis.map(([ic, k, x, s]) => kpi(ic, k, txt(x.valeur), s)).join('')}</div>
+      <div class="bo-kpis">${kpis.map(([ic, k, x, s, cible]) => `<button type="button" class="bo-kpi bo-kpi--btn" data-cpt-carte="${cible}" title="Voir le détail"><div class="bo-kpi__ic"><i class="fas ${ic}"></i></div><div class="bo-kpi__k">${k}</div><div class="bo-kpi__v">${txt(x.valeur)}</div>${s ? `<div class="bo-kpi__s">${s}</div>` : ''}<div class="bo-kpi__fleche"><i class="fas fa-arrow-right"></i></div></button>`).join('')}</div>
       <nav class="am-onglets">${ONGLETS.map(([k, t]) => `<button type="button" data-cpt-onglet="${txt(k)}" aria-selected="${_cptOnglet === k}">${txt(t)}</button>`).join('')}</nav>${corps}
       <p class="bo-source">Source : classeur « ${txt(c.titre)} », ${nb(livre.length)} lignes datées, ${eur(entrees)} d entrées et ${eur(depenses)} de dépenses sur le grand livre. Lu le ${txt(dateFr(c.lu_le, true))}.</p>`;
     if (_cptOnglet === 'mois') {
@@ -637,9 +678,10 @@
       const moisTous = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
       const moisCourant = new Date().toISOString().slice(0, 7);
       const pleins = moisTous.filter((m) => m < moisCourant).slice(-6);
-      const charges = moisTous.map((m) => Math.round(livre.filter((l) => l.date.startsWith(m) && !horsTotaux(l) && !/création société/i.test(l.categorie || '')).reduce((s, l) => s + depenseDe(l), 0)));
-      const moyenne = pleins.length ? Math.round(moisTous.filter((m) => pleins.includes(m)).reduce((s, m) => s + charges[moisTous.indexOf(m)], 0) / pleins.length) : 0;
-      graph('gCptPrev', { type: 'bar', data: { labels: moisTous.map(moisFr), datasets: [{ label: 'Charges du mois', data: charges, backgroundColor: moisTous.map((m) => pleins.includes(m) ? 'rgba(232,184,75,.75)' : GRIS), borderRadius: 6 }, { label: 'Moyenne retenue', data: moisTous.map(() => moyenne), type: 'line', borderColor: OR, borderDash: [6, 4], pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes({ ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }) } });
+      const fixe = (l) => !horsTotaux(l) && depenseDe(l) > 0 && /frais fixes/i.test(l.categorie || '');
+      const charges = moisTous.map((m) => Math.round(livre.filter((l) => fixe(l) && l.date.startsWith(m)).reduce((s, l) => s + depenseDe(l), 0)));
+      const moyenne = pleins.length ? Math.round(pleins.reduce((s, m) => s + charges[moisTous.indexOf(m)], 0) / pleins.length) : 0;
+      graph('gCptPrev', { type: 'bar', data: { labels: moisTous.map(moisFr), datasets: [{ label: 'Frais fixes du mois', data: charges, backgroundColor: moisTous.map((m) => pleins.includes(m) ? 'rgba(232,184,75,.75)' : GRIS), borderRadius: 6 }, { label: 'Moyenne retenue', data: moisTous.map(() => moyenne), type: 'line', borderColor: OR2, borderDash: [6, 4], pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes() } });
     }
     if (_cptOnglet === 'coachs') {
       const mois = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
@@ -657,9 +699,16 @@
   const BUDGET_ID = '1NgmzippM7Y6Mv8XxG-XdTm-B8r7wMRf_CNRWgNgvevk';
   function montantFr(v) { const t = String(v || '').replace(/[\u20ac\s\u00a0\u202f]/g, '').replace(/\./g, '').replace(',', '.').replace(/[\u2212\u2013]/g, '-'); const n = Number(t); return Number.isFinite(n) && t !== '' ? n : 0; }
   document.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-cpt-onglet], [data-cpt-voir-qui]');
+    const b = e.target.closest('[data-cpt-onglet], [data-cpt-voir-qui], [data-cpt-carte], [data-cpt-special-off]');
     if (!b) return;
-    if (b.dataset.cptVoirQui) { _cptFiltre.qui = b.dataset.cptVoirQui; _cptOnglet = 'livre'; }
+    if (b.dataset.cptVoirQui) { Object.assign(_cptFiltre, { q: '', categorie: '', via: '', mois: '', type: '', special: '' }); _cptFiltre.qui = b.dataset.cptVoirQui; _cptOnglet = 'livre'; }
+    else if (b.hasAttribute('data-cpt-special-off')) _cptFiltre.special = '';
+    else if (b.dataset.cptCarte) {
+      const c = b.dataset.cptCarte;
+      if (c === 'mois' || c === 'previsionnel') _cptOnglet = c;
+      else if (c === 'is_onglet') _cptOnglet = 'is';
+      else poserFiltreCarte(c);
+    }
     else _cptOnglet = b.dataset.cptOnglet;
     CHARGEURS['ventes/comptabilite']();
     window.scrollTo({ top: 0 });
@@ -674,6 +723,7 @@
     else if (t.matches('[data-cpt-via]')) _cptFiltre.via = t.value;
     else if (t.matches('[data-cpt-mois]')) _cptFiltre.mois = t.value;
     else if (t.matches('[data-cpt-qui]')) _cptFiltre.qui = t.value;
+    else if (t.matches('[data-cpt-type]')) _cptFiltre.type = t.value;
     else return;
     CHARGEURS['ventes/comptabilite']();
   });
