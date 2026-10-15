@@ -527,6 +527,21 @@
       allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
     const iframe = ecran.querySelector('iframe');
     const player = new window.Vimeo.Player(iframe);
+    /**
+     * ⚠️ LE LISERE BLANC AUTOUR DE LA VIDEO. Retour de Nadir du 15/10 : « en
+     * petit format, un liseré blanc autour de la vidéo ; en plein écran puis
+     * retour, il disparaît ». Ce n est pas une bordure a nous (l iframe est a
+     * `border:0`, l emplacement l ecrase de son `overflow:hidden`) : c est
+     * l anneau de focus que le lecteur Vimeo dessine A L INTERIEUR de son
+     * cadre quand son iframe prend le focus, ce que l autoplay provoque. Le
+     * plein ecran deplace le focus, d ou sa disparition au retour. On rend
+     * donc le focus au document des que le lecteur l a pris. ⛔ Pas de
+     * `keyboard=0` : l eleve garde espace et fleches dans le lecteur.
+     */
+    const rendreLeFocus = () => { if (document.activeElement === iframe) iframe.blur(); };
+    player.ready().then(rendreLeFocus).catch(() => {});
+    player.on('loaded', rendreLeFocus);
+    player.on('play', rendreLeFocus);
     const l = { player, leconId: c.id, derniere: 0, propose: false, position: reprise,
       // ⚠️ Le cumul repart de ce qui est deja en base : une lecture coupee
       // puis reprise ne recommence pas a zero.

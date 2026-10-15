@@ -992,3 +992,34 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp[data-theme="clair"] .mod:hover:not(.locked){background:#ffffff;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-wash),0 18px 40px -24px var(--gold-glow)}
 #formationApp[data-theme="clair"] .mod.current{background:rgba(255,255,255,.92)}
 #formationApp[data-theme="clair"] .mod--cert:hover:not(.locked){background:linear-gradient(135deg,rgba(232,184,75,.26),#ffffff 55%)}
+
+/* ── Retours du 15/10 sur la page de module ────────────────────────────────── */
+/* « Le vert utilisé quand c est validé n est pas esthétique, je préférerais
+   une couleur or ». Le vert de validation disparait de l espace : les trois
+   variables passent a l or, et les bordures vertes ecrites en dur suivent.
+   ⚠️ Reste vert : rien. La bonne reponse d un quiz est en or aussi, la
+   mauvaise reste rouge, c est le contraste qui compte. */
+#formationApp{--ok:#e8b84b;--ok-glow:#f3d585;--ok-wash:rgba(232,184,75,.12)}
+#formationApp[data-theme="clair"]{--ok:#b98a2e;--ok-glow:#8f6a1f;--ok-wash:rgba(185,138,46,.12)}
+#formationApp .bar.done i{background:linear-gradient(90deg,var(--gold-deep),var(--gold),var(--gold-2));box-shadow:0 0 14px var(--gold-glow)}
+#formationApp .pill.ok,#formationApp .niveau__etat.ok,#formationApp .quiz__resultat--ok .quiz__score span,#formationApp .quiz__coche{border-color:var(--gold-line)}
+#formationApp .chap.done .dot{background:linear-gradient(180deg,var(--gold-2),var(--gold));border-color:var(--gold);color:var(--on-gold)}
+
+/* « Les numéros de chapitre, un peu plus gros, on est obligés de les deviner »
+   et « augmenter un peu la taille de la police des chapitres ». */
+#formationApp .chap{grid-template-columns:36px 1fr;gap:14px;padding:11px 12px}
+#formationApp .chap .dot{width:36px;height:36px;font-size:13.5px;font-weight:600;color:var(--ink-soft);border-width:1.5px}
+#formationApp .chap.done .dot svg{width:17px;height:17px}
+#formationApp .chap--verrou .dot svg{width:14px;height:14px}
+#formationApp .chap .t{font-size:16px;line-height:1.35}
+#formationApp .chap .s{font-size:14px}
+
+/* « Les boutons précédent et suivant, et tous les modules, de la même taille que
+   Marquer comme terminé » : les memes 13px 24px / 15px que `.btn`. */
+#formationApp .mnav{gap:12px;padding:18px 0 0}
+#formationApp .mnav__btn{padding:11px 22px;gap:12px}
+#formationApp .mnav__btn b{font-size:15px}
+#formationApp .mnav__btn small{font-size:12px}
+#formationApp .mnav__btn svg{width:16px;height:16px}
+#formationApp .mnav__btn--grille{padding:13px 24px}
+#formationApp .mnav__btn--grille b{font-size:15px}
