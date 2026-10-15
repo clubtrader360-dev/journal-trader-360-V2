@@ -464,13 +464,19 @@
    *   Estimation maison, comme le classeur le dit lui-meme.
    */
   const compteCourant = (l) => /capital|compte courant/i.test(l.categorie || '');
+  // La voiture (BYD ATTO 3) : achetee par la societe et amortie dans ses comptes,
+  // mais a la charge de Manu (Nadir, 15/10). C est un investissement, pas une
+  // charge du mois : hors des depenses, des coachs et du previsionnel ; elle vit
+  // dans l onglet Vehicule avec son amortissement et la part de Manu.
+  const voiture = (l) => /byd|atto/i.test(`${l.designation} ${l.remarque}`) || /v[ée]hicule|voiture|immobilisation|investissement/i.test(l.categorie || '');
+  const horsTotaux = (l) => compteCourant(l) || voiture(l);
   const avanceGln = (l) => /^gln$/i.test(l.via || '');
   const duAGln = (l) => avanceGln(l) && /^oui$/i.test(l.remb_gln || '');
   const TAUX_IS = 0.25;
   const htDe = (l) => { if (!l.depense) return 0; const tva = l.tva_recuperee != null ? l.tva_recuperee : (/^oui$/i.test(l.tva_recuperable || '') && l.tva_facture != null ? l.tva_facture : 0); return Math.max(0, l.depense - tva); };
-  const gainIs = (l) => (compteCourant(l) ? 0 : htDe(l) * TAUX_IS);
-  const depenseDe = (l) => (compteCourant(l) ? 0 : (l.depense || 0));
-  const entreeDe = (l) => (compteCourant(l) ? 0 : (l.entree || 0));
+  const gainIs = (l) => (horsTotaux(l) ? 0 : htDe(l) * TAUX_IS);
+  const depenseDe = (l) => (horsTotaux(l) ? 0 : (l.depense || 0));
+  const entreeDe = (l) => (horsTotaux(l) ? 0 : (l.entree || 0));
   CHARGEURS['ventes/comptabilite'] = async () => {
     const z = $('boCompta');
     let c;
@@ -523,11 +529,11 @@
             <select class="bo-select" data-cpt-qui><option value="">Qui</option>${QUI.map(([k, code, nom]) => `<option value="${k}" ${_cptFiltre.qui === k ? 'selected' : ''}>${nom}${nom !== code ? ` (${code})` : ''}</option>`).join('')}<option value="aucun" ${_cptFiltre.qui === 'aucun' ? 'selected' : ''}>Personne de coché</option></select>
           </div></div>
         <div class="bo-enveloppe"><table class="bo-table bo-table--compact"><thead><tr><th>Date</th><th>Désignation</th><th>Catégorie</th><th>Via</th><th class="num">Entrée</th><th class="num">Dépense</th><th class="num">TVA</th><th class="num">Gain IS</th><th>Qui</th><th>Justificatif</th><th>Remarque</th></tr></thead><tbody>
-          ${visibles.map((l) => `<tr class="${compteCourant(l) ? 'bo-ligne--neutre' : ''}"><td class="mono" style="white-space:nowrap">${txt(l.date.split('-').reverse().join('/'))}</td><td><b>${txt(l.designation)}</b>${l.projet ? `<br><small style="color:var(--text-soft)">${txt(l.projet)}</small>` : ''}${compteCourant(l) ? '<br><small style="color:var(--text-soft)">compte courant, hors totaux</small>' : ''}</td><td>${txt(l.categorie)}</td><td>${avanceGln(l) ? `<span class="bo-pill" title="Avancé par GLN, la société de Manu">GLN${duAGln(l) ? ' · à rembourser' : ''}</span>` : txt(l.via)}</td><td class="num" style="color:var(--gold)">${l.entree != null ? eur(l.entree) : ''}</td><td class="num">${l.depense != null ? eur(l.depense) : ''}</td><td class="num"><small>${l.tva_collectee != null ? `coll. ${eur(l.tva_collectee)}` : l.tva_facture != null ? `fact. ${eur(l.tva_facture)}` : txt(l.tva_recuperable)}</small></td><td class="num"><small>${gainIs(l) ? eur(gainIs(l)) : ''}</small></td><td><small>${txt(qui(l))}</small></td><td><span class="bo-pill ${/manquant/i.test(l.justificatif) ? 'bo-pill--non' : 'bo-pill--ok'}">${txt(l.justificatif || '·')}</span></td><td><small style="color:var(--text-soft)">${txt(l.remarque)}</small></td></tr>`).join('')}
+          ${visibles.map((l) => `<tr class="${horsTotaux(l) ? 'bo-ligne--neutre' : ''}"><td class="mono" style="white-space:nowrap">${txt(l.date.split('-').reverse().join('/'))}</td><td><b>${txt(l.designation)}</b>${l.projet ? `<br><small style="color:var(--text-soft)">${txt(l.projet)}</small>` : ''}${compteCourant(l) ? '<br><small style="color:var(--text-soft)">compte courant, hors totaux</small>' : voiture(l) ? '<br><small style="color:var(--text-soft)">voiture, côté Manu, hors totaux (voir Véhicule)</small>' : ''}</td><td>${txt(l.categorie)}</td><td>${avanceGln(l) ? `<span class="bo-pill" title="Avancé par GLN, la société de Manu">GLN${duAGln(l) ? ' · à rembourser' : ''}</span>` : txt(l.via)}</td><td class="num" style="color:var(--gold)">${l.entree != null ? eur(l.entree) : ''}</td><td class="num">${l.depense != null ? eur(l.depense) : ''}</td><td class="num"><small>${l.tva_collectee != null ? `coll. ${eur(l.tva_collectee)}` : l.tva_facture != null ? `fact. ${eur(l.tva_facture)}` : txt(l.tva_recuperable)}</small></td><td class="num"><small>${gainIs(l) ? eur(gainIs(l)) : ''}</small></td><td><small>${txt(qui(l))}</small></td><td><span class="bo-pill ${/manquant/i.test(l.justificatif) ? 'bo-pill--non' : 'bo-pill--ok'}">${txt(l.justificatif || '·')}</span></td><td><small style="color:var(--text-soft)">${txt(l.remarque)}</small></td></tr>`).join('')}
         </tbody></table></div></div>`;
     } else if (_cptOnglet === 'coachs') {
       const parQui = QUI.map(([k, code, nom]) => {
-        const lignes = livre.filter((l) => l[k] && !compteCourant(l));
+        const lignes = livre.filter((l) => l[k] && !horsTotaux(l));
         const dep = lignes.reduce((s, l) => s + depenseDe(l), 0), ent = lignes.reduce((s, l) => s + entreeDe(l), 0);
         const is = lignes.reduce((s, l) => s + gainIs(l), 0);
         const gln = lignes.filter(avanceGln).reduce((s, l) => s + depenseDe(l), 0);
@@ -537,7 +543,7 @@
         const justifManquants = lignes.filter((l) => /manquant/i.test(l.justificatif)).length;
         return { k, code, nom, lignes, dep, ent, is, gln, remb, cats: [...cats.entries()].sort((a, b) => b[1].dep - a[1].dep), vias: [...vias.entries()].sort((a, b) => b[1] - a[1]), justifManquants };
       });
-      const sansQui = livre.filter((l) => !quiDe(l).length && !compteCourant(l));
+      const sansQui = livre.filter((l) => !quiDe(l).length && !horsTotaux(l));
       const totalDep = depenses;
       corps = `<div class="bo-kpis">${parQui.map((p) => kpi('fa-user', p.nom, eur(p.dep), `${nb(p.lignes.length)} ligne${p.lignes.length > 1 ? 's' : ''} · ${totalDep ? Math.round(p.dep / totalDep * 100) : 0} % des dépenses · gain d IS ${eur(p.is)}${p.remb ? ` · ${eur(p.remb)} dus à GLN` : ''}${p.justifManquants ? ` · ${p.justifManquants} justificatif${p.justifManquants > 1 ? 's' : ''} manquant${p.justifManquants > 1 ? 's' : ''}` : ''}`, p.code !== p.nom ? p.code : '')).join('')}${kpi('fa-question', 'Personne de coché', eur(sansQui.reduce((s, l) => s + depenseDe(l), 0)), `${nb(sansQui.length)} lignes sans MAN / NAD / GUI / SIE`)}</div>
         <div class="bo-grille-3">
@@ -552,7 +558,7 @@
     } else if (_cptOnglet === 'mois') {
       corps = `<div class="bo-carte"><h2>Entrées et dépenses par mois</h2><div class="bo-graph" style="height:340px"><canvas id="gCptMois"></canvas></div><div class="bo-legende"><span style="--c:${OR}">Entrées</span><span style="--c:${GRIS}">Dépenses</span><span style="--c:${OR2}">Solde cumulé</span></div></div>`;
     } else if (_cptOnglet === 'categories') {
-      const parCat = new Map(); livre.forEach((l) => { const k = l.categorie || 'Sans catégorie'; if (!parCat.has(k)) parCat.set(k, { entrees: 0, depenses: 0, is: 0, n: 0, cc: compteCourant(l) }); const x = parCat.get(k); x.entrees += l.entree || 0; x.depenses += l.depense || 0; x.is += gainIs(l); x.n += 1; });
+      const parCat = new Map(); livre.forEach((l) => { const k = l.categorie || 'Sans catégorie'; if (!parCat.has(k)) parCat.set(k, { entrees: 0, depenses: 0, is: 0, n: 0, cc: horsTotaux(l) }); const x = parCat.get(k); x.entrees += l.entree || 0; x.depenses += l.depense || 0; x.is += gainIs(l); x.n += 1; });
       const lignes = [...parCat.entries()].sort((a, b) => (b[1].entrees + b[1].depenses) - (a[1].entrees + a[1].depenses));
       corps = `<div class="bo-grille-2"><div class="bo-carte"><h2>Dépenses par catégorie</h2><div class="bo-graph"><canvas id="gCptCat"></canvas></div></div>
         <div class="bo-carte"><h2>Catégories</h2><div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Catégorie</th><th class="num">Lignes</th><th class="num">Entrées</th><th class="num">Dépenses</th><th class="num">Gain IS</th></tr></thead><tbody>${lignes.map(([k, x]) => `<tr class="${x.cc ? 'bo-ligne--neutre' : ''}"><td>${txt(k)}${x.cc ? '<br><small style="color:var(--text-soft)">hors totaux</small>' : ''}</td><td class="num">${x.n}</td><td class="num" style="color:var(--gold)">${x.entrees ? eur(x.entrees) : ''}</td><td class="num">${x.depenses ? eur(x.depenses) : ''}</td><td class="num">${x.is ? eur(x.is) : ''}</td></tr>`).join('')}</tbody></table></div></div></div>`;
@@ -569,10 +575,10 @@
       const moisCourant = new Date().toISOString().slice(0, 7);
       const pleins = moisTous.filter((m) => m < moisCourant).slice(-6);
       const parCat = new Map();
-      livre.filter((l) => !compteCourant(l) && depenseDe(l) && !/création société/i.test(l.categorie || '') && pleins.includes(l.date.slice(0, 7))).forEach((l) => { const k = l.categorie || 'Sans catégorie'; parCat.set(k, (parCat.get(k) || 0) + depenseDe(l)); });
+      livre.filter((l) => !horsTotaux(l) && depenseDe(l) && !/création société/i.test(l.categorie || '') && pleins.includes(l.date.slice(0, 7))).forEach((l) => { const k = l.categorie || 'Sans catégorie'; parCat.set(k, (parCat.get(k) || 0) + depenseDe(l)); });
       const lignes = [...parCat.entries()].map(([k, v]) => ({ k, mois: v / (pleins.length || 1), an: v / (pleins.length || 1) * 12 })).sort((a, b) => b.an - a.an);
       const totalMois = lignes.reduce((s, x) => s + x.mois, 0), totalAn = totalMois * 12;
-      const entreesMois = livre.filter((l) => !compteCourant(l) && pleins.includes(l.date.slice(0, 7))).reduce((s, l) => s + entreeDe(l), 0) / (pleins.length || 1);
+      const entreesMois = livre.filter((l) => !horsTotaux(l) && pleins.includes(l.date.slice(0, 7))).reduce((s, l) => s + entreeDe(l), 0) / (pleins.length || 1);
       const isLigne = (c.is || []).find((x) => /^IS estimé en cours/i.test(x.libelle || ''));
       const vehiculeLigne = ((c.vehicule && c.vehicule.lignes) || []).find((r) => /^2027$/.test(r[0] || ''));
       const amortAn = vehiculeLigne ? montantFr(vehiculeLigne[1]) : 0;
@@ -594,7 +600,15 @@
       corps = `<div class="bo-carte"><h2>IS estimé · exercice en cours</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${is.filter((x) => !x.note).map((x) => `<tr><td>${txt(x.libelle)}</td><td class="num"><b>${txt(x.valeur)}</b></td></tr>`).join('')}</tbody></table></div>${is.find((x) => x.note) ? `<p class="bo-source">${txt(is.find((x) => x.note).note)}</p>` : ''}<p class="bo-source">Estimation maison du classeur, à valider par le cabinet (ADALTA).</p></div>`;
     } else if (_cptOnglet === 'vehicule') {
       const v = c.vehicule || { lignes: [] };
-      corps = `<div class="bo-carte"><h2>${txt(v.titre || 'Amortissement véhicule')}</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${(v.lignes || []).map((r) => `<tr>${r.map((cell, i) => `<td class="${i > 0 && /€|^\d/.test(cell) ? 'num' : ''}">${txt(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="bo-source">La voiture est du côté de Manu : le classeur calcule l amortissement comptable, la part déductible, l IS économisé et la part de Manu, année par année. Repris tel quel.</p></div>`;
+      const achats = livre.filter(voiture);
+      const total = (v.lignes || []).find((r) => /^total$/i.test(r[0] || ''));
+      const coutNet = (v.lignes || []).find((r) => /co[ûu]t net/i.test(r[0] || ''));
+      corps = `<div class="bo-kpis">
+          ${achats.length ? kpi('fa-car', 'Achat', eur(achats.reduce((s, l) => s + (l.depense || 0), 0)), `${achats.map((l) => `${l.date.split('-').reverse().join('/')} ${l.designation}`).join(' · ')}`) : ''}
+          ${total ? kpi('fa-chart-line', 'Amortissement total', txt(total[1]), `dont déductible ${txt(total[2])} · IS économisé ${txt(total[4])}`) : ''}
+          ${coutNet ? kpi('fa-user', 'Part de Manu', txt(coutNet.filter(Boolean).pop()), 'prix TTC moins l IS économisé par la société') : ''}
+        </div>
+        <div class="bo-carte"><h2>${txt(v.titre || 'Amortissement véhicule')}</h2><div class="bo-enveloppe"><table class="bo-table"><tbody>${(v.lignes || []).map((r) => `<tr>${r.map((cell, i) => `<td class="${i > 0 && /€|^\d/.test(cell) ? 'num' : ''}">${txt(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="bo-source">La voiture est achetée par la société et amortie dans ses comptes (d où l IS économisé), mais elle reste à la charge de Manu : sa part = le prix TTC moins l IS économisé. Pour cette raison, l achat n entre ni dans les dépenses, ni dans les coachs, ni dans le prévisionnel. Bloc repris tel quel du classeur.</p></div>`;
     } else if (_cptOnglet.startsWith('feuille:')) {
       const gid = _cptOnglet.slice(8);
       const f = autres.find((o) => String(o.gid) === gid);
@@ -623,7 +637,7 @@
       const moisTous = [...new Set(livre.map((l) => l.date.slice(0, 7)))].sort();
       const moisCourant = new Date().toISOString().slice(0, 7);
       const pleins = moisTous.filter((m) => m < moisCourant).slice(-6);
-      const charges = moisTous.map((m) => Math.round(livre.filter((l) => l.date.startsWith(m) && !compteCourant(l) && !/création société/i.test(l.categorie || '')).reduce((s, l) => s + depenseDe(l), 0)));
+      const charges = moisTous.map((m) => Math.round(livre.filter((l) => l.date.startsWith(m) && !horsTotaux(l) && !/création société/i.test(l.categorie || '')).reduce((s, l) => s + depenseDe(l), 0)));
       const moyenne = pleins.length ? Math.round(moisTous.filter((m) => pleins.includes(m)).reduce((s, m) => s + charges[moisTous.indexOf(m)], 0) / pleins.length) : 0;
       graph('gCptPrev', { type: 'bar', data: { labels: moisTous.map(moisFr), datasets: [{ label: 'Charges du mois', data: charges, backgroundColor: moisTous.map((m) => pleins.includes(m) ? 'rgba(232,184,75,.75)' : GRIS), borderRadius: 6 }, { label: 'Moyenne retenue', data: moisTous.map(() => moyenne), type: 'line', borderColor: OR, borderDash: [6, 4], pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label} : ${eur(x.parsed.y)}` } } }, scales: axes({ ticks: { color: GRIS, callback: (v) => `${Math.round(v / 1000)}k` } }) } });
     }
