@@ -27,10 +27,11 @@ dire(sale(accueil).length===0,'accueil : aucun undefined/NaN/mention d attente',
 dire(/Prochaine étape : <b>Module 01 · Adopter/.test(accueil),'accueil : prochaine etape = chapitre 2 du module 01');
 const carte = (cle) => { const i = accueil.indexOf(`data-carte-module="${cle}"`); return accueil.slice(accueil.lastIndexOf('<button', i), accueil.indexOf('</button>', i)); };
 dire(!/locked/.test(carte('01')) && !/locked/.test(carte('02')) && !/locked/.test(carte('03')),'01, 02 (quiz 01 reussi), 03 (quiz 02 reussi) ouverts');
-dire(/locked/.test(carte('04')) && /Après le quiz du module 03/.test(carte('04')),'04 verrouille : apres le quiz du module 03');
-dire(/locked/.test(carte('05')) && /locked/.test(carte('06')) && /Niveau Intermédiaire/.test(carte('06')),'05 ET 06 verrouilles par le niveau');
+// 16/10 : plus de pastille sur la ligne MODULE, un cadenas a cote du numero ; la raison reste en pied de carte.
+dire(/locked/.test(carte('04')) && /num__cadenas/.test(carte('04')) && !/Après le quiz du module/.test(carte('04')) && /Réussis le quiz du module 03/.test(carte('04')),'04 verrouille : cadenas, raison en pied de carte');
+dire(/locked/.test(carte('05')) && /locked/.test(carte('06')) && /num__cadenas/.test(carte('06')) && !/class="pill">[^<]*<svg[^>]*>.*Niveau/.test(carte('06')),'05 ET 06 verrouilles par le niveau, cadenas sans pastille');
 dire(['07','07bis','08','09'].every(c=>/locked/.test(carte(c))),'07, 7 bis, 08, 09 verrouilles (niveau confirme, bonus compris)');
-dire(/Niveau Confirmé/.test(carte('09')),'le bonus porte le cadenas de son niveau');
+dire(/num__cadenas/.test(carte('09')) && /locked/.test(carte('09')),'le bonus porte le cadenas de son niveau');
 dire(/MODULE 02/.test(accueil) && />1 \/ 11 chapitres</.test(accueil),'carte module 02 : 1 / 11 chapitres (quiz reussi compte)', (accueil.match(/\d+ \/ 11 chapitres/)||[])[0]);
 dire(/scroll|data-carte-module="02"/.test(accueil),'carte 02 a son ancre');
 dire(['debutant','intermediaire','confirme'].every(n=>accueil.includes(`data-niveau="${n}"`)),'cartes groupees par niveau, trois titres');

@@ -1143,3 +1143,48 @@ body:not(.dark-mode) #formationApp .ex__bougie--b line,body:not(.dark-mode) #for
 #formationApp .ex__point--mal{fill:var(--ink-mute)}
 #formationApp .ex__bougie--sur line{stroke-width:2.2}
 #formationApp .ex__bougie--sur rect{stroke-width:1.5}
+/* La peau « TradingView », DEFAUT des graphiques d exercice depuis le 15/10 (Nadir : « c est mieux,
+   ca fait pluraliste »). Fond blanc comme la plateforme des coachs, et leurs couleurs : bougies vertes
+   et rouges, MM20 noire, VWAP orange, bande de Bollinger superieure verte et inferieure rouge, zone
+   d achat verte, zone de vente rouge. Le vert et le rouge y sont ceux de l outil que l eleve a sous
+   les yeux, pas des couleurs de resultat. La peau maison (noir et or) reste disponible : `peau: 'maison'`. */
+#formationApp .ex__svg.ex__svg--tv .ex__fond{fill:#ffffff}
+#formationApp .ex__svg.ex__svg--tv .ex__grille{stroke:#eef1f6}
+#formationApp .ex__svg.ex__svg--tv .ex__axe{fill:#6a6d78;font-family:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,sans-serif;font-size:11px}
+#formationApp .ex__svg.ex__svg--tv .ex__etiq{fill:#434651}
+#formationApp .ex__svg.ex__svg--tv .ex__etiq--or{fill:#1e222d}
+#formationApp .ex__svg.ex__svg--tv .ex__bougie--h line,#formationApp .ex__svg.ex__svg--tv .ex__bougie--h rect{stroke:#089981;fill:#089981}
+#formationApp .ex__svg.ex__svg--tv .ex__bougie--b line,#formationApp .ex__svg.ex__svg--tv .ex__bougie--b rect{stroke:#f23645;fill:#f23645}
+#formationApp .ex__svg.ex__svg--tv .ex__mm20{stroke:#000000;stroke-width:1.5;opacity:1}
+#formationApp .ex__svg.ex__svg--tv .ex__mm100{stroke:#434651;opacity:1}
+#formationApp .ex__svg.ex__svg--tv .ex__bb{stroke:#089981;stroke-width:1.2;opacity:.9}
+#formationApp .ex__svg.ex__svg--tv .ex__bb--basse{stroke:#f23645}
+#formationApp .ex__svg.ex__svg--tv .ex__vwap{stroke:#ff9800;stroke-width:1.5;stroke-dasharray:none;opacity:1}
+#formationApp .ex__svg.ex__svg--tv .ex__cv{stroke:#434651}
+#formationApp .ex__svg.ex__svg--tv .ex__pivot{stroke:#1e222d}
+#formationApp .ex__svg.ex__svg--tv .ex__annonce{stroke:#9598a1}
+#formationApp .ex__svg.ex__svg--tv .ex__zone{fill:#089981;opacity:.16;stroke:#089981}
+#formationApp .ex__svg.ex__svg--tv .ex__zone--vente{fill:#f23645;stroke:#f23645}
+#formationApp .ex__svg.ex__svg--tv .ex__cand line{stroke:#9598a1}
+#formationApp .ex__svg.ex__svg--tv .ex__cand circle{fill:#ffffff;stroke:#434651}
+#formationApp .ex__svg.ex__svg--tv .ex__cand text{fill:#1e222d}
+#formationApp .ex__svg.ex__svg--tv .ex__cand--coche circle{fill:#2962ff;stroke:#2962ff}
+#formationApp .ex__svg.ex__svg--tv .ex__cand--coche text{fill:#ffffff}
+#formationApp .ex__svg.ex__svg--tv .ex__cand--bon circle{stroke:#089981;stroke-width:2.5}
+#formationApp .ex__svg.ex__svg--tv .ex__cand--faux circle{stroke:#9598a1}
+#formationApp .ex__svg.ex__svg--tv .ex__bande{fill:#2962ff;opacity:.14;stroke:#2962ff}
+#formationApp .ex__svg.ex__svg--tv .ex__bande--attendue{fill:#089981;opacity:.2;stroke:#089981}
+#formationApp .ex__svg.ex__svg--tv .ex__bande--ok{stroke:#089981}
+#formationApp .ex__svg.ex__svg--tv .ex__bande--rate{stroke:#9598a1}
+#formationApp .ex__svg.ex__svg--tv .ex__piege{stroke:#9598a1}
+#formationApp .ex__svg.ex__svg--tv .ex__chip-svg rect{fill:#ffffff;opacity:.95;stroke:#d1d4dc}
+#formationApp .ex__svg.ex__svg--tv .ex__chip-svg text{fill:#1e222d}
+#formationApp .ex__svg.ex__svg--tv .ex__courbe{stroke:#2962ff}
+#formationApp .ex__svg.ex__svg--tv .ex__point{fill:#089981;stroke:#ffffff}
+#formationApp .ex__svg.ex__svg--tv .ex__point--mal{fill:#f23645}
+#formationApp .ex__graph:has(.ex__svg--tv){background:#ffffff;border-color:#d1d4dc}
+#formationApp .ex__graph:has(.ex__svg--tv) .ex__legende{color:#434651}
+/* Le cadenas d un module ferme, a cote de son numero (retour de Nadir du 16/10) */
+#formationApp .mod .num__cadenas{display:inline-flex;vertical-align:-2px;margin-left:8px;color:var(--ink-mute)}
+#formationApp .mod .num__cadenas svg{width:13px;height:13px}
+#formationApp .ex__suiveur{fill:none;stroke:#f23645;stroke-width:1.5;stroke-dasharray:5 4}

@@ -20,7 +20,13 @@ const supabaseClient = { auth:{ getUser: async()=>({data:{user:{id:'u1'}}}) }, f
 const window = { document, matchMedia:()=>({matches:true}), addEventListener(){}, innerWidth:1200, innerHeight:800, scrollTo(){}, localStorage:{getItem(){return null},setItem(){}}, supabaseClient };
 window.window = window;
 const ctx = vm.createContext({ window, document, console, setTimeout, clearTimeout, requestAnimationFrame:(f)=>setTimeout(f,16), cancelAnimationFrame:clearTimeout, performance, Promise, Symbol, URLSearchParams, Date, Math, Number, String, Array, Object, Set, Map, JSON, encodeURIComponent, localStorage: window.localStorage });
-for (const f of ['assets/formation-donnees.js','assets/formation-quiz.js','supabase-formation.js']) vm.runInContext(fs.readFileSync(f,'utf8'), ctx, {filename:f});
+for (const f of ['assets/formation-donnees.js','assets/formation-quiz.js']) vm.runInContext(fs.readFileSync(f,'utf8'), ctx, {filename:f});
+// ⚠️ 16/10 : le quiz 01 porte maintenant des questions illustrees et passe par le moteur d examen
+// (eprouve par formation-certification-banc.mjs). Ce banc-ci eprouve le moteur CLASSIQUE, toujours
+// utilise par les quiz sans illustration (module 08) : on lui retire ses illustrations, et lui seul.
+window.FORMATION_QUIZ['01'].questions.forEach((q) => { delete q.illustration; });
+if (window.FORMATION_QUIZ['01'].questions.some((q) => q.illustration)) throw new Error('temoin : illustrations encore presentes');
+vm.runInContext(fs.readFileSync('supabase-formation.js','utf8'), ctx, {filename:'supabase-formation.js'});
 const F = window.Formation; const C = F._calcul;
 const racine = { contains(){return true} };
 document.getElementById = ((orig)=> (id)=> id==='formationApp'? racine : orig(id))(document.getElementById);

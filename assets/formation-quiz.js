@@ -90,7 +90,54 @@
      "de": 3,
      "a": 5
     },
-    "conseil": "C'est le pilier de la patience active : tu n'es pas payé à cliquer le plus souvent possible, tu es payé à attendre le bon moment."
+    "conseil": "C'est le pilier de la patience active : tu n'es pas payé à cliquer le plus souvent possible, tu es payé à attendre le bon moment.",
+    "illustration": {
+     "type": "graphique",
+     "n": 60,
+     "graine": 101,
+     "ut": "1 min",
+     "symbole": "ES",
+     "sens": "achat",
+     "zone": {
+      "bas": 6930,
+      "haut": 6933
+     },
+     "chemin": [
+      [
+       6946,
+       0
+      ],
+      [
+       6942,
+       12
+      ],
+      [
+       6948,
+       22
+      ],
+      [
+       6944,
+       32
+      ],
+      [
+       6941,
+       44
+      ],
+      [
+       6936,
+       52
+      ],
+      [
+       6932.5,
+       56
+      ],
+      [
+       6938,
+       59
+      ]
+     ],
+     "legende": "Une séance : cinquante-cinq bougies où le prix ne vient pas dans la zone, une seule où il y vient."
+    }
    },
    {
     "id": "q01-5",
@@ -106,7 +153,35 @@
      "de": 4,
      "a": 6
     },
-    "conseil": "C'est la première fausse croyance à désinstaller : « je dois avoir raison pour gagner ». Le risk reward fait que tu peux perdre souvent et rester gagnant."
+    "conseil": "C'est la première fausse croyance à désinstaller : « je dois avoir raison pour gagner ». Le risk reward fait que tu peux perdre souvent et rester gagnant.",
+    "illustration": {
+     "type": "courbe",
+     "base": 0,
+     "points": [
+      0,
+      -1,
+      -2,
+      -3,
+      2,
+      1,
+      0,
+      -1,
+      -2,
+      3,
+      2
+     ],
+     "etapes": [
+      {
+       "i": 4,
+       "texte": "+5 R"
+      },
+      {
+       "i": 9,
+       "texte": "+5 R"
+      }
+     ],
+     "legende": "Dix trades, deux gagnants à 5 R, huit perdants à 1 R. Le compteur est en R, pas en dollars : à toi de lire où il finit."
+    }
    },
    {
     "id": "q01-6",
@@ -194,7 +269,39 @@
      "de": 8,
      "a": 11
     },
-    "conseil": "Le trade revanchard ouvre la porte à l'over trading, au décalage des stops et aux renforcements sur des positions négatives. C'est la spirale à s'interdire."
+    "conseil": "Le trade revanchard ouvre la porte à l'over trading, au décalage des stops et aux renforcements sur des positions négatives. C'est la spirale à s'interdire.",
+    "illustration": {
+     "type": "courbe",
+     "base": 0,
+     "points": [
+      0,
+      -125,
+      -250,
+      -500,
+      -1000
+     ],
+     "etapes": [
+      {
+       "i": 1,
+       "texte": "perte"
+      },
+      {
+       "i": 2,
+       "texte": "perte"
+      },
+      {
+       "i": 3,
+       "texte": "« je me refais »",
+       "rouge": true
+      },
+      {
+       "i": 4,
+       "texte": "taille doublée",
+       "rouge": true
+      }
+     ],
+     "legende": "Deux pertes acceptables, puis deux trades pris pour rattraper."
+    }
    },
    {
     "id": "q01-11",
@@ -282,7 +389,38 @@
      "de": 7,
      "a": 9
     },
-    "conseil": "L'obsession de l'equity, la validation externe, la vengeance du marché, les émotions excessives et l'impulsivité sont les cinq signaux de sortie de zone. Dans ce cas : stop, tu sors, tu respires, tu reviens plus tard."
+    "conseil": "L'obsession de l'equity, la validation externe, la vengeance du marché, les émotions excessives et l'impulsivité sont les cinq signaux de sortie de zone. Dans ce cas : stop, tu sors, tu respires, tu reviens plus tard.",
+    "illustration": {
+     "type": "courbe",
+     "base": 50000,
+     "points": [
+      50000,
+      50040,
+      50010,
+      50060,
+      50020,
+      50080,
+      50030,
+      50070,
+      50040,
+      50090
+     ],
+     "etapes": [
+      {
+       "i": 3,
+       "texte": "10 s"
+      },
+      {
+       "i": 5,
+       "texte": "20 s"
+      },
+      {
+       "i": 7,
+       "texte": "30 s"
+      }
+     ],
+     "legende": "La même position, regardée toutes les dix secondes : le compte bouge de quelques dizaines de dollars à chaque coup d'œil."
+    }
    }
   ]
  },
@@ -448,7 +586,65 @@
      "de": 9,
      "a": 11
     },
-    "conseil": "Deux touches minimum. Deux touches sur une résistance font un double top, deux sur un support un double bottom."
+    "conseil": "Deux touches minimum. Deux touches sur une résistance font un double top, deux sur un support un double bottom.",
+    "illustration": {
+     "type": "bougies",
+     "niveau": 6900,
+     "niveau_texte": "Niveau à valider",
+     "bougies": [
+      {
+       "o": 6894,
+       "h": 6897,
+       "l": 6893,
+       "c": 6896.5
+      },
+      {
+       "o": 6896.5,
+       "h": 6900,
+       "l": 6895.5,
+       "c": 6897
+      },
+      {
+       "o": 6897,
+       "h": 6898,
+       "l": 6893.5,
+       "c": 6894
+      },
+      {
+       "o": 6894,
+       "h": 6896,
+       "l": 6892,
+       "c": 6895.5
+      },
+      {
+       "o": 6895.5,
+       "h": 6900,
+       "l": 6895,
+       "c": 6896
+      },
+      {
+       "o": 6896,
+       "h": 6897,
+       "l": 6891,
+       "c": 6891.5
+      }
+     ],
+     "surligne": [
+      1,
+      4
+     ],
+     "etiquettes": [
+      {
+       "i": 1,
+       "texte": "touche"
+      },
+      {
+       "i": 4,
+       "texte": "touche"
+      }
+     ],
+     "legende": "Le prix vient buter sous le même niveau, deux fois, sans le casser."
+    }
    },
    {
     "id": "q02-10",
@@ -643,7 +839,52 @@
      "de": 8,
      "a": 11
     },
-    "conseil": "Le 4 heures donne la tendance de fond, le 30 minutes la structure court terme et les zones, le 5 minutes les zones intermédiaires, la minute le timing d'entrée. On n'interprète jamais une bougie M1 ou M5 sans avoir vu le 4 heures et le 30 minutes."
+    "conseil": "Le 4 heures donne la tendance de fond, le 30 minutes la structure court terme et les zones, le 5 minutes les zones intermédiaires, la minute le timing d'entrée. On n'interprète jamais une bougie M1 ou M5 sans avoir vu le 4 heures et le 30 minutes.",
+    "illustration": {
+     "type": "graphique",
+     "n": 40,
+     "graine": 121,
+     "ut": "4 h",
+     "symbole": "ES",
+     "indicateurs": [
+      "mm20"
+     ],
+     "chemin": [
+      [
+       6780,
+       0
+      ],
+      [
+       6810,
+       8
+      ],
+      [
+       6795,
+       12
+      ],
+      [
+       6840,
+       20
+      ],
+      [
+       6825,
+       24
+      ],
+      [
+       6870,
+       32
+      ],
+      [
+       6858,
+       36
+      ],
+      [
+       6890,
+       39
+      ]
+     ],
+     "legende": "Des sommets et des creux de plus en plus hauts, sur l'unité de temps de la tendance de fond."
+    }
    },
    {
     "id": "q02-13",
@@ -661,7 +902,48 @@
      "de": 5,
      "a": 7
     },
-    "conseil": "Un creux en 4 heures, la clôture de la veille, un niveau psychologique et le POC au même endroit : plus il y a de niveaux, plus la probabilité de retournement est forte."
+    "conseil": "Un creux en 4 heures, la clôture de la veille, un niveau psychologique et le POC au même endroit : plus il y a de niveaux, plus la probabilité de retournement est forte.",
+    "illustration": {
+     "type": "graphique",
+     "n": 50,
+     "graine": 123,
+     "ut": "30 min",
+     "symbole": "ES",
+     "cv": 6925.5,
+     "pivot": 6926.25,
+     "sens": "achat",
+     "zone": {
+      "bas": 6924,
+      "haut": 6927
+     },
+     "chemin": [
+      [
+       6945,
+       0
+      ],
+      [
+       6926,
+       12
+      ],
+      [
+       6940,
+       22
+      ],
+      [
+       6925.5,
+       32
+      ],
+      [
+       6938,
+       42
+      ],
+      [
+       6934,
+       49
+      ]
+     ],
+     "legende": "La clôture de la veille, le point pivot et une zone travaillée tombent au même endroit."
+    }
    },
    {
     "id": "q02-14",
@@ -679,7 +961,60 @@
      "de": 1,
      "a": 3
     },
-    "conseil": "Le marché US ferme à 22 h heure française. Attention aux semaines de décalage entre heure d'été et heure d'hiver, où la clôture peut tomber à 21 h ou 23 h."
+    "conseil": "Le marché US ferme à 22 h heure française. Attention aux semaines de décalage entre heure d'été et heure d'hiver, où la clôture peut tomber à 21 h ou 23 h.",
+    "illustration": {
+     "type": "bougies",
+     "niveau": 6911.75,
+     "niveau_texte": "CV 6 911,75",
+     "bougies": [
+      {
+       "o": 6905,
+       "h": 6909,
+       "l": 6904,
+       "c": 6908.5
+      },
+      {
+       "o": 6908.5,
+       "h": 6912,
+       "l": 6907,
+       "c": 6910
+      },
+      {
+       "o": 6910,
+       "h": 6914.5,
+       "l": 6909.5,
+       "c": 6911.75
+      },
+      {
+       "o": 6911.75,
+       "h": 6913,
+       "l": 6911,
+       "c": 6912.5
+      }
+     ],
+     "surligne": [
+      2
+     ],
+     "etiquettes": [
+      {
+       "i": 0,
+       "texte": "20:30"
+      },
+      {
+       "i": 1,
+       "texte": "21:00"
+      },
+      {
+       "i": 2,
+       "texte": "21:30"
+      },
+      {
+       "i": 3,
+       "texte": "22:00"
+      }
+     ],
+     "legende": "Les bougies 30 minutes de la fin de séance américaine, à l'heure de Paris."
+    }
    },
    {
     "id": "q02-15",
@@ -699,7 +1034,160 @@
     },
     "conseil": "De 14 h à 15 h 30, c'est la préouverture US ; de 15 h 30 à 17 h 30, les gros acteurs entrent et la volatilité explose ; de 17 h 30 à 20 h, transition et consolidation."
    }
-  ]
+  ],
+  "exercices": [
+   {
+    "id": "R0",
+    "type": "reperer",
+    "titre": "Repère la clôture de la veille",
+    "consigne": "Trois tracés sur ce graphique 30 minutes : la moyenne mobile 20, le point pivot et la clôture de la veille. Clique sur la lettre de la clôture de la veille.",
+    "ut": "30 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "Mar. 08:00",
+    "graine": 131,
+    "n": 60,
+    "indicateurs": [
+     "mm20"
+    ],
+    "cv": 6918.5,
+    "pivot": 6930.25,
+    "chemin": [
+     [
+      6912,
+      0
+     ],
+     [
+      6928,
+      14
+     ],
+     [
+      6920,
+      24
+     ],
+     [
+      6936,
+      38
+     ],
+     [
+      6926,
+      48
+     ],
+     [
+      6933,
+      59
+     ]
+    ],
+    "reperes": [
+     {
+      "lettre": "A",
+      "cle": "pivot",
+      "texte": "Le point pivot : une ligne horizontale pleine, calculée sur le plus haut, le plus bas et la clôture de la veille."
+     },
+     {
+      "lettre": "B",
+      "cle": "mm20",
+      "texte": "La moyenne mobile 20 suit le prix, elle n'est pas horizontale."
+     },
+     {
+      "lettre": "C",
+      "cle": "cv",
+      "texte": "La clôture de la veille : la ligne en pointillé, au prix de la bougie de 21 h 30 de la veille."
+     }
+    ],
+    "cible": "cv",
+    "explication": "Deux lignes sont fixes : le pivot en trait plein et la clôture de la veille en pointillé. La moyenne mobile, elle, bouge avec le prix."
+   },
+   {
+    "id": "Z0",
+    "type": "zone",
+    "titre": "Pose le support",
+    "consigne": "Graphique 30 minutes. Glisse la bande sur le support : le niveau que le prix a touché plusieurs fois par le bas, sans le casser.",
+    "ut": "30 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "Mer. 02:00",
+    "graine": 133,
+    "n": 80,
+    "chemin": [
+     [
+      7120,
+      0
+     ],
+     [
+      7103,
+      10
+     ],
+     [
+      7115,
+      18
+     ],
+     [
+      7102.5,
+      26
+     ],
+     [
+      7118,
+      36
+     ],
+     [
+      7103,
+      44
+     ],
+     [
+      7125,
+      55
+     ],
+     [
+      7118,
+      64
+     ],
+     [
+      7110,
+      72
+     ],
+     [
+      7116,
+      79
+     ]
+    ],
+    "bougies": {
+     "10": {
+      "o": 7103.75,
+      "h": 7106,
+      "l": 7102.25,
+      "c": 7105.5
+     },
+     "26": {
+      "o": 7103.25,
+      "h": 7105.75,
+      "l": 7102,
+      "c": 7105
+     },
+     "44": {
+      "o": 7104,
+      "h": 7106.5,
+      "l": 7102.5,
+      "c": 7106
+     }
+    },
+    "bande": {
+     "hauteur": 4,
+     "depart": 7130
+    },
+    "attendu": {
+     "centre": 7102.5,
+     "marge": 1.5
+    },
+    "explication": "Le support des 7 102 : trois touches au même niveau, et le prix repart à chaque fois.",
+    "pieges": [
+     {
+      "prix": 7125,
+      "texte": "Le sommet de 7 125 n'a été touché qu'une fois : ce n'est pas un niveau travaillé."
+     }
+    ]
+   }
+  ],
+  "points_par_exercice": 2,
+  "exercices_minimum": 0
  },
  "03": {
   "titre": "Maîtriser tes indicateurs, et rien de plus",
@@ -773,7 +1261,42 @@
      "de": 4,
      "a": 6
     },
-    "conseil": "Un point pivot est une zone de réaction potentielle, jamais une certitude. Sa puissance se révèle en confluence avec d'autres niveaux : un plus bas, la clôture de la veille, la VWAP, le POC."
+    "conseil": "Un point pivot est une zone de réaction potentielle, jamais une certitude. Sa puissance se révèle en confluence avec d'autres niveaux : un plus bas, la clôture de la veille, la VWAP, le POC.",
+    "illustration": {
+     "type": "graphique",
+     "n": 50,
+     "graine": 141,
+     "ut": "1 min",
+     "symbole": "ES",
+     "pivot": 6950,
+     "chemin": [
+      [
+       6942,
+       0
+      ],
+      [
+       6951,
+       14
+      ],
+      [
+       6956,
+       20
+      ],
+      [
+       6949,
+       30
+      ],
+      [
+       6944,
+       38
+      ],
+      [
+       6952,
+       49
+      ]
+     ],
+     "legende": "Le prix traverse le point pivot dans les deux sens, sans s'y retourner."
+    }
    },
    {
     "id": "q03-5",
@@ -791,7 +1314,41 @@
      "de": 1,
      "a": 3
     },
-    "conseil": "Les bandes de Bollinger sont construites autour de la moyenne mobile 20, quelle que soit l'unité de temps. La moyenne mobile 100 est une ligne à part."
+    "conseil": "Les bandes de Bollinger sont construites autour de la moyenne mobile 20, quelle que soit l'unité de temps. La moyenne mobile 100 est une ligne à part.",
+    "illustration": {
+     "type": "graphique",
+     "n": 60,
+     "graine": 143,
+     "ut": "1 min",
+     "symbole": "ES",
+     "indicateurs": [
+      "bollinger",
+      "mm20"
+     ],
+     "chemin": [
+      [
+       6900,
+       0
+      ],
+      [
+       6910,
+       15
+      ],
+      [
+       6898,
+       30
+      ],
+      [
+       6912,
+       45
+      ],
+      [
+       6905,
+       59
+      ]
+     ],
+     "legende": "Trois lignes : deux bandes autour du prix, et une au milieu, en noir."
+    }
    },
    {
     "id": "q03-6",
@@ -881,7 +1438,41 @@
      "de": 2,
      "a": 4
     },
-    "conseil": "Cent bougies d'une minute, c'est vingt bougies de cinq minutes. C'est pour ça qu'on la garde dans la configuration en scalping."
+    "conseil": "Cent bougies d'une minute, c'est vingt bougies de cinq minutes. C'est pour ça qu'on la garde dans la configuration en scalping.",
+    "illustration": {
+     "type": "graphique",
+     "n": 140,
+     "graine": 145,
+     "ut": "1 min",
+     "symbole": "ES",
+     "indicateurs": [
+      "mm100",
+      "mm20"
+     ],
+     "chemin": [
+      [
+       6880,
+       0
+      ],
+      [
+       6895,
+       40
+      ],
+      [
+       6886,
+       70
+      ],
+      [
+       6902,
+       110
+      ],
+      [
+       6896,
+       139
+      ]
+     ],
+     "legende": "Sur le 1 minute : la moyenne mobile 20 (noire) et la moyenne mobile 100 (grise), plus lente."
+    }
    },
    {
     "id": "q03-8",
@@ -1163,6 +1754,73 @@
     ],
     "cible": "pivot",
     "explication": "Deux lignes sont fixes : la clôture de la veille (pointillé) et le point pivot (trait plein). Le pivot n'est pas un niveau de la veille à lui seul, c'est une moyenne du plus haut, du plus bas et de la clôture."
+   },
+   {
+    "id": "R3",
+    "type": "reperer",
+    "titre": "Repère la moyenne mobile 20",
+    "consigne": "Quatre tracés sur ce graphique 1 minute : moyenne mobile 20, moyenne mobile 100, bandes de Bollinger et VWAP. Clique sur la lettre de la moyenne mobile 20.",
+    "ut": "1 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "15:30",
+    "graine": 147,
+    "n": 130,
+    "indicateurs": [
+     "mm20",
+     "mm100",
+     "bollinger",
+     "vwap"
+    ],
+    "chemin": [
+     [
+      6860,
+      0
+     ],
+     [
+      6872,
+      30
+     ],
+     [
+      6864,
+      55
+     ],
+     [
+      6880,
+      85
+     ],
+     [
+      6872,
+      105
+     ],
+     [
+      6884,
+      129
+     ]
+    ],
+    "reperes": [
+     {
+      "lettre": "A",
+      "cle": "mm100",
+      "texte": "La moyenne mobile 100 : la plus lente, elle lisse cent bougies."
+     },
+     {
+      "lettre": "B",
+      "cle": "bollinger",
+      "texte": "Les bandes de Bollinger, au-dessus et en dessous du prix."
+     },
+     {
+      "lettre": "C",
+      "cle": "mm20",
+      "texte": "La moyenne mobile 20 : noire, elle suit le prix de près, et c'est aussi le milieu des bandes de Bollinger."
+     },
+     {
+      "lettre": "D",
+      "cle": "vwap",
+      "texte": "La VWAP, orange, part de l'ouverture et se stabilise."
+     }
+    ],
+    "cible": "mm20",
+    "explication": "La moyenne mobile 20 est le milieu des bandes de Bollinger, et elle colle au prix bien plus que la 100."
    }
   ],
   "points_par_exercice": 2,
@@ -1418,7 +2076,40 @@
      "de": 33,
      "a": 37
     },
-    "conseil": "Toujours le corps, jamais la mèche. Sur une bougie vendeuse, c'est le bas du corps ; sur une acheteuse, le haut. Toujours en 30 minutes, et on la trace en orange."
+    "conseil": "Toujours le corps, jamais la mèche. Sur une bougie vendeuse, c'est le bas du corps ; sur une acheteuse, le haut. Toujours en 30 minutes, et on la trace en orange.",
+    "illustration": {
+     "type": "bougies",
+     "bougies": [
+      {
+       "o": 6950,
+       "h": 6953,
+       "l": 6949,
+       "c": 6952.5
+      },
+      {
+       "o": 6952.5,
+       "h": 6958.75,
+       "l": 6951.75,
+       "c": 6955.25
+      },
+      {
+       "o": 6955.25,
+       "h": 6956,
+       "l": 6953,
+       "c": 6954
+      }
+     ],
+     "surligne": [
+      1
+     ],
+     "etiquettes": [
+      {
+       "i": 1,
+       "texte": "21:30"
+      }
+     ],
+     "legende": "La bougie de 21 h 30 : sa mèche monte à 6 958,75, son corps se ferme à 6 955,25."
+    }
    },
    {
     "id": "q04-15",
@@ -1434,7 +2125,38 @@
      "de": 21,
      "a": 24
     },
-    "conseil": "C'est le ratio de 2 minimum, pour un objectif cohérent. Si tu agrandis le stop, le ratio baisse et il faut réajuster l'objectif."
+    "conseil": "C'est le ratio de 2 minimum, pour un objectif cohérent. Si tu agrandis le stop, le ratio baisse et il faut réajuster l'objectif.",
+    "illustration": {
+     "type": "bougies",
+     "bande": {
+      "bas": 6960,
+      "haut": 6972,
+      "texte": "objectif"
+     },
+     "niveau": 6954,
+     "niveau_texte": "stop",
+     "bougies": [
+      {
+       "o": 6962,
+       "h": 6963,
+       "l": 6957,
+       "c": 6961.5
+      },
+      {
+       "o": 6961.5,
+       "h": 6962,
+       "l": 6958,
+       "c": 6960.5
+      },
+      {
+       "o": 6960.5,
+       "h": 6961,
+       "l": 6959.5,
+       "c": 6960
+      }
+     ],
+     "legende": "L'outil position : la partie objectif au-dessus de l'entrée, la partie stop en dessous."
+    }
    }
   ]
  },
@@ -1575,7 +2297,38 @@
      "de": 0,
      "a": 2
     },
-    "conseil": "Nadir retire tous les indicateurs, même la MM20, et ne garde que la clôture de la veille, « un niveau indiscutable à placer ». Le reste vient après."
+    "conseil": "Nadir retire tous les indicateurs, même la MM20, et ne garde que la clôture de la veille, « un niveau indiscutable à placer ». Le reste vient après.",
+    "illustration": {
+     "type": "graphique",
+     "n": 60,
+     "graine": 151,
+     "ut": "30 min",
+     "symbole": "ES",
+     "cv": 6938.75,
+     "chemin": [
+      [
+       6925,
+       0
+      ],
+      [
+       6945,
+       15
+      ],
+      [
+       6930,
+       30
+      ],
+      [
+       6950,
+       45
+      ],
+      [
+       6940,
+       59
+      ]
+     ],
+     "legende": "Un graphique vierge : aucun indicateur, une seule ligne posée."
+    }
    },
    {
     "id": "q05-6",
@@ -1686,7 +2439,42 @@
      "de": 13,
      "a": 15
     },
-    "conseil": "Au-delà de 8 points, c'est rare le matin, et seulement en cas de forte volatilité l'après-midi. Si tu risques 8 points, tu vises 16 de TP ; si tu risques 2, tu vises 4."
+    "conseil": "Au-delà de 8 points, c'est rare le matin, et seulement en cas de forte volatilité l'après-midi. Si tu risques 8 points, tu vises 16 de TP ; si tu risques 2, tu vises 4.",
+    "illustration": {
+     "type": "bougies",
+     "niveau": 6859.5,
+     "niveau_texte": "stop",
+     "bougies": [
+      {
+       "o": 6868,
+       "h": 6869,
+       "l": 6864,
+       "c": 6864.5
+      },
+      {
+       "o": 6864.5,
+       "h": 6865,
+       "l": 6861,
+       "c": 6861.5
+      },
+      {
+       "o": 6861.5,
+       "h": 6866.25,
+       "l": 6860.75,
+       "c": 6865.75
+      },
+      {
+       "o": 6865.75,
+       "h": 6867,
+       "l": 6865,
+       "c": 6866.5
+      }
+     ],
+     "surligne": [
+      2
+     ],
+     "legende": "Un marteau sur la zone : entrée 6 866,00, stop 6 859,50 sous la mèche."
+    }
    },
    {
     "id": "q05-10",
@@ -1758,7 +2546,36 @@
      "de": 2,
      "a": 4
     },
-    "conseil": "Si le plus bas tombe sur 6 000,00, tu vas chercher 5 999,75. Les comptes ronds sont des niveaux que tout le monde regarde."
+    "conseil": "Si le plus bas tombe sur 6 000,00, tu vas chercher 5 999,75. Les comptes ronds sont des niveaux que tout le monde regarde.",
+    "illustration": {
+     "type": "bougies",
+     "niveau": 6800,
+     "niveau_texte": "plus bas 6 800,00",
+     "bougies": [
+      {
+       "o": 6806,
+       "h": 6807,
+       "l": 6803,
+       "c": 6803.5
+      },
+      {
+       "o": 6803.5,
+       "h": 6804,
+       "l": 6800,
+       "c": 6803.25
+      },
+      {
+       "o": 6803.25,
+       "h": 6805,
+       "l": 6802.5,
+       "c": 6804.5
+      }
+     ],
+     "surligne": [
+      1
+     ],
+     "legende": "Le plus bas du retournement tombe pile sur 6 800,00."
+    }
    },
    {
     "id": "q05-14",
@@ -1776,7 +2593,44 @@
      "de": 3,
      "a": 5
     },
-    "conseil": "On attend la clôture au-dessus de la MM20, puis on sécurise et on vise au moins le RR de 1, avec le stop suiveur sur les plus bas des dernières bougies ensuite."
+    "conseil": "On attend la clôture au-dessus de la MM20, puis on sécurise et on vise au moins le RR de 1, avec le stop suiveur sur les plus bas des dernières bougies ensuite.",
+    "illustration": {
+     "type": "graphique",
+     "n": 50,
+     "graine": 153,
+     "ut": "1 min",
+     "symbole": "ES",
+     "indicateurs": [
+      "mm20"
+     ],
+     "chemin": [
+      [
+       6930,
+       0
+      ],
+      [
+       6920,
+       18
+      ],
+      [
+       6916,
+       26
+      ],
+      [
+       6922,
+       34
+      ],
+      [
+       6930,
+       42
+      ],
+      [
+       6936,
+       49
+      ]
+     ],
+     "legende": "Après l'entrée sur le creux, le prix remonte et repasse au-dessus de la moyenne mobile 20 (noire)."
+    }
    },
    {
     "id": "q05-15",
@@ -2006,6 +2860,211 @@
       "texte": "Second retournement sur la zone : entrée 6 904,25, stop 6 899,25, cinq points. Bon."
      }
     ]
+   },
+   {
+    "id": "Z2",
+    "type": "zone",
+    "titre": "Poser la zone d'achat",
+    "consigne": "Graphique 30 minutes, clôture de la veille en pointillé. Glisse la bande sur la zone d'achat la plus travaillée.",
+    "ut": "30 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "Ven. 02:00",
+    "graine": 155,
+    "n": 80,
+    "cv": 6852.5,
+    "chemin": [
+     [
+      6866,
+      0
+     ],
+     [
+      6851.5,
+      9
+     ],
+     [
+      6862,
+      17
+     ],
+     [
+      6851,
+      25
+     ],
+     [
+      6870,
+      34
+     ],
+     [
+      6844,
+      41
+     ],
+     [
+      6858,
+      48
+     ],
+     [
+      6851.25,
+      56
+     ],
+     [
+      6866,
+      66
+     ],
+     [
+      6860,
+      72
+     ],
+     [
+      6868,
+      79
+     ]
+    ],
+    "bougies": {
+     "9": {
+      "o": 6852.25,
+      "h": 6855,
+      "l": 6851.5,
+      "c": 6854.5
+     },
+     "25": {
+      "o": 6852,
+      "h": 6854.5,
+      "l": 6851,
+      "c": 6854
+     },
+     "41": {
+      "o": 6847,
+      "h": 6849.5,
+      "l": 6844,
+      "c": 6849
+     },
+     "56": {
+      "o": 6852.5,
+      "h": 6855,
+      "l": 6851.25,
+      "c": 6854.75
+     }
+    },
+    "bande": {
+     "hauteur": 4,
+     "depart": 6875
+    },
+    "attendu": {
+     "centre": 6851.5,
+     "marge": 1.5
+    },
+    "explication": "La zone des 6 851 : trois creux au même niveau et la clôture de la veille à un point au-dessus.",
+    "pieges": [
+     {
+      "prix": 6844,
+      "texte": "Le plus bas de 6 844 n'a été touché qu'une fois, sur une mèche : c'est un extrême, pas une zone."
+     }
+    ]
+   },
+   {
+    "id": "E2",
+    "type": "entrees",
+    "titre": "Repérer l'entrée à la vente",
+    "consigne": "Graphique 1 minute, zone de vente du plan en bande, moyenne mobile 20 tracée. Quatre bougies sont marquées : coche celles que tu prendrais à la vente.",
+    "ut": "1 min",
+    "symbole": "ES · S&P 500",
+    "heure_debut": "15:50",
+    "graine": 157,
+    "n": 60,
+    "sens": "vente",
+    "zone": {
+     "bas": 6890,
+     "haut": 6893
+    },
+    "chemin": [
+     [
+      6875,
+      0
+     ],
+     [
+      6891.5,
+      12
+     ],
+     [
+      6884,
+      20
+     ],
+     [
+      6880.5,
+      28
+     ],
+     [
+      6888,
+      36
+     ],
+     [
+      6891.5,
+      44
+     ],
+     [
+      6886,
+      50
+     ],
+     [
+      6892,
+      54
+     ],
+     [
+      6884,
+      59
+     ]
+    ],
+    "bougies": {
+     "12": {
+      "o": 6891.75,
+      "h": 6896,
+      "l": 6891,
+      "c": 6891.25
+     },
+     "28": {
+      "o": 6880.75,
+      "h": 6885,
+      "l": 6880,
+      "c": 6880.25
+     },
+     "44": {
+      "o": 6892,
+      "h": 6901,
+      "l": 6891.5,
+      "c": 6891.75
+     },
+     "54": {
+      "o": 6892,
+      "h": 6892.25,
+      "l": 6884,
+      "c": 6884.5
+     }
+    },
+    "candidats": [
+     {
+      "i": 12,
+      "lettre": "A",
+      "bon": true,
+      "texte": "Étoile filante dans la zone : entrée 6 891,00, stop 6 897,25, 6,25 points. Bon."
+     },
+     {
+      "i": 28,
+      "lettre": "B",
+      "bon": false,
+      "texte": "Une étoile filante, mais dix points sous la zone : pas de zone, pas de trade."
+     },
+     {
+      "i": 44,
+      "lettre": "C",
+      "bon": false,
+      "texte": "Dans la zone, mais la mèche monte à 6 901 : stop 6 902,25, plus de dix points. Trop cher."
+     },
+     {
+      "i": 54,
+      "lettre": "D",
+      "bon": false,
+      "texte": "Une grande bougie rouge sans mèche haute : une continuation, pas un retournement."
+     }
+    ]
    }
   ],
   "points_par_exercice": 2,
@@ -2031,7 +3090,34 @@
      "de": 0,
      "a": 2
     },
-    "conseil": "Focus sur l'argent immédiat d'un côté, focus sur le processus long terme de l'autre. Gagner est une conséquence du travail, pas l'objectif."
+    "conseil": "Focus sur l'argent immédiat d'un côté, focus sur le processus long terme de l'autre. Gagner est une conséquence du travail, pas l'objectif.",
+    "illustration": {
+     "type": "courbe",
+     "base": 0,
+     "points": [
+      0,
+      1,
+      0,
+      -1,
+      1,
+      2,
+      1,
+      3,
+      2,
+      4
+     ],
+     "etapes": [
+      {
+       "i": 3,
+       "texte": "plan respecté, perdant"
+      },
+      {
+       "i": 7,
+       "texte": "plan respecté, gagnant"
+      }
+     ],
+     "legende": "Une série jugée trade après trade, en R."
+    }
    },
    {
     "id": "q06-2",
@@ -2221,7 +3307,29 @@
      "de": 0,
      "a": 2
     },
-    "conseil": "Tu peux tout faire juste et perdre, faire n'importe quoi et gagner. Le marché n'a aucune obligation envers toi : c'est un jeu de probabilités, pas de certitudes."
+    "conseil": "Tu peux tout faire juste et perdre, faire n'importe quoi et gagner. Le marché n'a aucune obligation envers toi : c'est un jeu de probabilités, pas de certitudes.",
+    "illustration": {
+     "type": "courbe",
+     "base": 0,
+     "points": [
+      0,
+      0.5,
+      1,
+      -1
+     ],
+     "etapes": [
+      {
+       "i": 0,
+       "texte": "zone, retournement, stop 1,25"
+      },
+      {
+       "i": 3,
+       "texte": "stop touché",
+       "rouge": true
+      }
+     ],
+     "legende": "Un trade où tout était dans le plan : zone, retournement, stop bien placé. Il finit au stop."
+    }
    },
    {
     "id": "q06-9",
@@ -2311,7 +3419,59 @@
      "de": 6,
      "a": 8
     },
-    "conseil": "Comme le sport : après 30 jours, ne pas faire sa séance devient un manque. La discipline doit devenir aussi instinctive que respirer."
+    "conseil": "Comme le sport : après 30 jours, ne pas faire sa séance devient un manque. La discipline doit devenir aussi instinctive que respirer.",
+    "illustration": {
+     "type": "courbe",
+     "base": 0,
+     "points": [
+      0,
+      1,
+      1,
+      2,
+      3,
+      3,
+      4,
+      5,
+      6,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27
+     ],
+     "etapes": [
+      {
+       "i": 0,
+       "texte": "jour 1"
+      },
+      {
+       "i": 15,
+       "texte": "jour 15"
+      },
+      {
+       "i": 30,
+       "texte": "jour 30"
+      }
+     ],
+     "legende": "Le nombre de séances où la routine a été suivie, jour après jour."
+    }
    }
   ]
  },
@@ -2407,7 +3567,29 @@
      "de": 6,
      "a": 8
     },
-    "conseil": "Un trade monté à 2 800 $ non clôturé, puis le compte qui redescend à 50 300 $, et le compte est perdu. Tant que tu n'as pas clôturé, le drawdown suiveur se resserre."
+    "conseil": "Un trade monté à 2 800 $ non clôturé, puis le compte qui redescend à 50 300 $, et le compte est perdu. Tant que tu n'as pas clôturé, le drawdown suiveur se resserre.",
+    "illustration": {
+     "type": "courbe",
+     "points": [
+      50000,
+      50400,
+      50900,
+      50600,
+      51300,
+      51000,
+      50700,
+      49800
+     ],
+     "suiveur": 2500,
+     "suiveur_texte": "perte maximale",
+     "etapes": [
+      {
+       "i": 4,
+       "texte": "plus haut 51 300"
+      }
+     ],
+     "legende": "Le solde d'un compte (en bleu) et la limite de perte (en pointillé rouge), jour après jour."
+    }
    },
    {
     "id": "q07-6",
@@ -2583,7 +3765,30 @@
      "de": 4,
      "a": 6
     },
-    "conseil": "Tu es payé pour être cohérent, pas pour être spectaculaire. Le trading pro est un marathon, et la seule personne à impressionner, c'est toi."
+    "conseil": "Tu es payé pour être cohérent, pas pour être spectaculaire. Le trading pro est un marathon, et la seule personne à impressionner, c'est toi.",
+    "illustration": {
+     "type": "courbe",
+     "points": [
+      50000,
+      50500,
+      51000,
+      51500,
+      52000,
+      52500,
+      53000
+     ],
+     "etapes": [
+      {
+       "i": 0,
+       "texte": "semaine 1"
+      },
+      {
+       "i": 6,
+       "texte": "semaine 6"
+      }
+     ],
+     "legende": "1 % par semaine, six semaines de suite."
+    }
    }
   ]
  },
@@ -2625,7 +3830,27 @@
      "de": 2,
      "a": 4
     },
-    "conseil": "Compte à 51 000 $, tu retires 1 000 $ : ton drawdown ne descend pas à 49 000, il reste figé à 50 000. Retirer trop tôt réduit ta marge d'erreur, d'où l'intérêt d'un matelas."
+    "conseil": "Compte à 51 000 $, tu retires 1 000 $ : ton drawdown ne descend pas à 49 000, il reste figé à 50 000. Retirer trop tôt réduit ta marge d'erreur, d'où l'intérêt d'un matelas.",
+    "illustration": {
+     "type": "courbe",
+     "points": [
+      50000,
+      51200,
+      52600,
+      53400,
+      52100,
+      51500
+     ],
+     "plancher": 48000,
+     "plancher_texte": "limite figée à 48 000",
+     "etapes": [
+      {
+       "i": 3,
+       "texte": "retrait"
+      }
+     ],
+     "legende": "Un compte Topstep : le solde monte, un retrait est fait, la limite de perte ne bouge plus."
+    }
    },
    {
     "id": "q07bis-3",
@@ -3099,7 +4324,34 @@
      "de": 1,
      "a": 5
     },
-    "conseil": "Un déséquilibre, un endroit où le prix est passé si vite qu'il a laissé des contrats derrière lui. Un marché sain revient les chercher, pas forcément tout de suite."
+    "conseil": "Un déséquilibre, un endroit où le prix est passé si vite qu'il a laissé des contrats derrière lui. Un marché sain revient les chercher, pas forcément tout de suite.",
+    "illustration": {
+     "type": "bougies",
+     "bougies": [
+      {
+       "o": 6912,
+       "h": 6915.5,
+       "l": 6911,
+       "c": 6914.5
+      },
+      {
+       "o": 6914.5,
+       "h": 6928,
+       "l": 6914,
+       "c": 6927
+      },
+      {
+       "o": 6927,
+       "h": 6929,
+       "l": 6921,
+       "c": 6928
+      }
+     ],
+     "surligne": [
+      1
+     ],
+     "legende": "Trois bougies : une grande bougie verte encadrée par deux plus petites."
+    }
    },
    {
     "id": "q09-9",

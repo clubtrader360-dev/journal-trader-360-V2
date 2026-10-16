@@ -1723,9 +1723,14 @@
     const fini = moduleFini(m);
     const d = faitesDe(m);
     const pp = pctDe(m);
-    const pastille = verrouNiveau ? `<span class="pill">${I.lock} Niveau ${txt(niv.nom)}</span>`
-      : verrouQuiz ? `<span class="pill">${I.lock} Après le quiz du module ${txt(e.precedent.numero)}</span>`
-      : verrou ? `<span class="pill">${I.lock} Verrouillé</span>`
+    /**
+     * ⚠️ RETOUR DE NADIR DU 16/10 : les pastilles « Niveau Intermédiaire »,
+     * « Après le quiz du module 05 » et « Verrouillé » venaient se poser sur
+     * la ligne « MODULE 06 », et le niveau est deja ecrit au-dessus de la
+     * grille. ⛔ Un module ferme porte maintenant un simple cadenas a cote de
+     * son numero ; la raison reste lisible en pied de carte.
+     */
+    const pastille = (verrouNiveau || verrouQuiz || verrou) ? ''
       : vide ? '<span class="pill">Sans chapitre</span>'
         : fini ? `<span class="pill ok">${I.check} Validé</span>`
           : d ? '<span class="pill go">En cours</span>' : '<span class="pill">À commencer</span>';
@@ -1734,7 +1739,7 @@
     return `<button type="button" class="mod ${inerte ? 'locked' : ''} ${i === premierOuvert && d ? 'current' : ''} ${estCert(m) ? 'mod--cert' : ''} ${estBonus(m) ? 'mod--bonus' : ''}"
       ${inerte ? 'aria-disabled="true"' : ''} data-mod="${i}" data-carte-module="${txt(m.cle)}">
       ${pastille}
-      <div class="num">${estCert(m) ? 'CERTIFICATION' : estBonus(m) ? 'BONUS' : `MODULE ${txt(m.numero)}`}</div>
+      <div class="num">${estCert(m) ? 'CERTIFICATION' : estBonus(m) ? 'BONUS' : `MODULE ${txt(m.numero)}`}${inerte && !vide ? `<span class="num__cadenas" aria-label="verrouillé">${I.lock}</span>` : ''}</div>
       <h3>${txt(m.titre)}</h3>
       ${m.resume ? `<p>${txt(m.resume)}</p>` : ''}
       <div class="foot">

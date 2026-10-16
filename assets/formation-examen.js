@@ -125,24 +125,31 @@
     const grads = [];
     for (let p = Math.ceil(bas / pasG) * pasG; p <= haut; p += pasG) grads.push(p);
     const S = [];
-    S.push(`<svg class="ex__svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Graphique ${txt(ex.ut)} ${txt(ex.symbole)}" style="touch-action:none">`);
+    // ⚠️ `peau` : 'maison' (noir et or, defaut) ou 'tradingview' (fond ardoise, bougies
+    // vertes et rouges, l aspect de la plateforme que les eleves ont sous les yeux).
+    // Demande de Nadir du 15/10 : un exemple « comme un graphique TradingView ».
+    const peau = opts.peau || ex.peau || 'tradingview';
+    S.push(`<svg class="ex__svg ${peau === 'tradingview' ? 'ex__svg--tv' : ''}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Graphique ${txt(ex.ut)} ${txt(ex.symbole)}" style="touch-action:none">`);
     S.push(`<rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`);
     grads.forEach((p) => S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(p).toFixed(1)}" y2="${y(p).toFixed(1)}" class="ex__grille"/><text x="${W - M.d + 8}" y="${(y(p) + 4).toFixed(1)}" class="ex__axe">${prixFr(p)}</text>`));
     // Heures : trois reperes.
     [0, Math.floor(ex.n / 2), ex.n - 1].forEach((i, k) => S.push(`<text x="${x(i).toFixed(1)}" y="${H - 8}" class="ex__axe" text-anchor="${k === 0 ? 'start' : k === 2 ? 'end' : 'middle'}">${k === 0 ? txt(ex.heure_debut || '') : k === 2 ? txt(ex.ut) : ''}</text>`));
     // La zone du plan (type entrees) : bande doree.
-    if (ex.zone) S.push(`<rect x="${M.g}" y="${y(ex.zone.haut).toFixed(1)}" width="${pw}" height="${(y(ex.zone.bas) - y(ex.zone.haut)).toFixed(1)}" class="ex__zone"/><text x="${W - M.d - 6}" y="${(ex.sens === 'vente' ? y(ex.zone.bas) + 14 : y(ex.zone.haut) - 6).toFixed(1)}" class="ex__etiq ex__etiq--or" text-anchor="end">Zone ${ex.sens === 'vente' ? 'de vente' : 'd’achat'} du plan · ${prixFr(ex.zone.bas)} à ${prixFr(ex.zone.haut)}</text>`);
+    // ⚠️ L etiquette de la zone porte un fond : posee au bord du graphique, elle
+    // croisait les bougies et devenait illisible (vu sur l apercu du 15/10).
+    const chip = (texte, cx, cy, ancre) => { const l = texte.length * 7.1 + 16; const x0 = ancre === 'end' ? cx - l : cx; return `<g class="ex__chip-svg"><rect x="${x0.toFixed(1)}" y="${(cy - 12).toFixed(1)}" width="${l.toFixed(1)}" height="17" rx="8"/><text x="${(x0 + 7).toFixed(1)}" y="${cy.toFixed(1)}" class="ex__etiq ex__etiq--or">${txt(texte)}</text></g>`; };
+    if (ex.zone) S.push(`<rect x="${M.g}" y="${y(ex.zone.haut).toFixed(1)}" width="${pw}" height="${(y(ex.zone.bas) - y(ex.zone.haut)).toFixed(1)}" class="ex__zone ${ex.sens === 'vente' ? 'ex__zone--vente' : ''}"/>${chip(`Zone ${ex.sens === 'vente' ? 'de vente' : 'd’achat'} du plan · ${prixFr(ex.zone.bas)} à ${prixFr(ex.zone.haut)}`, M.g + 6, ex.sens === 'vente' ? y(ex.zone.bas) + 16 : y(ex.zone.haut) - 8, 'start')}`);
     // La cloture de la veille (etiquetee, sauf quand c est elle qu il faut reperer).
     const muet = ex.type === 'reperer';
     if (ex.cv != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(ex.cv).toFixed(1)}" y2="${y(ex.cv).toFixed(1)}" class="ex__cv"/>${muet ? '' : `<text x="${W - M.d - 6}" y="${(y(ex.cv) - 5).toFixed(1)}" class="ex__etiq" text-anchor="end">CV ${prixFr(ex.cv)}</text>`}`);
     if (ex.pivot != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(ex.pivot).toFixed(1)}" y2="${y(ex.pivot).toFixed(1)}" class="ex__pivot"/>${muet ? '' : `<text x="${W - M.d - 6}" y="${(y(ex.pivot) + 13).toFixed(1)}" class="ex__etiq" text-anchor="end">Pivot ${prixFr(ex.pivot)}</text>`}`);
     // L annonce.
-    if (ex.annonce) S.push(`<line x1="${x(ex.annonce.i).toFixed(1)}" x2="${x(ex.annonce.i).toFixed(1)}" y1="${M.h}" y2="${H - M.b}" class="ex__annonce"/><text x="${(x(ex.annonce.i) + 6).toFixed(1)}" y="${M.h + 12}" class="ex__etiq">${txt(ex.annonce.texte)}</text>`);
+    if (ex.annonce) S.push(`<line x1="${x(ex.annonce.i).toFixed(1)}" x2="${x(ex.annonce.i).toFixed(1)}" y1="${M.h}" y2="${H - M.b}" class="ex__annonce"/>${chip(ex.annonce.texte, x(ex.annonce.i) + 6, H - M.b - 8, 'start')}`);
     // Les indicateurs traces : chacun garde son y de fin, pour y poser une lettre (type reperer).
     const trace = (serie, classe) => `<path d="${serie.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')}" class="${classe}"/>`;
     const finDe = {};
     const inds = indicateursDe(ex);
-    if (inds.includes('bollinger')) { const bb = bollinger(B); S.push(trace(bb.map((v) => v.h), 'ex__bb')); S.push(trace(bb.map((v) => v.b), 'ex__bb')); finDe.bollinger = y(bb[bb.length - 1].h); }
+    if (inds.includes('bollinger')) { const bb = bollinger(B); S.push(trace(bb.map((v) => v.h), 'ex__bb ex__bb--haute')); S.push(trace(bb.map((v) => v.b), 'ex__bb ex__bb--basse')); finDe.bollinger = y(bb[bb.length - 1].h); }
     if (inds.includes('mm100')) { const m = mm100(B); S.push(trace(m, 'ex__mm100')); finDe.mm100 = y(m[m.length - 1]); }
     if (inds.includes('mm20')) { const m = mm20(B); S.push(trace(m, 'ex__mm20')); finDe.mm20 = y(m[m.length - 1]); }
     if (inds.includes('vwap')) { const v = vwap(B, ex); S.push(trace(v, 'ex__vwap')); finDe.vwap = y(v[v.length - 1]); }
@@ -542,10 +549,12 @@
       const pw = W - M.g - M.d, ph = H - M.h - M.b;
       let haut = Math.max(...B.map((b) => b.h)), bas = Math.min(...B.map((b) => b.l));
       if (il.niveau != null) { haut = Math.max(haut, il.niveau); bas = Math.min(bas, il.niveau); }
+      if (il.bande) { haut = Math.max(haut, il.bande.haut); bas = Math.min(bas, il.bande.bas); }
       const marge = (haut - bas) * 0.12 || 1; haut += marge; bas -= marge;
       const y = (p) => M.h + (haut - p) / (haut - bas) * ph;
       const pas = pw / B.length, x = (i) => M.g + pas * (i + 0.5), lc = Math.min(28, pas * 0.5);
-      const S = [`<svg class="ex__svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(il.legende || 'Chandeliers')}"><rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`];
+      const S = [`<svg class="ex__svg ${(il.peau || 'tradingview') === 'tradingview' ? 'ex__svg--tv' : ''}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(il.legende || 'Chandeliers')}"><rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`];
+      if (il.bande) S.push(`<rect x="${M.g}" y="${y(il.bande.haut).toFixed(1)}" width="${pw}" height="${Math.max(2, y(il.bande.bas) - y(il.bande.haut)).toFixed(1)}" class="ex__zone"/>${il.bande.texte ? `<text x="${M.g + 6}" y="${(y(il.bande.haut) - 5).toFixed(1)}" class="ex__etiq">${txt(il.bande.texte)}</text>` : ''}`);
       if (il.niveau != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(il.niveau).toFixed(1)}" y2="${y(il.niveau).toFixed(1)}" class="ex__cv"/>${il.niveau_texte ? `<text x="${W - M.d - 4}" y="${(y(il.niveau) - 5).toFixed(1)}" class="ex__etiq" text-anchor="end">${txt(il.niveau_texte)}</text>` : ''}`);
       B.forEach((b, i) => {
         const up = b.c >= b.o, yo = y(b.o), yc = y(b.c);
@@ -561,11 +570,16 @@
       const P = il.points;
       const H = 220, M = { g: 16, d: 16, h: 18, b: 30 };
       const pw = W - M.g - M.d, ph = H - M.h - M.b;
-      const haut = Math.max(...P) + 1, bas = Math.min(...P) - 1;
+      const suiveuse = il.suiveur ? P.map((_, i) => Math.max(...P.slice(0, i + 1)) - il.suiveur) : null;
+      const plancher = il.plancher != null ? il.plancher : null;
+      const tous = [...P, ...(suiveuse || []), ...(plancher != null ? [plancher] : [])];
+      const haut = Math.max(...tous) + (Math.max(...tous) - Math.min(...tous)) * 0.08 + 1, bas = Math.min(...tous) - (Math.max(...tous) - Math.min(...tous)) * 0.08 - 1;
       const y = (v) => M.h + (haut - v) / (haut - bas) * ph;
       const x = (i) => M.g + (pw * i) / Math.max(1, P.length - 1);
-      const S = [`<svg class="ex__svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(il.legende || 'Courbe')}"><rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`];
+      const S = [`<svg class="ex__svg ${(il.peau || 'tradingview') === 'tradingview' ? 'ex__svg--tv' : ''}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(il.legende || 'Courbe')}"><rect x="0" y="0" width="${W}" height="${H}" rx="14" class="ex__fond"/>`];
       if (il.base != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(il.base).toFixed(1)}" y2="${y(il.base).toFixed(1)}" class="ex__grille"/>`);
+      if (suiveuse) S.push(`<path d="${suiveuse.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')}" class="ex__suiveur"/><text x="${W - M.d - 4}" y="${(y(suiveuse[suiveuse.length - 1]) + 14).toFixed(1)}" class="ex__etiq" text-anchor="end">${txt(il.suiveur_texte || 'perte maximale')}</text>`);
+      if (plancher != null) S.push(`<line x1="${M.g}" x2="${W - M.d}" y1="${y(plancher).toFixed(1)}" y2="${y(plancher).toFixed(1)}" class="ex__suiveur"/><text x="${W - M.d - 4}" y="${(y(plancher) + 14).toFixed(1)}" class="ex__etiq" text-anchor="end">${txt(il.plancher_texte || 'perte maximale')}</text>`);
       S.push(`<path d="${P.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')}" class="ex__courbe"/>`);
       (il.etapes || []).forEach((t, k) => { S.push(`<circle cx="${x(t.i).toFixed(1)}" cy="${y(P[t.i]).toFixed(1)}" r="5" class="ex__point ${t.rouge ? 'ex__point--mal' : ''}"/><text x="${x(t.i).toFixed(1)}" y="${(k % 2 ? y(P[t.i]) + 20 : y(P[t.i]) - 12).toFixed(1)}" class="ex__etiq ${t.rouge ? '' : 'ex__etiq--or'}" text-anchor="${t.i === 0 ? 'start' : t.i === P.length - 1 ? 'end' : 'middle'}">${txt(t.texte)}</text>`); });
       S.push('</svg>');
