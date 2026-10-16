@@ -143,14 +143,22 @@
   }
 
   /* ══ LE RENDU ══════════════════════════════════════════════════════════════ */
+  /**
+   * Les signalements coach (audit du 16/10) : une pastille par signalement,
+   * et sa note en infobulle. Rembourse et revoque en gris, gele en or, doublon
+   * et note en neutre : ce sont des etats administratifs, pas des resultats.
+   */
+  const SIGNAUX = { rembourse: ['Remboursé', 'non'], gele: ['Gelé', 'attend'], revoque: ['Révoqué', 'non'], offert: ['Offert', 'ok'], doublon: ['Doublon', 'attend'], note: ['Note', 'attend'] };
+  const pastillesSignalement = (liste) => (liste || []).map((x) => { const [t, c] = SIGNAUX[x.type] || [x.type, 'attend']; return `<small class="am-statut am-statut--${c} am-signal" title="${txt(x.note || '')}${x.reference_email ? ` · ${txt(x.reference_email)}` : ''}">${t}${x.montant ? ` · ${txt(Number(x.montant).toLocaleString('fr-FR'))} €` : ''}</small>`; }).join('');
   /** La ligne d un membre LearnyBox sans compte : ce qu on sait, et le bouton. */
   function ligneSansCompte(m) {
     const d = depuis(m.derniere_activite);
-    return `<tr data-lb="${txt(m.learnybox_id)}" class="am-sans-compte">
+    return `<tr data-lb="${txt(m.learnybox_id || '')}" data-email="${txt(m.email)}" class="am-sans-compte">
       <td class="am-qui">
         <b>${txt(m.nom || 'Nom non renseigné')}</b>
         <span>${txt(m.email)}</span>
-        <small class="am-statut am-statut--attend">Sans compte${m.learnybox_actif === false ? ' · inactif LearnyBox' : ''}</small>
+        <small class="am-statut am-statut--attend">${m.signale_seulement ? 'Hors LearnyBox, sans compte' : `Sans compte${m.learnybox_actif === false ? ' · inactif LearnyBox' : ''}`}</small>
+        ${pastillesSignalement(m.signalements)}
       </td>
       <td class="am-niveau">
         <span class="am-niveau-fixe">${m.niveau_learnybox ? txt(NIVEAUX[m.niveau_learnybox] || m.niveau_learnybox) : 'Non posé'}</span>
@@ -162,7 +170,7 @@
       <td class="am-visite ${d.absent ? 'am-absent' : ''}">${txt(d.t)}</td>
       <td class="am-actions">
         <button type="button" data-fiche title="Ouvrir la fiche du membre" aria-label="Fiche">&#128065;</button>
-        <button type="button" class="am-actions__or" data-creer-depuis title="Créer son compte à partir de LearnyBox">Créer le compte</button>
+        ${m.signale_seulement ? '' : '<button type="button" class="am-actions__or" data-creer-depuis title="Créer son compte à partir de LearnyBox">Créer le compte</button>'}
       </td>
     </tr>`;
   }
@@ -185,6 +193,8 @@
         <b>${txt(m.nom || 'Nom non renseigné')}</b>
         <span>${txt(m.email)}</span>
         <small class="am-statut am-statut--${st.c}">${txt(st.t)}${eleve ? '' : ' · coach'}</small>
+        ${m.learnybox_actif === false ? '<small class="am-statut am-statut--non am-signal" title="Désactivé dans LearnyBox : formation et journal fermés à l import. Les cases ci-contre les rouvrent.">Désactivé LearnyBox</small>' : ''}
+        ${pastillesSignalement(m.signalements)}
       </td>
       <td class="am-niveau">
         <select aria-label="Niveau" data-niveau ${eleve ? '' : 'disabled'}>${options}</select>
@@ -399,7 +409,8 @@
       if (t.matches('[data-fiche]')) {
         const tr = t.closest('tr');
         const m = tr && tr.dataset.uid ? _membres.find((x) => x.user_id === tr.dataset.uid)
-          : tr && tr.dataset.lb ? _membres.find((x) => x.sans_compte && String(x.learnybox_id) === tr.dataset.lb) : null;
+          : tr && tr.dataset.lb ? _membres.find((x) => x.sans_compte && String(x.learnybox_id) === tr.dataset.lb)
+          : tr && tr.dataset.email ? _membres.find((x) => x.sans_compte && String(x.email).toLowerCase() === tr.dataset.email.toLowerCase()) : null;
         if (m) ouvrirFiche(m.user_id ? { user_id: m.user_id } : { email: m.email });
       } else if (t.matches('[data-fermer-fiche]')) fermerFiche();
       else if (t.matches('[data-onglet]')) { _ongletFiche = t.dataset.onglet; rendreFiche(); }
@@ -530,6 +541,7 @@
           ${niv.cle ? `<span class="am-statut am-statut--ok">${txt(NIVEAUX[niv.cle] || niv.cle)}</span>` : ''}
           ${lb.actif === false ? '<span class="am-statut am-statut--non">Inactif LearnyBox</span>' : ''}
         </div>
+        ${(f.signalements || []).length ? `<div class="am-fiche__signalements">${f.signalements.map((x) => { const [t, c] = SIGNAUX[x.type] || [x.type, 'attend']; return `<p><span class="am-statut am-statut--${c}">${t}${x.montant ? ` · ${txt(Number(x.montant).toLocaleString('fr-FR'))} €` : ''}</span> ${txt(x.note || '')}${x.reference_email ? ` <em>(${txt(x.reference_email)})</em>` : ''}${x.depuis ? ` <small>${txt(dateFr(x.depuis))}</small>` : ''}</p>`; }).join('')}</div>` : ''}
         <p class="am-fiche__actif ${d.absent ? 'am-absent' : ''}">${derniere ? `Actif ${txt(d.t)}` : 'Jamais venu'}</p>
         <div class="am-fiche__actions">
           ${f.compte ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-mail title="Renvoyer le mail de première connexion"><i class="fas fa-envelope"></i> Mail</button><button type="button" class="am-btn am-btn--fantome" data-fiche-mdp title="Poser un mot de passe provisoire, à transmettre toi-même"><i class="fas fa-key"></i> Mot de passe</button>` : ''}

@@ -77,11 +77,35 @@ const temoins = [niveauDe('Débutants, Confirmé, Intermédiaire') === 'confirme
 if (!temoins.every(Boolean)) { console.error('⛔ temoin de niveau en echec', temoins); process.exit(1); }
 
 console.error(`${rows.length} membres lus : ${comptes.debutant} debutant, ${comptes.intermediaire} intermediaire, ${comptes.confirme} confirme, ${comptes.aucun} sans groupe, ${comptes.inactifs} desactives`);
-console.log(`insert into public.formation_niveau_learnybox
+/*
+ * ⛔ REGLE DES COACHS (16/10/2026) : un membre desactive dans LearnyBox perd la
+ * formation ET le journal. Ses donnees restent, les cases du back-office les
+ * rouvrent.
+ * ⚠️ On ne ferme qu au PASSAGE actif -> desactive (ou a la premiere arrivee
+ * deja desactive). Fermer a chaque import ecraserait une reouverture faite a la
+ * main par un coach, sans la moindre erreur. `avant` lit l etat d AVANT
+ * l insertion : dans une meme requete, toutes les sous-requetes voient le meme
+ * instantane.
+ */
+console.log(`with avant as (
+  select learnybox_id, actif from public.formation_niveau_learnybox
+), maj as (
+insert into public.formation_niveau_learnybox
   (learnybox_id, email, prenom, nom, niveau, groupes, progression_pct, actif, inscrit_le, derniere_activite)
 values
 ${valeurs.join(',\n')}
 on conflict (learnybox_id) do update set
   email = excluded.email, prenom = excluded.prenom, nom = excluded.nom, niveau = excluded.niveau,
   groupes = excluded.groupes, progression_pct = excluded.progression_pct, actif = excluded.actif,
-  inscrit_le = excluded.inscrit_le, derniere_activite = excluded.derniere_activite, importe_le = now();`);
+  inscrit_le = excluded.inscrit_le, derniere_activite = excluded.derniere_activite, importe_le = now()
+returning learnybox_id, email, actif
+)
+update public.acces_membre a
+   set formation_actif = false, journal_actif = false, journal_retire_le = now(), updated_at = now()
+  from maj
+  join auth.users u on lower(u.email) = lower(maj.email)
+  left join avant on avant.learnybox_id = maj.learnybox_id
+ where a.user_id = u.id
+   and maj.actif = false
+   and coalesce(avant.actif, true) = true
+returning u.email as ferme_pour;`);

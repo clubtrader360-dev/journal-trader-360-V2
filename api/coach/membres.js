@@ -79,14 +79,16 @@ async function lister(sb) {
    * `coach_progression_resume()` compte en base, quel que soit le volume.
    * ⚠️ Elle est reservee a la cle de service : un eleve ne peut pas l appeler.
    */
-  const [pub, acces, lb, prog, vus] = await Promise.all([
+  const [pub, acces, lb, prog, vus, sig] = await Promise.all([
     sb.from('users').select('uuid, name, email, role, status, created_at'),
     sb.from('acces_membre').select('user_id, formation_actif, journal_actif, journal_demande_le, journal_retire_le, niveau'),
     sb.from('formation_niveau_learnybox').select('learnybox_id, email, prenom, nom, niveau, progression_pct, actif, inscrit_le, derniere_activite'),
     sb.rpc('coach_progression_resume'),
     sb.from('formation_parcours_vu').select('user_id, vue_le'),
+    // ⚠️ Les signalements coach (audit du 16/10) : rembourse, gele, revoque, offert, doublon, note.
+    sb.from('membres_signalements').select('email, type, note, montant, depuis, reference_email, created_at').order('created_at', { ascending: false }),
   ]);
-  for (const r of [pub, acces, lb, prog, vus]) {
+  for (const r of [pub, acces, lb, prog, vus, sig]) {
     if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
   }
   // ⚠️ Temoin : si une de ces tables depasse un jour 1000 lignes, on le dit
@@ -105,6 +107,8 @@ async function lister(sb) {
     quizReussis.set(p.user_id, new Set(p.quiz_reussis || []));
   }
   const ouvertures = new Map((vus.data || []).map((v) => [v.user_id, v.vue_le]));
+  const signalements = new Map();
+  for (const x of sig.data || []) { const k = String(x.email || '').toLowerCase(); if (!signalements.has(k)) signalements.set(k, []); signalements.get(k).push(x); }
 
   const membres = comptes.map((c) => {
     const p = parUuid.get(c.id);
@@ -131,6 +135,7 @@ async function lister(sb) {
       learnybox_actif: l ? !!l.actif : null,
       lecons_vues: pr.vues,
       quiz_reussis: Array.from(quizReussis.get(c.id) || []).sort(),
+      signalements: signalements.get(String(c.email || '').toLowerCase()) || [],
       sans_compte: false,
     };
   });
@@ -169,7 +174,22 @@ async function lister(sb) {
       learnybox_pct: l.progression_pct != null ? l.progression_pct : null,
       learnybox_actif: !!l.actif,
       lecons_vues: 0, quiz_reussis: [],
+      signalements: signalements.get(email) || [],
       sans_compte: true,
+    });
+  }
+  /**
+   * ⚠️ Un signalement sans compte ni ligne LearnyBox (un paiement offert puis
+   * revoque, par exemple) reste visible du coach : une ligne a part.
+   */
+  const presents = new Set(membres.map((m) => String(m.email || '').toLowerCase()));
+  for (const [email, liste] of signalements) {
+    if (presents.has(email)) continue;
+    membres.push({
+      user_id: null, email, nom: '', role: 'student', statut: 'signale', cree_le: liste[liste.length - 1].created_at,
+      derniere_connexion: null, derniere_activite: null, formation: false, journal: false, journal_demande_le: null, journal_retire_le: null,
+      niveau_coach: null, niveau_learnybox: null, learnybox_pct: null, learnybox_actif: null, lecons_vues: 0, quiz_reussis: [],
+      signalements: liste, sans_compte: true, signale_seulement: true,
     });
   }
   // ⚠️ Les coachs sont listes aussi, en queue : ils ont des droits a gerer
@@ -484,14 +504,15 @@ async function fiche(sb, corps) {
     compte = data.user;
     email = String(compte.email || '').toLowerCase();
   }
-  const [pub, acces, lbNiveau, lbProfil, mails] = await Promise.all([
+  const [pub, acces, lbNiveau, lbProfil, mails, sigF] = await Promise.all([
     uid ? sb.from('users').select('uuid, name, email, role, status, created_at, legal_accepted_at').eq('uuid', uid).maybeSingle() : Promise.resolve({ data: null }),
     uid ? sb.from('acces_membre').select('*').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('formation_niveau_learnybox').select('*').ilike('email', email).limit(1),
     sb.from('membres_profil_learnybox').select('*').ilike('email', email).limit(1),
     sb.from('mails_envoyes').select('type, sujet, envoye_le, erreur, envoye_par').ilike('email', email).order('envoye_le', { ascending: false }).limit(100),
+    sb.from('membres_signalements').select('type, note, montant, depuis, reference_email, cree_par, created_at').ilike('email', email).order('created_at', { ascending: false }),
   ]);
-  for (const r of [pub, acces, lbNiveau, lbProfil, mails]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
+  for (const r of [pub, acces, lbNiveau, lbProfil, mails, sigF]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
   /**
    * ⚠️ LES TRANSACTIONS SE CHERCHENT PAR EMAIL ET PAR IDENTIFIANT LEARNYBOX.
    * Mesure a l import du 15/10 : une transaction porte « flyinh.gwen », la
@@ -562,6 +583,7 @@ async function fiche(sb, corps) {
     mails: mails.data || [],
     transactions: { lignes: transactions.data || [], source: 'learnybox', importe: (transactions.data || []).length > 0 },
     activites: activites.slice(0, 300),
+    signalements: sigF.data || [],
   };
 }
 

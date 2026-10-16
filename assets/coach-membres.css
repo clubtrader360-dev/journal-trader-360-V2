@@ -228,3 +228,8 @@ body:not(.dark-mode) #coachMembres { --cm-or: #b98a2e; --cm-or-2: #d3a73c; --cm-
 .am-reponses li.ko { color: var(--am-non); }
 .am-reponses li b { color: var(--text, #f7f6f3); font-weight: 600; }
 .am-reponses li em { color: var(--am-or); font-style: normal; }
+/* Signalements coach (audit du 16/10) */
+.am-signal { margin-left: 4px; cursor: help; }
+.am-fiche__signalements { display: grid; gap: 8px; margin: 12px 0 4px; text-align: left; }
+.am-fiche__signalements p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-soft, #9c9b94); }
+.am-fiche__signalements em { font-style: normal; color: var(--text-disabled, #6f6e68); }
