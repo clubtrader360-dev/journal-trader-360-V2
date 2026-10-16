@@ -170,7 +170,7 @@
       <td class="am-visite ${d.absent ? 'am-absent' : ''}">${txt(d.t)}</td>
       <td class="am-actions">
         <button type="button" data-fiche title="Ouvrir la fiche du membre" aria-label="Fiche">&#128065;</button>
-        ${m.signale_seulement ? '' : '<button type="button" class="am-actions__or" data-creer-depuis title="Créer son compte à partir de LearnyBox">Créer le compte</button>'}
+        ${m.signale_seulement || (m.signalements || []).some((x) => x.type === 'doublon') ? '' : '<button type="button" class="am-actions__or" data-creer-depuis title="Créer son compte à partir de LearnyBox">Créer le compte</button>'}
       </td>
     </tr>`;
   }

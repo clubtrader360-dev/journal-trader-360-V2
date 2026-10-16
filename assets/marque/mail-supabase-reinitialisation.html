@@ -1,18 +1,8 @@
-<!--
-  GABARIT SUPABASE « Reset Password » (Authentication > Email Templates > Reset Password).
-  A coller tel quel dans le champ « Message body », objet : « Ton mot de passe Trader 360 ».
-  Meme habillage que le mail de premiere connexion de api/coach/membres.js (noir, or,
-  logo hexagone or). Le logo est servi par le site vitrine, qui est en ligne et public :
-  https://www.trader360.fr/courriel/t360-logo-or.png (dossier public/courriel du site).
-  {{ .ConfirmationURL }} est remplace par Supabase ; l adresse de retour qu il contient
-  est celle demandee par la page de connexion SI elle est dans la liste des adresses
-  autorisees (Authentication > URL Configuration > Redirect URLs), sinon l URL du site.
--->
-<!doctype html><html lang="fr"><body style="margin:0;padding:0;background:#0a0a0d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f7f6f3">
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head><body style="margin:0;padding:0;background:#0a0a0d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f7f6f3">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0d"><tr><td align="center" style="padding:40px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#111318;border:1px solid #1e2128;border-radius:22px">
 <tr><td style="padding:36px 36px 8px;text-align:center">
-  <img src="https://www.trader360.fr/courriel/t360-logo-or.png" alt="Trader 360" width="180" style="width:180px;height:auto;display:inline-block">
+  <img src="https://www.trader360.fr/courriel/t360-logo-or.png" alt="Trader 360" width="180" style="width:180px;height:auto;display:inline-block;border:0">
 </td></tr>
 <tr><td style="padding:16px 36px 0;font-size:12.5px;letter-spacing:.22em;text-transform:uppercase;color:#e8b84b;font-weight:700;text-align:center">Ton mot de passe</td></tr>
 <tr><td style="padding:14px 36px 0;font-size:17px;line-height:1.65;color:#f7f6f3">

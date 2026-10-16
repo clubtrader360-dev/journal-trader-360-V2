@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/cron/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" },
-    "api/preview/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" }
+    "api/preview/weekly-report.js": { "includeFiles": "api/cron/_lib/fonts/**" },
+    "api/coach/membres.js": { "includeFiles": "assets/marque/t360-logo-or.png" }
   },
   "crons": [
     {

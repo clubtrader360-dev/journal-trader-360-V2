@@ -43,8 +43,11 @@ dire(!/Après le quiz du module/.test(accueil),'aucune carte « Après le quiz d
 tables.formation_niveau_learnybox = [];
 rendus.length=0; await F.ouvrir();
 const a2 = rendus.find(r=>r.id==='formation').html;
-dire(!/data-lb-encart/.test(a2) && /Après le quiz du module 01/.test(a2),'TEMOIN : sans ligne LearnyBox, pas d encart et le 02 attend le quiz du 01');
-dire(/Niveau Intermédiaire/.test(a2),'TEMOIN : et le niveau intermediaire est ferme');
+// 16/10 : la pastille « Après le quiz du module » est remplacee par un cadenas a cote du
+// numero ; la raison reste en pied de carte. On teste le verrou, plus le libelle disparu.
+const carteDe = (h, cle) => { const i = h.indexOf(`data-carte-module="${cle}"`); return i < 0 ? '' : h.slice(h.lastIndexOf('<button', i), h.indexOf('</button>', i)); };
+dire(!/data-lb-encart/.test(a2) && /locked/.test(carteDe(a2,'02')) && /num__cadenas/.test(carteDe(a2,'02')) && /Réussis le quiz du module 01/.test(carteDe(a2,'02')),'TEMOIN : sans ligne LearnyBox, pas d encart et le 02 attend le quiz du 01 (cadenas)');
+dire(/locked/.test(carteDe(a2,'05')) && /num__cadenas/.test(carteDe(a2,'05')),'TEMOIN : et le niveau intermediaire est ferme (05 sous cadenas)');
 // le quiz d un module acquis s ouvre sans revoir les videos
 tables.formation_niveau_learnybox = [{niveau:'intermediaire',progression_pct:50,groupes:'Débutants, Intermédiaire'}];
 rendus.length=0; await F.ouvrir();
@@ -55,7 +58,7 @@ const h = rendus.find(r=>r.id==='formation').html;
 dire(/quiz__entree/.test(h) && !/quiz__verrou/.test(h),'page du quiz 05 : ecran d entree, pas de verrou');
 const a3 = (rendus.length=0, await F.ouvrir(), rendus.find(r=>r.id==='formation').html);
 dire(/passer au niveau Confirmé/.test(a3) && (a3.match(/lb-encart__btn/g)||[]).length===5,'intermediaire : encart « passer au niveau Confirmé », 5 quiz (01, 02, 04, 05, 06)');
-dire(/locked/.test(a3.slice(a3.lastIndexOf('<button', a3.indexOf('data-carte-module="07"')), a3.indexOf('data-carte-module="07"'))) && /Niveau Confirmé/.test(a3),'intermediaire : le 07 reste ferme (niveau confirme)');
+dire(/locked/.test(carteDe(a3,'07')) && /num__cadenas/.test(carteDe(a3,'07')),'intermediaire : le 07 reste ferme (niveau confirme, cadenas)');
 // ── 15/10 : le niveau de l eleve et les XP par module, a la place des paliers ──
 dire(C.niveauCourant().cle==='intermediaire','niveauCourant : intermediaire (acquis LearnyBox)',C.niveauCourant().cle);
 dire(/Ton niveau/.test(a3) && /class="big">Intermédiaire</.test(a3),'accueil : « Ton niveau » puis Intermédiaire',(a3.match(/class="big">[^<]*/)||[])[0]);

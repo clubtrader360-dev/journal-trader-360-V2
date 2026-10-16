@@ -35,6 +35,8 @@
  * la prod. ⚠️ Cette origine doit etre dans la liste des redirections autorisees
  * du projet Supabase, sinon Supabase renvoie vers l URL du site par defaut.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { requireCoach, httpError } from '../vimeo/_lib/coach-auth.js';
 import { getServiceClient } from '../tradovate/_lib/auth.js';
 import { getSheetsClient } from './_lib/sheets-client.js';
@@ -242,14 +244,43 @@ async function niveau(sb, corps, coach) {
  * decision de contenu qui revient a Nadir. Il est ecrit pour etre relu, et
  * change en un seul endroit.
  */
-function mailPremiereConnexion({ prenom, lien, origine }) {
+/*
+ * ⛔ LE LOGO PART EN PIECE JOINTE `cid:`, PAS EN URL. L ancienne version
+ * pointait sur `${origine}/assets/...` : depuis l apercu, cette adresse est
+ * derriere la protection Vercel et rend l ecran de connexion, donc une image
+ * cassee, sans la moindre erreur. Une piece jointe ne depend ni du domaine, ni
+ * du deploiement, ni du blocage des images distantes (meme choix que le
+ * rapport du lundi). Le fichier accompagne la fonction par `includeFiles`
+ * (vercel.json) ; s il manque, repli sur le PNG public du site vitrine, et un
+ * message dans les journaux : un repli silencieux ne se verrait jamais.
+ */
+const LOGO_CID = 'logo-t360';
+const LOGO_PUBLIC = 'https://www.trader360.fr/courriel/t360-logo-or.png';
+let _logoB64;
+function logoBase64() {
+  if (_logoB64 !== undefined) return _logoB64;
+  try { _logoB64 = readFileSync(join(process.cwd(), 'assets/marque/t360-logo-or.png')).toString('base64'); }
+  catch (e) { console.error('[MEMBRES] ❌ logo absent de la fonction, repli sur l URL publique :', e.message); _logoB64 = null; }
+  return _logoB64;
+}
+/** mode 'cid' pour le courriel, 'datauri' pour un apercu dans un navigateur. */
+function logoMail(mode = 'cid') {
+  const b64 = logoBase64();
+  const img = (src) => `<img src="${src}" alt="Trader 360" width="180" style="width:180px;height:auto;display:inline-block;border:0">`;
+  if (!b64) return { html: img(LOGO_PUBLIC), attachments: [] };
+  if (mode === 'datauri') return { html: img(`data:image/png;base64,${b64}`), attachments: [] };
+  return { html: img(`cid:${LOGO_CID}`), attachments: [{ filename: 't360-logo.png', content: b64, content_id: LOGO_CID, content_type: 'image/png' }] };
+}
+
+export function mailPremiereConnexion({ prenom, lien, origine, mode = 'cid' }) {
+  const logo = logoMail(mode);
   const bonjour = prenom ? `Bonjour ${texte(prenom)},` : 'Bonjour,';
   const sujet = 'Ton accès à Trader 360 : choisis ton mot de passe';
-  const html = `<!doctype html><html lang="fr"><body style="margin:0;padding:0;background:#0a0a0d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f7f6f3">
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head><body style="margin:0;padding:0;background:#0a0a0d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f7f6f3">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0d"><tr><td align="center" style="padding:40px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#111318;border:1px solid #1e2128;border-radius:22px">
 <tr><td style="padding:36px 36px 8px;text-align:center">
-  <img src="${texte(origine)}/assets/marque/t360-logo-or.png" alt="Trader 360" width="180" style="width:180px;height:auto;display:inline-block">
+  ${logo.html}
 </td></tr>
 <tr><td style="padding:16px 36px 0;font-size:12.5px;letter-spacing:.22em;text-transform:uppercase;color:#e8b84b;font-weight:700;text-align:center">Ton espace est ouvert</td></tr>
 <tr><td style="padding:14px 36px 0;font-size:17px;line-height:1.65;color:#f7f6f3">
@@ -268,15 +299,89 @@ function mailPremiereConnexion({ prenom, lien, origine }) {
 </table>
 <p style="max-width:560px;margin:18px auto 0;font-size:12px;color:#6f6e68;line-height:1.5">Trader 360 · Le trading comporte un risque de perte en capital. Tu reçois ce message parce qu'un compte a été créé pour toi sur le journal Trader 360.</p>
 </td></tr></table></body></html>`;
-  return { sujet, html };
+  return { sujet, html, attachments: logo.attachments };
 }
 
-async function envoyerMail({ to, sujet, html }) {
+/* ══ LE MAIL D ANNONCE DE LA BASCULE ═══════════════════════════════════════ */
+/**
+ * Pour ceux qui ont deja un compte et s y sont deja connectes : rien a faire,
+ * memes identifiants. ⚠️ Si leur compte a ete fusionne (outils/fusionner-comptes.mjs),
+ * leur identifiant a CHANGE pour l adresse LearnyBox : le mail le dit en tete,
+ * sinon ils tapent l ancienne adresse et lisent « Email ou mot de passe incorrect ».
+ */
+export function mailAnnonce({ prenom, origine, adresse, ancienne = null, mode = 'cid' }) {
+  const logo = logoMail(mode);
+  const bonjour = prenom ? `Bonjour ${texte(prenom)},` : 'Bonjour,';
+  const domaine = texte(origine.replace(/^https?:\/\//, ''));
+  const sujet = 'Ton nouvel espace Trader 360 est ouvert';
+  const encart = ancienne ? `<tr><td style="padding:4px 36px 0"><div style="border:1px solid #e8b84b;border-radius:14px;padding:14px 18px;font-size:15.5px;line-height:1.6;color:#f7f6f3">
+  <b style="color:#e8b84b">Ton identifiant change.</b> Connecte-toi désormais avec <b>${texte(adresse)}</b>, ton adresse LearnyBox, et non plus ${texte(ancienne)}. Ton mot de passe ne change pas, ton journal et tes trades sont intacts.
+</div></td></tr>` : '';
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head><body style="margin:0;padding:0;background:#0a0a0d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f7f6f3">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0d"><tr><td align="center" style="padding:40px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#111318;border:1px solid #1e2128;border-radius:22px">
+<tr><td style="padding:36px 36px 8px;text-align:center">
+  ${logo.html}
+</td></tr>
+<tr><td style="padding:16px 36px 0;font-size:12.5px;letter-spacing:.22em;text-transform:uppercase;color:#e8b84b;font-weight:700;text-align:center">Ton nouvel espace</td></tr>
+<tr><td style="padding:14px 36px 0;font-size:17px;line-height:1.65;color:#f7f6f3">
+  <p style="margin:0 0 14px">${bonjour}</p>
+  <p style="margin:0 0 14px">La formation et le journal de trading sont maintenant réunis au même endroit. Tu y retrouves tes vidéos, tes quiz, ta progression, et ton journal avec tous tes trades.</p>
+  <p style="margin:0 0 14px">${ancienne ? 'Une seule chose change pour toi, juste en dessous.' : 'Rien à faire de ton côté : tu te connectes avec la même adresse et le même mot de passe.'}</p>
+</td></tr>
+${encart}
+<tr><td align="center" style="padding:18px 36px 10px">
+  <a href="${texte(origine)}" style="display:inline-block;background:#e8b84b;color:#120e07;font-weight:700;font-size:16px;text-decoration:none;padding:15px 30px;border-radius:40px">Entrer dans mon espace</a>
+</td></tr>
+<tr><td style="padding:6px 36px 0;font-size:14px;line-height:1.6;color:#9c9b94;text-align:center">L'adresse : <a href="${texte(origine)}" style="color:#e8b84b;text-decoration:none">${domaine}</a>. Mot de passe oublié ? Demande-le sur la page de connexion.</td></tr>
+<tr><td style="padding:26px 36px 34px;font-size:15px;line-height:1.65;color:#bdbcb6">
+  <p style="margin:0">À tout de suite,<br>Nadir et Manu</p>
+</td></tr>
+</table>
+<p style="max-width:560px;margin:18px auto 0;font-size:12px;color:#6f6e68;line-height:1.5">Trader 360 · Le trading comporte un risque de perte en capital. Tu reçois ce message parce que tu es membre de la formation Trader 360.</p>
+</td></tr></table></body></html>`;
+  return { sujet, html, attachments: logo.attachments };
+}
+
+/**
+ * ⛔ UN MAIL PAR APPEL, ET JAMAIS DEUX FOIS : un second envoi a la meme personne
+ * est refuse (409) sauf `forcer: true`. La boucle sur la liste se fait le jour de
+ * la bascule, avec l accord de Nadir ; cette action ne part jamais seule.
+ */
+async function annonce(sb, corps, coach, origine) {
+  const cible = String(corps.user_id || '').trim();
+  if (!UUID.test(cible)) throw httpError(400, 'user_id absent ou mal forme');
+  const { data, error } = await sb.auth.admin.getUserById(cible);
+  if (error || !data?.user?.email) throw httpError(404, 'compte introuvable');
+  const email = String(data.user.email).toLowerCase();
+  if (corps.forcer !== true) {
+    const { data: deja, error: dErr } = await sb.from('mails_envoyes').select('id').eq('user_id', cible).eq('type', 'annonce_bascule').is('erreur', null).limit(1);
+    if (dErr) throw httpError(500, `journal des mails illisible : ${dErr.message}`);
+    if (deja && deja.length) throw httpError(409, 'annonce deja envoyee a ce membre');
+  }
+  const { data: p } = await sb.from('users').select('name').eq('uuid', cible).maybeSingle();
+  const prenom = String((p && p.name) || (data.user.user_metadata && data.user.user_metadata.name) || '').split(' ')[0];
+  const { data: fus } = await sb.from('membres_signalements').select('email').eq('type', 'doublon').eq('cree_par', 'fusionner-comptes').ilike('reference_email', email).limit(1);
+  const ancienne = fus && fus.length ? fus[0].email : null;
+  const { sujet, html, attachments } = mailAnnonce({ prenom, origine, adresse: email, ancienne });
+  let id;
+  try {
+    id = await envoyerMail({ to: email, sujet, html, attachments });
+    await journaliserMail(sb, { user_id: cible, email, type: 'annonce_bascule', sujet, fournisseur_id: id, envoye_par: coach.email });
+  } catch (e) {
+    await journaliserMail(sb, { user_id: cible, email, type: 'annonce_bascule', sujet, envoye_par: coach.email, erreur: e.message });
+    throw e;
+  }
+  console.log(`[MEMBRES] ✅ annonce envoyee a ${email}${ancienne ? ' (identifiant fusionne)' : ''} par ${coach.email}`);
+  return { user_id: cible, email, mail_id: id, identifiant_change: !!ancienne };
+}
+
+async function envoyerMail({ to, sujet, html, attachments = [] }) {
   if (!RESEND_API_KEY) throw httpError(500, 'RESEND_API_KEY absente : le mail ne peut pas partir');
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: EXPEDITEUR, to: [to], subject: sujet, html }),
+    body: JSON.stringify({ from: EXPEDITEUR, to: [to], subject: sujet, html, ...(attachments.length ? { attachments } : {}) }),
   });
   const d = await r.json().catch(() => ({}));
   // ⛔ `r.ok`, jamais l absence d exception : un refus de Resend arrive en 4xx sans lever.
@@ -364,9 +469,9 @@ async function creer(sb, corps, coach, origine) {
   let mail = null;
   if (envoyer) {
     const lien = await lienDeConnexion(sb, email, origine);
-    const { sujet, html } = mailPremiereConnexion({ prenom, lien, origine });
+    const { sujet, html, attachments } = mailPremiereConnexion({ prenom, lien, origine });
     try {
-      mail = await envoyerMail({ to: email, sujet, html });
+      mail = await envoyerMail({ to: email, sujet, html, attachments });
       await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, fournisseur_id: mail, envoye_par: coach.email });
     } catch (e) {
       await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, envoye_par: coach.email, erreur: e.message });
@@ -416,14 +521,13 @@ async function creerManquants(sb, corps, coach) {
       .upsert({ uuid: uid, email, name: nomComplet, role: 'student', status: 'active' }, { onConflict: 'uuid' });
     if (pubErr) console.error('[MEMBRES] ⚠️ profil public non ecrit pour', email, ':', pubErr.message);
     /**
-     * ⚠️ FORMATION OUVERTE, JOURNAL FERME A LA CREATION. Arbitrage de Nadir du
-     * 15/10 : « si ces comptes n ont pas de journal, tu me decoches journal ».
-     * C est le report de progression, juste apres, qui ouvre le journal a ceux
-     * qui ont vu le chapitre 5.10 sur LearnyBox : le declencheur
-     * `ouvrir_journal_apres_chapitre` fait exactement cela, et rien d autre.
+     * ⚠️ FORMATION ET JOURNAL OUVERTS A LA CREATION. Arbitrage de Nadir du
+     * 16/10 : « on ouvre le journal a tous ». Il remplace celui du 15/10
+     * (journal ferme jusqu au chapitre 5.10), qui avait laisse 21 des 22
+     * comptes crees sans journal. Le coach ferme d un interrupteur.
      */
     const { error: accErr } = await sb.from('acces_membre')
-      .upsert({ user_id: uid, formation_actif: true, journal_actif: false, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      .upsert({ user_id: uid, formation_actif: true, journal_actif: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (accErr) { echecs.push({ email, motif: `droits non ecrits : ${accErr.message}` }); continue; }
     crees.push({ email, user_id: uid });
   }
@@ -447,10 +551,10 @@ async function renvoyerMail(sb, corps, coach, origine) {
   const { data: p } = await sb.from('users').select('name').eq('uuid', cible).maybeSingle();
   const prenom = String((p && p.name) || (data.user.user_metadata && data.user.user_metadata.name) || '').split(' ')[0];
   const lien = await lienDeConnexion(sb, email, origine);
-  const { sujet, html } = mailPremiereConnexion({ prenom, lien, origine });
+  const { sujet, html, attachments } = mailPremiereConnexion({ prenom, lien, origine });
   let id;
   try {
-    id = await envoyerMail({ to: email, sujet, html });
+    id = await envoyerMail({ to: email, sujet, html, attachments });
     await journaliserMail(sb, { user_id: cible, email, type: 'premiere_connexion', sujet, fournisseur_id: id, envoye_par: coach.email });
   } catch (e) {
     await journaliserMail(sb, { user_id: cible, email, type: 'premiere_connexion', sujet, envoye_par: coach.email, erreur: e.message });
@@ -837,6 +941,7 @@ export default async function handler(req, res) {
     else if (action === 'niveau') resultat = await niveau(sb, corps, coach);
     else if (action === 'creer') resultat = await creer(sb, corps, coach, origine);
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
+    else if (action === 'annonce') resultat = await annonce(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
     else if (action === 'fiche') resultat = await fiche(sb, corps);
