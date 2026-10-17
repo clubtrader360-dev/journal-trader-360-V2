@@ -25,6 +25,7 @@ export const RANGE_ONGLET = `'${SHEET_NAME}'`;
 
 // Titres normalisés des colonnes utilisées par ce repo.
 export const TITRES = {
+  ID: 'id',
   PRENOM: 'prenom',
   NOM: 'nom',
   STATUT: 'statut',
