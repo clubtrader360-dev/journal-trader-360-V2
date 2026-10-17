@@ -187,6 +187,10 @@ export default async function handler(req, res) {
     if (action === 'daily-recalc') {
       return await handleDailyRecalc(res);
     }
+    // 1quater. ONE-SHOT 17/10/2026 : remet « NO » sur les lignes écrasées par le 1er recalcul.
+    if (action === 'restore-no') {
+      return await handleRestoreNo(res, await readJson(req));
+    }
 
     // 2. Payload Supabase.
     const body = await readJson(req);
@@ -356,17 +360,20 @@ async function handleDailyRecalc(res) {
   const { cols, rows: values } = parcours;
 
   const cibles = [];
-  let coachs = 0, non_inscrits = 0, sans_email = 0;
+  let coachs = 0, non_inscrits = 0, sans_email = 0, no = 0;
   for (let i = 0; i < values.length; i++) {
     const row = values[i] || [];
     const emails = rowEmails(row, cols);
     if (emails.length === 0) { sans_email++; continue; }
     if (isCoachRow(row, cols)) { coachs++; continue; }
-    const email = emails.find((e) => emailToUuid.has(e));
-    if (!email) { non_inscrits++; continue; }
+    // « NO » jamais touché, même si un compte journal a été créé depuis (sans saisie, aucun
+    // événement Supabase n'est parti) : seule une saisie réelle, via le webhook, le remplace.
+    if (String(row[cols[TITRES.JOURNAL]] || '').trim().toUpperCase() === JOURNAL_NO) { no++; continue; }
+    const uuids = [...new Set(emails.filter((e) => emailToUuid.has(e)).map((e) => emailToUuid.get(e)))];
+    if (!uuids.length) { non_inscrits++; continue; }
     cibles.push({
       rowNum: FIRST_MEMBER_ROW + i,
-      uuid: emailToUuid.get(email),
+      uuids,
       nom: `${row[cols[TITRES.PRENOM]] || ''} ${row[cols[TITRES.NOM]] || ''}`.trim(),
       avant: String(row[cols[TITRES.JOURNAL]] || ''),
     });
@@ -376,7 +383,10 @@ async function handleDailyRecalc(res) {
   const membres = [];
   for (let k = 0; k < cibles.length; k += 8) {
     const lot = await Promise.all(cibles.slice(k, k + 8).map(async (c) => {
-      const r = await computeUserColX(sb, c.uuid);
+      // Plusieurs comptes pour une ligne (Mail LearnyBox + 2ème mail) : celui dont la dernière
+      // saisie est la plus récente l'emporte (à défaut, le premier, Mail LearnyBox prioritaire).
+      const rs = await Promise.all(c.uuids.map((u) => computeUserColX(sb, u)));
+      const r = rs.reduce((best, x) => (x.lastDay && (!best.lastDay || x.lastDay > best.lastDay) ? x : best), rs[0]);
       return { row: c.rowNum, nom: c.nom, derniere_saisie: r.lastDay, jours_bourse: r.joursBourse, avant: c.avant, value: r.value };
     }));
     membres.push(...lot);
@@ -392,7 +402,7 @@ async function handleDailyRecalc(res) {
     changes: compte((m) => m.avant !== m.value),
   };
   const duration_ms = Date.now() - t0;
-  console.log(`[WEBHOOK-COL-X][daily-recalc] written=${membres.length} note=${resume.note} non_rempli=${resume.non_rempli} vide=${resume.vide} changes=${resume.changes} skip: coachs=${coachs} non_inscrits=${non_inscrits} sans_email=${sans_email} in ${duration_ms}ms`);
+  console.log(`[WEBHOOK-COL-X][daily-recalc] written=${membres.length} note=${resume.note} non_rempli=${resume.non_rempli} vide=${resume.vide} changes=${resume.changes} skip: no=${no} coachs=${coachs} non_inscrits=${non_inscrits} sans_email=${sans_email} in ${duration_ms}ms`);
   for (const m of membres) {
     if (m.avant !== m.value) console.log(`[WEBHOOK-COL-X][daily-recalc] row=${m.row} (${m.nom}) ${m.avant || '(vide)'} → ${m.value} (dernière saisie ${m.derniere_saisie || 'aucune'}, ${m.jours_bourse ?? '-'} j de bourse)`);
   }
@@ -402,8 +412,30 @@ async function handleDailyRecalc(res) {
     today: parisTodayStr(),
     written: membres.length,
     ...resume,
-    skipped: { coachs, non_inscrits, sans_email },
+    skipped: { no, coachs, non_inscrits, sans_email },
     duration_ms,
     membres,
   });
+}
+
+// ONE-SHOT 17/10/2026 (à retirer après usage) : le 1er recalcul a remplacé par « vide » des « NO »
+// de membres dont le compte journal venait d'être créé (le 15/10, sans saisie). Remet « NO » sur
+// les lignes listées, seulement si elles valent encore « vide » et ne sont pas des lignes coachs.
+async function handleRestoreNo(res, body) {
+  const wanted = new Set((body && body.rows || []).map(Number));
+  const sheets = getSheetsClient();
+  const spreadsheetId = getSheetId();
+  const parcours = await readParcours(sheets, spreadsheetId, TITRES_REQUIS);
+  if (!parcours.ok) return res.status(200).json({ ok: false, error: parcours.error });
+  const { cols, rows: values } = parcours;
+  const cells = [];
+  values.forEach((row, i) => {
+    const rowNum = FIRST_MEMBER_ROW + i;
+    if (!wanted.has(rowNum) || isCoachRow(row || [], cols)) return;
+    if (String((row || [])[cols[TITRES.JOURNAL]] || '').trim() !== JOURNAL_VIDE) return;
+    cells.push({ rowNum, value: JOURNAL_NO });
+  });
+  await writeJournalCells(sheets, spreadsheetId, cols[TITRES.JOURNAL], cells);
+  console.log(`[WEBHOOK-COL-X][restore-no] rows=${cells.map((c) => c.rowNum).join(',')}`);
+  return res.status(200).json({ ok: true, restored: cells.map((c) => c.rowNum) });
 }
