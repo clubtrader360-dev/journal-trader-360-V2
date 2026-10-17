@@ -9,7 +9,7 @@
 //   Ancienneté de la dernière saisie = jours de BOURSE (lun-ven) depuis son created_at, jour de
 //   Paris (règles Manu du 17/10/2026, cf api/_lib/jours-bourse.js) :
 //   - "<score>" (ex "72.4") → dernière saisie il y a 3 jours de bourse ou moins
-//   - "non rempli"          → plus de 3 jours de bourse (police 10, centré verticalement, sans fond)
+//   - "non rempli"          → plus de 3 jours de bourse (police 8, centré verticalement, sans fond)
 //   - "vide"                → plus de 20 jours de bourse, ou aucune saisie (ex-"Pas rempli")
 //   - "NO"   → email tableur absent de public.users (ex-"no", ex-"Non inscrit au journal") ;
 //              en majuscules depuis le 10/10/2026, fond rouge clair posé côté tableur
@@ -113,7 +113,7 @@ async function computeUserColX(sb, uuid) {
 
 // SEUL chemin d'écriture de la colonne « Journal » (webhook, backfill, recalcul quotidien).
 // `cells` = [{ rowNum, value }]. Valeurs en RAW, 1 appel. « non rempli » et « vide » reçoivent
-// la mise en forme des textes de la colonne : police 10, centré verticalement, aucun fond
+// la mise en forme des textes de la colonne : police 8 (« non rempli ») ou 10 (« vide »), centré verticalement, aucun fond
 // (fond statique effacé ; les règles conditionnelles du tableur ne colorent que notes et « NO »).
 // La note garde sa mise en forme, inchangée.
 async function writeJournalCells(sheets, spreadsheetId, colIdx, cells) {
@@ -141,7 +141,9 @@ async function writeJournalCells(sheets, spreadsheetId, colIdx, cells) {
             startRowIndex: c.rowNum - 1, endRowIndex: c.rowNum,
             startColumnIndex: colIdx, endColumnIndex: colIdx + 1,
           },
-          cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, verticalAlignment: 'MIDDLE' } },
+          // « non rempli » en police 8 (demande Manu du 17/10/2026), « vide » reste en 10.
+          // Même règle côté Apps Script du tableur (_applyPoliceJoursJournal_).
+          cell: { userEnteredFormat: { textFormat: { fontSize: c.value === JOURNAL_NON_REMPLI ? 8 : 10 }, verticalAlignment: 'MIDDLE' } },
           // backgroundColor(Style) dans le masque sans valeur → fond effacé.
           fields: 'userEnteredFormat.textFormat.fontSize,userEnteredFormat.verticalAlignment,userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle',
         },
