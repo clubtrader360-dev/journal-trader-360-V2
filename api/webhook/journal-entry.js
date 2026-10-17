@@ -187,10 +187,6 @@ export default async function handler(req, res) {
     if (action === 'daily-recalc') {
       return await handleDailyRecalc(res);
     }
-    // 1quater. ONE-SHOT 17/10/2026 : remet « NO » sur les lignes écrasées par le 1er recalcul.
-    if (action === 'restore-no') {
-      return await handleRestoreNo(res, await readJson(req));
-    }
 
     // 2. Payload Supabase.
     const body = await readJson(req);
@@ -416,26 +412,4 @@ async function handleDailyRecalc(res) {
     duration_ms,
     membres,
   });
-}
-
-// ONE-SHOT 17/10/2026 (à retirer après usage) : le 1er recalcul a remplacé par « vide » des « NO »
-// de membres dont le compte journal venait d'être créé (le 15/10, sans saisie). Remet « NO » sur
-// les lignes listées, seulement si elles valent encore « vide » et ne sont pas des lignes coachs.
-async function handleRestoreNo(res, body) {
-  const wanted = new Set((body && body.rows || []).map(Number));
-  const sheets = getSheetsClient();
-  const spreadsheetId = getSheetId();
-  const parcours = await readParcours(sheets, spreadsheetId, TITRES_REQUIS);
-  if (!parcours.ok) return res.status(200).json({ ok: false, error: parcours.error });
-  const { cols, rows: values } = parcours;
-  const cells = [];
-  values.forEach((row, i) => {
-    const rowNum = FIRST_MEMBER_ROW + i;
-    if (!wanted.has(rowNum) || isCoachRow(row || [], cols)) return;
-    if (String((row || [])[cols[TITRES.JOURNAL]] || '').trim() !== JOURNAL_VIDE) return;
-    cells.push({ rowNum, value: JOURNAL_NO });
-  });
-  await writeJournalCells(sheets, spreadsheetId, cols[TITRES.JOURNAL], cells);
-  console.log(`[WEBHOOK-COL-X][restore-no] rows=${cells.map((c) => c.rowNum).join(',')}`);
-  return res.status(200).json({ ok: true, restored: cells.map((c) => c.rowNum) });
 }
