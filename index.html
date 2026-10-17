@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Trader 360 - Journal de Trading Professionnel</title>
+    <!-- ⚠️ Un lien de mot de passe qui atterrit ICI au lieu de /reset-password.html
+         (15/10, cas Philippe) : Supabase remplace l adresse de retour par l URL du
+         site quand elle n est pas dans sa liste d adresses autorisees (www. absent,
+         sous-domaine d apercu...). Le jeton est alors dans le fragment de cette page,
+         que personne ne lit, et l eleve tape son nouveau mot de passe dans le
+         formulaire de connexion : « Email ou mot de passe incorrect ». Quel que soit
+         le reglage Supabase, un jeton de type recovery est route vers la page qui
+         sait le lire, fragment intact. Avant tout autre script : le client principal
+         ne lit pas l URL (detectSessionInUrl:false) et ne doit pas le voir. -->
+    <script>
+    (function () {
+        var h = window.location.hash || '';
+        // Jeton OU erreur (lien expire) : la page de reinitialisation sait dire les deux.
+        if (/type=recovery/.test(h) && !/^\/reset-password\.html/.test(window.location.pathname)) {
+            window.location.replace('/reset-password.html' + h);
+        }
+    })();
+    </script>
     <!-- 
     VERSION V46 DEBUG - Trade Duration Performance
     
@@ -30,7 +48,14 @@
             integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <!-- La connexion a Supabase s ouvre pendant que la page se lit, pas au premier
+         appel : c est lui qui decide quand l ecran apparait (getSession + profil).
+         Idem pour les deux CDN et Vimeo. Aucune donnee n est envoyee ici. -->
+    <link rel="preconnect" href="https://zgihbpgoorymomtsbxpz.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://player.vimeo.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- #35 : préchargement du logo pour le canvas de partage Instagram (évite le délai au 1er render).
          C'est le PNG DORÉ qui est préchargé, pas le SVG source : le canvas dessine un
          PNG, parce qu'un SVG sans largeur ni hauteur intrinsèques est rendu par
@@ -51,8 +76,8 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <!-- Dashboard personnalisable (#27) — Sortable.js pour le drag des blocs en mode édition -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js" defer></script>
-    <meta name="theme-color" content="#000B25" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#f5f7fb" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0a0a0d" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
     <style>
         /* =========================================================
            DESIGN SYSTEM — Trader 360
@@ -2256,6 +2281,17 @@
 <script src="/supabase-vimeo.js?v=20260523"></script>
 <script src="/supabase-replays.js?v=20260523"></script>
 <script src="/supabase-replays-student.js?v=20260523"></script>
+<!-- Espace formation : les donnees d abord, la logique ensuite. -->
+<script src="/supabase-acces.js"></script>
+<script src="/assets/connexion.js"></script>
+<script src="/supabase-demandes-journal.js"></script>
+<script src="/assets/formation-donnees.js"></script>
+<!-- Lot 18 : les quiz, engendres par outils/formation-quiz-import.mjs. Avant la logique. -->
+<script src="/assets/formation-quiz.js"></script>
+<!-- Certification (15/10) : les donnees engendrees par outils/formation-certification-import.mjs, puis le moteur d examen. Avant la logique. -->
+<script src="/assets/formation-certification.js"></script>
+<script src="/assets/formation-examen.js"></script>
+<script src="/supabase-formation.js"></script>
 <script src="/supabase-tradovate.js"></script>
 <!-- prompt-ia.js chargé UNIQUEMENT pour les élèves (voir supabase-auth.js) -->
 
@@ -3156,8 +3192,24 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     <!-- "Bourse à l'Aube" — tokens centraux puis couche DA (EN DERNIER, override propre, dual-theme) -->
     <link rel="stylesheet" href="/assets/tokens-aube.css">
     <link rel="stylesheet" href="/assets/aube.css">
+    <!-- Lot connexion (14/10/2026) : les deux ecrans partages, #authScreen et #choixEspace,
+         au style de l espace membre. ⛔ Ne touche ni #mainApp ni #coachApp. -->
+    <link rel="stylesheet" href="/assets/connexion.css">
+    <!-- Espace formation. ⛔ Aucune valeur de couleur propre : il ne nomme que les
+         jetons du journal, pour suivre les modes clair et sombre sans les redire. -->
+    <link rel="stylesheet" href="/assets/formation.css">
+    <!-- Le journal au style de l espace membre (14/10) : une peau, chargee en DERNIER,
+         qui ne touche ni a la structure ni a l interieur des cartes. -->
+    <link rel="stylesheet" href="/assets/journal-or.css">
 </head>
 <body>
+    <!-- ⚠️ LE VOILE DE CHARGEMENT. Demande de Nadir du 14/10 : « il ne faut plus de
+         pages entre deux ; je préfère un écran noir au chargement ». Un fond sombre,
+         la marque, rien d autre, tant qu aucun ecran n est affiche. assets/connexion.css
+         le retire des que l ecran de connexion, le choix, le journal, l espace coach
+         ou l espace membre est a l ecran. Sans JavaScript, il tombe aussi (`noscript`). -->
+    <div id="cxVoile" class="cx-voile" aria-hidden="true"><span class="marque marque--verrou cx-voile__marque"></span></div>
+    <noscript><style>#cxVoile{display:none !important}</style></noscript>
     <a href="#main-content" class="skip-link">Aller au contenu principal</a>
     <!-- Bandeau COACH VIEW (#80) — visible uniquement quand le coach consulte un journal élève en lecture seule. -->
     <div id="coachViewBanner" class="coach-view-banner" style="display:none;" role="status">
@@ -3166,6 +3218,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     </div>
     <!-- Auth Screen -->
     <div id="authScreen" class="auth-container" role="main" aria-label="Authentification" style="display: none;">
+        <!-- Le graphique de fond : des chandeliers dessines une fois au canvas par
+             assets/connexion.js, le meme trace que l emplacement video de l espace membre. -->
+        <canvas id="cxChart" class="cx-chart" aria-hidden="true"></canvas>
         <div class="auth-card">
             <div class="logo">
                 <!-- OR, ET PAS LA COULEUR DU THÈME. La règle `.auth-card` de ce fichier
@@ -3175,7 +3230,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                      style — un premier essai en navy y était presque invisible. -->
                 <span class="marque marque--verrou" role="img" aria-label="Trader 360"
                       style="width: 200px; margin: 0 auto 0.75rem; --marque-couleur: var(--color-gold, #d4af37);"></span>
-                <div style="color: #666; font-size: 0.875rem; margin-top: 15px;">Journal de Trading Professionnel</div>
+                <!-- Tache #27. ⚠️ Cette page ouvre desormais DEUX espaces : la formation et le
+                         journal. « Journal de Trading Professionnel » n en decrivait qu un, et
+                         aurait laisse croire a qui n a que la formation qu il s est trompe de porte.
+                         Libelle arrete par Nadir le 10/10/2026. Tache #27 close. -->
+                    <div style="color: #666; font-size: 0.875rem; margin-top: 15px;">Espace membre Trader 360</div>
             </div>
             
             <div id="loginForm" role="region" aria-label="Connexion">
@@ -3192,10 +3251,17 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <div class="forgot-pw-row">
                         <button type="button" id="forgotPasswordLink" class="forgot-pw-link">Mot de passe oublié ?</button>
                     </div>
-                    <button type="submit" id="loginBtn" class="trader-btn w-full mb-4">Se connecter</button>
+                    <!-- Demande de Nadir du 14/10 : email, mot de passe, et DEUX boutons qui
+                         menent chacun directement dans son espace, sans ecran intermediaire.
+                         ⚠️ Les deux soumettent le meme formulaire : `Acces.vouloir()` retient
+                         l espace demande, `login()` ouvre la session, `Acces.orienter()` y entre.
+                         `#loginBtn` garde son identifiant : les sondes et `aube.js` le lisent. -->
+                    <button type="submit" id="loginBtn" class="trader-btn w-full" data-espace="journal"
+                            onclick="window.Acces && Acces.vouloir('journal')">Entrer dans le journal</button>
+                    <button type="submit" id="loginBtnFormation" class="trader-btn cx-btn-formation w-full" data-espace="formation"
+                            onclick="window.Acces && Acces.vouloir('formation')">Entrer dans la formation</button>
                 </form>
                 <button type="button" id="showRegisterBtn" data-action="showRegisterForm" class="trader-btn-secondary w-full mb-4">Créer un compte</button>
-                <button type="button" id="showCoachLoginBtn" data-action="showCoachLogin" class="trader-btn-secondary w-full">Connexion Coach</button>
                 <div id="loginError" class="text-red-500 text-sm mt-4 hidden" role="alert" aria-live="assertive"></div>
             </div>
 
@@ -3247,6 +3313,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div id="coachError" class="text-red-500 text-sm mt-4 hidden" role="alert" aria-live="assertive"></div>
             </div>
         </div>
+        <!-- Les quatre liens legaux, obligatoires, en pied de l ecran de connexion. -->
+        <div class="cx-pied">
+            <nav aria-label="Informations légales">
+                <a href="/mentions-legales.html">Mentions légales</a>
+                <a href="/cgv.html">CGV</a>
+                <a href="/cgu.html">CGU</a>
+                <a href="/confidentialite.html">Confidentialité</a>
+            </nav>
+            <small>Le trading comporte un risque de perte en capital.</small>
+        </div>
+        <!-- ⚠️ L acces coach : demande de Nadir du 14/10, « en bas à gauche, discret,
+             un tout petit bouton marqué admin ». Hors de la carte, fixe au coin.
+             `#showCoachLoginBtn` garde son identifiant : les deux attaches de ce
+             fichier (l. ~3069 et ~16201) le lisent et ouvrent `#coachLoginForm`. -->
+        <button type="button" id="showCoachLoginBtn" data-action="showCoachLogin" class="cx-admin"
+                aria-label="Accès coach">admin</button>
     </div>
 
     <!-- COACH APP -->
@@ -3262,6 +3344,19 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                       style="width: 170px; margin: 0 auto;"></span>
                 <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
                 <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
+                <!-- ⚠️ LE COACH VOIT « FORMATION » LUI AUSSI. Arbitrage de Nadir du
+                     10/10/2026 : il relit les lecons telles qu un eleve les voit.
+                     ⛔ PAS DE `data-droit` ICI, et c est volontaire : un coach n a pas de
+                     ligne dans `acces_membre`, et poser l attribut masquerait l entree
+                     pour tout le monde cote coach.
+                     ⚠️ SES NOTES RESTENT LES SIENNES sans rien faire de special :
+                     `formation_notes` est clavetee sur `auth.uid()`, donc il ecrit sur sa
+                     propre ligne, jamais sur celle d un eleve. -->
+                <div class="sidebar-item formation-acces" data-section="formation"
+                     onclick="Acces.entrer('formation')" role="button" tabindex="0"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
+                    <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
+                </div>
                 <!-- #33 commit 3 — entrée mode personnalisation du dashboard coach -->
                 <button type="button" onclick="window.enterCoachDashboardEdit && window.enterCoachDashboardEdit()"
                         class="dash-btn dash-btn-ghost" style="margin-top:12px; font-size:12px; width:100%; justify-content:center;">
@@ -3269,24 +3364,44 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </button>
             </div>
             
-            <nav class="mt-6">
+            <!-- ⚠️ DEUX PARTIES, et c est Nadir qui les nomme (15/10) : la partie TRADING
+                 (le journal de trading vu du coach : tableau de bord, eleves, comptabilite,
+                 inscriptions, replays) et le BACK OFFICE (les acces, les offres a venir).
+                 Les identifiants de sections et de routes ne bougent pas. -->
+            <nav class="mt-6" aria-label="Trading">
+                <div class="sidebar-group-title">Trading</div>
                 <div class="sidebar-item coach-active" id="coachNavDashboard" onclick="showCoachSection('coachDashboard')">
                     <i class="fas fa-chart-line mr-3"></i>Dashboard Global
                 </div>
                 <div class="sidebar-item" id="coachNavStudents" onclick="showCoachSection('coachStudents')">
                     <i class="fas fa-users mr-3"></i>Mes Élèves
                 </div>
-                <div class="sidebar-item" id="coachNavMembersTable" onclick="showCoachSection('coachMembersTable')">
-                    <i class="fas fa-clipboard-list mr-3"></i>Suivi Membres
-                </div>
                 <div class="sidebar-item" id="coachNavAccounting" onclick="showCoachSection('coachAccounting')">
                     <i class="fas fa-euro-sign mr-3"></i>Comptabilité
                 </div>
                 <div class="sidebar-item" id="coachNavRegistrations" onclick="showCoachSection('coachRegistrations')">
-                    <i class="fas fa-user-check mr-3"></i>Inscriptions
+                    <i class="fas fa-user-check mr-3"></i>Inscriptions<!--
+                    ⚠️ LE ZERO NE S AFFICHE PAS, et c est tout l interet. Un badge a zero
+                    en permanence devient invisible, et le jour ou il passe a un, personne
+                    ne le voit. ⛔ Il n apparait que lorsqu il y a quelque chose a voir.
+                    `[hidden]` est tenu par une regle de formation.css : sans elle, la
+                    classe poserait `display` et l attribut serait decoratif. -->
+                    <span id="coachBadgeDemandes" class="coach-badge" hidden></span>
                 </div>
                 <div class="sidebar-item" id="coachNavReplays" onclick="showCoachSection('coachReplays')">
                     <i class="fas fa-play-circle mr-3"></i>Replays
+                </div>
+            </nav>
+            <nav class="mt-4" aria-label="Back office">
+                <div class="sidebar-group-title">Back office</div>
+                <!-- Le back-office est une PAGE A PART (back-office.html), arbitrage de Nadir
+                     du 15/10 : Accueil, Academie (Membres, Evaluations, Diplomes...),
+                     Marketing, CRM, Ventes. Meme session, dans le meme onglet. -->
+                <a class="sidebar-item" href="/back-office.html#/accueil" id="coachNavBackOffice">
+                    <i class="fas fa-th-large mr-3"></i>Ouvrir le back-office
+                </a>
+                <div class="sidebar-item" id="coachNavMembersTable" onclick="showCoachSection('coachMembersTable')">
+                    <i class="fas fa-clipboard-list mr-3"></i>Suivi membres (tableur)
                 </div>
             </nav>
 
@@ -3749,6 +3864,33 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <p class="text-gray-600">Valider, suspendre ou supprimer des accès élèves</p>
                 </div>
 
+                <!-- ⛔ SANS CETTE LISTE, LA DEMANDE TOMBAIT DANS LE VIDE. Un eleve
+                     cliquait « Demander l acces au journal », la date s ecrivait en base,
+                     et AUCUN ecran ne la montrait jamais a un coach : `journal_demande_le`
+                     n apparaissait nulle part dans `supabase-coach.js`. Le bouton marchait
+                     parfaitement et la fonctionnalite etait inexistante.
+                     ⚠️ Posee AVANT les inscriptions : quelqu un qui attend un acces est
+                     deja eleve, il ne doit pas passer apres les nouvelles arrivees. -->
+                <!-- ⚠️ « Ou en sont mes eleves » est la premiere question d un coach, et
+                     aucun ecran n y repondait. Les politiques l autorisaient pourtant deja :
+                     `is_coach()` est dans les trois branches de lecture.
+                     ⛔ AUCUN TEXTE DE NOTE ICI. Les politiques le permettent, le produit non :
+                     une note est un espace personnel, et un eleve qui s en doute cesse d en
+                     ecrire. Seul leur NOMBRE est affiche. -->
+                <div class="trader-card mb-6" style="padding: 24px;">
+                    <h2 class="text-xl font-bold mb-4">🎓 Progression dans la formation</h2>
+                    <div id="coachProgressionFormation">
+                        <p class="text-gray-500 text-center py-4">Chargement...</p>
+                    </div>
+                </div>
+
+                <div class="trader-card mb-6" style="padding: 24px;">
+                    <h2 class="text-xl font-bold mb-4">🔑 Demandes d accès au journal</h2>
+                    <div id="coachDemandesJournal">
+                        <p class="text-gray-500 text-center py-4">Chargement...</p>
+                    </div>
+                </div>
+
                 <div class="trader-card mb-6" style="padding: 24px;">
                     <h2 class="text-xl font-bold mb-4">⏳ Demandes en Attente</h2>
                     <div id="coachPendingUsers">
@@ -3918,7 +4060,137 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </div>
         </div>
     </div>
+    <!-- ====================================================================
+         OU VAIS-JE ? Une seule connexion, deux destinations.
+         ⛔ PAS UN SECOND COMPTE, PAS UN SECOND MOT DE PASSE. Les deux espaces sont
+         deux zones d une meme application : la session fait autorite pour les deux,
+         seuls les droits different.
+         ⚠️ Cet ecran ne s affiche QUE si les deux droits sont actifs. Avec un seul
+         droit on va directement a l espace correspondant, plutot que de faire
+         choisir entre une porte et un mur. Sans aucun droit, le message ci-dessous
+         s affiche : ⛔ jamais une page blanche ni une erreur technique.
+         ================================================================= -->
+    <div id="choixEspace" class="auth-container" role="main" aria-label="Choix de l espace" style="display: none;">
+        <div class="auth-card">
+            <div class="logo">
+                <span class="marque marque--verrou" role="img" aria-label="Trader 360"
+                      style="width: 180px; margin: 0 auto 0.75rem; --marque-couleur: var(--color-gold, #d4af37);"></span>
+            </div>
+            <h2 class="text-2xl font-bold text-center mb-6" style="color: #000B25;">Ou veux-tu aller ?</h2>
+            <div class="choix-portes">
+                <button type="button" class="formation-btn-or" data-droit="formation" hidden
+                        onclick="Acces.entrer('formation')">
+                    <i class="fas fa-graduation-cap mr-2" aria-hidden="true"></i>Formation
+                </button>
+                <!-- ⚠️ QUATRE ETATS, pas deux. ⛔ Plus de `data-droit="journal"` ici : cet
+                     attribut MASQUAIT le bouton quand le droit etait absent, et c est
+                     l inverse de ce qu il faut. La porte fermee EST la demande : c est par
+                     elle qu un eleve obtient le journal. Libelle et comportement viennent
+                     de `Acces.rendreBoutonJournal()` et `Acces.cliquerJournal()`. -->
+                <button type="button" class="formation-btn-fantome" data-journal-bouton hidden
+                        onclick="Acces.cliquerJournal()">Journal de trading</button>
+                <!-- ⛔ Pas un bouton grise, pas un refus muet : on explique. -->
+                <p id="journalMessageRetire" class="choix-message-retire" hidden></p>
+            </div>
+            <!-- ⚠️ DEUX MESSAGES DISTINCTS, ET LA DISTINCTION EST LE POINT.
+                 « Aucun droit » est une reponse ; « nous n avons pas pu lire tes droits »
+                 en est une autre. Les confondre, c est annoncer a quelqu un qu il n a rien
+                 alors que c est la requete qui a echoue. -->
+            <div id="choixErreur" class="choix-aucun" hidden>
+                <p><strong>Nous n avons pas pu verifier tes acces.</strong></p>
+                <p>Ce n est pas un refus : la verification elle-meme a echoue. Reessaie, et
+                   si cela persiste ecris-nous a
+                   <a href="mailto:clubtrader360@gmail.com">clubtrader360@gmail.com</a>.</p>
+                <button type="button" class="formation-btn-or" onclick="location.reload()">Reessayer</button>
+                <button type="button" class="formation-btn-fantome" onclick="window.logout && window.logout()">Se deconnecter</button>
+            </div>
+            <div id="choixAucunDroit" class="choix-aucun" hidden>
+                <p><strong>Ton compte n ouvre encore aucun des deux espaces.</strong></p>
+                <p>Si tu penses que c est une erreur, ecris-nous a
+                   <a href="mailto:clubtrader360@gmail.com">clubtrader360@gmail.com</a>
+                   et nous regardons tout de suite.</p>
+                <button type="button" class="formation-btn-fantome" onclick="window.logout && window.logout()">
+                    Se deconnecter
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main App -->
+    <!-- ══ L ESPACE FORMATION ════════════════════════════════════════════════
+         ⚠️ COQUILLE REPRISE DE LA MAQUETTE VALIDEE,
+         `_maquette-espace-formation/espace-formation-trader360.html`.
+         ⛔ Ce n est PAS une section de `#mainApp` : c est un espace de premier
+         niveau, frere de `#mainApp` et `#coachApp`. Il n herite donc d aucune
+         barre laterale du journal. Retour de Nadir : « si je suis sur l espace
+         formation, je suis sur l espace formation ».
+         ⚠️ Le contenu de `<main>` est rendu par `supabase-formation.js`, qui
+         transpose les deux vues de la maquette sur les donnees REELLES.
+         ⚠️ Le logo de la maquette (hexagone + « TRADER360 », degrade `#t360lg`)
+         est remplace par la marque reelle, le 14/10, a la demande de Nadir. -->
+    <div id="formationApp" class="formation-app" style="display: none;">
+      <header class="top">
+        <div class="top-in">
+          <!-- ⚠️ LE VRAI LOGO, et pas l hexagone de la maquette. Retour de Nadir
+               du 14/10 : « ce n est pas notre vrai logo qui est tout en haut ».
+               Le meme masque SVG que l ecran de connexion et les pages legales
+               (`assets/marque/t360-logo.svg`), en or de l espace membre. -->
+          <a class="logo" href="#accueil" aria-label="Trader 360, accueil de l espace formation"
+             onclick="event.preventDefault();Formation.aller('accueil')">
+            <span class="marque marque--verrou" role="img" aria-label="Trader 360"></span>
+          </a>
+          <nav class="nav" aria-label="Sections">
+            <button type="button" data-go="accueil" aria-current="true">Mon parcours</button>
+            <button type="button" data-go="modules">Les modules</button>
+            <button type="button" data-go="notes">Mes notes</button>
+            <button type="button" data-go="badges">Mes badges</button>
+          </nav>
+          <div class="top-right">
+            <div class="xp-chip" title="Experience accumulee">
+              <span class="xpt mono" id="chipXp">0 XP</span><span class="lvl" id="chipLvl">Decouvrir</span>
+            </div>
+            <!-- ⚠️ UN SEUL CHEMIN DE RETOUR, et il est discret.
+                 ⛔ Masque quand le droit journal n est pas actif : un eleve
+                 « formation seule » ne doit voir AUCUNE mention du journal, et
+                 c est le cas normal d un nouvel eleve. `data-droit` le tient,
+                 `majRetour()` tranche ensuite entre les deux destinations. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-retour-journal"
+                    data-droit="journal" hidden onclick="Acces.retourJournal()" title="Revenir au journal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+              <span>Revenir au journal</span>
+            </button>
+            <!-- ⚠️ Un coach ne revient pas au journal d un eleve, il revient a SON
+                 espace. Les deux boutons sont exclusifs. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-retour-coach"
+                    hidden onclick="Acces.retourCoach()" title="Revenir à l'espace coach">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+              <span>Revenir a l espace coach</span>
+            </button>
+            <!-- ⚠️ LA DECONNEXION, depuis l espace membre. Retour de Nadir du 14/10 :
+                 « la déconnexion ne peut se faire qu à partir du journal » ; un eleve
+                 « formation seule » n avait donc aucun moyen de se deconnecter.
+                 `Acces.deconnecter()` ferme d abord le lecteur (position ecrite),
+                 puis appelle le `logout()` du depot, qui recharge la page. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-deconnexion"
+                    onclick="Acces.deconnecter()" title="Se déconnecter">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              <span>Se déconnecter</span>
+            </button>
+          </div>
+        </div>
+      </header>
+      <main id="formation" role="main"></main>
+      <!-- ⚠️ Toast, confettis et fenetres de celebration vivent DANS
+           `#formationApp` : tout le style de la maquette est prefixe par cet
+           identifiant, donc un element pose sur `document.body` sortirait de la
+           portee et s afficherait sans aucun style. -->
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <canvas id="confetti" aria-hidden="true"></canvas>
+    </div>
+
     <div id="mainApp" style="display: none;" class="flex">
         <button type="button" class="sidebar-toggle" aria-label="Ouvrir le menu" aria-controls="mainAppSidebar" aria-expanded="false" onclick="toggleSidebar()">
             <i class="fas fa-bars" aria-hidden="true"></i>
@@ -3930,8 +4202,23 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <span class="marque marque--verrou" role="img" aria-label="Trader 360"
                       style="width: 170px; margin: 0 auto;"></span>
                 <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
+                <!-- ⚠️ « Espace membre » mène à la FORMATION, dans cette page, et non à
+                     LearnyBox. Il est posé ici, sous le bloc nom et prénom, et non dans
+                     la navigation plus bas : c'est une porte vers un autre espace, pas
+                     une section du journal parmi les autres.
+                     ⛔ Il n'apparaît que pour un élève connecté, comme tout `#mainApp`,
+                     qui reste masqué tant que `supabase-auth.js` n'a pas de session. -->
+                <!-- ⛔ `Acces.entrer` ET PAS `showSection`. La formation n'est plus une
+                     section de `#mainApp` : c'est un espace de premier niveau, et
+                     `showSection` ne la connait plus. Un `showSection('formation')`
+                     resté ici n'aurait rien affiché, sans lever d'erreur. -->
+                <div class="sidebar-item formation-acces" data-section="formation" data-droit="formation"
+                     onclick="Acces.entrer('formation')" role="button" tabindex="0" hidden
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
+                    <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
+                </div>
             </div>
-            
+
             <!-- Accounts Section -->
             <div class="p-4 border-b border-gray-700">
                 <!-- Section Mes Comptes Actifs (avec accordion + drop zone) -->
@@ -4109,6 +4396,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         <!-- Main Content -->
         <div id="main-content" role="main" tabindex="-1" class="flex-1 p-8 bg-gray-50 main-content">
             <!-- Section Tableau de bord -->
+            <!-- ====================================================================
+                 ESPACE FORMATION
+                 ⚠️ UNE SECTION, PAS UNE SECONDE PAGE. `showSection('formation')`
+                 l'affiche comme n'importe quelle autre, donc la barre latérale
+                 n'est écrite qu'une fois et ne peut pas diverger d'une copie.
+                 Le contenu est rendu par `supabase-formation.js` : le sommaire, un
+                 module et une leçon partagent ce même conteneur.
+                 ================================================================= -->
             <div id="dashboard" class="section">
                 <!-- Citation/Mantra personnalisable -->
                 <div id="mantraContainer" class="trader-card p-6 mb-6">
@@ -8416,15 +8711,39 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 catch (e) { console.warn('[INIT] restoreSession a échoué:', e); }
             }
 
-            // 🛟 Filet de sécurité : si après 5s aucune des trois interfaces n'est visible,
-            // on force l'écran d'auth pour ne JAMAIS laisser l'utilisateur sur du vide.
+            // 🛟 Filet de sécurité : si après 5s AUCUNE interface de premier niveau
+            // n'est visible, on force l'écran d'auth pour ne JAMAIS laisser
+            // l'utilisateur sur du vide.
+            //
+            // ── ⛔ DÉFAUT MESURÉ LE 14/10, ET IL FRAPPAIT TOUS LES ÉLÈVES ───────
+            //
+            // Cette liste ne connaissait que `mainApp`, `coachApp` et `authScreen`.
+            // ⚠️ `#formationApp` et `#choixEspace` sont nés APRÈS ce filet, et
+            // personne n'est revenu l'allonger. Conséquence : un élève qui n'a que
+            // la formation voyait son espace s'afficher normalement, puis
+            // L'ÉCRAN DE CONNEXION LUI TOMBER DESSUS CINQ SECONDES PLUS TARD,
+            // formulaire, photo de fond et tout. Le filet censé éviter le vide
+            // posait un écran de connexion par-dessus un espace qui marchait.
+            //
+            // ⛔ AUCUNE ERREUR NULLE PART : c'est un `setTimeout` qui fait
+            // exactement ce qu'on lui a demandé, avec une liste devenue fausse.
+            // ⚠️ Et aucune sonde ne le voyait : toutes mesuraient dans les deux
+            // premières secondes. Il a fallu REGARDER une image prise à 3,2 s
+            // d'une scène, dont le fond était l'écran de connexion.
+            //
+            // ⛔ LA LISTE EST DÉSORMAIS CELLE DES ESPACES DE PREMIER NIVEAU, au
+            // même endroit, et c'est la correction de CLASSE : allonger la liste
+            // de deux identifiants aurait laissé le piège intact pour le
+            // prochain espace. ⚠️ Un espace ajouté sans être inscrit ici
+            // reproduirait exactement le même défaut.
+            const ESPACES_PREMIER_NIVEAU = ['mainApp', 'coachApp', 'formationApp', 'choixEspace'];
             setTimeout(() => {
                 const authScreen = document.getElementById('authScreen');
-                const mainApp = document.getElementById('mainApp');
-                const coachApp = document.getElementById('coachApp');
                 const visible = (el) => el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
-                if (!visible(mainApp) && !visible(coachApp) && !visible(authScreen)) {
-                    console.warn('[INIT] 🛟 Aucune interface visible — fallback authScreen');
+                const unVisible = ESPACES_PREMIER_NIVEAU
+                    .some((id) => visible(document.getElementById(id)));
+                if (!unVisible && !visible(authScreen)) {
+                    console.warn('[INIT] 🛟 Aucune interface visible, fallback authScreen');
                     if (authScreen) authScreen.style.display = 'flex';
                 }
             }, 5000);
@@ -9912,6 +10231,19 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         async function showSection(sectionName) {
             console.log('[UI] showSection() appelé avec:', sectionName);
 
+            // ── ⛔ LA FORMATION N'EST PLUS UNE SECTION DE CE CONTENEUR ──────────
+            // Elle a son propre espace de premier niveau, `#formationApp`. Sans ce
+            // renvoi, `showSection('formation')` TROUVAIT quand même sa cible
+            // (`<main id="formation">` existe toujours), poussait l'adresse
+            // `/formation`, appelait `Formation.ouvrir()`... et laissait `#mainApp`
+            // affiché par-dessus. ⚠️ L'élève aurait vu son journal, sans contenu et
+            // sans la moindre erreur en console.
+            if (sectionName === 'formation') {
+                if (window.Acces) return window.Acces.entrer('formation');
+                console.error('[UI] ⛔ supabase-acces.js non chargé : espace formation inatteignable');
+                return;
+            }
+
             const target = document.getElementById(sectionName);
             if (!target) {
                 console.warn('[UI] Section inconnue:', sectionName);
@@ -9939,6 +10271,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 navItem.setAttribute('aria-current', 'page');
             }
             
+            // ⛔ LA BRANCHE `formation` A ETE RETIREE D ICI, et ce n est pas un
+            // oubli : le renvoi en tete de cette fonction sort avant d y arriver,
+            // puisque la formation n est plus une section de `#mainApp`. Une
+            // branche morte qui appelle `Formation.ouvrir()` donnerait a croire
+            // que ce chemin fonctionne encore.
             if (sectionName === 'dashboard') {
                 console.log('[UI] Section Dashboard - Mise à jour...');
                 updateDashboard();
@@ -14772,7 +15109,9 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const visibleRest = oc.rest.filter(c => _cmVisibleCols.has(c.letter));
 
             // THEAD : # + [Statut, Prénom, Nom] gelés + reste visible
-            let thead = '<tr>' + cmTh('#', '#', 'cm-sticky cm-c-num');
+            // Fiche membre (15/10) : un oeil en tete de chaque ligne ouvre la fiche
+            // (ecran « Acces membres formation »), par l email de la ligne.
+            let thead = '<tr><th class="cm-sticky cm-c-fiche" title="Fiche membre">Fiche</th>' + cmTh('#', '#', 'cm-sticky cm-c-num');
             oc.stickyDefs.forEach(d => { thead += cmTh(d.col.letter, d.col.name, 'cm-sticky ' + d.cls); });
             visibleRest.forEach(c => { thead += cmTh(c.letter, c.name, ''); });
             thead += '</tr>';
@@ -14802,11 +15141,24 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             let tb = '';
             rows.forEach(m => {
                 tb += `<tr data-member-row="${m.row}">`;
+                const mailFiche = String(cmVal(m, oc.mail) || '').trim();
+                tb += `<td class="cm-sticky cm-c-fiche">${mailFiche ? `<button type="button" class="cm-fiche-btn" data-fiche-email="${cmEsc(mailFiche)}" title="Ouvrir la fiche de ${cmEsc(mailFiche)}" aria-label="Fiche membre">&#128065;</button>` : ''}</td>`;
                 tb += `<td class="cm-sticky cm-c-num">${m.row}</td>`;
                 oc.stickyDefs.forEach(d => { tb += `<td class="cm-sticky ${d.cls}">${cmCellHtml(d.col.name, m[d.col.name])}</td>`; });
                 visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.name, m[c.name])}</td>`; });
                 tb += '</tr>';
             });
+            const tbodyEl = document.getElementById('cmTbody');
+            if (tbodyEl && !tbodyEl.dataset.ficheBranchee) {
+                tbodyEl.dataset.ficheBranchee = '1';
+                tbodyEl.addEventListener('click', (ev) => {
+                    const b = ev.target.closest('[data-fiche-email]');
+                    if (!b) return;
+                    ev.stopPropagation();
+                    // La fiche vit dans le back-office (page a part) : on y va, fiche ouverte.
+                    window.location.href = '/back-office.html#/academie/membres?fiche=' + encodeURIComponent(b.dataset.ficheEmail);
+                });
+            }
             document.getElementById('cmTbody').innerHTML = tb ||
                 '<tr><td colspan="99" style="padding:24px;text-align:center;color:rgba(15,28,61,0.5)">Aucun membre ne correspond aux filtres</td></tr>';
 

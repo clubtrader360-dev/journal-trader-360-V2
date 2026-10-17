@@ -1,0 +1,539 @@
+{
+ "_a_propos": "Releve Vimeo du dossier Formation, 09/10/2026. ⛔ Fichier de travail pour outils/formation-import-vimeo.mjs, pas une source de verite : le relancer avec un jeton Vimeo le remplace.",
+ "dossiers": {
+  "MODULE 9": [
+   {
+    "id": "1210148810",
+    "nom": "Tuto \"Imbalance\"",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 1669,
+    "desc": false
+   },
+   {
+    "id": "1229932671",
+    "nom": "Programme membre & système de recommandation",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 442,
+    "desc": false
+   },
+   {
+    "id": "1229932765",
+    "nom": "Anti-perte de confiance",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 694,
+    "desc": false
+   }
+  ],
+  "Formation": [
+   {
+    "id": "1229925871",
+    "nom": "Bienvenue à Trader 360",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 769,
+    "desc": false
+   }
+  ],
+  "MODULE 1": [
+   {
+    "id": "1229928482",
+    "nom": "1.5 - Créer ta routine mentale se préparer mentalement",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 594,
+    "desc": false
+   },
+   {
+    "id": "1229928578",
+    "nom": "1.1 - Adopter l’état d’esprit du Trader 360",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 568,
+    "desc": false
+   },
+   {
+    "id": "1229928644",
+    "nom": "1.2 - Définir ses objectifs de trading et de vie",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 634,
+    "desc": false
+   },
+   {
+    "id": "1229928713",
+    "nom": "1.3 - Développer sa discipline",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 931,
+    "desc": false
+   },
+   {
+    "id": "1229928800",
+    "nom": "1.4 - Gérer le stress et l'impatience",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 947,
+    "desc": false
+   },
+   {
+    "id": "1229928887",
+    "nom": "1.6 - Entrer dans la zone",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 691,
+    "desc": false
+   },
+   {
+    "id": "1229950174",
+    "nom": "1.0 - Introduction : se préparer mentalement et comprendre les bases du trading",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 373,
+    "desc": false
+   }
+  ],
+  "MODULE 2": [
+   {
+    "id": "1229928955",
+    "nom": "2.0 - Comprendre le trading introduction",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 250,
+    "desc": false
+   },
+   {
+    "id": "1229928989",
+    "nom": "2.3.1 - Configurer Investing",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 185,
+    "desc": false
+   },
+   {
+    "id": "1229929022",
+    "nom": "2.3 - Distinguer l’analyse technique et l’analyse fondamentale",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 498,
+    "desc": false
+   },
+   {
+    "id": "1229929081",
+    "nom": "2.6 - Détecter la tendance avec la théorie de Dow",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 388,
+    "desc": false
+   },
+   {
+    "id": "1229929172",
+    "nom": "2.7 - Identifier les résistances, les supports et les niveaux psychologiques clés",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 507,
+    "desc": false
+   },
+   {
+    "id": "1229929261",
+    "nom": "2.1 - Trading contre investissement",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 747,
+    "desc": false
+   },
+   {
+    "id": "1229929374",
+    "nom": "2.2 - Comprendre comment trader sans risquer ton capital grâce aux prop firms",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 753,
+    "desc": false
+   },
+   {
+    "id": "1229929459",
+    "nom": "2.4 - Lire un graphique et comprendre le mouvement des prix",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 676,
+    "desc": false
+   },
+   {
+    "id": "1229929533",
+    "nom": "2.5 - Interpréter les bougies japonaises et choisir les bonnes unités de temps",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 706,
+    "desc": false
+   },
+   {
+    "id": "1229929648",
+    "nom": "2.8 - Utiliser la clôture de la veille et connaître les horaires clés du marché",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 795,
+    "desc": false
+   }
+  ],
+  "MODULE 3": [
+   {
+    "id": "1229929726",
+    "nom": "3.0 - Maîtriser tes indicateurs (et rien de plus!)",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 191,
+    "desc": false
+   },
+   {
+    "id": "1229929744",
+    "nom": "3.1 - Comprendre les points pivots maîtriser tes indicateurs",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 389,
+    "desc": false
+   },
+   {
+    "id": "1229929830",
+    "nom": "3.2 - Les bandes de Bollinger, MM20, MM100",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 457,
+    "desc": false
+   },
+   {
+    "id": "1229929894",
+    "nom": "3.3 - Le VWAP",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 335,
+    "desc": false
+   },
+   {
+    "id": "1229929968",
+    "nom": "3.4 - Comprendre le POC et le Market Profile",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 405,
+    "desc": false
+   }
+  ],
+  "MODULE 4": [
+   {
+    "id": "1229930026",
+    "nom": "4.2.1 - Installer TradingView",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 1227,
+    "desc": false
+   },
+   {
+    "id": "1229930105",
+    "nom": "4.3 - Rejoindre le groupe Discord",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 715,
+    "desc": false
+   },
+   {
+    "id": "1229930182",
+    "nom": "4 - Prendre en main ta plateforme de trading",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 138,
+    "desc": false
+   },
+   {
+    "id": "1229930218",
+    "nom": "4.1 - Identifier la différence entre une plateforme de trading et un broker",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 638,
+    "desc": false
+   },
+   {
+    "id": "1229930297",
+    "nom": "TradingView complément",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 2980,
+    "desc": false
+   }
+  ],
+  "MODULE 5": [
+   {
+    "id": "1229930407",
+    "nom": "5.1 - Préparation mentale avant chaque séance",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 933,
+    "desc": false
+   },
+   {
+    "id": "1229930490",
+    "nom": "5.2 - Comprendre l'importance du plan de trading",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 533,
+    "desc": false
+   },
+   {
+    "id": "1229930587",
+    "nom": "5.3 - Identifier les zones",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 338,
+    "desc": false
+   },
+   {
+    "id": "1229930659",
+    "nom": "5.3 bis - Identifier les zones (sur ta plateforme)",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 936,
+    "desc": false
+   },
+   {
+    "id": "1229930804",
+    "nom": "5.4 - Définir un stop loss, un take profit et calculer un risk ratio",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 1248,
+    "desc": false
+   },
+   {
+    "id": "1229930942",
+    "nom": "5.5 - Appliquer les règles de money management et maîtriser les bases mathématiques du trading",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 488,
+    "desc": false
+   },
+   {
+    "id": "1229931020",
+    "nom": "5.6 - Identifier les critères d'entrée et positionner correctement ses niveaux",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 298,
+    "desc": false
+   },
+   {
+    "id": "1229931098",
+    "nom": "5.7 - Étudier des cas concrets d'entrées et de sorties de positions",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 515,
+    "desc": false
+   },
+   {
+    "id": "1229931193",
+    "nom": "5.8.1 - Tenir un journal de trading et l’utiliser comme outil de progression",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 375,
+    "desc": false
+   },
+   {
+    "id": "1229931275",
+    "nom": "5.9 - Se focaliser sur le processus plutôt que sur les résultats",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 337,
+    "desc": false
+   },
+   {
+    "id": "1229931347",
+    "nom": "5 - Introduction : appliquer la méthode Trader 360",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 187,
+    "desc": false
+   },
+   {
+    "id": "1229950220",
+    "nom": "5.8.2 - Présentation du journal de trading Trader 360",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 1029,
+    "desc": false
+   }
+  ],
+  "MODULE 6": [
+   {
+    "id": "1229931381",
+    "nom": "6.0 - Renforcer ta psychologie de trader",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 267,
+    "desc": false
+   },
+   {
+    "id": "1229931436",
+    "nom": "6.1 - Adopter un état d’esprit professionnel et responsable",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 224,
+    "desc": false
+   },
+   {
+    "id": "1229931460",
+    "nom": "6.2 - Gérer efficacement le stress, les émotions et la cupidité",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 474,
+    "desc": false
+   },
+   {
+    "id": "1229931541",
+    "nom": "6.3 - Accepter les aléas du trading et évaluer objectivement ton niveau pour progresser",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 446,
+    "desc": false
+   },
+   {
+    "id": "1229931614",
+    "nom": "6.4 - Renforcer ta discipline",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 461,
+    "desc": false
+   }
+  ],
+  "MODULE 7": [
+   {
+    "id": "1229931676",
+    "nom": "7.0 - Gérer l'après-challenge et construire sa rentabilité",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 214,
+    "desc": false
+   },
+   {
+    "id": "1229931724",
+    "nom": "7.1 - Découvrir le fonctionnement des prop firms",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 229,
+    "desc": false
+   },
+   {
+    "id": "1229931787",
+    "nom": "7.2 - Analyser les règles spécifiques et éviter les pièges de chaque prop firm",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 949,
+    "desc": false
+   },
+   {
+    "id": "1229931901",
+    "nom": "7.3 - Installer et configurer la plateforme de la prop firm choisie",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 246,
+    "desc": false
+   },
+   {
+    "id": "1229931962",
+    "nom": "7.4 - S'entraîner en démo et renforcer sa préparation mentale avant le challenge",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 452,
+    "desc": false
+   },
+   {
+    "id": "1229932044",
+    "nom": "7.5 - Suivre une stratégie réussir son challenge en moins de 2 jours",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 956,
+    "desc": false
+   },
+   {
+    "id": "1229932174",
+    "nom": "7.6 - Consolider son mindset après la réussite du challenge",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 537,
+    "desc": false
+   },
+   {
+    "id": "1229950309",
+    "nom": "7.3.1 - Installer TopstepX",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 659,
+    "desc": false
+   },
+   {
+    "id": "1229950358",
+    "nom": "7.3.2 - Installer Tradovate",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 1571,
+    "desc": false
+   }
+  ],
+  "MODULE 7BIS": [
+   {
+    "id": "1229932257",
+    "nom": "7 bis.3 - Passer en live avec discipline et professionnalisme",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 292,
+    "desc": false
+   },
+   {
+    "id": "1229932327",
+    "nom": "7 bis - Structurer son activité de trader après le challenge",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 144,
+    "desc": false
+   },
+   {
+    "id": "1229932371",
+    "nom": "7 bis.1 - Comprendre le fonctionnement du payout et construire son matelas de sécurité",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 598,
+    "desc": false
+   },
+   {
+    "id": "1229932446",
+    "nom": "7 bis.2 - Appliquer un scaling plan pour faire croître son capital",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 626,
+    "desc": false
+   }
+  ],
+  "MODULE 8": [
+   {
+    "id": "1229932510",
+    "nom": "8.1 - Comprendre la fiscalité du trader prop firm",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 302,
+    "desc": false
+   },
+   {
+    "id": "1229932564",
+    "nom": "8.2 - Démarrer légalement structure & fiscalité",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 266,
+    "desc": false
+   },
+   {
+    "id": "1229932614",
+    "nom": "8.3 - Structurer son activité",
+    "view": "unlisted",
+    "embed": "whitelist",
+    "duree": 373,
+    "desc": false
+   }
+  ]
+ }
+}

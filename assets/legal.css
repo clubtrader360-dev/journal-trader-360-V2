@@ -1,0 +1,119 @@
+/* ============================================================================
+   LES PAGES LEGALES, AU STYLE DE L ESPACE MEMBRE ET DU SITE
+   ============================================================================
+   Demande de Nadir du 14/10 : « CGV, mentions légales, dans le même style que
+   le site, avec notre vrai logo ». Quatre pages partagent cette feuille :
+   mentions-legales, cgv, cgu, confidentialite. Palette, fonds et halo dore
+   sont ceux de assets/formation.css et assets/connexion.css ; le logo est le
+   masque SVG de assets/marque, le meme que l ecran de connexion.
+   ⚠️ Le texte des pages n est pas touche : seule la coquille change.
+   ========================================================================== */
+:root {
+  --bg: #0a0a0d; --surface: rgba(17, 19, 24, .88); --surface-2: #161a20;
+  --ink: #f7f6f3; --ink-soft: #bdbcb6; --ink-mute: #9c9b94;
+  --gold: #e8b84b; --gold-2: #f3d585; --gold-deep: #b98a2e;
+  --gold-line: rgba(232, 184, 75, .35); --gold-glow: rgba(232, 184, 75, .5);
+  --line: #1e2128;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0; padding: 0;
+  color: var(--ink-soft);
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(232, 184, 75, .14), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(232, 184, 75, .10), transparent 60%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, #101014, #0a0a0d 70%);
+  background-attachment: fixed;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.7; font-size: 16.5px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* ── L en-tete : le logo, le nom du document ─────────────────────────────── */
+.legal-page-header {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(10, 10, 13, .78);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  padding: 14px 20px;
+}
+.legal-page-header .legal-head-in {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.legal-logo { display: inline-flex; align-items: center; text-decoration: none; }
+.marque {
+  display: block; width: 150px; aspect-ratio: 1211 / 224;
+  background-color: var(--gold);
+  -webkit-mask: url('/assets/marque/t360-logo.svg') no-repeat center / contain;
+  mask: url('/assets/marque/t360-logo.svg') no-repeat center / contain;
+}
+.legal-doc-name {
+  color: var(--gold); font-size: 12.5px; font-weight: 700;
+  letter-spacing: .22em; text-transform: uppercase; margin: 0;
+}
+
+/* ── Le retour ─────────────────────────────────────────────────────────── */
+.legal-back-wrap { max-width: 820px; margin: 26px auto 0; padding: 0 22px; }
+.legal-back-wrap.bottom { margin: 8px auto 48px; }
+.legal-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink); background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--line); border-radius: 40px;
+  padding: 10px 18px; font-weight: 600; font-size: 14.5px;
+  text-decoration: none; transition: border-color .2s ease, transform .2s ease;
+}
+.legal-back:hover { border-color: var(--gold-line); transform: translateY(-1px); }
+
+/* ── Le document ───────────────────────────────────────────────────────── */
+.legal-container {
+  max-width: 820px; margin: 18px auto 0; padding: 30px 34px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  box-shadow: 0 30px 80px -40px var(--gold-glow), 0 20px 60px rgba(0, 0, 0, .45);
+}
+.legal-container h1 {
+  color: var(--ink); font-size: clamp(26px, 3.6vw, 36px); font-weight: 800;
+  letter-spacing: -.02em; line-height: 1.15; margin: 4px 0 20px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--gold-line);
+  text-wrap: balance;
+}
+.legal-container h2 {
+  color: var(--ink); font-size: clamp(20px, 2.4vw, 24px); font-weight: 800;
+  letter-spacing: -.015em; margin: 36px 0 12px;
+}
+.legal-container h3 {
+  color: var(--gold); font-size: 13px; font-weight: 700;
+  letter-spacing: .18em; text-transform: uppercase; margin: 26px 0 8px;
+}
+.legal-container p { margin: 0 0 16px; }
+.legal-container ul { margin: 0 0 18px; padding-left: 22px; }
+.legal-container li { margin: 6px 0; }
+.legal-container a { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.legal-container a:hover { color: var(--gold-2); }
+.legal-container strong { color: var(--ink); font-weight: 700; }
+.legal-container hr { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+.legal-container table { width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 15px; }
+.legal-container th, .legal-container td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.legal-container th { color: var(--ink); background: var(--surface-2); }
+
+/* ── Le pied de page, le meme que l espace membre ───────────────────────── */
+.app-footer { border-top: 1px solid var(--line); margin-top: 40px; }
+.app-footer-inner {
+  max-width: 1200px; margin: 0 auto; padding: 26px 24px 34px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  font-size: 14px; color: var(--ink-mute);
+}
+.app-footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.app-footer-links a { color: var(--ink-soft); text-decoration: none; }
+.app-footer-links a:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.app-footer-copyright { color: var(--ink-mute); }
+
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .legal-container { padding: 22px 18px; margin: 14px 14px 0; border-radius: 16px; }
+  .legal-back-wrap { padding: 0 14px; }
+  .marque { width: 124px; }
+  .app-footer-inner { flex-direction: column; align-items: flex-start; }
+}

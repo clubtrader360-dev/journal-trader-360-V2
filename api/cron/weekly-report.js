@@ -7,7 +7,41 @@
 // ========================================
 
 import { createClient } from '@supabase/supabase-js';
-import { generateWeeklyReportHTML, generatePassiveReportHTML, formatDate } from './_lib/weekly-expert-system.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+/**
+ * ⚠️ LA STRUCTURE DE LA FORMATION, LUE DEPUIS LE FICHIER DU NAVIGATEUR.
+ *
+ * ⛔ Ni `import` ni `require` ne marchent ici, et le second echoue EN SILENCE :
+ * le depot est en `"type": "module"`, donc `createRequire` d un `.js` rend un
+ * objet VIDE sans lever d erreur. ⚠️ Mesure du 12/10/2026, et ma premiere garde
+ * `D ? ... : 0` le laissait passer, parce qu un objet vide est VRAI. Elle testait
+ * la verite, pas l usabilite.
+ *
+ * Le fichier est donc evalue : il pose sa structure sur `globalThis`, et on la
+ * reprend. ⛔ Le dupliquer ici la ferait diverger au premier module ajoute, et le
+ * mail parlerait d une lecon qui n existe plus.
+ */
+let DONNEES_FORMATION = null;
+try {
+  const ici = path.dirname(fileURLToPath(import.meta.url));
+  const source = readFileSync(path.join(ici, '../../assets/formation-donnees.js'), 'utf8');
+  // eslint-disable-next-line no-new-func
+  new Function(source)();
+  const candidat = globalThis.FormationDonnees;
+  // ⛔ ON TESTE CE QU ON VA APPELER, pas la verite de l objet.
+  DONNEES_FORMATION = (candidat && typeof candidat.total === 'function'
+    && Array.isArray(candidat.SUITE)) ? candidat : null;
+  if (!DONNEES_FORMATION) {
+    console.warn('[WEEKLY-REPORT] ⚠️ structure de formation chargee mais inutilisable');
+  }
+} catch (e) {
+  console.warn('[WEEKLY-REPORT] ⚠️ structure de formation illisible :', e && e.message);
+}
+
+import { generateWeeklyReportHTML, generatePassiveReportHTML, generateFormationReportHTML, formatDate } from './_lib/weekly-expert-system.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -117,9 +151,63 @@ export async function buildUserReport(supabase, user, period, { preview = false 
 //       ≥1     |     ≥1      | 'active'            — rapport complet
 //       ≥1     |      0      | 'active_no_journal' — chiffres + encart alerte
 // ========================================
+/** ⚠️ Texte public, a confirmer par Nadir : il part au nom des coachs. */
+const FORMATION_SUBJECT = `Ou tu en es dans ta formation`;
+/**
+ * Les droits d un membre. ⚠️ `null` si la lecture echoue : on ne sait pas, et on
+ * ne pretend pas savoir. ⛔ La table peut aussi ne pas exister sur un
+ * environnement plus ancien, et cela ne doit pas empecher le rapport de partir.
+ */
+async function lireDroits(supabase, uuid) {
+  if (!uuid) return null;
+  const { data, error } = await supabase
+    .from('acces_membre')
+    .select('formation_actif, journal_actif')
+    .eq('user_id', uuid)
+    .maybeSingle();
+  if (error) {
+    console.warn(`[WEEKLY-REPORT] ⚠️ droits illisibles pour ${uuid} : ${error.message}`);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Ou en est l eleve dans sa formation. ⚠️ La structure vient du MEME fichier que
+ * l espace membre, `assets/formation-donnees.js` : ⛔ la dupliquer ici la ferait
+ * diverger au premier module ajoute, et le mail parlerait d une lecon qui
+ * n existe plus.
+ */
+async function lireProgressionFormation(supabase, uuid) {
+  const { data, error } = await supabase
+    .from('formation_progression')
+    .select('lecon_id, vue')
+    .eq('user_id', uuid);
+  if (error) {
+    console.warn(`[WEEKLY-REPORT] ⚠️ progression illisible pour ${uuid} : ${error.message}`);
+    return { vues: 0, total: 0, suivante: null };
+  }
+  const vues = new Set((data || []).filter((r) => r.vue).map((r) => r.lecon_id));
+  const D = DONNEES_FORMATION;
+  // ⚠️ `D` est soit utilisable, soit `null` : la verification a eu lieu au
+  // chargement, une fois, plutot qu a chaque appel.
+  const total = D ? D.total() : 0;
+  const suivante = D ? (D.SUITE.find((l) => !vues.has(l.id)) || null) : null;
+  return {
+    vues: vues.size,
+    total,
+    suivante: suivante ? `Module ${suivante.module} · ${suivante.titre}` : null,
+  };
+}
+
 const PASSIVE_SUBJECT = `Ton rapport de la semaine — pas de data cette fois`;
 
-async function generateForUser(supabase, user, period) {
+/**
+ * ⚠️ EXPORTEE POUR POUVOIR ETRE EPROUVEE. Le choix de variante est la decision
+ * la plus delicate de ce fichier : sans export, on ne pourrait la verifier qu en
+ * envoyant de vrais courriels, ⛔ ce qui n est pas un banc d essai.
+ */
+export async function generateForUser(supabase, user, period) {
   const [entriesWeek, tradesWeek] = await Promise.all([
     countEntriesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr),
     countTradesInWeek(supabase, user.uuid, period.startDateStr, period.endDateStr),
@@ -131,6 +219,41 @@ async function generateForUser(supabase, user, period) {
     const { html, attachments } = generatePassiveReportHTML({ user });
     return { html, attachments, subject: PASSIVE_SUBJECT, reportType: 'passive', entriesWeek, tradesWeek };
   };
+
+  /**
+   * ── ⛔ LE DROIT D ABORD, LES TRADES ENSUITE ──────────────────────────────
+   *
+   * La variante passive dit « tu n as pas rempli ton journal dans les 3 derniers
+   * jours ». Pour quelqu un qui n a PAS le droit journal, c est un reproche a
+   * propos d un outil qu il ne peut pas ouvrir, ⚠️ et il le recevrait chaque
+   * dimanche.
+   *
+   * ⛔ LE TEST PORTE DONC SUR LE DROIT, ET IL PASSE AVANT CELUI DES TRADES.
+   * Un eleve qui A le journal et ne l a pas rempli garde la variante passive,
+   * qui lui est justement destinee : « n a pas trade » et « n a pas le droit de
+   * trader ici » ne sont pas la meme chose.
+   *
+   * ⚠️ UNE LECTURE EN ERREUR NE VAUT PAS « PAS DE DROIT ». On ne sait pas, donc
+   * on garde le comportement d avant : mieux vaut un rapport un peu a cote
+   * qu un silence, et le journaliser permet de le voir.
+   */
+  const droits = await lireDroits(supabase, user.uuid);
+  if (droits && droits.formation_actif && !droits.journal_actif) {
+    const progression = await lireProgressionFormation(supabase, user.uuid);
+    const { html, attachments } = generateFormationReportHTML({ user, progression });
+    return { html, attachments, subject: FORMATION_SUBJECT, reportType: 'formation', entriesWeek, tradesWeek };
+  }
+
+  /**
+   * ⚠️ AUCUN DES DEUX DROITS : on n envoie RIEN. Lui parler de sa formation
+   * serait faux, lui parler de son journal aussi. ⛔ Mesure du 12/10/2026 :
+   * aucun compte n est dans ce cas aujourd hui, les 82 destinataires ont les deux
+   * droits. C est donc une precaution, pas un correctif.
+   */
+  if (droits && !droits.formation_actif && !droits.journal_actif) {
+    console.log(`[WEEKLY-REPORT] ⏭️ ${user.email} n a aucun droit : aucun rapport envoye`);
+    return null;
+  }
 
   // Aucun trade → rapport passif (peu importe le journal : rien de chiffré à analyser)
   if (tradesWeek === 0) return passive();
@@ -214,7 +337,18 @@ export default async function handler(req, res) {
     for (const user of usersToProcess) {
       try {
         // #21 — dispatch 3 versions sur (tradesWeek, entriesWeek) de la semaine ISO.
-        const { html, attachments, subject, reportType, entriesWeek, tradesWeek } = await generateForUser(supabase, user, period);
+        const resultat = await generateForUser(supabase, user, period);
+        /**
+         * ⛔ `null` VEUT DIRE « ON N ENVOIE RIEN », et il faut le traiter ici,
+         * sinon la destructuration leve et le cron s arrete pour tout le monde.
+         * ⚠️ C est le cas de l eleve sans aucun droit : lui parler de sa
+         * formation serait faux, lui parler de son journal aussi.
+         */
+        if (!resultat) {
+          results.push({ email: user.email, status: 'skipped', reportType: 'aucun_droit' });
+          continue;
+        }
+        const { html, attachments, subject, reportType, entriesWeek, tradesWeek } = resultat;
         console.log(`[WEEKLY-REPORT] 📬 ${user.email} → ${reportType} (trades=${tradesWeek}, journal=${entriesWeek})`);
 
         if (DRY_RUN) {

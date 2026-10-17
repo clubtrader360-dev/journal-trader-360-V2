@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Back-office · Trader 360</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0a0d">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://zgihbpgoorymomtsbxpz.supabase.co" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" href="/assets/back-office.css">
+<link rel="stylesheet" href="/assets/coach-membres.css">
+<!--
+  LE BACK-OFFICE COACH (15/10). Une page a part, hors du monolithe index.html :
+  memes comptes Supabase (session partagee dans l onglet), reservee aux coachs.
+  Deux espaces cote coach : Trading (index.html, le journal vu du coach) et ce
+  back-office. L arborescence est celle arbitree par Nadir le 15/10, sur le
+  modele de LearnyBox : Accueil, Academie, Marketing, CRM, Ventes.
+-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-XcdcwHqIPULERb2yDEM4R0XaQKU3YnDsrTmjACBZyfdVVqjh6xQ4/DCMd7XLcA6Y" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/supabase-config.js"></script>
+<script src="/assets/coach-view.js"></script>
+<script src="/assets/formation-donnees.js"></script>
+<script src="/assets/formation-quiz.js"></script>
+<script src="/assets/formation-certification.js"></script>
+<script src="/supabase-coach-membres.js"></script>
+<script src="/assets/back-office.js" defer></script>
+</head>
+<body class="dark-mode">
+<script>
+  // ⚠️ Avant le premier rendu : le theme memorise se pose tout de suite, sinon
+  // une page claire arriverait sombre le temps du script principal.
+  try { if (localStorage.getItem('t360.backOfficeTheme') === 'clair') document.body.classList.remove('dark-mode'); } catch (e) {}
+</script>
+<div id="boVoile" class="bo-voile" aria-hidden="true"><span class="marque"></span></div>
+
+<div class="bo" id="bo" hidden>
+  <aside class="bo-barre" id="boBarre">
+    <a class="bo-marque" href="#/accueil" aria-label="Back-office Trader 360"><span class="marque"></span><small>Back-office</small></a>
+    <nav class="bo-nav" aria-label="Back-office">
+      <a href="#/accueil" data-nav="accueil"><i class="fas fa-home"></i> Accueil</a>
+      <div class="bo-groupe">Académie</div>
+      <a href="#/academie/formations" data-nav="academie/formations"><i class="fas fa-graduation-cap"></i> Formations</a>
+      <a href="#/academie/membres" data-nav="academie/membres"><i class="fas fa-id-badge"></i> Membres</a>
+      <a href="#/academie/evaluations" data-nav="academie/evaluations"><i class="fas fa-check-double"></i> Évaluations</a>
+      <a href="#/academie/diplomes" data-nav="academie/diplomes"><i class="fas fa-award"></i> Diplômes</a>
+      <div class="bo-groupe">Marketing</div>
+      <a href="#/marketing/tunnels" data-nav="marketing/tunnels"><i class="fas fa-filter"></i> Tunnels de vente</a>
+      <a href="#/marketing/emails" data-nav="marketing/emails"><i class="fas fa-envelope-open-text"></i> Emails marketing</a>
+      <a href="#/marketing/webinaires" data-nav="marketing/webinaires"><i class="fas fa-video"></i> Webinaires live</a>
+      <div class="bo-groupe">CRM</div>
+      <a href="#/crm" data-nav="crm"><i class="fas fa-users"></i> Listes et contacts</a>
+      <div class="bo-groupe">Ventes</div>
+      <a href="#/ventes/offres" data-nav="ventes/offres"><i class="fas fa-tags"></i> Offres</a>
+      <a href="#/ventes/commandes" data-nav="ventes/commandes"><i class="fas fa-file-invoice"></i> Commandes &amp; factures</a>
+      <a href="#/ventes/comptabilite" data-nav="ventes/comptabilite"><i class="fas fa-calculator"></i> Comptabilité</a>
+      <a href="#/ventes/affiliation" data-nav="ventes/affiliation"><i class="fas fa-share-alt"></i> Affiliation</a>
+    </nav>
+    <div class="bo-barre__pied">
+      <button type="button" class="bo-btn bo-btn--fantome bo-theme" id="boTheme" title="Changer de thème"><i class="fas fa-sun"></i> <span>Thème clair</span></button>
+      <a class="bo-btn bo-btn--fantome" href="/index.html"><i class="fas fa-chart-line"></i> Espace Trading</a>
+      <button type="button" class="bo-btn bo-btn--fantome" id="boDeconnexion"><i class="fas fa-sign-out-alt"></i> Se déconnecter</button>
+      <small id="boCoach"></small>
+    </div>
+  </aside>
+
+  <main class="bo-contenu" id="boContenu">
+    <header class="bo-haut">
+      <button type="button" class="bo-burger" id="boBurger" aria-label="Menu"><i class="fas fa-bars"></i></button>
+      <div class="bo-fil" id="boFil">Accueil</div>
+      <button type="button" class="bo-btn bo-btn--fantome bo-recharger" id="boRecharger" title="Relire les données"><i class="fas fa-sync-alt"></i></button>
+    </header>
+
+    <section class="bo-ecran" data-ecran="accueil" hidden>
+      <div class="bo-tete"><h1>Accueil</h1><p>Où en sont les membres, et où en sont les ventes.</p></div>
+      <div id="boAccueil"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="academie/formations" hidden>
+      <div class="bo-tete"><h1>Formations</h1><p>Les formations que vous proposez. Trader 360 aujourd'hui ; d'autres viendront, articulées avec les offres.</p></div>
+      <div id="boFormations"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+            <!-- Membres (tache #54) -->
+            <div id="coachMembres" class="bo-ecran" data-ecran="academie/membres" hidden>
+                <div class="bo-tete">
+                    <h1>Accès membres formation</h1>
+                    <p>Qui entre dans la formation et dans le journal, à quel niveau, et où chacun en est</p>
+                </div>
+                <div class="bo-carte am-carte">
+                    <div class="am-outils">
+                        <input type="search" id="coachMembresRecherche" class="am-recherche" placeholder="Rechercher un nom ou un email…" aria-label="Rechercher un membre">
+                        <div class="am-filtres" role="group" aria-label="Filtrer">
+                            <button type="button" data-filtre="tous" aria-pressed="true">Tous</button>
+                            <button type="button" data-filtre="sans_compte" aria-pressed="false">Sans compte</button>
+                            <button type="button" data-filtre="demandes" aria-pressed="false">Demandes de journal</button>
+                            <button type="button" data-filtre="sans_journal" aria-pressed="false">Sans journal</button>
+                            <button type="button" data-filtre="sans_formation" aria-pressed="false">Sans formation</button>
+                            <button type="button" data-filtre="absents" aria-pressed="false">Absents (21 j)</button>
+                            <button type="button" data-filtre="coachs" aria-pressed="false">Coachs</button>
+                        </div>
+                        <span id="coachMembresCompte" class="am-compte"></span>
+                        <button type="button" class="am-btn am-btn--fantome" data-recharger title="Relire la liste"><i class="fas fa-sync-alt"></i></button>
+                        <button type="button" class="am-btn am-btn--fantome" id="coachMembresCreerManquants" data-creer-manquants hidden title="Un compte pour chaque membre LearnyBox actif sans compte : formation ouverte, journal selon le chapitre 5.10, sans mail"><i class="fas fa-users"></i> Créer les <span>0</span> comptes manquants</button>
+                        <button type="button" class="am-btn am-btn--or" data-ouvrir-creation><i class="fas fa-user-plus"></i> Ajouter un membre</button>
+                    </div>
+                    <div id="coachMembreCreer" class="am-creer" hidden>
+                        <form autocomplete="off">
+                            <div class="am-creer__grille">
+                                <label>Prénom <input name="prenom" required></label>
+                                <label>Nom <input name="nom"></label>
+                                <label>Email <input name="email" type="email" required inputmode="email"></label>
+                                <label>Niveau
+                                    <select name="niveau">
+                                        <option value="">Non posé (module 1)</option>
+                                        <option value="debutant">Débutant</option>
+                                        <option value="intermediaire">Intermédiaire</option>
+                                        <option value="confirme">Confirmé</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="am-creer__droits">
+                                <label class="am-switch"><input type="checkbox" name="formation" checked><i></i><span>Formation</span></label>
+                                <label class="am-switch"><input type="checkbox" name="journal" checked><i></i><span>Journal</span></label>
+                                <label class="am-switch"><input type="checkbox" name="envoyer_mail" checked><i></i><span>Envoyer le mail de première connexion</span></label>
+                            </div>
+                            <p class="am-creer__note">Le compte est créé sans mot de passe : le mail contient un lien pour le choisir. Sans mail, utilise « Mail » sur sa ligne plus tard.</p>
+                            <div class="am-creer__actions">
+                                <button type="button" class="am-btn am-btn--fantome" data-fermer-creation>Annuler</button>
+                                <button type="submit" class="am-btn am-btn--or">Créer le compte</button>
+                            </div>
+                        </form>
+                    </div>
+                    <!-- La fiche d un membre (15/10) : remplace la liste tant qu elle est ouverte. -->
+                    <div id="coachMembreFiche" class="am-fiche-zone"></div>
+                    <div id="coachMembresListe"><p class="am-vide">Chargement…</p></div>
+                </div>
+            </div>
+
+
+    <section class="bo-ecran" data-ecran="academie/evaluations" hidden>
+      <div class="bo-tete"><h1>Évaluations</h1><p>Les réponses aux quiz des modules, élève par élève.</p></div>
+      <div id="boEvaluations"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="academie/diplomes" hidden>
+      <div class="bo-tete"><h1>Diplômes</h1><p>Les badges obtenus et la certification Trader 360.</p></div>
+      <div id="boDiplomes"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="marketing/tunnels" hidden>
+      <div class="bo-tete"><h1>Tunnels de vente</h1><p>Une page d'inscription à partager, les inscrits dans le CRM et dans Brevo, un replay ensuite.</p></div>
+      <div id="boTunnels"></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="marketing/emails" hidden>
+      <div class="bo-tete"><h1>Emails marketing</h1><p>Des modèles au style Trader 360, et un espace libre pour composer. Envoi par Brevo.</p></div>
+      <div id="boEmails"></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="marketing/webinaires" hidden>
+      <div class="bo-tete"><h1>Webinaires live</h1><p>Organiser un webinaire, suivre les inscrits, mesurer les retombées.</p></div>
+      <div id="boWebinaires"></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="crm" hidden>
+      <div class="bo-tete"><h1>CRM</h1><p>Les listes Brevo et leurs contacts, vus d'ici.</p></div>
+      <div id="boCrm"></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="ventes/offres" hidden>
+      <div class="bo-tete"><h1>Offres</h1><p>Ce que vous vendez : produits, moyens de paiement, clients, bons de réduction.</p></div>
+      <div id="boOffres"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="ventes/commandes" hidden>
+      <div class="bo-tete"><h1>Commandes &amp; factures</h1><p>Le chiffre d'affaires, mois par mois, et les factures.</p></div>
+      <div id="boCommandes"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="ventes/comptabilite" hidden>
+      <div class="bo-tete"><h1>Comptabilité Trader 360</h1><p>Le classeur BUDGET, relié à Qonto, lu en direct et en lecture seule.</p></div>
+      <div id="boCompta"><p class="bo-vide">Chargement…</p></div>
+    </section>
+
+    <section class="bo-ecran" data-ecran="ventes/affiliation" hidden>
+      <div class="bo-tete"><h1>Affiliation</h1><p>Un lien personnel par membre qui parle de vous, et les inscriptions qui en viennent.</p></div>
+      <div id="boAffiliation"></div>
+    </section>
+
+    <footer class="bo-pied">Trader 360 · Back-office · Le trading comporte un risque de perte en capital.</footer>
+  </main>
+</div>
+<div id="boToast" class="bo-toast" role="status" aria-live="polite"></div>
+</body>
+</html>
