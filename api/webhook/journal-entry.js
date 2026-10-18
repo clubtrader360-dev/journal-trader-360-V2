@@ -10,13 +10,9 @@
 //   Paris (règles Manu du 17/10/2026, cf api/_lib/jours-bourse.js) :
 //   - "<score>" (ex "72.4") → dernière saisie il y a 3 jours de bourse ou moins
 //   - "non rempli"          → plus de 3 jours de bourse (police 8, centré verticalement, sans fond)
-//   - "vide"                → plus de 20 jours de bourse, ou aucune saisie (ex-"Pas rempli")
-//   - "NO"   → email tableur absent de public.users (ex-"no", ex-"Non inscrit au journal") ;
-//              en majuscules depuis le 10/10/2026, fond rouge clair posé côté tableur
-//              Textes courts : décision Manu du 09/10/2026. Le script Apps Script du tableur
-//              reconnaît les deux formes ; ?action=backfill-full convertit l'existant.
-//                                (via ?action=backfill-full uniquement — le webhook unitaire
-//                                 est déclenché par un user_id qui existe forcément)
+//   - "vide"                → plus de 20 jours de bourse, aucune saisie, ou email tableur absent
+//                             de public.users. Fond rouge clair (#f4cccc). Depuis le 18/10/2026,
+//                             « vide » remplace aussi l'ancien « NO » (non inscrit au journal).
 // N'écrit QUE dans la colonne « Journal », et jamais sur une ligne coach (col « ID » à « -- »).
 // Ne throw jamais (retourne 500 { ok:false } en cas d'erreur).
 // Garde-fou : un titre de colonne absent ou en double en ligne 3 → AUCUNE écriture, erreur
@@ -26,8 +22,8 @@
 //   - POST (webhook Supabase, défaut)        → traite l'élève du payload, écrit sa seule cellule X.
 //   - POST ?action=backfill-full             → re-scanne TOUT le tableur, recalcule chaque ligne,
 //                                              écrit toutes les cellules X en 1 batchUpdate.
-//   - ?action=daily-recalc                   → recalcul quotidien des seuls inscrits au journal
-//                                              (ni « NO », ni coachs). GET du cron Vercel
+//   - ?action=daily-recalc                   → recalcul quotidien des seuls membres ayant au moins
+//                                              une saisie (ni coachs). GET du cron Vercel
 //                                              (Bearer CRON_SECRET, lun-ven 6h Paris) ou POST
 //                                              X-Webhook-Secret pour un lancement à la main.
 // ========================================
@@ -40,9 +36,9 @@ import { readParcours, cellA1, TITRES, FIRST_MEMBER_ROW, SHEET_NAME } from '../_
 import { parisDayOf, joursBourseEntre, SEUIL_NON_REMPLI, SEUIL_VIDE } from '../_lib/jours-bourse.js';
 
 // États écrits dans la colonne « Journal » quand il n'y a pas de note.
-const JOURNAL_VIDE = 'vide';             // inscrit, aucune saisie ou plus de 20 jours de bourse
+const JOURNAL_VIDE = 'vide';             // aucune saisie, plus de 20 jours de bourse, ou pas inscrit (ex-« NO »)
 const JOURNAL_NON_REMPLI = 'non rempli'; // inscrit, plus de 3 jours de bourse
-const JOURNAL_NO = 'NO';                 // pas inscrit au journal
+const JOURNAL_VIDE_BG = { red: 244 / 255, green: 204 / 255, blue: 204 / 255 }; // #f4cccc, comme la règle du tableur
 const COACH_ID = '--';                   // col « ID » des lignes coachs : jamais écrites
 
 // Colonnes lues (prénom, nom, mails) et écrite (journal), retrouvées par leur titre en ligne 3.
@@ -113,8 +109,9 @@ async function computeUserColX(sb, uuid) {
 
 // SEUL chemin d'écriture de la colonne « Journal » (webhook, backfill, recalcul quotidien).
 // `cells` = [{ rowNum, value }]. Valeurs en RAW, 1 appel. « non rempli » et « vide » reçoivent
-// la mise en forme des textes de la colonne : police 8 (« non rempli ») ou 10 (« vide »), centré verticalement, aucun fond
-// (fond statique effacé ; les règles conditionnelles du tableur ne colorent que notes et « NO »).
+// la mise en forme des textes de la colonne : police 8 (« non rempli ») ou 10 (« vide »), centré
+// verticalement ; fond rouge clair pour « vide » (18/10/2026), fond effacé pour « non rempli ».
+// Le tableur pose en plus ses règles conditionnelles (vert sur les notes, rouge sur « vide »).
 // La note garde sa mise en forme, inchangée.
 async function writeJournalCells(sheets, spreadsheetId, colIdx, cells) {
   if (!cells.length) return;
@@ -143,8 +140,10 @@ async function writeJournalCells(sheets, spreadsheetId, colIdx, cells) {
           },
           // « non rempli » en police 8 (demande Manu du 17/10/2026), « vide » reste en 10.
           // Même règle côté Apps Script du tableur (_applyPoliceJoursJournal_).
-          cell: { userEnteredFormat: { textFormat: { fontSize: c.value === JOURNAL_NON_REMPLI ? 8 : 10 }, verticalAlignment: 'MIDDLE' } },
-          // backgroundColor(Style) dans le masque sans valeur → fond effacé.
+          cell: { userEnteredFormat: c.value === JOURNAL_VIDE
+            ? { textFormat: { fontSize: 10 }, verticalAlignment: 'MIDDLE', backgroundColor: JOURNAL_VIDE_BG, backgroundColorStyle: { rgbColor: JOURNAL_VIDE_BG } }
+            : { textFormat: { fontSize: 8 }, verticalAlignment: 'MIDDLE' } },
+          // « non rempli » : backgroundColor(Style) dans le masque sans valeur → fond effacé.
           fields: 'userEnteredFormat.textFormat.fontSize,userEnteredFormat.verticalAlignment,userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle',
         },
       })),
@@ -307,7 +306,7 @@ async function handleBackfillFull(res) {
       ({ value } = await computeUserColX(sb, uuid));
       if (value === JOURNAL_VIDE || value === JOURNAL_NON_REMPLI) pas_rempli++; else scored++;
     } else {
-      value = JOURNAL_NO;
+      value = JOURNAL_VIDE; // pas inscrit au journal (ex-« NO »)
       non_inscrit++;
     }
     updates.push({ rowNum, value });
@@ -334,8 +333,11 @@ async function handleBackfillFull(res) {
 // ========================================
 // ?action=daily-recalc — chaque jour de bourse à 6h Paris : réapplique les règles d'ancienneté à
 // chaque membre INSCRIT au journal, pour qu'une note ne reste pas affichée quand le membre ne
-// note plus (aucun événement Supabase ne part alors). Lignes « NO » (email absent de
-// public.users), lignes coachs et lignes sans email : jamais écrites.
+// note plus (aucun événement Supabase ne part alors). Lignes dont l'email est absent de
+// public.users, lignes coachs et lignes sans email : jamais écrites.
+// Anciens « NO » (devenus « vide » le 18/10/2026) : reconnus à « vide » + AUCUNE saisie sur tous
+// les comptes de la ligne (comptes journal créés en masse le 15/10, jamais utilisés) → jamais
+// écrits. Un « vide » pour plus de 20 jours de bourse a, lui, au moins une saisie ancienne.
 // ========================================
 async function handleDailyRecalc(res) {
   const t0 = Date.now();
@@ -358,15 +360,12 @@ async function handleDailyRecalc(res) {
   const { cols, rows: values } = parcours;
 
   const cibles = [];
-  let coachs = 0, non_inscrits = 0, sans_email = 0, no = 0;
+  let coachs = 0, non_inscrits = 0, sans_email = 0, jamais_saisi = 0;
   for (let i = 0; i < values.length; i++) {
     const row = values[i] || [];
     const emails = rowEmails(row, cols);
     if (emails.length === 0) { sans_email++; continue; }
     if (isCoachRow(row, cols)) { coachs++; continue; }
-    // « NO » jamais touché, même si un compte journal a été créé depuis (sans saisie, aucun
-    // événement Supabase n'est parti) : seule une saisie réelle, via le webhook, le remplace.
-    if (String(row[cols[TITRES.JOURNAL]] || '').trim().toUpperCase() === JOURNAL_NO) { no++; continue; }
     const uuids = [...new Set(emails.filter((e) => emailToUuid.has(e)).map((e) => emailToUuid.get(e)))];
     if (!uuids.length) { non_inscrits++; continue; }
     cibles.push({
@@ -385,9 +384,14 @@ async function handleDailyRecalc(res) {
       // saisie est la plus récente l'emporte (à défaut, le premier, Mail LearnyBox prioritaire).
       const rs = await Promise.all(c.uuids.map((u) => computeUserColX(sb, u)));
       const r = rs.reduce((best, x) => (x.lastDay && (!best.lastDay || x.lastDay > best.lastDay) ? x : best), rs[0]);
+      // Ancien « NO » : « vide » sans aucune saisie → jamais touché ; seule une saisie réelle,
+      // via le webhook, le remplace. (Sans saisie, le calcul donnerait « vide » de toute façon :
+      // la garde rend la règle explicite et évite toute réécriture.)
+      if (!r.lastDay && c.avant.trim().toLowerCase() === JOURNAL_VIDE) return null;
       return { row: c.rowNum, nom: c.nom, derniere_saisie: r.lastDay, jours_bourse: r.joursBourse, avant: c.avant, value: r.value };
     }));
-    membres.push(...lot);
+    jamais_saisi += lot.filter((m) => !m).length;
+    membres.push(...lot.filter(Boolean));
   }
 
   await writeJournalCells(sheets, spreadsheetId, cols[TITRES.JOURNAL], membres.map((m) => ({ rowNum: m.row, value: m.value })));
@@ -400,7 +404,7 @@ async function handleDailyRecalc(res) {
     changes: compte((m) => m.avant !== m.value),
   };
   const duration_ms = Date.now() - t0;
-  console.log(`[WEBHOOK-COL-X][daily-recalc] written=${membres.length} note=${resume.note} non_rempli=${resume.non_rempli} vide=${resume.vide} changes=${resume.changes} skip: no=${no} coachs=${coachs} non_inscrits=${non_inscrits} sans_email=${sans_email} in ${duration_ms}ms`);
+  console.log(`[WEBHOOK-COL-X][daily-recalc] written=${membres.length} note=${resume.note} non_rempli=${resume.non_rempli} vide=${resume.vide} changes=${resume.changes} skip: jamais_saisi=${jamais_saisi} coachs=${coachs} non_inscrits=${non_inscrits} sans_email=${sans_email} in ${duration_ms}ms`);
   for (const m of membres) {
     if (m.avant !== m.value) console.log(`[WEBHOOK-COL-X][daily-recalc] row=${m.row} (${m.nom}) ${m.avant || '(vide)'} → ${m.value} (dernière saisie ${m.derniere_saisie || 'aucune'}, ${m.jours_bourse ?? '-'} j de bourse)`);
   }
@@ -410,7 +414,7 @@ async function handleDailyRecalc(res) {
     today: parisTodayStr(),
     written: membres.length,
     ...resume,
-    skipped: { no, coachs, non_inscrits, sans_email },
+    skipped: { jamais_saisi, coachs, non_inscrits, sans_email },
     duration_ms,
     membres,
   });
