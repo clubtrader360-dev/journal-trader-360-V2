@@ -6,12 +6,14 @@
  * Aucun réseau, aucun secret : le tableur et Supabase sont simulés en mémoire. Les TITRES,
  * eux, sont les vrais — la ligne 3 de l'onglet telle que relevée le 09/10/2026.
  *
- * Trois questions :
+ * Quatre questions :
  *  1. Avec les titres actuels, retrouve-t-on exactement les anciennes positions en dur
  *     (B, C, D, T, U et l'écriture en X) ? Sinon le comportement a changé sans qu'on déplace rien.
  *  2. Avec 3 colonnes déplacées, les vrais endpoints (webhook, backfill, destinataires du
  *     brief, endpoint coach) lisent-ils et écrivent-ils toujours les bonnes cellules ?
  *  3. Titre absent ou en double : aucune écriture, et le webhook répond 200 ?
+ *  4. Recalcul quotidien et mise en forme : « vide » sur fond rouge, « non rempli » en police 8,
+ *     anciens « NO » (« vide » sans aucune saisie) jamais réécrits, coachs et non-inscrits non plus ?
  *
  * Les endpoints testés sont les fichiers de `api/` eux-mêmes, pas une copie : seuls leurs
  * accès externes (client Sheets, client Supabase, auth coach) sont remplacés.
@@ -66,9 +68,9 @@ verifier('normalisation : emoji, accents, retours ligne, espaces',
 {
   const r = resolveColumns(TITRES_REELS, TOUS);
   const lettres = Object.fromEntries(TOUS.map((t) => [t, r.cols[t] === undefined ? '∅' : columnLetter(r.cols[t])]));
-  const attendu = { prenom: 'B', nom: 'C', statut: 'D', 'mail learnybox': 'T', '2eme mail': 'U', journal: 'X' };
+  const attendu = { id: 'A', prenom: 'B', nom: 'C', statut: 'D', 'mail learnybox': 'T', '2eme mail': 'U', journal: 'X' };
   verifier('titres actuels : résolution sans absent ni doublon', r.ok, r.error || '');
-  verifier('titres actuels : positions = anciennes constantes (B, C, D, T, U, écriture X)',
+  verifier('titres actuels : positions = anciennes constantes (A, B, C, D, T, U, écriture X)',
     JSON.stringify(lettres) === JSON.stringify(attendu), JSON.stringify(lettres));
   verifier('titres actuels : cellule d\'écriture', cellA1(r.cols.journal, 12) === `'${SHEET_NAME}'!X12`, cellA1(r.cols.journal, 12));
 }
@@ -96,12 +98,12 @@ const ORIGINE = TITRES_REELS;
 // S avant B, Journal en fin, Statut après Ancienneté (= avant Coach).
 const DEPLACEE = deplacer(deplacer(deplacer(TITRES_REELS, 'dernier message discord', 'prenom'), 'journal', null), 'statut', 'coach');
 
-function construireGrille(titres) {
+function construireGrille(titres, membres = MEMBRES) {
   const grille = [[], ['Mise à jour : 09/10/2026 08:00 (épreuve)'], titres.slice()];
-  MEMBRES.forEach((m, i) => {
+  membres.forEach((m, i) => {
     grille.push(titres.map((t) => {
       const n = normHeaderTitle(t);
-      if (n === 'id') return m.prenom ? String(i + 1) : '';
+      if (n === 'id') return m.id !== undefined ? m.id : (m.prenom ? String(i + 1) : '');
       return m[n] !== undefined ? m[n] : (m.prenom ? `${n}#${i + 1}` : '');
     }));
   });
@@ -110,7 +112,7 @@ function construireGrille(titres) {
 const lettreVersIdx = (L) => [...L].reduce((n, ch) => n * 26 + (ch.charCodeAt(0) - 64), 0) - 1;
 
 function faireSheets(grille) {
-  const journal = { lectures: [], ecritures: [] };
+  const journal = { lectures: [], ecritures: [], formats: [] };
   // L'API coupe les cellules vides en fin de ligne : on fait pareil.
   const rogner = (row) => { const r = row.slice(); while (r.length && (r[r.length - 1] === '' || r[r.length - 1] == null)) r.pop(); return r; };
   const lire = (range) => {
@@ -126,7 +128,14 @@ function faireSheets(grille) {
     journal.ecritures.push({ range, titre: normHeaderTitle(grille[2][col]), prenom: grille[row - 1][grille[2].findIndex((t) => normHeaderTitle(t) === 'prenom')], valeur: values[0][0] });
     grille[row - 1][col] = values[0][0];
   };
-  const client = { spreadsheets: { values: {
+  const client = { spreadsheets: {
+    // Mise en forme (writeJournalCells) : id d'onglet, puis repeatCell par cellule, notés tels quels.
+    get: async () => ({ data: { sheets: [{ properties: { sheetId: 7, title: SHEET_NAME } }] } }),
+    batchUpdate: async ({ requestBody }) => {
+      requestBody.requests.forEach(({ repeatCell: rc }) => journal.formats.push({ row: rc.range.startRowIndex + 1, col: rc.range.startColumnIndex, format: rc.cell.userEnteredFormat, fields: rc.fields }));
+      return {};
+    },
+    values: {
     get: async ({ range }) => ({ data: { values: lire(range) } }),
     batchGet: async ({ ranges }) => ({ data: { valueRanges: ranges.map((r) => ({ values: lire(r) })) } }),
     update: async ({ range, requestBody }) => { ecrire(range, requestBody.values); return {}; },
@@ -135,26 +144,31 @@ function faireSheets(grille) {
   return { client, journal };
 }
 
-// Supabase simulé : alice et emma ont rempli leur journal, farid est inscrit sans journal.
+// Supabase simulé : alice, emma et chloé ont noté aujourd'hui, farid est inscrit sans journal.
+// SAISIES = âge en jours CALENDAIRES de la dernière saisie (created_at), par compte.
+const ilYa = (n) => new Date(Date.now() - n * 86400000).toISOString();
 const UTILISATEURS = [
   { uuid: 'u-alice', email: 'alice@example.com' }, { uuid: 'u-emma', email: 'emma@example.com' },
   { uuid: 'u-farid', email: 'farid@example.com' }, { uuid: 'u-chloe', email: 'chloe.bis@example.net' },
   { uuid: 'u-inconnu', email: 'personne@example.com' },
 ];
-const JOURNAUX = { 'u-alice': 2, 'u-emma': 1, 'u-chloe': 1 };
-function faireSupabase() {
+const SAISIES = { 'u-alice': 0, 'u-emma': 0, 'u-chloe': 0 };
+function faireSupabase(utilisateurs = UTILISATEURS, saisies = SAISIES) {
   return { from(table) {
     const q = { table, filtres: {} };
     const resultat = () => {
       if (table === 'users') {
-        if (q.filtres.uuid) { const u = UTILISATEURS.find((x) => x.uuid === q.filtres.uuid); return { data: u || null, error: u ? null : { message: 'absent' } }; }
-        return { data: UTILISATEURS, error: null };
+        if (q.filtres.uuid) { const u = utilisateurs.find((x) => x.uuid === q.filtres.uuid); return { data: u || null, error: u ? null : { message: 'absent' } }; }
+        return { data: utilisateurs, error: null };
       }
-      if (table === 'journal_entries') return { count: JOURNAUX[q.filtres.user_id] || 0, error: null };
+      if (table === 'journal_entries') {
+        const n = saisies[q.filtres.user_id];
+        return { data: n === undefined ? [] : [{ created_at: ilYa(n) }], error: null };
+      }
       return { data: [], error: null };
     };
     const b = {
-      select: () => b, limit: () => b, lte: () => b,
+      select: () => b, limit: () => b, lte: () => b, order: () => b,
       // Plus de borne basse sur la date : la fenêtre de 3 jours a été supprimée (10/10/2026).
       gte: () => { throw new Error('fenêtre de dates réintroduite (gte) : la note doit s\'afficher quel que soit son âge'); },
       eq: (k, v) => { q.filtres[k] = v; return b; },
@@ -287,6 +301,54 @@ for (const [nom, titres] of Object.entries(CASSES)) {
   globalThis.__epreuve = { sheets: client, sb: faireSupabase() };
   const dest = await getBriefRecipients();
   verifier('« Journal » absent : le brief, qui ne lit pas cette colonne, garde ses destinataires', JSON.stringify(dest) === destinatairesOrigine);
+}
+
+// ── 5. Recalcul quotidien et mise en forme (« vide » rouge depuis le 18/10/2026) ──
+console.log('\n— recalcul quotidien et « vide » rouge');
+{
+  // Lignes 4 à 10. Âge de la dernière saisie en jours calendaires (12 j ≈ 8 jours de bourse).
+  const RECALC = [
+    { prenom: 'ExNo', nom: 'A', statut: '⚪', 'mail learnybox': 'exno@example.com', '2eme mail': '', journal: 'vide' },     // compte sans saisie : ancien « NO »
+    { prenom: 'Vieux', nom: 'B', statut: '⚪', 'mail learnybox': 'vieux@example.com', '2eme mail': '', journal: 'vide' },   // saisie il y a 60 j
+    { prenom: 'Actif', nom: 'C', statut: '⚪', 'mail learnybox': 'actif@example.com', '2eme mail': '', journal: 'vide' },   // saisie aujourd'hui
+    { prenom: 'Lent', nom: 'D', statut: '⚪', 'mail learnybox': 'lent@example.com', '2eme mail': '', journal: '50.0' },     // saisie il y a 12 j
+    { prenom: 'Absent', nom: 'E', statut: '⚪', 'mail learnybox': 'absent@example.com', '2eme mail': '', journal: 'vide' }, // pas de compte
+    { id: '--', prenom: 'Coach', nom: 'F', statut: '⚪', 'mail learnybox': 'coach@example.com', '2eme mail': '', journal: '55.5' },
+    { prenom: 'Bizarre', nom: 'G', statut: '⚪', 'mail learnybox': 'bizarre@example.com', '2eme mail': '', journal: '42.0' }, // compte sans saisie, note affichée
+  ];
+  const users = ['exno', 'vieux', 'actif', 'lent', 'coach', 'bizarre'].map((p) => ({ uuid: `u-${p}`, email: `${p}@example.com` }));
+  const saisies = { 'u-vieux': 60, 'u-actif': 0, 'u-lent': 12, 'u-coach': 0 };
+  const lancer = async (action) => {
+    const grille = construireGrille(ORIGINE, RECALC);
+    const { client, journal } = faireSheets(grille);
+    globalThis.__epreuve = { sheets: client, sb: faireSupabase(users, saisies) };
+    const res = faireRes();
+    const origLog = console.log; console.log = () => {};
+    try { await webhook({ method: 'POST', headers: { 'x-webhook-secret': 'secret-epreuve' }, query: { action }, body: {} }, res); }
+    finally { console.log = origLog; }
+    const parLigne = Object.fromEntries(journal.ecritures.map((e) => [Number(/(\d+)$/.exec(e.range)[1]), e.valeur]));
+    const formats = Object.fromEntries(journal.formats.map((f) => [f.row, f]));
+    return { res, parLigne, formats, colJournal: resolveColumns(ORIGINE, TOUS).cols.journal };
+  };
+  const ROUGE = (f) => f && f.format.backgroundColor && Math.round(f.format.backgroundColor.red * 255) === 244
+    && Math.round(f.format.backgroundColor.green * 255) === 204 && Math.round(f.format.backgroundColor.blue * 255) === 204
+    && f.format.backgroundColorStyle && f.format.backgroundColorStyle.rgbColor === f.format.backgroundColor;
+
+  let { res, parLigne: lu, formats: fmt, colJournal } = await lancer('daily-recalc');
+  verifier('daily-recalc : ancien « NO » (« vide », 0 saisie) jamais écrit', res.code === 200 && !(4 in lu), JSON.stringify(lu));
+  verifier('daily-recalc : non inscrit et coach jamais écrits', !(8 in lu) && !(9 in lu), JSON.stringify(lu));
+  verifier('daily-recalc : 60 j → vide, aujourd\'hui → note, 12 j → non rempli, note sans saisie → vide',
+    lu[5] === 'vide' && /^\d+\.\d$/.test(lu[6]) && lu[7] === 'non rempli' && lu[10] === 'vide', JSON.stringify(lu));
+  verifier('daily-recalc : compteur jamais_saisi = 1', res.corps.skipped && res.corps.skipped.jamais_saisi === 1, JSON.stringify(res.corps.skipped));
+  verifier('format : « vide » → fond #f4cccc, police 10, colonne « Journal »',
+    ROUGE(fmt[5]) && fmt[5].format.textFormat.fontSize === 10 && fmt[5].col === colJournal, JSON.stringify(fmt[5]));
+  verifier('format : « non rempli » → police 8, fond effacé',
+    fmt[7] && fmt[7].format.textFormat.fontSize === 8 && !fmt[7].format.backgroundColor && /backgroundColor/.test(fmt[7].fields), JSON.stringify(fmt[7]));
+  verifier('format : la note n\'est pas reformatée', !(6 in fmt));
+
+  ({ res, parLigne: lu } = await lancer('backfill-full'));
+  verifier('backfill : non inscrit → « vide » (plus jamais « NO »)', lu[8] === 'vide' && !Object.values(lu).some((v) => String(v).toUpperCase() === 'NO'), JSON.stringify(lu));
+  verifier('backfill : coach jamais écrit', res.corps.ok === true && !(9 in lu));
 }
 
 console.log(`\n${echecs === 0 ? '✅ Épreuve réussie' : `❌ ${echecs} vérification(s) en échec`}`);
