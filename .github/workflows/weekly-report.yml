@@ -2,9 +2,9 @@ name: Weekly Trader 360 Report
 
 on:
   schedule:
-    # Dimanche 16h UTC = 18h Paris (CEST/été).
-    # ⚠️ À ajuster à '0 17 * * 0' en octobre 2026 (passage CET/hiver) — sinon les mails partiront à 17h Paris.
-    - cron: '0 16 * * 0'
+    # Dimanche 17h UTC = 18h Paris en hiver (CET), du 25/10/2026 au 28/03/2027.
+    # ⚠️ À repasser à '0 16 * * 0' fin mars 2027 (heure d'été), sinon les mails partiront à 19h Paris.
+    - cron: '0 17 * * 0'
   workflow_dispatch:
     # Déclenchement manuel depuis l'UI GitHub Actions (test + force-send hors cadence).
     inputs:
@@ -70,9 +70,12 @@ jobs:
           # Le handler renvoie { eligible: N, results: [ { status: 'sent'|'failed'|'skipped'|... } ] }.
           # On compte les occurrences de statut dans le tableau results (pas de clés sent/failed agrégées).
           eligible=$(echo "$body" | grep -oE '"eligible":[0-9]+' | cut -d: -f2 || echo "?")
-          sent=$(echo "$body" | grep -oc '"status":"sent"' || true)
-          failed=$(echo "$body" | grep -oc '"status":"failed"' || true)
-          skipped=$(echo "$body" | grep -oc '"status":"skipped"' || true)
+          # ⛔ `grep -c` compte des LIGNES, pas des occurrences : le corps JSON tient
+          # sur une ligne, donc il rendait « 1 envoyé » pour 95 mails partis (run #22,
+          # 18/10/2026). `grep -o | wc -l` compte chaque occurrence ; le `|| true` parce que le runner tourne en `-eo pipefail` et que `grep` sans correspondance sort en 1.
+          sent=$(echo "$body" | { grep -o '"status":"sent"' || true; } | wc -l | tr -d ' ')
+          failed=$(echo "$body" | { grep -o '"status":"failed"' || true; } | wc -l | tr -d ' ')
+          skipped=$(echo "$body" | { grep -o '"status":"skipped"' || true; } | wc -l | tr -d ' ')
 
           echo "✅ Succès : $sent envoyé(s) · $failed échec(s) · $skipped skippé(s) · $eligible éligible(s)"
 
