@@ -375,6 +375,55 @@
     } finally { bouton.disabled = false; }
   }
 
+  /* ══ LES MAILS DE BASCULE ══════════════════════════════════════════════════
+   * Le jour ou les eleves passent sur le nouvel espace (arbitrage de Nadir du
+   * 16/10, textes valides) : deja connectes -> annonce (memes identifiants,
+   * encart « identifiant change » si le compte a ete fusionne) ; jamais
+   * connectes -> mail de premiere connexion.
+   * ⛔ Une liste reelle : deux confirmations, dont un mot a taper.
+   * ⛔ Une seule fois par membre : le serveur refuse un second envoi (409),
+   * compte comme « deja envoye », donc on peut relancer sans risque apres une
+   * coupure.
+   * ⚠️ Un mail toutes les 0,6 s : Resend limite a 2 requetes par seconde par
+   * defaut, et un refus de debit compterait comme un echec. */
+  const EXCLUS = ['doublon', 'revoque', 'rembourse'];
+  function cohortesBascule() {
+    const ok = _membres.filter((m) => m.user_id && m.role === 'student' && m.statut === 'active'
+      && (m.formation || m.journal)
+      && !/deleted\.trader360\.local$/.test(m.email || '')
+      && !(m.signalements || []).some((s) => EXCLUS.includes(s.type)));
+    return { annonce: ok.filter((m) => m.derniere_connexion), premiere: ok.filter((m) => !m.derniere_connexion) };
+  }
+
+  async function envoyerBascule(bouton) {
+    const { annonce, premiere } = cohortesBascule();
+    const total = annonce.length + premiere.length;
+    if (!total) { dire('Personne à prévenir.'); return; }
+    if (!window.confirm(`Envoyer les mails de bascule ?\n\n• ${annonce.length} annonce(s) aux membres déjà connectés\n• ${premiere.length} mail(s) de première connexion\n\nSont exclus : coachs, accès fermés, comptes révoqués, remboursés et doublons.\n⚠️ Les fusions de doublons doivent être faites AVANT.`)) return;
+    const mot = window.prompt(`Ces ${total} mails partent pour de vrai. Tape ENVOYER pour confirmer.`);
+    if (String(mot || '').trim().toUpperCase() !== 'ENVOYER') { dire('Envoi annulé.'); return; }
+    bouton.disabled = true;
+    const libelle = bouton.innerHTML;
+    const bilan = { envoyes: 0, deja: 0, echecs: [] };
+    const file = [...annonce.map((m) => ['annonce', m]), ...premiere.map((m) => ['renvoyer_mail', m])];
+    for (let i = 0; i < file.length; i += 1) {
+      const [action, m] = file[i];
+      bouton.textContent = `Envoi ${i + 1} / ${file.length}…`;
+      try {
+        await appeler(action, action === 'annonce' ? { user_id: m.user_id } : { user_id: m.user_id, une_seule_fois: true });
+        bilan.envoyes += 1;
+      } catch (e) {
+        if (/deja envoy/i.test(e.message)) bilan.deja += 1;
+        else bilan.echecs.push({ email: m.email, action, motif: e.message });
+      }
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    bouton.disabled = false;
+    bouton.innerHTML = libelle;
+    if (bilan.echecs.length) console.warn('[MEMBRES] échecs des mails de bascule :', bilan.echecs);
+    dire(`${bilan.envoyes} mail(s) envoyé(s), ${bilan.deja} déjà parti(s) avant${bilan.echecs.length ? `, ${bilan.echecs.length} échec(s) (détail dans la console, relance possible sans doublon)` : ''}.`, bilan.echecs.length ? 'error' : 'success');
+  }
+
   /* ══ LE CHARGEMENT ═════════════════════════════════════════════════════════ */
   async function charger(force) {
     const zone = $('coachMembresListe');
@@ -437,6 +486,7 @@
         rendre();
       } else if (t.matches('[data-ouvrir-creation]')) ouvrirCreation();
       else if (t.matches('[data-creer-manquants]')) creerManquants(t);
+      else if (t.matches('[data-bascule]')) envoyerBascule(t);
       else if (t.matches('[data-fermer-creation]')) fermerCreation();
       else if (t.matches('[data-recharger]')) charger(true);
     });

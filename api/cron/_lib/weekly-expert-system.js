@@ -668,7 +668,10 @@ ${noJournalNotice}
 }
 
 // ========================================================================
-// RAPPORT PASSIF (#21) — élève sans journal dans les 3 derniers jours.
+// RAPPORT PASSIF (#21) : aucun trade enregistré sur la semaine du rapport.
+// ⚠️ Texte corrigé le 20/10/2026 (accord de Nadir) : il disait « tu n'as pas rempli ton
+// journal dans les 3 derniers jours », alors que la variante part quand la SEMAINE n'a
+// aucun trade, journal rempli ou non. Manu l'a reçu et a cru à une panne.
 // Version alternative unique (motivation + article éducatif). Même DA/shell.
 // ========================================================================
 // Le rapport passif rend désormais { html, attachments } comme l'actif : son logo est
@@ -812,7 +815,7 @@ function generatePassiveReportHTML({ user, mode = 'cid' }) {
         <div style="font-family:Georgia,'Times New Roman',serif; font-size:22px; line-height:1.35; color:${PALETTE.textPrimary}; font-weight:700;">Cette semaine, tu n'as pas eu ton analyse.</div>
       </div>
 
-      <p style="color:${PALETTE.textPrimary}; font-size:15px; line-height:1.75; margin:0 0 8px;">Pour te faire une vraie analyse de tes performances — T360 Score, radar des 6 dimensions, patterns identifiés, recommandations personnalisées — j'ai besoin de ta data. Cette semaine, tu n'as pas rempli ton journal dans les 3 derniers jours. Sans data récente, aucune analyse fiable n'est possible. C'est aussi simple que ça.</p>
+      <p style="color:${PALETTE.textPrimary}; font-size:15px; line-height:1.75; margin:0 0 8px;">Pour te faire une vraie analyse de tes performances (T360 Score, radar des 6 dimensions, patterns identifiés, recommandations personnalisées), j'ai besoin de ta data. Cette semaine, aucun trade n'est enregistré dans ton journal. Sans trades, pas d'analyse chiffrée possible. C'est aussi simple que ça.</p>
 
       ${hairline}
 

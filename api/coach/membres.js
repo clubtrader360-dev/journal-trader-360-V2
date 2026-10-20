@@ -548,6 +548,14 @@ async function renvoyerMail(sb, corps, coach, origine) {
   const { data, error } = await sb.auth.admin.getUserById(cible);
   if (error || !data?.user?.email) throw httpError(404, 'compte introuvable');
   const email = data.user.email;
+  // ⛔ ENVOI GROUPE DE LA BASCULE : `une_seule_fois` refuse un second mail de
+  // premiere connexion deja parti sans erreur. Le bouton « Mail » d une ligne,
+  // lui, ne le passe pas : renvoyer a la main reste toujours possible.
+  if (corps.une_seule_fois === true) {
+    const { data: deja, error: dErr } = await sb.from('mails_envoyes').select('id').eq('user_id', cible).eq('type', 'premiere_connexion').is('erreur', null).limit(1);
+    if (dErr) throw httpError(500, `journal des mails illisible : ${dErr.message}`);
+    if (deja && deja.length) throw httpError(409, 'mail de premiere connexion deja envoye a ce membre');
+  }
   const { data: p } = await sb.from('users').select('name').eq('uuid', cible).maybeSingle();
   const prenom = String((p && p.name) || (data.user.user_metadata && data.user.user_metadata.name) || '').split(' ')[0];
   const lien = await lienDeConnexion(sb, email, origine);
