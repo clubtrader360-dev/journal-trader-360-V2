@@ -395,8 +395,14 @@
     return { annonce: ok.filter((m) => m.derniere_connexion), premiere: ok.filter((m) => !m.derniere_connexion) };
   }
 
-  async function envoyerBascule(bouton) {
-    const { annonce, premiere } = cohortesBascule();
+  /* ⚠️ `quoi` : 'annonce' ou 'premiere'. Deux boutons, deux envois separes :
+   * Resend gratuit plafonne a 100 mails par 24 h glissantes (le retour d erreur
+   * dit « attendre que 24 heures soient passees »), mails Supabase et rapport du
+   * dimanche compris. Les deux lots partent donc a 24 h d intervalle. */
+  async function envoyerBascule(bouton, quoi) {
+    const c = cohortesBascule();
+    const annonce = quoi === 'premiere' ? [] : c.annonce;
+    const premiere = quoi === 'annonce' ? [] : c.premiere;
     const total = annonce.length + premiere.length;
     if (!total) { dire('Personne à prévenir.'); return; }
     if (!window.confirm(`Envoyer les mails de bascule ?\n\n• ${annonce.length} annonce(s) aux membres déjà connectés\n• ${premiere.length} mail(s) de première connexion\n\nSont exclus : coachs, accès fermés, comptes révoqués, remboursés et doublons.\n⚠️ Les fusions de doublons doivent être faites AVANT.`)) return;
@@ -486,7 +492,7 @@
         rendre();
       } else if (t.matches('[data-ouvrir-creation]')) ouvrirCreation();
       else if (t.matches('[data-creer-manquants]')) creerManquants(t);
-      else if (t.matches('[data-bascule]')) envoyerBascule(t);
+      else if (t.matches('[data-bascule]')) envoyerBascule(t, t.dataset.bascule);
       else if (t.matches('[data-fermer-creation]')) fermerCreation();
       else if (t.matches('[data-recharger]')) charger(true);
     });
