@@ -300,6 +300,14 @@
     const aide = c.aide ? `<small>${txt(c.aide)}</small>` : '';
     const ob = c.obligatoire ? ' <b class="bo-oblig">*</b>' : '';
     let entree;
+    if (c.genre === 'image') {
+      // La valeur (l'adresse de la photo dans le compartiment du site) vit dans un champ caché, lu comme les autres.
+      return `<div class="bo-tun-champ bo-tun-photo"><span>${txt(c.libelle)}</span>
+        <input type="hidden" data-tun-champ="${txt(c.cle)}" data-genre="image" value="${txt(val)}">
+        <div class="bo-tun-photo__cadre" data-tun-photo-vue>${val ? `<img src="${txt(val)}" alt="">` : '<i class="fas fa-image"></i>'}</div>
+        <div class="bo-tun-actions"><label class="bo-btn bo-btn--fantome"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" data-tun-photo hidden>${val ? 'Remplacer la photo' : 'Ajouter une photo'}</label>
+        ${val ? '<button type="button" class="bo-btn bo-btn--fantome" data-tun-photo-retirer>Retirer</button>' : ''}</div>${aide}</div>`;
+    }
     if (c.genre === 'long' || c.genre === 'liste') entree = `<textarea id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" rows="${c.genre === 'liste' ? 5 : 3}">${txt(val)}</textarea>`;
     else if (c.genre === 'date') entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="date" type="text" placeholder="AAAA-MM-JJTHH:MM" value="${txt(val)}">`;
     else entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" type="${c.genre === 'nombre' ? 'number' : 'text'}" value="${txt(val)}">`;
@@ -318,6 +326,9 @@
     }
     if (_tun.vue === 'edition') {
       const t = _tun.brouillon;
+      if (!_tun.listes) {
+        try { _tun.listes = await lire('tunnels:listes', () => TUN('listes_brevo')); } catch (e) { _tun.listes = []; dire(`Listes Brevo illisibles : ${e.message}`, 'error'); }
+      }
       const m = modeles.find((x) => x.type === t.type);
       const st = LIB_STATUT[t.statut || 'brouillon'];
       const manq = t.manquants || [];
@@ -332,7 +343,12 @@
         <div class="bo-tun-grille">
           <label class="bo-tun-champ"><span>Titre <b class="bo-oblig">*</b></span><input data-tun-titre type="text" value="${txt(t.titre)}"></label>
           <label class="bo-tun-champ"><span>Adresse de la page <b class="bo-oblig">*</b></span><input data-tun-slug type="text" value="${txt(t.slug)}"><small>trader360.fr/t/<b data-tun-slug-vu>${txt(t.slug)}</b>/</small></label>
-          ${m.formulaire ? `<label class="bo-tun-champ"><span>Liste Brevo des inscrits</span><input data-tun-liste type="number" min="1" value="${txt(t.brevo_liste ?? '')}"><small>Numéro de la liste dédiée à ce tunnel (pas la 18, celle du brief). Vide : inscrits visibles ici seulement.</small></label>` : ''}
+          ${m.formulaire ? `<label class="bo-tun-champ"><span>Liste Brevo des inscrits</span>
+            <select data-tun-liste><option value="">Aucune : inscrits visibles ici seulement</option>
+              ${(_tun.listes || []).map((l) => `<option value="${l.id}" ${String(l.id) === String(t.brevo_liste ?? '') ? 'selected' : ''}>${txt(l.nom)} (n° ${l.id}${l.contacts != null ? `, ${l.contacts} contact${l.contacts > 1 ? 's' : ''}` : ''})</option>`).join('')}
+              ${t.brevo_liste && !(_tun.listes || []).some((l) => String(l.id) === String(t.brevo_liste)) ? `<option value="${txt(t.brevo_liste)}" selected>Liste n° ${txt(t.brevo_liste)}</option>` : ''}
+            </select>
+            <small>Les inscrits y entrent automatiquement. Les listes du brief (17 et 18) ne sont pas proposées. <button type="button" class="bo-lien" data-tun-creer-liste>Créer une liste pour ce tunnel</button></small></label>` : ''}
           ${m.champs.map((c) => champHtml(c, (t.contenu || {})[c.cle])).join('')}
         </div></div>
         ${t.id && m.formulaire ? `<div class="bo-carte"><div class="bo-carte__tete"><h2>Inscrits <small>${_tun.inscrits ? _tun.inscrits.length : '…'}</small></h2></div>${tableInscrits(_tun.inscrits)}</div>` : ''}`;
@@ -352,8 +368,8 @@
   function tableInscrits(l) {
     if (!l) return '<p class="bo-vide">Chargement…</p>';
     if (!l.length) return '<p class="bo-vide">Aucun inscrit pour l instant.</p>';
-    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Inscrit le</th></tr></thead><tbody>
-      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
+    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th><th>Inscrit le</th></tr></thead><tbody>
+      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td><td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
     </tbody></table></div>`;
   }
   function lireFormulaire() {
@@ -368,13 +384,80 @@
     return { ...t, titre: document.querySelector('[data-tun-titre]').value.trim(), slug: slugDe(document.querySelector('[data-tun-slug]').value), brevo_liste: liste ? liste.value : null, contenu };
   }
   CHARGEURS['marketing/tunnels'] = vueTunnels;
+
+  /**
+   * LA PHOTO D'UN TUNNEL. Réduite dans le navigateur avant l'envoi : 1920 px de large
+   * au plus, en WebP (JPEG si le navigateur ne sait pas encoder le WebP, cas de vieux
+   * Safari). Une photo de téléphone de 5 Mo devient 200 à 600 Ko : la page reste légère
+   * et l'envoi tient sous la limite de 4,5 Mo des fonctions Vercel.
+   * ⛔ Le type du fichier produit se LIT sur le résultat (`blob.type`), il ne se suppose
+   * pas : un navigateur qui ne sait pas faire du WebP rend du PNG sans rien dire.
+   */
+  async function reduirePhoto(fichier) {
+    let image;
+    try { image = await createImageBitmap(fichier); } catch { throw new Error('Format de photo non lu par ce navigateur : utilise un JPEG ou un PNG.'); }
+    const echelle = Math.min(1, 1920 / image.width);
+    const toile = document.createElement('canvas');
+    toile.width = Math.round(image.width * echelle);
+    toile.height = Math.round(image.height * echelle);
+    toile.getContext('2d').drawImage(image, 0, 0, toile.width, toile.height);
+    const vers = (type, q) => new Promise((ok) => toile.toBlob(ok, type, q));
+    let blob = await vers('image/webp', 0.82);
+    if (!blob || blob.type !== 'image/webp') blob = await vers('image/jpeg', 0.85);
+    if (!blob) throw new Error('Photo illisible.');
+    if (blob.size > 3 * 1024 * 1024) throw new Error('Photo trop lourde même réduite (3 Mo au plus).');
+    const donnees = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = ko; r.readAsDataURL(blob); });
+    return { mime: blob.type, donnees, largeur: toile.width, hauteur: toile.height };
+  }
+  document.addEventListener('change', async (e) => {
+    if (!e.target.matches('[data-tun-photo]')) return;
+    const fichier = e.target.files && e.target.files[0];
+    if (!fichier || !_tun.brouillon) return;
+    const etiquette = e.target.closest('label');
+    try {
+      if (etiquette) etiquette.classList.add('bo-btn--occupe');
+      dire('Envoi de la photo…');
+      const p = await reduirePhoto(fichier);
+      const r = await TUN('image', { mime: p.mime, donnees: p.donnees });
+      // On garde la saisie en cours : le formulaire est relu AVANT de redessiner.
+      _tun.brouillon = lireFormulaire();
+      _tun.brouillon.contenu.image = r.url;
+      dire(`Photo ajoutée (${p.largeur} × ${p.hauteur}). Pense à décrire la photo puis à enregistrer.`);
+      vueTunnels();
+    } catch (err) {
+      dire(err.message, 'error');
+    } finally {
+      if (etiquette) etiquette.classList.remove('bo-btn--occupe');
+      e.target.value = '';
+    }
+  });
   document.addEventListener('input', (e) => {
     if (e.target.matches('[data-tun-slug]')) { const vu = document.querySelector('[data-tun-slug-vu]'); if (vu) vu.textContent = slugDe(e.target.value); }
   });
   document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier]');
+    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier],[data-tun-photo-retirer],[data-tun-creer-liste]');
     if (!b) return;
     try {
+      if (b.matches('[data-tun-creer-liste]')) {
+        e.preventDefault();
+        const f = lireFormulaire();
+        const nom = window.prompt('Nom de la nouvelle liste Brevo :', `TUNNEL · ${f.titre}`.slice(0, 120));
+        if (!nom) return;
+        b.disabled = true;
+        const l = await TUN('creer_liste_brevo', { nom });
+        _cache.delete('tunnels:listes');
+        _tun.listes = [{ id: l.id, nom: l.nom, contacts: 0 }, ...(_tun.listes || [])];
+        _tun.brouillon = { ...f, brevo_liste: l.id };
+        dire(`Liste « ${l.nom} » créée (n° ${l.id}). Enregistre pour l associer.`);
+        return vueTunnels();
+      }
+      if (b.matches('[data-tun-photo-retirer]')) {
+        _tun.brouillon = lireFormulaire();
+        _tun.brouillon.contenu.image = '';
+        _tun.brouillon.contenu.image_alt = '';
+        dire('Photo retirée. Enregistre pour l appliquer à la page.');
+        return vueTunnels();
+      }
       if (b.matches('[data-tun-nouveau]')) { _tun = { vue: 'choix' }; return vueTunnels(); }
       if (b.matches('[data-tun-retour]')) { _tun = { vue: 'liste' }; _cache.delete('tunnels:liste'); return vueTunnels(); }
       if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
