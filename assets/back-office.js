@@ -463,7 +463,11 @@
       if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
       if (b.matches('[data-tun-creer]')) {
         const m = (await lire('tunnels:modeles', () => TUN('modeles'))).find((x) => x.type === b.dataset.tunCreer);
-        _tun = { vue: 'edition', brouillon: { type: m.type, statut: 'brouillon', titre: m.exemple.titre, slug: m.exemple.slug, contenu: JSON.parse(JSON.stringify(m.exemple.contenu)), brevo_liste: null, manquants: [] }, inscrits: null };
+        // Repartir d'un exemple déjà utilisé proposait la même adresse, refusée à l'enregistrement : on prend la première libre.
+        const prises = new Set((await lire('tunnels:liste', () => TUN('lister'))).map((x) => x.slug));
+        let slug = m.exemple.slug;
+        for (let n = 2; prises.has(slug); n += 1) slug = `${m.exemple.slug}-${n}`;
+        _tun = { vue: 'edition', brouillon: { type: m.type, statut: 'brouillon', titre: m.exemple.titre, slug, contenu: JSON.parse(JSON.stringify(m.exemple.contenu)), brevo_liste: null, manquants: [] }, inscrits: null };
         return vueTunnels();
       }
       if (b.matches('[data-tun-ouvrir]')) {
