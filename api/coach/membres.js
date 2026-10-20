@@ -272,8 +272,17 @@ function logoMail(mode = 'cid') {
   return { html: img(`cid:${LOGO_CID}`), attachments: [{ filename: 't360-logo.png', content: b64, content_id: LOGO_CID, content_type: 'image/png' }] };
 }
 
-export function mailPremiereConnexion({ prenom, lien, origine, mode = 'cid' }) {
+/**
+ * ⚠️ DEUX PUBLICS, DEUX TEXTES (accord de Nadir du 20/10). Un membre qui vient
+ * de LearnyBox suit la formation depuis des mois : « ton compte est cree » le
+ * deroutait. Il lit que la formation demenage et que sa progression est reprise.
+ * Un nouveau membre, sans passe LearnyBox, garde le texte d'accueil.
+ */
+export function mailPremiereConnexion({ prenom, lien, origine, mode = 'cid', learnybox = false }) {
   const logo = logoMail(mode);
+  const corps = learnybox
+    ? `  <p style="margin:0 0 14px">La formation déménage dans ton nouvel espace Trader 360, avec le journal de trading au même endroit. Ta progression LearnyBox y est déjà reprise.</p>`
+    : `  <p style="margin:0 0 14px">Ton compte Trader 360 est créé. Il te donne accès à la formation et au journal de trading, avec la même adresse email.</p>`;
   const bonjour = prenom ? `Bonjour ${texte(prenom)},` : 'Bonjour,';
   const sujet = 'Ton accès à Trader 360 : choisis ton mot de passe';
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"></head><body style="margin:0;padding:0;background:#0a0a0d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f7f6f3">
@@ -285,7 +294,7 @@ export function mailPremiereConnexion({ prenom, lien, origine, mode = 'cid' }) {
 <tr><td style="padding:16px 36px 0;font-size:12.5px;letter-spacing:.22em;text-transform:uppercase;color:#e8b84b;font-weight:700;text-align:center">Ton espace est ouvert</td></tr>
 <tr><td style="padding:14px 36px 0;font-size:17px;line-height:1.65;color:#f7f6f3">
   <p style="margin:0 0 14px">${bonjour}</p>
-  <p style="margin:0 0 14px">Ton compte Trader 360 est créé. Il te donne accès à la formation et au journal de trading, avec la même adresse email.</p>
+${corps}
   <p style="margin:0 0 14px">Il te reste une seule chose à faire : choisir ton mot de passe.</p>
 </td></tr>
 <tr><td align="center" style="padding:14px 36px 10px">
@@ -297,7 +306,7 @@ export function mailPremiereConnexion({ prenom, lien, origine, mode = 'cid' }) {
   <p style="margin:0">À tout de suite,<br>Nadir et Manu</p>
 </td></tr>
 </table>
-<p style="max-width:560px;margin:18px auto 0;font-size:12px;color:#6f6e68;line-height:1.5">Trader 360 · Le trading comporte un risque de perte en capital. Tu reçois ce message parce qu'un compte a été créé pour toi sur le journal Trader 360.</p>
+<p style="max-width:560px;margin:18px auto 0;font-size:12px;color:#6f6e68;line-height:1.5">Trader 360 · Le trading comporte un risque de perte en capital. ${learnybox ? 'Tu reçois ce message parce que tu es membre de la formation Trader 360.' : "Tu reçois ce message parce qu'un compte a été créé pour toi sur le journal Trader 360."}</p>
 </td></tr></table></body></html>`;
   return { sujet, html, attachments: logo.attachments };
 }
@@ -469,7 +478,7 @@ async function creer(sb, corps, coach, origine) {
   let mail = null;
   if (envoyer) {
     const lien = await lienDeConnexion(sb, email, origine);
-    const { sujet, html, attachments } = mailPremiereConnexion({ prenom, lien, origine });
+    const { sujet, html, attachments } = mailPremiereConnexion({ prenom, lien, origine, learnybox: !!(ligneLb && ligneLb.length) });
     try {
       mail = await envoyerMail({ to: email, sujet, html, attachments });
       await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, fournisseur_id: mail, envoye_par: coach.email });
@@ -558,8 +567,9 @@ async function renvoyerMail(sb, corps, coach, origine) {
   }
   const { data: p } = await sb.from('users').select('name').eq('uuid', cible).maybeSingle();
   const prenom = String((p && p.name) || (data.user.user_metadata && data.user.user_metadata.name) || '').split(' ')[0];
+  const { data: lb } = await sb.from('formation_niveau_learnybox').select('learnybox_id').ilike('email', email).limit(1);
   const lien = await lienDeConnexion(sb, email, origine);
-  const { sujet, html, attachments } = mailPremiereConnexion({ prenom, lien, origine });
+  const { sujet, html, attachments } = mailPremiereConnexion({ prenom, lien, origine, learnybox: !!(lb && lb.length) });
   let id;
   try {
     id = await envoyerMail({ to: email, sujet, html, attachments });
