@@ -5,7 +5,7 @@
 //
 // Lit l'onglet "👥 Parcours Membre" du tableur Manu (Google Sheets API,
 // via service account read-only). Retourne TOUS les membres renseignés avec
-// toutes leurs colonnes (~38, A→AL), plus les métadonnées utiles.
+// toutes leurs colonnes (plage ouverte : autant que l'onglet en porte), plus les métadonnées utiles.
 //
 // Format de sortie :
 //   {
@@ -22,16 +22,17 @@
 
 import { requireCoach } from '../vimeo/_lib/coach-auth.js';
 import { getSheetsClient, getSheetId } from './_lib/sheets-client.js';
+import { SHEET_NAME, RANGE_ONGLET, columnLetter } from '../_lib/parcours-colonnes.js';
 
-// Range : onglet "👥 Parcours Membre", colonnes A → AL (38 colonnes), lignes NON bornées.
+// Range : onglet "👥 Parcours Membre" ENTIER — ni lignes ni colonnes bornées. La borne A:AL
+// (38 colonnes) aurait fait disparaître toute colonne ajoutée ou déplacée au-delà de AL.
 // Ligne 1 = titre "PARCOURS MEMBRE 360". Ligne 2 = "Mise à jour : ..."
 // Ligne 3 = headers de colonnes. Ligne 4 → dernière ligne renseignée = les membres.
 // La borne figée à 77 rendait invisibles les membres ajoutés au-delà (4 personnes début
 // septembre 2026, dont 2 élèves actifs). Sans risque : les lignes vides sont écartées
 // plus bas par le filtre hasContent, et l'arithmétique de numéro de ligne est basée sur
 // l'index (FIRST_MEMBER_ROW + rowIdx), donc indépendante de la taille du range.
-const SHEET_NAME = '👥 Parcours Membre';
-const RANGE_MAIN = `'${SHEET_NAME}'!A1:AL`;
+const RANGE_MAIN = RANGE_ONGLET;
 const RANGE_UPDATED = `'${SHEET_NAME}'!A2`;
 const HEADER_ROW_IDX = 2;        // ligne 3 (0-indexed = 2)
 const FIRST_MEMBER_ROW_IDX = 3;  // ligne 4 (0-indexed = 3)
@@ -152,15 +153,4 @@ export default async function handler(req, res) {
       code: err.code,
     });
   }
-}
-
-// A, B, ..., Z, AA, AB, ..., AZ, BA, ...
-function columnLetter(idx) {
-  let s = '';
-  let n = idx;
-  while (n >= 0) {
-    s = String.fromCharCode(65 + (n % 26)) + s;
-    n = Math.floor(n / 26) - 1;
-  }
-  return s;
 }
