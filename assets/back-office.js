@@ -279,14 +279,138 @@
 
   /* ══ MARKETING, CRM, AFFILIATION : ce qui vient, dit en clair ═══════════════ */
   const avenir = (cartes) => `<div class="bo-avenir">${cartes.map(([t, p]) => `<div class="bo-avenir__carte"><h3>${t}</h3><p>${p}</p></div>`).join('')}</div>`;
-  CHARGEURS['marketing/tunnels'] = async () => {
-    $('boTunnels').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>0</b> Tunnel</h2><button type="button" class="bo-btn bo-btn--or" disabled title="Lot Marketing, après les ventes"><i class="fas fa-plus"></i> Créer un tunnel</button></div>
-      ${avenir([
-        ['Une page d inscription', 'Créée ici, publiée sur trader360.fr, avec un lien à partager (le cas du webinaire avec REC).'],
-        ['Les inscrits', 'Chaque inscription arrive dans le CRM et dans la liste Brevo choisie, et vous la voyez ici.'],
-        ['Le replay', 'Après le direct, la même page donne accès au replay, aux inscrits seulement.'],
-      ])}<p class="bo-source">Les candidatures, elles, passent déjà par le questionnaire du site.</p></div>`;
-  };
+  /* ══ MARKETING · TUNNELS DE VENTE ══════════════════════════════════════════
+   * Arbitrage de Nadir du 20/10/2026 : quatre modeles (webinaire, presentiel, page
+   * de vente, ressource offerte), des exemples propres, publies sur trader360.fr/t/.
+   * ⛔ Les modeles, les champs et la regle de publication vivent dans le depot du SITE
+   * (src/donnees/tunnels.ts) et arrivent ici par le pont : rien n'est recopie.
+   * Le pont : action `tunnels` de /api/coach/membres, qui appelle le site cote serveur. */
+  const SITE_PUBLIC = 'https://www.trader360.fr';
+  const TUN = (sous_action, corps) => BO('tunnels', { sous_action, ...(corps || {}) });
+  const LIB_TYPE = { webinaire: 'Webinaire', presentiel: 'Présentiel', vente: 'Page de vente', lead: 'Ressource offerte' };
+  const LIB_STATUT = { brouillon: ['Brouillon', 'attend'], publie: ['Publié', 'ok'], archive: ['Archivé', ''] };
+  let _tun = { vue: 'liste', id: null, type: null, brouillon: null, inscrits: null };
+  const lienPublic = (t) => `${SITE_PUBLIC}/t/${t.slug}/`;
+  const lienApercu = (t) => `${SITE_PUBLIC}/t/${t.slug}/?apercu=${t.jeton_apercu}`;
+  const slugDe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+
+  function champHtml(c, v) {
+    const val = Array.isArray(v) ? v.join('\n') : (v == null ? '' : String(v));
+    const id = `tun_${c.cle}`;
+    const aide = c.aide ? `<small>${txt(c.aide)}</small>` : '';
+    const ob = c.obligatoire ? ' <b class="bo-oblig">*</b>' : '';
+    let entree;
+    if (c.genre === 'long' || c.genre === 'liste') entree = `<textarea id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" rows="${c.genre === 'liste' ? 5 : 3}">${txt(val)}</textarea>`;
+    else if (c.genre === 'date') entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="date" type="text" placeholder="AAAA-MM-JJTHH:MM" value="${txt(val)}">`;
+    else entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" type="${c.genre === 'nombre' ? 'number' : 'text'}" value="${txt(val)}">`;
+    return `<label class="bo-tun-champ" for="${id}"><span>${txt(c.libelle)}${ob}</span>${entree}${aide}</label>`;
+  }
+
+  async function vueTunnels() {
+    const z = $('boTunnels');
+    const modeles = await lire('tunnels:modeles', () => TUN('modeles'));
+    if (_tun.vue === 'choix') {
+      z.innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2>Choisir un modèle</h2><button type="button" class="bo-btn bo-btn--fantome" data-tun-retour>Retour</button></div>
+        <div class="bo-modeles">${modeles.map((m) => `<div class="bo-modele"><div class="bo-modele__apercu"><i class="or"></i><i class="titre"></i><i></i><i style="width:85%"></i>${m.formulaire ? '<i style="width:60%"></i><i style="width:60%"></i>' : ''}<i class="btn"></i></div>
+          <div class="bo-modele__corps"><h3>${txt(m.nom)}</h3><p>${txt(m.resume)}</p><p class="bo-tun-ex">Exemple : « ${txt(m.exemple.titre)} »</p><button type="button" class="bo-btn bo-btn--or" data-tun-creer="${m.type}">Partir de cet exemple</button></div></div>`).join('')}</div>
+        <p class="bo-source">Chaque exemple est prêt à adapter. Les dates, lieux et prix y sont marqués [À VALIDER] : la page ne peut pas être publiée tant qu'il en reste.</p></div>`;
+      return;
+    }
+    if (_tun.vue === 'edition') {
+      const t = _tun.brouillon;
+      const m = modeles.find((x) => x.type === t.type);
+      const st = LIB_STATUT[t.statut || 'brouillon'];
+      const manq = t.manquants || [];
+      z.innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2>${txt(LIB_TYPE[t.type])} <span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></h2>
+          <div class="bo-tun-actions"><button type="button" class="bo-btn bo-btn--fantome" data-tun-retour>Retour à la liste</button>
+          ${t.id ? `<a class="bo-btn bo-btn--fantome" href="${txt(lienApercu(t))}" target="_blank" rel="noopener">Aperçu</a>` : ''}
+          <button type="button" class="bo-btn bo-btn--or" data-tun-enregistrer>Enregistrer</button>
+          ${t.id && t.statut !== 'publie' ? `<button type="button" class="bo-btn bo-btn--or" data-tun-statut="publie" ${manq.length ? `disabled title="À compléter : ${txt(manq.join(', '))}"` : ''}>Publier</button>` : ''}
+          ${t.id && t.statut === 'publie' ? `<button type="button" class="bo-btn bo-btn--fantome" data-tun-statut="brouillon">Dépublier</button>` : ''}</div></div>
+        ${manq.length ? `<p class="bo-tun-manque">Avant publication : ${txt(manq.join(' · '))}</p>` : ''}
+        ${t.statut === 'publie' ? `<p class="bo-tun-lien">En ligne : <a href="${txt(lienPublic(t))}" target="_blank" rel="noopener">${txt(lienPublic(t))}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienPublic(t))}">Copier le lien</button></p>` : ''}
+        <div class="bo-tun-grille">
+          <label class="bo-tun-champ"><span>Titre <b class="bo-oblig">*</b></span><input data-tun-titre type="text" value="${txt(t.titre)}"></label>
+          <label class="bo-tun-champ"><span>Adresse de la page <b class="bo-oblig">*</b></span><input data-tun-slug type="text" value="${txt(t.slug)}"><small>trader360.fr/t/<b data-tun-slug-vu>${txt(t.slug)}</b>/</small></label>
+          ${m.formulaire ? `<label class="bo-tun-champ"><span>Liste Brevo des inscrits</span><input data-tun-liste type="number" min="1" value="${txt(t.brevo_liste ?? '')}"><small>Numéro de la liste dédiée à ce tunnel (pas la 18, celle du brief). Vide : inscrits visibles ici seulement.</small></label>` : ''}
+          ${m.champs.map((c) => champHtml(c, (t.contenu || {})[c.cle])).join('')}
+        </div></div>
+        ${t.id && m.formulaire ? `<div class="bo-carte"><div class="bo-carte__tete"><h2>Inscrits <small>${_tun.inscrits ? _tun.inscrits.length : '…'}</small></h2></div>${tableInscrits(_tun.inscrits)}</div>` : ''}`;
+      if (t.id && m.formulaire && !_tun.inscrits) {
+        try { _tun.inscrits = await TUN('inscrits', { id: t.id }); } catch (e) { _tun.inscrits = []; dire(`Inscrits illisibles : ${e.message}`, 'error'); }
+        if (_tun.vue === 'edition' && _tun.brouillon && _tun.brouillon.id === t.id) vueTunnels();
+      }
+      return;
+    }
+    const liste = await lire('tunnels:liste', () => TUN('lister'));
+    z.innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>${liste.length}</b> Tunnel${liste.length > 1 ? 's' : ''}</h2><button type="button" class="bo-btn bo-btn--or" data-tun-nouveau><i class="fas fa-plus"></i> Créer un tunnel</button></div>
+      ${liste.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Page</th><th>Type</th><th>État</th><th class="num">Inscrits</th><th>Modifiée</th><th></th></tr></thead><tbody>
+        ${liste.map((t) => { const st = LIB_STATUT[t.statut]; return `<tr><td><b>${txt(t.titre)}</b><br><small style="color:var(--text-soft)">/t/${txt(t.slug)}/</small></td><td>${txt(LIB_TYPE[t.type])}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td><td class="num">${t.inscrits}</td><td>${txt(dateFr(t.updated_at))}</td><td><button type="button" class="bo-oeil" data-tun-ouvrir="${t.id}" title="Ouvrir">&#128065;</button></td></tr>`; }).join('')}
+      </tbody></table></div>` : `<p class="bo-vide">Aucun tunnel pour l'instant. « Créer un tunnel » propose quatre modèles avec un exemple prêt à adapter.</p>`}
+      <p class="bo-source">Pages publiées sur trader360.fr/t/, inscrits enregistrés dans la base du site et versés dans la liste Brevo choisie. Après chaque page ou inscription, la suite est toujours le questionnaire : l'offre est envoyée en personne après l'appel, depuis Ventes · Offres.</p></div>`;
+  }
+  function tableInscrits(l) {
+    if (!l) return '<p class="bo-vide">Chargement…</p>';
+    if (!l.length) return '<p class="bo-vide">Aucun inscrit pour l instant.</p>';
+    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Inscrit le</th></tr></thead><tbody>
+      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  }
+  function lireFormulaire() {
+    const t = _tun.brouillon;
+    const contenu = { ...(t.contenu || {}) };
+    document.querySelectorAll('[data-tun-champ]').forEach((el) => {
+      const v = el.value;
+      contenu[el.dataset.tunChamp] = el.dataset.genre === 'liste' ? v.split('\n').map((x) => x.trim()).filter(Boolean)
+        : el.dataset.genre === 'nombre' ? (v === '' ? null : Number(v)) : v.trim();
+    });
+    const liste = document.querySelector('[data-tun-liste]');
+    return { ...t, titre: document.querySelector('[data-tun-titre]').value.trim(), slug: slugDe(document.querySelector('[data-tun-slug]').value), brevo_liste: liste ? liste.value : null, contenu };
+  }
+  CHARGEURS['marketing/tunnels'] = vueTunnels;
+  document.addEventListener('input', (e) => {
+    if (e.target.matches('[data-tun-slug]')) { const vu = document.querySelector('[data-tun-slug-vu]'); if (vu) vu.textContent = slugDe(e.target.value); }
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier]');
+    if (!b) return;
+    try {
+      if (b.matches('[data-tun-nouveau]')) { _tun = { vue: 'choix' }; return vueTunnels(); }
+      if (b.matches('[data-tun-retour]')) { _tun = { vue: 'liste' }; _cache.delete('tunnels:liste'); return vueTunnels(); }
+      if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
+      if (b.matches('[data-tun-creer]')) {
+        const m = (await lire('tunnels:modeles', () => TUN('modeles'))).find((x) => x.type === b.dataset.tunCreer);
+        _tun = { vue: 'edition', brouillon: { type: m.type, statut: 'brouillon', titre: m.exemple.titre, slug: m.exemple.slug, contenu: JSON.parse(JSON.stringify(m.exemple.contenu)), brevo_liste: null, manquants: [] }, inscrits: null };
+        return vueTunnels();
+      }
+      if (b.matches('[data-tun-ouvrir]')) {
+        _tun = { vue: 'edition', brouillon: await TUN('lire', { id: Number(b.dataset.tunOuvrir) }), inscrits: null };
+        return vueTunnels();
+      }
+      if (b.matches('[data-tun-enregistrer]')) {
+        b.disabled = true;
+        const f = lireFormulaire();
+        const r = await TUN('enregistrer', { id: f.id, type: f.type, titre: f.titre, slug: f.slug, contenu: f.contenu, brevo_liste: f.brevo_liste });
+        _tun.brouillon = r; _cache.delete('tunnels:liste');
+        dire(r.manquants && r.manquants.length ? `Enregistré. Encore à compléter avant publication : ${r.manquants.length} champ(s).` : 'Enregistré, prêt à publier.');
+        return vueTunnels();
+      }
+      if (b.matches('[data-tun-statut]')) {
+        const statut = b.dataset.tunStatut;
+        if (statut === 'publie' && !window.confirm('Publier cette page sur trader360.fr ? Elle sera accessible à toute personne qui a le lien.')) return;
+        b.disabled = true;
+        const f = lireFormulaire();
+        await TUN('enregistrer', { id: f.id, type: f.type, titre: f.titre, slug: f.slug, contenu: f.contenu, brevo_liste: f.brevo_liste });
+        await TUN('statut', { id: f.id, statut });
+        _tun.brouillon = await TUN('lire', { id: f.id }); _cache.delete('tunnels:liste');
+        dire(statut === 'publie' ? 'Page publiée.' : 'Page repassée en brouillon.');
+        return vueTunnels();
+      }
+    } catch (err) {
+      b.disabled = false;
+      dire(err.message, 'error');
+    }
+  });
   CHARGEURS['marketing/emails'] = async () => {
     const modeles = [
       ['Nouveauté dans la formation', 'Un chapitre ou un module ajouté : ce qu il apporte, et un bouton vers l espace membre.'],

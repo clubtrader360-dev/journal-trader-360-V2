@@ -385,6 +385,34 @@ async function annonce(sb, corps, coach, origine) {
   return { user_id: cible, email, mail_id: id, identifiant_change: !!ancienne };
 }
 
+/* ══ LES TUNNELS DE VENTE : le pont vers le site ═══════════════════════════
+ * Arbitrage de Nadir du 20/10/2026 : les tunnels et leurs inscrits vivent dans la
+ * base du SITE (trader360.fr). Le Journal n'y touche jamais : il appelle la route
+ * /api/tunnels du site, cote serveur, avec la cle partagee BACKOFFICE_CLE, apres
+ * avoir verifie ici que l'appelant est un coach. ⛔ La cle ne part jamais vers un
+ * navigateur, et aucune donnee d'eleve ne passe par ce pont.
+ * Variables (noms seulement) : BACKOFFICE_CLE (meme valeur que sur le projet du
+ * site), SITE_URL (facultative, https://www.trader360.fr par defaut).
+ */
+const SOUS_ACTIONS_TUNNELS = ['modeles', 'lister', 'lire', 'enregistrer', 'statut', 'inscrits'];
+async function tunnels(corps, coach) {
+  const cle = process.env.BACKOFFICE_CLE;
+  if (!cle) throw httpError(500, 'BACKOFFICE_CLE absente : le pont vers le site n est pas configure');
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_TUNNELS.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  const site = (process.env.SITE_URL || 'https://www.trader360.fr').replace(/\/$/, '');
+  const { action: _a, sous_action: _s, ...reste } = corps;
+  const r = await fetch(`${site}/api/tunnels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-backoffice-cle': cle },
+    body: JSON.stringify({ ...reste, action: sous, par: coach.email }),
+  });
+  const d = await r.json().catch(() => ({}));
+  // ⛔ `r.ok` : un refus du site arrive en 4xx sans lever.
+  if (!r.ok || !d.ok) throw httpError(r.status >= 400 && r.status < 500 ? r.status : 502, d.motif || `site ${r.status}`);
+  return d.resultat;
+}
+
 async function envoyerMail({ to, sujet, html, attachments = [] }) {
   if (!RESEND_API_KEY) throw httpError(500, 'RESEND_API_KEY absente : le mail ne peut pas partir');
   const r = await fetch('https://api.resend.com/emails', {
@@ -960,6 +988,7 @@ export default async function handler(req, res) {
     else if (action === 'creer') resultat = await creer(sb, corps, coach, origine);
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
     else if (action === 'annonce') resultat = await annonce(sb, corps, coach, origine);
+    else if (action === 'tunnels') resultat = await tunnels(corps, coach);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
     else if (action === 'fiche') resultat = await fiche(sb, corps);
