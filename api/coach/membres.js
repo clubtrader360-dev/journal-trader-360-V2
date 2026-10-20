@@ -394,7 +394,7 @@ async function annonce(sb, corps, coach, origine) {
  * Variables (noms seulement) : BACKOFFICE_CLE (meme valeur que sur le projet du
  * site), SITE_URL (facultative, https://www.trader360.fr par defaut).
  */
-const SOUS_ACTIONS_TUNNELS = ['modeles', 'lister', 'lire', 'enregistrer', 'statut', 'inscrits'];
+const SOUS_ACTIONS_TUNNELS = ['modeles', 'lister', 'lire', 'enregistrer', 'statut', 'inscrits', 'image', 'listes_brevo', 'creer_liste_brevo'];
 async function tunnels(corps, coach) {
   const cle = process.env.BACKOFFICE_CLE;
   if (!cle) throw httpError(500, 'BACKOFFICE_CLE absente : le pont vers le site n est pas configure');
