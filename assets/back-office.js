@@ -94,7 +94,7 @@
   /* ══ Le routeur ════════════════════════════════════════════════════════════ */
   const FILS = {
     'accueil': 'Accueil', 'academie/formations': 'Académie · Formations', 'academie/membres': 'Académie · Membres',
-    'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes',
+    'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes', 'academie/mails': 'Académie · Mails aux membres',
     'marketing/tunnels': 'Marketing · Tunnels de vente', 'marketing/emails': 'Marketing · Emails marketing', 'marketing/webinaires': 'Marketing · Webinaires live',
     'crm': 'CRM', 'ventes/offres': 'Ventes · Offres', 'ventes/commandes': 'Ventes · Commandes & factures', 'ventes/comptabilite': 'Ventes · Comptabilité', 'ventes/affiliation': 'Ventes · Affiliation',
   };
@@ -234,11 +234,14 @@
 
   /* ══ ACADEMIE · DIPLOMES ═══════════════════════════════════════════════════ */
   let _diplFiltre = 'tous';
-  function badgesDe(lecons) {
-    const M = (window.FormationDonnees && window.FormationDonnees.MODULES) || [];
+  function badgesDe(lecons, quizReussis) {
+    const FD = window.FormationDonnees;
+    const M = (FD && FD.MODULES) || [];
     const vus = new Set(lecons || []);
-    const modules = M.filter((m) => !m.introduction && m.lecons.length).map((m) => ({ m, n: m.lecons.filter((l) => vus.has(l.id)).length, t: m.lecons.length }));
-    const finis = modules.filter((x) => x.n === x.t);
+    const quiz = new Set(quizReussis || []);
+    // ⛔ La règle « module terminé » unique (formation-donnees.js) : un quiz réussi suffit.
+    const modules = M.filter((m) => !m.introduction && m.lecons.length).map((m) => ({ m, n: m.lecons.filter((l) => vus.has(l.id)).length, t: m.lecons.length, fini: FD.moduleTermine(m, (id) => vus.has(id), (cle) => quiz.has(cle)) }));
+    const finis = modules.filter((x) => x.fini);
     const cert = finis.some((x) => x.m.cle === '10');
     return { modules, finis, cert, vus: vus.size };
   }
@@ -247,7 +250,7 @@
     const eleves = await lire('progression', () => BO('progression'));
     const tl = total();
     // ⚠️ La certification se lit dans `certifie_le` (examen final reussi), pas dans les chapitres vus.
-    const lignes = eleves.map((e) => ({ e, b: { ...badgesDe(e.lecons), cert: !!e.certifie_le } }));
+    const lignes = eleves.map((e) => ({ e, b: { ...badgesDe(e.lecons, e.quiz_reussis), cert: !!e.certifie_le } }));
     const certifies = lignes.filter((x) => x.b.cert).length;
     const avecBadges = lignes.filter((x) => x.b.finis.length).length;
     const visibles = lignes.filter((x) => _diplFiltre === 'tous' || (_diplFiltre === 'certifies' ? x.b.cert : _diplFiltre === 'non' ? !x.b.cert : x.b.finis.length > 0));
@@ -519,22 +522,221 @@
       dire(err.message, 'error');
     }
   });
-  CHARGEURS['marketing/emails'] = async () => {
-    const modeles = [
-      ['Nouveauté dans la formation', 'Un chapitre ou un module ajouté : ce qu il apporte, et un bouton vers l espace membre.'],
-      ['Replay d un live', 'Le résumé du live, trois points à retenir, le lien vers le replay.'],
-      ['Relance douce', 'Pour un élève qu on n a pas vu depuis trois semaines : un mot, un chapitre à reprendre.'],
-      ['Offre ou présentiel', 'Une date, un lieu, un prix, un bouton pour réserver.'],
-      ['Brief marché', 'Le contexte du jour en quatre lignes, dans le style du brief existant.'],
-      ['Félicitations', 'Module terminé, quiz réussi, certification : un mail qui marque le coup.'],
-    ];
-    $('boEmails').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2>Modèles Trader 360</h2><span class="bo-pill">Envoi par Brevo, lot Marketing</span></div>
-      <div class="bo-modeles">
-        ${modeles.map(([t, p]) => `<div class="bo-modele"><div class="bo-modele__apercu"><i class="or"></i><i class="titre"></i><i></i><i style="width:85%"></i><i style="width:60%"></i><i class="btn"></i></div><div class="bo-modele__corps"><h3>${t}</h3><p>${p}</p><button type="button" class="bo-btn bo-btn--fantome" data-modele="${txt(t)}">Utiliser</button></div></div>`).join('')}
-        <div class="bo-modele bo-modele--libre"><div class="bo-modele__apercu"><i class="fas fa-pen-nib"></i></div><div class="bo-modele__corps"><h3>Composer librement</h3><p>Une page blanche aux couleurs Trader 360 : logo, titre, texte, bouton.</p><button type="button" class="bo-btn bo-btn--fantome" data-modele="libre">Composer</button></div></div>
+  /* ══ ACADEMIE · MAILS AUX MEMBRES (21/10) ═════════════════════════════════
+   * Le resultat de chaque quiz, envoye a l eleve des l enregistrement (route
+   * /api/coach/membres, action eleve `mail_quiz`). Gabarit : api/_lib/mail-quiz.js.
+   * ⛔ Interrupteur coupe par defaut, relu par le serveur a chaque envoi. */
+  const MM = (sous_action, corps) => BO('mails_membres', { sous_action, ...(corps || {}) });
+  let _mm = { module: '01', cas: 'reussi' };
+  async function vueMailsMembres() {
+    const z = $('boMailsMembres');
+    let actif = false, journal = { envois: [], sans_mail_7j: 0 };
+    try { actif = (await MM('reglage')).quiz_actif === true; } catch (e) { dire(`Réglage illisible : ${e.message}`, 'error'); }
+    try { journal = await MM('journal'); } catch (e) { dire(`Journal illisible : ${e.message}`, 'error'); }
+    const M = ((window.FormationDonnees && window.FormationDonnees.MODULES) || []).filter((m) => window.FormationDonnees.aUnQuiz(m));
+    z.innerHTML = `<div class="bo-cam-interrupteur" data-actif="${actif ? '1' : ''}"><div><b>Mail de résultat de quiz : ${actif ? 'activé' : 'coupé'}</b>
+        <span>${actif ? 'Chaque quiz terminé, réussi ou non, envoie son résultat à l élève dans la minute.' : 'Aucun mail ne part. Regarde l aperçu et envoie-toi un test, puis active.'}</span></div>
+        <button type="button" class="bo-btn ${actif ? 'bo-btn--fantome' : 'bo-btn--or'}" data-mm-interrupteur="${actif ? '0' : '1'}">${actif ? 'Couper' : 'Activer'}</button></div>
+      <div class="bo-cam">
+        <div class="bo-carte"><div class="bo-carte__tete"><h2>Le mail de résultat de quiz</h2></div>
+          <p class="bo-source" style="margin-top:0">Il part à la fin de chaque quiz : le score, le badge du module si le quiz est réussi (un quiz réussi termine le module), et pour chaque question ratée le conseil et le passage de la vidéo à revoir. Un quiz raté donne aussi son mail : c'est là qu'il sert le plus.</p>
+          <div class="bo-cam__champs">
+            <label class="bo-tun-champ"><span>Module</span><select data-mm-module>${M.map((m) => `<option value="${m.cle}" ${m.cle === _mm.module ? 'selected' : ''}>${m.cle === '10' ? 'Certification' : `Module ${txt(m.numero)}`}${m.titre ? ` · ${txt(m.titre)}` : ''}</option>`).join('')}</select></label>
+            <label class="bo-tun-champ"><span>Cas</span><select data-mm-cas><option value="reussi" ${_mm.cas === 'reussi' ? 'selected' : ''}>Quiz réussi</option><option value="rate" ${_mm.cas === 'rate' ? 'selected' : ''}>Quiz raté</option></select></label>
+          </div>
+          <div class="bo-tun-actions bo-cam__envoi"><button type="button" class="bo-btn bo-btn--or" data-mm-test><i class="fas fa-paper-plane"></i> M'envoyer ce mail en test</button></div>
+          <p class="bo-source">Les textes sont des propositions : dis-moi ce que tu veux changer.</p>
+        </div>
+        <div class="bo-carte bo-cam__apercu"><div class="bo-carte__tete"><h2>Aperçu</h2><span class="bo-pill">Exemple fabriqué, prénom « Nadir »</span></div><iframe data-mm-cadre title="Aperçu du mail de résultat" sandbox=""></iframe></div>
       </div>
-      <p class="bo-source">Les modèles sont dessinés ; l'éditeur et l'envoi vers une liste Brevo arrivent avec le lot Marketing, après les ventes.</p></div>`;
-  };
+      <div class="bo-carte"><div class="bo-carte__tete"><h2>Envois <small>${journal.envois.length}</small></h2>
+        ${journal.sans_mail_7j ? `<button type="button" class="bo-btn bo-btn--fantome" data-mm-rattraper>Envoyer les ${journal.sans_mail_7j} résultat${journal.sans_mail_7j > 1 ? 's' : ''} des 7 derniers jours sans mail</button>` : ''}</div>
+        ${journal.envois.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Élève</th><th>Sujet</th><th>État</th><th>Envoyé le</th></tr></thead><tbody>
+          ${journal.envois.map((e) => `<tr><td>${txt(e.email)}</td><td>${txt(e.sujet)}</td><td>${e.erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(e.erreur)}">échec</span>` : e.fournisseur_id ? '<span class="bo-pill bo-pill--ok">envoyé</span>' : '<span class="bo-pill">en cours</span>'}</td><td>${txt(dateFr(e.envoye_le, true))}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="bo-vide">Aucun mail de résultat envoyé pour l instant.</p>'}</div>`;
+    mmApercu();
+  }
+  async function mmApercu() {
+    try {
+      const r = await MM('apercu', { module: _mm.module, cas: _mm.cas });
+      const c = document.querySelector('[data-mm-cadre]'); if (c) c.srcdoc = r.html;
+    } catch (e) { dire(`Aperçu impossible : ${e.message}`, 'error'); }
+  }
+  CHARGEURS['academie/mails'] = vueMailsMembres;
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('[data-mm-module]')) { _mm.module = e.target.value; mmApercu(); }
+    if (e.target.matches('[data-mm-cas]')) { _mm.cas = e.target.value; mmApercu(); }
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-mm-interrupteur],[data-mm-test],[data-mm-rattraper]');
+    if (!b) return;
+    try {
+      if (b.matches('[data-mm-interrupteur]')) {
+        const actif = b.dataset.mmInterrupteur === '1';
+        if (actif && !window.confirm('Activer le mail de résultat de quiz ? Dès maintenant, chaque élève qui termine un quiz recevra son résultat par mail.')) return;
+        b.disabled = true;
+        const r = await MM('activer', { actif });
+        dire(r.quiz_actif ? 'Mails de résultat activés.' : 'Mails de résultat coupés.');
+        return vueMailsMembres();
+      }
+      if (b.matches('[data-mm-test]')) {
+        b.disabled = true;
+        const r = await MM('test', { module: _mm.module, cas: _mm.cas });
+        dire(`Test envoyé à ${r.envoye_a}.`); b.disabled = false; return;
+      }
+      if (b.matches('[data-mm-rattraper]')) {
+        if (!window.confirm('Envoyer maintenant leur mail de résultat aux élèves qui ont passé un quiz ces 7 derniers jours sans le recevoir ?')) return;
+        b.disabled = true;
+        const r = await MM('rattraper');
+        dire(`${r.envoyes} mail${r.envoyes > 1 ? 's' : ''} envoyé${r.envoyes > 1 ? 's' : ''}${r.echecs.length ? `, ${r.echecs.length} échec(s) : ${r.echecs.join(' ; ')}` : ''}.`, r.echecs.length ? 'error' : undefined);
+        return vueMailsMembres();
+      }
+    } catch (err) { b.disabled = false; dire(err.message, 'error'); }
+  });
+
+  /* ══ MARKETING · EMAILS (campagnes Brevo) ═══════════════════════════════════
+   * Modeles, gabarit et controles : api/_lib/campagnes.js, servis par la route coach
+   * (action `campagnes`) : rien n est recopie ici. Une campagne vit dans Brevo :
+   * brouillon cree au premier test, mis a jour aux suivants, puis envoye.
+   * ⛔ L envoi a une liste est irreversible : test prealable obligatoire, nombre de
+   * contacts relu chez Brevo, mot ENVOYER tape, et la route reverifie tout. */
+  const CAM = (sous_action, corps) => BO('campagnes', { sous_action, ...(corps || {}) });
+  let _cam = { vue: 'accueil' };
+  let _camMinuteur = null;
+  function camChamp(c, v) {
+    const val = Array.isArray(v) ? v.join('\n') : (v == null ? '' : String(v));
+    const id = `cam_${c.cle}`;
+    const ob = c.obligatoire ? ' <b class="bo-oblig">*</b>' : '';
+    const entree = c.genre === 'liste'
+      ? `<textarea id="${id}" data-cam-champ="${txt(c.cle)}" data-genre="liste" rows="7">${txt(val)}</textarea>`
+      : `<input id="${id}" data-cam-champ="${txt(c.cle)}" data-genre="${c.genre}" type="text" value="${txt(val)}">`;
+    return `<label class="bo-tun-champ" for="${id}"><span>${txt(c.libelle)}${ob}</span>${entree}${c.aide ? `<small>${txt(c.aide)}</small>` : ''}</label>`;
+  }
+  function camLire() {
+    const contenu = { ...(_cam.contenu || {}) };
+    document.querySelectorAll('[data-cam-champ]').forEach((el) => {
+      contenu[el.dataset.camChamp] = el.dataset.genre === 'liste' ? el.value.split('\n').map((x) => x.trim()).filter(Boolean) : el.value.trim();
+    });
+    const sel = document.querySelector('[data-cam-liste]');
+    return { contenu, liste: sel ? sel.value : (_cam.liste || '') };
+  }
+  async function camApercu() {
+    const f = camLire(); _cam.contenu = f.contenu; _cam.liste = f.liste;
+    try {
+      const r = await CAM('apercu', { contenu: f.contenu });
+      const cadre = document.querySelector('[data-cam-cadre]'); if (cadre) cadre.srcdoc = r.html;
+      const m = document.querySelector('[data-cam-manque]');
+      if (m) { m.textContent = r.manquants.length ? `Avant l'envoi à une liste : ${r.manquants.join(' · ')}` : 'Prêt à envoyer, après ton test.'; m.dataset.ok = r.manquants.length ? '' : '1'; }
+      _cam.manquants = r.manquants;
+    } catch (e) { dire(`Aperçu impossible : ${e.message}`, 'error'); }
+  }
+  const nbCam = (x) => (x == null ? '·' : Number(x).toLocaleString('fr-FR'));
+  const pct = (a, b) => (a == null || !b ? '' : ` <small>${Math.round((a / b) * 100)} %</small>`);
+  /** La barre de l interrupteur, relue a chaque affichage (jamais mise en cache). */
+  function barreEnvoi(actif) {
+    return `<div class="bo-cam-interrupteur" data-actif="${actif ? '1' : ''}"><div><b>Envoi aux listes : ${actif ? 'activé' : 'coupé'}</b>
+      <span>${actif ? 'Un envoi part seulement après ton test, ton choix de liste et le mot ENVOYER tapé.' : 'Seul le test à ton adresse peut partir. Rien n est jamais envoyé automatiquement.'}</span></div>
+      <button type="button" class="bo-btn ${actif ? 'bo-btn--fantome' : 'bo-btn--or'}" data-cam-interrupteur="${actif ? '0' : '1'}">${actif ? 'Couper l envoi' : 'Activer l envoi'}</button></div>`;
+  }
+  async function vueEmails() {
+    const z = $('boEmails');
+    const M = await lire('campagnes:modeles', () => CAM('modeles'));
+    let actif = false;
+    try { actif = (await CAM('reglage')).envoi_actif === true; } catch (e) { dire(`Réglage d envoi illisible : ${e.message}`, 'error'); }
+    _cam.envoiActif = actif;
+    if (_cam.vue === 'edition') {
+      if (!_cam.listes) { try { _cam.listes = await lire('campagnes:listes', () => CAM('listes')); } catch (e) { _cam.listes = []; dire(`Listes Brevo illisibles : ${e.message}`, 'error'); } }
+      const m = M.modeles.find((x) => x.cle === _cam.modele);
+      z.innerHTML = `${barreEnvoi(actif)}<div class="bo-cam">
+        <div class="bo-carte"><div class="bo-carte__tete"><h2>${txt(m.nom)} ${_cam.id ? `<span class="bo-pill">Brouillon Brevo n° ${_cam.id}</span>` : ''}</h2>
+          <div class="bo-tun-actions"><button type="button" class="bo-btn bo-btn--fantome" data-cam-retour>Retour</button></div></div>
+          <div class="bo-cam__champs">${M.champs.map((c) => camChamp(c, _cam.contenu[c.cle])).join('')}
+            <label class="bo-tun-champ"><span>Liste Brevo des destinataires</span><select data-cam-liste><option value="">Choisir une liste…</option>
+              ${(_cam.listes || []).map((l) => `<option value="${l.id}" data-contacts="${l.contacts ?? ''}" ${String(l.id) === String(_cam.liste) ? 'selected' : ''}>${txt(l.nom)} (n° ${l.id}, ${nbCam(l.contacts)} contact${l.contacts > 1 ? 's' : ''})</option>`).join('')}</select>
+              <small>Le test part à ton adresse seulement. La liste ne sert qu'à l'envoi final.</small></label>
+          </div>
+          <p class="bo-tun-manque" data-cam-manque></p>
+          <div class="bo-tun-actions bo-cam__envoi">
+            <label class="bo-cam__test">Test à <input data-cam-test type="email" value="${txt(_cam.emailTest || '')}" placeholder="ton adresse"></label>
+            <button type="button" class="bo-btn bo-btn--or" data-cam-envoyer-test><i class="fas fa-paper-plane"></i> M'envoyer un test</button>
+            <button type="button" class="bo-btn bo-btn--fantome" data-cam-envoyer-liste ${!actif ? 'disabled title="L envoi aux listes est coupé"' : _cam.id ? '' : 'disabled title="Envoie-toi d abord un test"'}>Envoyer à la liste…</button>
+          </div>
+        </div>
+        <div class="bo-carte bo-cam__apercu"><div class="bo-carte__tete"><h2>Aperçu</h2><span class="bo-pill">{{prenom}} affiché « Nadir »</span></div>
+          <iframe data-cam-cadre title="Aperçu du mail" sandbox=""></iframe>
+          <p class="bo-source">Rendu de référence. Le mail de test montre le rendu réel dans ta boîte, avec le pied de désinscription que Brevo ajoute.</p></div>
+      </div>`;
+      camApercu();
+      return;
+    }
+    let hist = [];
+    try { hist = await lire('campagnes:historique', () => CAM('historique')); } catch (e) { dire(`Historique Brevo illisible : ${e.message}`, 'error'); }
+    z.innerHTML = `${barreEnvoi(actif)}<div class="bo-carte"><div class="bo-carte__tete"><h2>Modèles Trader 360</h2><span class="bo-pill">Envoi par Brevo</span></div>
+      <div class="bo-modeles">${M.modeles.map((m) => `<div class="bo-modele ${m.cle === 'libre' ? 'bo-modele--libre' : ''}"><div class="bo-modele__apercu">${m.cle === 'libre' ? '<i class="fas fa-pen-nib"></i>' : '<i class="or"></i><i class="titre"></i><i></i><i style="width:85%"></i><i style="width:60%"></i><i class="btn"></i>'}</div>
+        <div class="bo-modele__corps"><h3>${txt(m.nom)}</h3><p>${txt(m.resume)}</p><button type="button" class="bo-btn bo-btn--fantome" data-cam-modele="${m.cle}">${m.cle === 'libre' ? 'Composer' : 'Utiliser'}</button></div></div>`).join('')}</div>
+      <p class="bo-source">Chaque modèle est un brouillon à adapter. Les repères [À VALIDER] bloquent l'envoi à une liste, pas le test.</p></div>
+      <div class="bo-carte"><div class="bo-carte__tete"><h2>Campagnes <small>${hist.length}</small></h2></div>
+      ${hist.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Campagne</th><th>État</th><th class="num">Délivrés</th><th class="num">Ouvertures</th><th class="num">Clics</th><th class="num">Désinscriptions</th><th>Envoyée le</th></tr></thead><tbody>
+        ${hist.map((h) => `<tr><td><b>${txt(h.objet || h.nom)}</b><br><small style="color:var(--text-soft)">n° ${h.id}</small></td><td><span class="bo-pill bo-pill--${h.statut === 'sent' ? 'ok' : 'attend'}">${h.statut === 'sent' ? 'Envoyée' : h.statut === 'draft' ? 'Brouillon' : txt(h.statut)}</span></td><td class="num">${nbCam(h.delivres)}</td><td class="num">${nbCam(h.ouvertures)}${pct(h.ouvertures, h.delivres)}</td><td class="num">${nbCam(h.clics)}${pct(h.clics, h.delivres)}</td><td class="num">${nbCam(h.desinscriptions)}</td><td>${h.envoyee_le ? txt(dateFr(h.envoyee_le)) : '·'}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="bo-vide">Aucune campagne pour l instant. Les statistiques (délivrés, ouvertures, clics, désinscriptions) viennent de Brevo.</p>'}</div>`;
+  }
+  CHARGEURS['marketing/emails'] = vueEmails;
+  document.addEventListener('input', (e) => {
+    if (!e.target.closest('[data-cam-champ]')) return;
+    clearTimeout(_camMinuteur); _camMinuteur = setTimeout(camApercu, 500);
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-cam-modele],[data-cam-retour],[data-cam-envoyer-test],[data-cam-envoyer-liste],[data-cam-interrupteur]');
+    if (!b) return;
+    try {
+      if (b.matches('[data-cam-interrupteur]')) {
+        const actif = b.dataset.camInterrupteur === '1';
+        if (actif && !window.confirm('Activer l envoi aux listes ? Un envoi restera manuel : test, choix de la liste, puis le mot ENVOYER. Tu pourras couper à tout moment.')) return;
+        b.disabled = true;
+        // On garde la saisie en cours si l editeur est ouvert.
+        if (_cam.vue === 'edition') { const f = camLire(); _cam.contenu = f.contenu; _cam.liste = f.liste; }
+        const r = await CAM('activer', { actif });
+        dire(r.envoi_actif ? 'Envoi aux listes activé.' : 'Envoi aux listes coupé : seul le test peut partir.');
+        return vueEmails();
+      }
+      if (b.matches('[data-cam-modele]')) {
+        const M = await lire('campagnes:modeles', () => CAM('modeles'));
+        const m = M.modeles.find((x) => x.cle === b.dataset.camModele);
+        _cam = { vue: 'edition', modele: m.cle, contenu: JSON.parse(JSON.stringify(m.exemple)), id: null, liste: '', listes: null, emailTest: '' };
+        return vueEmails();
+      }
+      if (b.matches('[data-cam-retour]')) {
+        if (_cam.id && !window.confirm('Quitter l éditeur ? Le brouillon reste dans Brevo, mais ses modifications non testées sont perdues.')) return;
+        _cam = { vue: 'accueil' }; _cache.delete('campagnes:historique'); return vueEmails();
+      }
+      const f = camLire(); _cam.contenu = f.contenu; _cam.liste = f.liste;
+      const emailTest = (document.querySelector('[data-cam-test]')?.value || '').trim();
+      _cam.emailTest = emailTest;
+      if (b.matches('[data-cam-envoyer-test]')) {
+        b.disabled = true;
+        const r = await CAM('test', { id: _cam.id, contenu: f.contenu, liste: f.liste || null, email_test: emailTest || undefined });
+        _cam.id = r.id; _cache.delete('campagnes:historique');
+        dire(`Test envoyé à ${r.envoye_a}. Regarde-le dans ta boîte avant tout envoi.`);
+        return vueEmails();
+      }
+      if (b.matches('[data-cam-envoyer-liste]')) {
+        const sel = document.querySelector('[data-cam-liste]');
+        const opt = sel && sel.selectedOptions[0];
+        if (!sel || !sel.value) return dire('Choisis d abord la liste Brevo des destinataires.', 'error');
+        if (_cam.manquants && _cam.manquants.length) return dire(`À compléter avant l envoi : ${_cam.manquants.join(', ')}`, 'error');
+        const contacts = opt.dataset.contacts;
+        // ⛔ L email marketing s adresse aux prospects (Nadir, 21/10) : une liste de membres se signale.
+        const alerteMembres = /membre/i.test(opt.textContent) ? 'ATTENTION : cette liste est celle des MEMBRES. L email marketing est fait pour les prospects ; les membres, c est Manu qui leur écrit.\n\n' : '';
+        const mot = window.prompt(`${alerteMembres}Envoyer « ${f.contenu.objet} » à la liste « ${opt.textContent.trim()} », soit ${contacts} contacts ?\n\nCet envoi ne s'annule pas. Le contenu envoyé est celui affiché, y compris ce que tu as modifié depuis ton dernier test.\n\nTape ENVOYER pour confirmer.`);
+        if (mot !== 'ENVOYER') return dire('Envoi annulé : rien n est parti.');
+        b.disabled = true;
+        const r = await CAM('envoyer', { id: _cam.id, contenu: f.contenu, liste: sel.value, confirmation: mot, contacts_attendus: contacts });
+        dire(`Campagne envoyée à ${r.contacts} contacts. Les statistiques arrivent dans la liste des campagnes.`);
+        _cam = { vue: 'accueil' }; _cache.delete('campagnes:historique'); _cache.delete('campagnes:listes');
+        return vueEmails();
+      }
+    } catch (err) { b.disabled = false; dire(err.message, 'error'); }
+  });
   CHARGEURS['marketing/webinaires'] = async () => {
     $('boWebinaires').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>0</b> Webinaire</h2><button type="button" class="bo-btn bo-btn--or" disabled title="À travailler plus tard"><i class="fas fa-plus"></i> Créer un webinaire</button></div>
       ${avenir([['Avant', 'Une date, un titre, une page d inscription (c est un tunnel), un rappel par mail.'], ['Pendant', 'Le lien du direct (YouTube ou autre), envoyé aux inscrits.'], ['Après', 'Le replay, et les retombées : inscrits, présents, candidatures qui en viennent.']])}</div>`;
@@ -547,10 +749,6 @@
     $('boAffiliation').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>0</b> Affilié</h2><button type="button" class="bo-btn bo-btn--or" disabled title="Plus tard"><i class="fas fa-plus"></i> Créer un affilié</button></div>
       ${avenir([['Un lien par membre', 'Un membre qui parle de vous reçoit un lien personnel vers le questionnaire.'], ['La trace', 'Chaque candidature venue de ce lien lui est attribuée, et vous en êtes notifiés.'], ['Les retombées', 'Par affilié : candidatures, inscrits, ventes.']])}<p class="bo-source">Jamais utilisé sur LearnyBox ; à faire quand vous le déciderez.</p></div>`;
   };
-  document.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-modele]');
-    if (b) dire('L éditeur de mails arrive avec le lot Marketing : le modèle est prêt, pas encore l envoi.');
-  });
 
   /* ══ VENTES · OFFRES ═══════════════════════════════════════════════════════ */
   let _offreOuverte = null;

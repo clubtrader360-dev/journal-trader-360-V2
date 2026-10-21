@@ -47,7 +47,7 @@ function apiKey() {
 
 // Appel HTTP Brevo. Retourne { status, body }. Ne jette PAS sur statut non-2xx :
 // certains appels ont des non-2xx légitimes (attribut déjà existant), l'appelant tranche.
-async function brevo(path, { method = 'GET', body } = {}) {
+export async function brevo(path, { method = 'GET', body } = {}) {
   const res = await fetch(`${BREVO_BASE}${path}`, {
     method,
     headers: {
@@ -64,7 +64,7 @@ async function brevo(path, { method = 'GET', body } = {}) {
 }
 
 // Erreur enrichie du contexte HTTP — sans quoi un échec partiel d'import est illisible.
-function fail(action, status, body) {
+export function fail(action, status, body) {
   const detail = body && (body.message || body.code || body.raw)
     ? ` — ${body.message || body.code || body.raw}`
     : '';
