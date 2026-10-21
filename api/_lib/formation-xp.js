@@ -88,6 +88,17 @@ export function xpTotal(vues, quizReussis) {
   return x;
 }
 
+// Maximum atteignable, calculé comme `xpMaximum()` de l'espace formation : 100 par module
+// compté (intro et bonus exclus) + 250 par module terminé, 1000 pour la certification.
+export function xpMaximum() {
+  let max = 0;
+  for (const m of modulesFormation()) {
+    if (m.introduction || m.bonus || !m.lecons.length) continue;
+    max += XP_MODULE + (m.certification ? XP_CERT : XP_MOD);
+  }
+  return max;
+}
+
 // Lit toutes les lignes d'une requête PostgREST, par pages de 1000 (plafond Supabase).
 async function toutLire(construire) {
   const out = [];

@@ -32,9 +32,9 @@ import crypto from 'crypto';
 import { getServiceClient, readJson } from '../tradovate/_lib/auth.js';
 import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
 import { computeT360Score } from '../_lib/t360-score.js';
-import { readParcours, cellA1, columnLetter, TITRES, FIRST_MEMBER_ROW, SHEET_NAME } from '../_lib/parcours-colonnes.js';
+import { readParcours, cellA1, columnLetter, normHeaderTitle, TITRES, FIRST_MEMBER_ROW, SHEET_NAME } from '../_lib/parcours-colonnes.js';
 import { parisDayOf, joursBourseEntre, SEUIL_NON_REMPLI, SEUIL_VIDE } from '../_lib/jours-bourse.js';
-import { xpParEmail, dateParis } from '../_lib/formation-xp.js';
+import { xpParEmail, dateParis, xpMaximum } from '../_lib/formation-xp.js';
 
 // États écrits dans la colonne « Journal » quand il n'y a pas de note.
 const JOURNAL_VIDE = 'vide';             // aucune saisie, plus de 20 jours de bourse, ou pas inscrit (ex-« NO »)
@@ -446,6 +446,9 @@ async function handleDailyRecalc(res) {
 // ========================================
 const T_CONNEXION = 'derniere connexion trader360.fr'; // titre choisi par Manu le 21/10/2026 (ex « Dernière connexion formation »)
 const T_XP = 'xp';
+// Colonne FACULTATIVE (demande de Manu du 21/10/2026) : % du maximum d'XP atteignable.
+// Écrite seulement si un titre « % XP max » existe en ligne 3 ; absente, rien ne bloque.
+const T_PCT_XP = '% xp max';
 const LIB_CONNEXION = 'Dernière connexion Trader360.fr';
 const LIB_XP = 'XP';
 
@@ -496,6 +499,9 @@ async function handleFormationXp(res) {
   }
 
   const { cols, rows } = parcours;
+  const hitsPct = (parcours.header || []).map((v, i) => [normHeaderTitle(v), i]).filter(([t]) => t === T_PCT_XP);
+  const colPct = hitsPct.length === 1 ? hitsPct[0][1] : null;
+  const maxXp = xpMaximum();
   const data = [];
   const sansCompte = [];
   let lignes = 0;
@@ -513,6 +519,15 @@ async function handleFormationXp(res) {
     }
     if (String(row[cols[T_XP]] ?? '') !== String(hit.xp)) {
       data.push({ range: cellA1(cols[T_XP], rowNum), values: [[hit.xp]] });
+    }
+    if (colPct !== null && maxXp > 0) {
+      // Fraction 0..1 arrondie au pourcent ; la colonne est au format pourcentage dans le tableur.
+      const pct = Math.round((hit.xp / maxXp) * 100) / 100;
+      const lu = String(row[colPct] ?? '').replace(/\s/g, '').replace(',', '.');
+      const luFrac = lu.endsWith('%') ? Number(lu.slice(0, -1)) / 100 : Number(lu);
+      if (lu === '' || !Number.isFinite(luFrac) || Math.abs(luFrac - pct) > 0.0001) {
+        data.push({ range: cellA1(colPct, rowNum), values: [[pct]] });
+      }
     }
   }
   if (data.length) {
