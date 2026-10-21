@@ -362,7 +362,7 @@
       </div>
       <div class="quiz__pied">
         ${e.i > 0 ? `<button type="button" class="btn btn-ghost" data-ex-prec>${I.back} Précédent</button>` : '<span></span>'}
-        <button type="button" class="btn btn-gold" data-ex-suiv ${choisi == null ? 'disabled' : ''}>${e.i === e.D.questions.length - 1 ? 'Passer aux exercices' : 'Suivant'} ${I.arrow}</button>
+        <button type="button" class="btn btn-gold" data-ex-suiv ${choisi == null ? 'disabled' : ''}>${e.i === e.D.questions.length - 1 ? (e.D.exercices.length ? 'Passer aux exercices' : 'Valider mon quiz') : 'Suivant'} ${I.arrow}</button>
       </div>`;
   }
 
@@ -446,6 +446,9 @@
       const q = e.D.questions[e.i];
       if (e.choix[q.id] == null) return;
       if (e.i < e.D.questions.length - 1) { e.i += 1; rendre(); return; }
+      // ⛔ Quiz sans exercice (01, 04, 06, 07, 07bis) : on valide directement. Passer
+      // en partie « exercices » rendait e.D.exercices[0], undefined (constaté le 21/10).
+      if (!e.D.exercices.length) { valider(); return; }
       e.partie = 'exercices'; e.i = 0; rendre(); return;
     }
     const ex = e.D.exercices[e.i];
