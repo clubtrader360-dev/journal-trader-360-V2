@@ -18,6 +18,8 @@ const COMMANDES = {
   3: { id: 3, reference: 'T360-2026-0103', email: 'pres@exemple.fr', prenom: 'Pré', nom: 'Sentiel', statut: 'attente_virement', mode: 'virement', offre: { id: 2, type: 'presentiel', formation_cle: null } },
   4: { id: 4, reference: 'T360-2026-0104', email: 'panne@exemple.fr', prenom: 'Panne', nom: 'Mail', statut: 'attente_virement', mode: 'virement', offre: { id: 1, type: 'formation', formation_cle: 'trader360' } },
   5: { id: 5, reference: 'T360-2026-0105', email: 'annule@exemple.fr', prenom: 'A', nom: 'B', statut: 'annulee', mode: 'virement', offre: { id: 1, type: 'formation', formation_cle: 'trader360' } },
+  6: { id: 6, reference: 'T360-2026-0106', email: 'carte3@exemple.fr', prenom: 'Carte', nom: 'Trois', statut: 'en_cours', mode: 'cb3', offre: { id: 1, type: 'formation', formation_cle: 'trader360' } },
+  7: { id: 7, reference: 'T360-2026-0107', email: 'pasencore@exemple.fr', prenom: 'Pas', nom: 'Encore', statut: 'attente_paiement', mode: 'cb1', offre: { id: 1, type: 'formation', formation_cle: 'trader360' } },
 };
 const json = (status, corps, h = {}) => new Response(corps === undefined ? '' : JSON.stringify(corps), { status, headers: { 'Content-Type': 'application/json', ...h } });
 globalThis.fetch = async (entree, o = {}) => {
@@ -28,7 +30,7 @@ globalThis.fetch = async (entree, o = {}) => {
     E.site.push(corps); const k = COMMANDES[corps.id];
     if (corps.action === 'virement_recu') { if (!k) return json(404, { ok: false, motif: 'introuvable' }); if (k.statut === 'annulee') return json(409, { ok: false, motif: 'commande annulée : impossible de la marquer payée' }); k.statut = 'payee'; return json(200, { ok: true, resultat: { ...k } }); }
     if (corps.action === 'commande') return k ? json(200, { ok: true, resultat: { ...k } }) : json(404, { ok: false });
-    if (corps.action === 'acces_resultat') { k.acces = corps.ok ? 'ouverts' : `erreur: ${corps.erreur}`; return json(200, { ok: true, resultat: k }); }
+    if (corps.action === 'acces_resultat') { k.acces = corps.ok ? 'ouverts' : `erreur: ${corps.erreur}`; if (corps.ok) k.acces_ouverts_le = '2026-10-22T10:00:00Z'; return json(200, { ok: true, resultat: k }); }
     return json(400, { ok: false, motif: 'action inconnue' });
   }
   if (u.host === 'api.resend.com') { if (E.resendEnPanne) return json(422, { message: 'domaine non vérifié' }); E.resend.push(corps); return json(200, { id: `re_${E.resend.length}` }); }
@@ -104,6 +106,31 @@ r = await appel({ action: 'offres', sous_action: 'virement_recu', id: 5 });
 dire(r.statut === 409 && E.comptes.length === n2, 'refusée, aucun compte créé', r.d);
 r = await appel({ action: 'offres', sous_action: 'ouvrir_acces', id: 5 });
 dire(r.statut === 409 && E.comptes.length === n2, 'Réessayer sur une commande non payée : refusé');
+
+console.log('— paiement Stripe confirmé (webhook du site, clé partagée, sans coach)');
+async function appelSite(corps, cle = 'cle-bo') {
+  const req = { method: 'POST', headers: { host: 'app.journaltrader360.fr', 'x-forwarded-proto': 'https', ...(cle ? { 'x-backoffice-cle': cle } : {}) }, body: corps, query: {} };
+  let statut = 0; let sortie = null;
+  await handler(req, { setHeader() {}, status(s) { statut = s; return this; }, json(d) { sortie = d; return this; } });
+  return { statut, d: sortie };
+}
+const n3 = E.comptes.length;
+r = await appelSite({ action: 'commande_payee', id: 6 }, null);
+dire(r.statut === 401 && E.comptes.length === n3, 'sans clé : 401, rien créé');
+r = await appelSite({ action: 'commande_payee', id: 6 }, 'cle-bo-fausse');
+dire(r.statut === 401 && E.comptes.length === n3, 'clé fausse (même longueur ou non) : 401');
+r = await appelSite({ action: 'commande_payee', id: 6 });
+const c6 = E.comptes.find((c) => c.email === 'carte3@exemple.fr');
+dire(r.statut === 200 && r.d.resultat.acces.ok && r.d.resultat.acces.cree && !!c6, '3 fois, 1re échéance payée (en cours) : compte créé', r.d);
+dire(E.resend.some((x) => x.to.includes('carte3@exemple.fr')) && E.brevo.some((x) => x.corps?.email === 'carte3@exemple.fr' && x.corps.listIds.includes(7)), 'mail d accès + liste MEMBRES T360');
+dire(COMMANDES[6].acces === 'ouverts' && E.site.some((x) => x.action === 'commande' && x.id === 6), 'commande RELUE chez le site, résultat rapporté');
+const nMails6 = E.resend.length;
+r = await appelSite({ action: 'commande_payee', id: 6 });
+dire(r.statut === 200 && r.d.resultat.acces.deja && E.resend.length === nMails6, 'second appel : déjà ouverts, aucun second mail');
+r = await appelSite({ action: 'commande_payee', id: 7 });
+dire(r.statut === 409 && !E.comptes.some((c) => c.email === 'pasencore@exemple.fr'), 'commande pas encore payée : 409, aucun compte');
+r = await appelSite({ action: 'commande_payee', id: 'x' });
+dire(r.statut === 400, 'id illisible : 400');
 
 console.log('— garde');
 const req = { method: 'POST', headers: { host: 'x' }, body: { action: 'offres', sous_action: 'virement_recu', id: 1 }, query: {} };
