@@ -69,6 +69,19 @@
     if (x.expire_le && new Date(x.expire_le) < new Date()) return ['Expiré', 'non', false];
     return [`Valable jusqu au ${new Date(x.expire_le).toLocaleDateString('fr-FR')}`, 'attend', true];
   }
+  /** L'état des accès d'une commande payée, sous son statut. */
+  function etatAcces(c) {
+    if (!['payee', 'en_cours'].includes(c.statut)) return '';
+    if (c.acces_ouverts_le) return `<br><small class="of-pale">accès ouverts le ${txt(dateFr(c.acces_ouverts_le, true))}</small>`;
+    if (c.acces_erreur) return `<br><small class="bo-erreur" title="${txt(c.acces_erreur)}">accès NON ouverts</small>`;
+    return '';
+  }
+  function resumeAcces(r, c) {
+    const a = (r && r.acces) || {};
+    if (a.ok === false) return `${c.reference} payée, mais les accès n'ont pas pu être ouverts : ${a.erreur}. Bouton « Réessayer » sur la commande.`;
+    if (a.sans_objet) return `${c.reference} payée (offre sans compte à créer).`;
+    return `${c.reference} payée. ${a.cree ? 'Compte créé' : 'Compte existant rouvert'}, mail d'accès envoyé à ${a.email}${a.brevo_membres === false ? ' (ajout à MEMBRES T360 dans Brevo raté, à faire à la main)' : ''}.`;
+  }
   const valeurCode = (k) => (k.type === 'pourcent' ? `${Number(k.valeur)} %` : eur(k.valeur));
   const places = (k) => (k.max_utilisations ? `${k.utilisations || 0} / ${k.max_utilisations} place${k.max_utilisations > 1 ? 's' : ''}` : `${k.utilisations || 0} utilisation${(k.utilisations || 0) > 1 ? 's' : ''}, sans limite`);
   const complet = (k) => k.max_utilisations != null && (k.utilisations || 0) >= k.max_utilisations;
@@ -137,10 +150,10 @@
       ${E.commandes.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Référence</th><th>Date</th><th>Client</th><th>Offre</th><th>Mode</th><th class="num">Total</th><th>État</th><th></th></tr></thead><tbody>
       ${E.commandes.map((c) => { const [st, cl] = STATUTS_CMD[c.statut] || [c.statut, 'attend'];
         return `<tr><td class="of-mono"><b>${txt(c.reference)}</b></td><td>${txt(dateFr(c.created_at, true))}</td><td>${txt(c.prenom)} ${txt(c.nom)}<br><small class="of-pale">${txt(c.email)}${c.telephone ? ` · ${txt(c.telephone)}` : ''}</small></td><td>${txt(c.offre_nom)}</td><td>${txt(nomMode(c.mode))}${c.code ? `<br><small class="of-pale">code ${txt(c.code)}</small>` : ''}</td>
-          <td class="num of-mono"><b>${eur(c.total)}</b>${c.echeances > 1 ? `<br><small class="of-pale">${c.paiements_recus} / ${c.echeances} échéances</small>` : ''}</td><td><span class="bo-pill bo-pill--${cl}">${st}</span>${c.mail_erreur ? '<br><small class="bo-erreur">bon de commande non parti</small>' : ''}</td>
-          <td class="of-actions">${c.statut === 'attente_virement' ? `<button type="button" class="bo-btn bo-btn--or" data-of-recu="${c.id}">Virement reçu</button><button type="button" class="bo-btn bo-btn--fantome" data-of-annuler="${c.id}">Annuler</button>` : ''}</td></tr>`; }).join('')}
+          <td class="num of-mono"><b>${eur(c.total)}</b>${c.echeances > 1 ? `<br><small class="of-pale">${c.paiements_recus} / ${c.echeances} échéances</small>` : ''}</td><td><span class="bo-pill bo-pill--${cl}">${st}</span>${c.mail_erreur ? '<br><small class="bo-erreur">bon de commande non parti</small>' : ''}${etatAcces(c)}</td>
+          <td class="of-actions">${c.statut === 'attente_virement' ? `<button type="button" class="bo-btn bo-btn--or" data-of-recu="${c.id}">Virement reçu</button><button type="button" class="bo-btn bo-btn--fantome" data-of-annuler="${c.id}">Annuler</button>` : ''}${['payee', 'en_cours'].includes(c.statut) && c.acces_erreur ? `<button type="button" class="bo-btn bo-btn--or" data-of-acces="${c.id}" title="${txt(c.acces_erreur)}">Réessayer d ouvrir ses accès</button>` : ''}</td></tr>`; }).join('')}
       </tbody></table></div>` : '<p class="bo-vide">Aucune commande pour l instant.</p>'}
-      <p class="bo-source">« Virement reçu » passe la commande en payée. Les accès s'ouvrent ensuite à la main dans Académie · Membres.</p>
+      <p class="bo-source">« Virement reçu » passe la commande en payée ET ouvre les accès : compte créé (ou rouvert s'il existe), formation et journal ouverts, mail d'accès envoyé, ajout à la liste Brevo MEMBRES T360. Les modules suivants se débloquent ensuite à la main, comme avant.</p>
     </div>
     <h2 class="of-titre-hist">Historique LearnyBox</h2>`;
   }
@@ -238,7 +251,7 @@
     }
   });
   document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-of-nouvelle],[data-of-modifier],[data-of-retour],[data-of-enregistrer],[data-of-statut],[data-of-supprimer],[data-of-envoyer],[data-of-k-creer],[data-of-code-suppr],[data-of-recu],[data-of-annuler],[data-of-revoquer]');
+    const b = e.target.closest('[data-of-nouvelle],[data-of-modifier],[data-of-retour],[data-of-enregistrer],[data-of-statut],[data-of-supprimer],[data-of-envoyer],[data-of-k-creer],[data-of-code-suppr],[data-of-recu],[data-of-annuler],[data-of-revoquer],[data-of-acces]');
     if (!b) return;
     try {
       if (b.matches('[data-of-nouvelle]')) { E.edition = { type: 'formation', formation_cle: 'trader360', inclus: [], modes: {} }; return rafraichir(); }
@@ -294,10 +307,18 @@
       }
       if (b.matches('[data-of-recu]')) {
         const c = E.commandes.find((x) => String(x.id) === b.dataset.ofRecu);
-        if (!window.confirm(`Virement de ${eur(c.total)} reçu pour ${c.reference} (${c.prenom} ${c.nom}) ?\n\nLa commande passe en payée. Pense ensuite à ouvrir ses accès dans Académie · Membres.`)) return;
+        if (!window.confirm(`Virement de ${eur(c.total)} reçu pour ${c.reference} (${c.prenom} ${c.nom}) ?\n\nLa commande passe en payée, son compte est créé et il reçoit tout de suite son mail d'accès à ${c.email}.`)) return;
         b.disabled = true;
-        await OF('virement_recu', { id: c.id });
-        dire(`${c.reference} payée. Ouvre ses accès dans Académie · Membres.`);
+        const r = await OF('virement_recu', { id: c.id });
+        dire(resumeAcces(r, c), r.acces && r.acces.ok === false ? 'error' : undefined);
+        return rafraichir();
+      }
+      if (b.matches('[data-of-acces]')) {
+        const c = E.commandes.find((x) => String(x.id) === b.dataset.ofAcces);
+        if (!window.confirm(`Réessayer d'ouvrir les accès de ${c.prenom} ${c.nom} (${c.email}) ?`)) return;
+        b.disabled = true;
+        const r = await OF('ouvrir_acces', { id: c.id });
+        dire(resumeAcces(r, c), r.acces && r.acces.ok === false ? 'error' : undefined);
         return rafraichir();
       }
       if (b.matches('[data-of-revoquer]')) {
