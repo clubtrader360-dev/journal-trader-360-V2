@@ -41,6 +41,7 @@ import { requireCoach, httpError } from '../vimeo/_lib/coach-auth.js';
 import { getServiceClient } from '../tradovate/_lib/auth.js';
 import { getSheetsClient } from './_lib/sheets-client.js';
 import { brevo } from '../_lib/brevo-client.js';
+import { mailResultatQuiz, donneesQuiz } from '../_lib/mail-quiz.js';
 import { MODELES as MODELES_CAMPAGNE, CHAMPS as CHAMPS_CAMPAGNE, manquants as manquantsCampagne, rendreCampagne, EXPEDITEUR_ID, PREFIXE_NOM } from '../_lib/campagnes.js';
 
 const NIVEAUX = ['debutant', 'intermediaire', 'confirme'];
@@ -527,6 +528,140 @@ async function campagnes(sb, corps, coach) {
   return { id, liste, contacts: n };
 }
 
+/* ══ MAILS AUX MEMBRES : LE RÉSULTAT DE QUIZ (21/10) ═════════════════════════
+ * Spécifié le 14/10 (specification-gamification.md §4), construit le 21/10.
+ * ⛔ DÉCLENCHÉ PAR L'ÉLÈVE, JUSTE APRÈS L'ÉCRITURE DE SON QUIZ (supabase-formation.js) :
+ * c'est l'instantané demandé par Nadir, sans toucher à la route du tableur de Manu.
+ * L'élève n'envoie RIEN de son contenu : la route relit en base ses propres résultats
+ * des 15 dernières minutes, et n'écrit qu'à SA propre adresse.
+ * ⛔ JAMAIS DEUX MAILS POUR UN MÊME RÉSULTAT : la ligne de `mails_envoyes` est RÉSERVÉE
+ * avant l'envoi, avec la référence du résultat ; l'index unique (type, reference)
+ * refuse la seconde réservation, même si deux appels arrivent en même temps.
+ * ⛔ INTERRUPTEUR « mails_membres_quiz » dans system_settings, coupé par défaut, relu à
+ * chaque envoi. Plafond : 8 mails de quiz par élève et par 24 heures (Resend gratuit,
+ * 100 par jour pour tout le journal).
+ */
+const CLE_MAILS_QUIZ = 'mails_membres_quiz';
+const TYPE_MAIL_QUIZ = 'quiz_resultat';
+async function reglageActif(sb, cle) {
+  const { data, error } = await sb.from('system_settings').select('value').eq('key', cle).maybeSingle();
+  if (error) throw httpError(502, `réglage illisible : ${error.message}`);
+  return data?.value?.actif === true;
+}
+async function prenomDe(sb, userId, email) {
+  const { data } = await sb.from('users').select('name').eq('uuid', userId).maybeSingle();
+  return String((data && data.name) || '').trim().split(' ')[0] || '';
+}
+/** Envoie le mail d'UN résultat, si personne ne l'a déjà fait. Rend { envoye, motif }. */
+async function envoyerMailResultat(sb, row, { email, prenom, origine, par }) {
+  if (!donneesQuiz(row.module_cle)) return { envoye: false, motif: `quiz ${row.module_cle} inconnu` };
+  const { count: avant } = await sb.from('formation_quiz_resultats').select('id', { count: 'exact', head: true })
+    .eq('user_id', row.user_id).eq('module_cle', row.module_cle).eq('reussi', true).lt('created_at', row.created_at);
+  const m = mailResultatQuiz({ ...row, premiere_reussite: row.reussi ? !avant : null }, { prenom, origine, logo: logoMail('cid') });
+  // Réservation : refusée par l'index unique si ce résultat a déjà son mail.
+  const { data: res, error: eRes } = await sb.from('mails_envoyes')
+    .insert({ user_id: row.user_id, email, type: TYPE_MAIL_QUIZ, sujet: m.sujet, reference: row.id, envoye_par: par })
+    .select('id').single();
+  if (eRes) {
+    if (eRes.code === '23505') return { envoye: false, motif: 'déjà envoyé' };
+    throw httpError(500, `réservation du mail impossible : ${eRes.message}`);
+  }
+  try {
+    const id = await envoyerMail({ to: email, sujet: m.sujet, html: m.html, attachments: m.attachments });
+    await sb.from('mails_envoyes').update({ fournisseur_id: id }).eq('id', res.id);
+    console.log(`[MAILS MEMBRES] ✅ résultat du quiz ${row.module_cle} envoyé à ${email} (${row.score}/${row.total})`);
+    return { envoye: true };
+  } catch (e) {
+    await sb.from('mails_envoyes').update({ erreur: String(e.message || e).slice(0, 500) }).eq('id', res.id);
+    console.error(`[MAILS MEMBRES] ⚠️ résultat du quiz ${row.module_cle} NON envoyé à ${email} : ${e.message}`);
+    return { envoye: false, motif: e.message };
+  }
+}
+/** L'action de l'ÉLÈVE : son propre jeton, ses propres résultats récents. */
+async function mailQuizEleve(sb, req, origine) {
+  const auth = req.headers?.authorization || '';
+  const jeton = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!jeton) throw httpError(401, 'jeton manquant');
+  const { data, error } = await sb.auth.getUser(jeton);
+  if (error || !data?.user?.id) throw httpError(401, 'jeton invalide');
+  const u = data.user;
+  if (!(await reglageActif(sb, CLE_MAILS_QUIZ))) return { envoyes: 0, motif: 'mails de quiz coupés' };
+  const depuis = new Date(Date.now() - 24 * 3600e3).toISOString();
+  const { count: jour } = await sb.from('mails_envoyes').select('id', { count: 'exact', head: true }).eq('user_id', u.id).eq('type', TYPE_MAIL_QUIZ).gte('envoye_le', depuis);
+  if ((jour || 0) >= 8) return { envoyes: 0, motif: 'plafond de 8 mails de quiz par 24 h atteint' };
+  const { data: rows, error: eR } = await sb.from('formation_quiz_resultats').select('id, user_id, module_cle, score, total, reussi, reponses, created_at')
+    .eq('user_id', u.id).gte('created_at', new Date(Date.now() - 15 * 60e3).toISOString()).order('created_at', { ascending: false }).limit(3);
+  if (eR) throw httpError(500, `résultats illisibles : ${eR.message}`);
+  const prenom = await prenomDe(sb, u.id, u.email);
+  let envoyes = 0;
+  for (const row of rows || []) {
+    const r = await envoyerMailResultat(sb, row, { email: u.email, prenom, origine, par: 'automatique' });
+    if (r.envoye) envoyes += 1;
+  }
+  return { envoyes };
+}
+/** Un résultat fabriqué pour l'aperçu et le test : tout juste, ou trois fautes. */
+function resultatExemple(cle, cas) {
+  const Q = donneesQuiz(cle);
+  if (!Q) throw httpError(400, `quiz ${cle} inconnu`);
+  const qs = Q.questions || [];
+  const fautes = cas === 'rate' ? Math.min(qs.length, Math.max(4, qs.length - (Q.seuil || 0) + 1)) : 0;
+  const questions = qs.map((q, i) => ({ id: q.id, bonne: q.bonne, choisie: i < fautes ? (q.bonne + 1) % (q.options || [0, 1]).length : q.bonne }));
+  const ex = (Q.exercices || []).map((e) => ({ id: e.id, type: e.type, ok: cas !== 'rate' }));
+  const pts = (Q.exercices || []).length ? (Q.points_par_exercice || 2) : 0;
+  const total = qs.length + ex.length * pts;
+  const score = questions.filter((x) => x.choisie === x.bonne).length + ex.filter((x) => x.ok).length * pts;
+  return { id: `exemple-${cle}-${cas}`, module_cle: cle, score, total, reussi: cas !== 'rate', reponses: ex.length ? { questions, exercices: ex } : questions, premiere_reussite: true };
+}
+const SOUS_ACTIONS_MAILS_MEMBRES = ['reglage', 'activer', 'apercu', 'test', 'journal', 'rattraper'];
+async function mailsMembres(sb, corps, coach, origine) {
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_MAILS_MEMBRES.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  if (sous === 'reglage') return { quiz_actif: await reglageActif(sb, CLE_MAILS_QUIZ) };
+  if (sous === 'activer') {
+    const actif = corps.actif === true;
+    const { error } = await sb.from('system_settings').upsert({ key: CLE_MAILS_QUIZ, value: { actif, par: coach.email, le: new Date().toISOString() }, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (error) throw httpError(502, `réglage non enregistré : ${error.message}`);
+    const relu = await reglageActif(sb, CLE_MAILS_QUIZ);
+    if (relu !== actif) throw httpError(502, 'le réglage relu ne correspond pas à celui demandé');
+    console.log(`[MAILS MEMBRES] mails de quiz ${actif ? 'ACTIVÉS' : 'coupés'} par ${coach.email}`);
+    return { quiz_actif: relu };
+  }
+  if (sous === 'apercu' || sous === 'test') {
+    const cle = String(corps.module || '01');
+    const cas = ['reussi', 'rate'].includes(corps.cas) ? corps.cas : 'reussi';
+    const r = resultatExemple(cle, cas);
+    if (sous === 'apercu') return mailResultatQuiz(r, { prenom: 'Nadir', origine, logo: logoMail('datauri') });
+    const m = mailResultatQuiz(r, { prenom: 'Nadir', origine, logo: logoMail('cid') });
+    const id = await envoyerMail({ to: coach.email, sujet: `[TEST] ${m.sujet}`, html: m.html, attachments: m.attachments });
+    await journaliserMail(sb, { email: coach.email, type: 'quiz_resultat_test', sujet: `[TEST] ${m.sujet}`, fournisseur_id: id, envoye_par: coach.email });
+    return { envoye_a: coach.email };
+  }
+  if (sous === 'journal') {
+    const { data, error } = await sb.from('mails_envoyes').select('email, sujet, envoye_le, erreur, reference, fournisseur_id').eq('type', TYPE_MAIL_QUIZ).order('envoye_le', { ascending: false }).limit(200);
+    if (error) throw httpError(500, `journal illisible : ${error.message}`);
+    const depuis = new Date(Date.now() - 7 * 86400e3).toISOString();
+    const { data: recents } = await sb.from('formation_quiz_resultats').select('id').gte('created_at', depuis).limit(1000);
+    const avecMail = new Set((data || []).map((x) => x.reference));
+    return { envois: data || [], sans_mail_7j: (recents || []).filter((x) => !avecMail.has(x.id)).length };
+  }
+  // rattraper : les résultats des 7 derniers jours sans mail (interrupteur exigé).
+  if (!(await reglageActif(sb, CLE_MAILS_QUIZ))) throw httpError(403, 'les mails de quiz sont coupés : active-les d abord');
+  const depuis = new Date(Date.now() - 7 * 86400e3).toISOString();
+  const { data: rows, error } = await sb.from('formation_quiz_resultats').select('id, user_id, module_cle, score, total, reussi, reponses, created_at').gte('created_at', depuis).order('created_at').limit(300);
+  if (error) throw httpError(500, `résultats illisibles : ${error.message}`);
+  const ids = await identites(sb);
+  let envoyes = 0; const echecs = [];
+  for (const row of rows || []) {
+    const id = ids.get(row.user_id);
+    if (!id || !id.email || id.role !== 'student') continue;
+    const r = await envoyerMailResultat(sb, row, { email: id.email, prenom: String(id.nom || '').split(' ')[0], origine, par: coach.email });
+    if (r.envoye) envoyes += 1; else if (r.motif !== 'déjà envoyé') echecs.push(`${id.email} : ${r.motif}`);
+    if (envoyes >= 60) break; // Resend gratuit : 100 par jour pour tout le journal.
+  }
+  return { envoyes, echecs };
+}
+
 async function envoyerMail({ to, sujet, html, attachments = [] }) {
   if (!RESEND_API_KEY) throw httpError(500, 'RESEND_API_KEY absente : le mail ne peut pas partir');
   const r = await fetch('https://api.resend.com/emails', {
@@ -926,6 +1061,16 @@ async function boProgression(sb) {
   for (const c of certs.data || []) if (!certifieLe.has(c.user_id) || c.created_at < certifieLe.get(c.user_id)) certifieLe.set(c.user_id, c.created_at);
   const parAcces = new Map((acces.data || []).map((a) => [a.user_id, a]));
   const parProg = new Map((data || []).map((p) => [p.user_id, p]));
+  // ⛔ Les quiz réussis : depuis le 21/10, un module avec quiz est terminé quand son
+  // quiz est réussi (règle unique, formation-donnees.js). Lus par pages : PostgREST
+  // rend 1000 lignes au plus, et la table grandira (incident du 15/10).
+  const quizParEleve = new Map();
+  for (let de = 0; ; de += 1000) {
+    const { data: q, error: eq } = await sb.from('formation_quiz_resultats').select('user_id, module_cle').eq('reussi', true).order('id').range(de, de + 999);
+    if (eq) throw httpError(500, `quiz illisibles : ${eq.message}`);
+    for (const r of q || []) { if (!quizParEleve.has(r.user_id)) quizParEleve.set(r.user_id, new Set()); quizParEleve.get(r.user_id).add(r.module_cle); }
+    if (!q || q.length < 1000) break;
+  }
   // ⚠️ Tous les eleves, meme sans aucune progression : un diplome se lit aussi
   // par son absence.
   const eleves = [];
@@ -933,7 +1078,7 @@ async function boProgression(sb) {
     if (id.role !== 'student' || id.statut === 'revoked') continue;
     const p = parProg.get(uid);
     const a = parAcces.get(uid);
-    eleves.push({ ...id, user_id: uid, lecons: (p && p.lecons) || [], derniere: (p && p.derniere) || null, formation: !!(a && a.formation_actif), niveau_coach: (a && a.niveau) || null, certifie_le: certifieLe.get(uid) || null });
+    eleves.push({ ...id, user_id: uid, lecons: (p && p.lecons) || [], derniere: (p && p.derniere) || null, formation: !!(a && a.formation_actif), niveau_coach: (a && a.niveau) || null, certifie_le: certifieLe.get(uid) || null, quiz_reussis: [...(quizParEleve.get(uid) || [])] });
   }
   eleves.sort((x, y) => String(x.nom || x.email).localeCompare(String(y.nom || y.email), 'fr'));
   return eleves;
@@ -1084,6 +1229,22 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ ok: false, motif: 'POST attendu' });
   }
+  // ⛔ LA SEULE ACTION OUVERTE À UN ÉLÈVE : le mail de son propre résultat de quiz.
+  // Tout le reste de la route exige un coach (requireCoach, ci-dessous).
+  {
+    let c0 = {};
+    try { c0 = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { c0 = {}; }
+    if (c0.action === 'mail_quiz') {
+      try {
+        const r = await mailQuizEleve(getServiceClient(), req, origineDe(req));
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ ok: true, action: 'mail_quiz', resultat: r });
+      } catch (e) {
+        console.error('[MAILS MEMBRES] mail_quiz :', e.message);
+        return res.status(e?.statusCode || e?.status || 500).json({ ok: false, motif: e.message });
+      }
+    }
+  }
   let coach;
   try {
     coach = await requireCoach(req);
@@ -1104,6 +1265,7 @@ export default async function handler(req, res) {
     else if (action === 'annonce') resultat = await annonce(sb, corps, coach, origine);
     else if (action === 'tunnels') resultat = await tunnels(corps, coach);
     else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
+    else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
     else if (action === 'fiche') resultat = await fiche(sb, corps);

@@ -665,7 +665,9 @@
     if (k === 'formation') {
       const M = (window.FormationDonnees && window.FormationDonnees.MODULES) || [];
       const vus = new Set(f.formation.progression.filter((p) => p.vue).map((p) => p.lecon_id));
-      const modules = M.filter((x) => !x.introduction && x.lecons.length).map((x) => { const n = x.lecons.filter((l) => vus.has(l.id)).length; const t = x.lecons.length; const fini = n === t; return { x, n, t, fini }; });
+      const quizFini = new Set(f.formation.quiz.filter((q) => q.reussi).map((q) => q.module_cle));
+      // ⛔ La règle « module terminé » unique (formation-donnees.js) : un quiz réussi suffit.
+      const modules = M.filter((x) => !x.introduction && x.lecons.length).map((x) => { const n = x.lecons.filter((l) => vus.has(l.id)).length; const t = x.lecons.length; const fini = window.FormationDonnees.moduleTermine(x, (id) => vus.has(id), (cle) => quizFini.has(cle)); return { x, n, t, fini }; });
       const finis = modules.filter((r) => r.fini);
       const quizOk = new Set(f.formation.quiz.filter((q) => q.reussi).map((q) => q.module_cle));
       const tl = totalLecons(); const vuesN = vus.size; const pct = tl ? Math.round((vuesN / tl) * 100) : 0;

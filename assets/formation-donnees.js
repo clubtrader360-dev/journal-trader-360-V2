@@ -625,6 +625,13 @@ const CONTENU_CHAPITRES = {
    * quelqu'un le cherche.
    */
   const racine = typeof window !== 'undefined' ? window : globalThis;
+  function aUnQuiz(m) {
+    if (!m) return false;
+    if ((m.lecons || []).some((l) => l.quiz)) return true;
+    if (m.certification) { const c = racine.FORMATION_CERTIFICATION; return !!(c && c.questions && c.questions.length); }
+    const q = racine.FORMATION_QUIZ && racine.FORMATION_QUIZ[m.cle];
+    return !!(q && q.questions && q.questions.length);
+  }
   racine.FormationDonnees = {
     MODULES,
     NIVEAUX_PARCOURS,
@@ -642,6 +649,25 @@ const CONTENU_CHAPITRES = {
     },
     /** Le nombre total de leçons réellement posées, modules vides exclus. */
     total: () => SUITE.length,
+    /**
+     * ⛔ LA SEULE RÈGLE « MODULE TERMINÉ » DU DÉPÔT (arbitrage de Nadir, 21/10/2026).
+     * Un module qui a un quiz est terminé DÈS QUE CE QUIZ EST RÉUSSI, vidéos vues ou
+     * non ; un module sans quiz l'est quand tous ses chapitres sont vus.
+     * ⚠️ Avant, quatre endroits recalculaient chacun leur version (espace élève,
+     * XP du tableur, Diplômes et fiche membre du back-office), deux sans regarder le
+     * quiz : un même élève pouvait avoir un module terminé à l'écran et pas dans le
+     * back-office, sans aucune erreur. Ils lisent tous celle-ci.
+     * `vue(id)` : le chapitre est-il vu ; `quizReussi(cle)` : le quiz du module est-il
+     * réussi. Les quiz sont lus AU MOMENT DE L'APPEL (`formation-quiz.js` et
+     * `formation-certification.js` se chargent après ce fichier).
+     */
+    aUnQuiz: (m) => aUnQuiz(m),
+    moduleTermine: (m, vue, quizReussi) => {
+      if (!m || !Array.isArray(m.lecons)) return false;
+      if (aUnQuiz(m)) return !!quizReussi(m.cle);
+      const chapitres = m.lecons.filter((l) => !l.quiz);
+      return chapitres.length > 0 && chapitres.every((l) => vue(l.id));
+    },
   };
   // ⛔ PAS DE `module.exports` ICI. Le depot est en `"type": "module"`, donc un
   // `require` de ce fichier rend un objet VIDE sans lever d erreur. Le serveur le

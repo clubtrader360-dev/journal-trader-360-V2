@@ -1227,7 +1227,8 @@
   const totalChap = () => chapitresParcours().length;
   const faitesDe = (m) => m.lecons.filter((l) => estVue(l.id)).length;
   const pctDe = (m) => (m.lecons.length ? Math.round((faitesDe(m) / m.lecons.length) * 100) : 0);
-  const moduleFini = (m) => m.lecons.length > 0 && faitesDe(m) === m.lecons.length;
+  // ⛔ La règle vit dans formation-donnees.js (moduleTermine), lue aussi par le serveur et le back-office.
+  const moduleFini = (m) => D().moduleTermine(m, estVue, quizReussi);
   const estCert = (m) => !!m.certification;
   const estIntro = (m) => !!m.introduction;
   /**
@@ -2618,7 +2619,25 @@
     const { error } = await cli().from('formation_quiz_resultats')
       .insert({ user_id: u, module_cle: cle, score, total, reussi, reponses });
     if (error) { console.error('[FORMATION] ⚠️ resultat de quiz NON enregistré :', error.message); return false; }
+    signalerResultatQuiz();
     return true;
+  }
+  /**
+   * ⛔ LE MAIL DE RÉSULTAT, DEMANDÉ DÈS L'ENREGISTREMENT (21/10). En arrière-plan : la
+   * scène et l'écran de résultat n'attendent pas. Le serveur relit le résultat en base
+   * (rien n'est envoyé d'ici) et n'écrit qu'à l'adresse de l'élève connecté ; il ne
+   * fait rien tant que l'interrupteur du back-office est coupé.
+   * Un échec ne se voit pas à l'écran, mais il reste en console et le back-office
+   * compte les résultats sans mail (Mails aux membres), avec un bouton de rattrapage.
+   */
+  async function signalerResultatQuiz() {
+    try {
+      const { data } = await cli().auth.getSession();
+      const jeton = data && data.session && data.session.access_token;
+      if (!jeton) return;
+      const r = await fetch('/api/coach/membres', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` }, body: JSON.stringify({ action: 'mail_quiz' }), keepalive: true });
+      if (!r.ok) console.warn('[FORMATION] mail de résultat non envoyé :', r.status);
+    } catch (e) { console.warn('[FORMATION] mail de résultat non demandé :', e && e.message); }
   }
 
   async function validerQuiz() {

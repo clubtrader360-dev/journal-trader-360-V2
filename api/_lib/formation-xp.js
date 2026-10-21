@@ -30,6 +30,7 @@ const XP_CERT = 1000;
 const FICHIERS = ['formation-donnees.js', 'formation-quiz.js', 'formation-certification.js'];
 
 let _mods = null;
+let _D = null;
 
 // Évalue les fichiers du navigateur dans un bac à sable dont `window` et `globalThis` sont le
 // même objet, puis reconstruit `mods()` comme `supabase-formation.js` (quiz et examen ajoutés
@@ -46,6 +47,7 @@ export function modulesFormation() {
     new Function('window', 'globalThis', source)(bac, bac);
   }
   const D = bac.FormationDonnees;
+  _D = D;
   if (!D || !Array.isArray(D.MODULES) || !D.MODULES.length) {
     throw new Error('structure de formation illisible (FormationDonnees.MODULES absent)');
   }
@@ -82,7 +84,8 @@ export function xpTotal(vues, quizReussis) {
     m.lecons.forEach((l, i) => { if (estVue(l.id) && !m.introduction && !m.bonus) x += parts[i]; });
   });
   mods.forEach((m) => {
-    const fini = m.lecons.length > 0 && m.lecons.every((l) => estVue(l.id));
+    // ⛔ Plus de copie de la règle : celle de formation-donnees.js, comme l'écran de l'élève (21/10).
+    const fini = _D.moduleTermine(m, estVue, (cle) => quizReussis.has(cle));
     if (fini && !m.introduction && !m.bonus) x += m.certification ? XP_CERT : XP_MOD;
   });
   return x;

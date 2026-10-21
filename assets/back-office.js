@@ -94,7 +94,7 @@
   /* ══ Le routeur ════════════════════════════════════════════════════════════ */
   const FILS = {
     'accueil': 'Accueil', 'academie/formations': 'Académie · Formations', 'academie/membres': 'Académie · Membres',
-    'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes',
+    'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes', 'academie/mails': 'Académie · Mails aux membres',
     'marketing/tunnels': 'Marketing · Tunnels de vente', 'marketing/emails': 'Marketing · Emails marketing', 'marketing/webinaires': 'Marketing · Webinaires live',
     'crm': 'CRM', 'ventes/offres': 'Ventes · Offres', 'ventes/commandes': 'Ventes · Commandes & factures', 'ventes/comptabilite': 'Ventes · Comptabilité', 'ventes/affiliation': 'Ventes · Affiliation',
   };
@@ -234,11 +234,14 @@
 
   /* ══ ACADEMIE · DIPLOMES ═══════════════════════════════════════════════════ */
   let _diplFiltre = 'tous';
-  function badgesDe(lecons) {
-    const M = (window.FormationDonnees && window.FormationDonnees.MODULES) || [];
+  function badgesDe(lecons, quizReussis) {
+    const FD = window.FormationDonnees;
+    const M = (FD && FD.MODULES) || [];
     const vus = new Set(lecons || []);
-    const modules = M.filter((m) => !m.introduction && m.lecons.length).map((m) => ({ m, n: m.lecons.filter((l) => vus.has(l.id)).length, t: m.lecons.length }));
-    const finis = modules.filter((x) => x.n === x.t);
+    const quiz = new Set(quizReussis || []);
+    // ⛔ La règle « module terminé » unique (formation-donnees.js) : un quiz réussi suffit.
+    const modules = M.filter((m) => !m.introduction && m.lecons.length).map((m) => ({ m, n: m.lecons.filter((l) => vus.has(l.id)).length, t: m.lecons.length, fini: FD.moduleTermine(m, (id) => vus.has(id), (cle) => quiz.has(cle)) }));
+    const finis = modules.filter((x) => x.fini);
     const cert = finis.some((x) => x.m.cle === '10');
     return { modules, finis, cert, vus: vus.size };
   }
@@ -247,7 +250,7 @@
     const eleves = await lire('progression', () => BO('progression'));
     const tl = total();
     // ⚠️ La certification se lit dans `certifie_le` (examen final reussi), pas dans les chapitres vus.
-    const lignes = eleves.map((e) => ({ e, b: { ...badgesDe(e.lecons), cert: !!e.certifie_le } }));
+    const lignes = eleves.map((e) => ({ e, b: { ...badgesDe(e.lecons, e.quiz_reussis), cert: !!e.certifie_le } }));
     const certifies = lignes.filter((x) => x.b.cert).length;
     const avecBadges = lignes.filter((x) => x.b.finis.length).length;
     const visibles = lignes.filter((x) => _diplFiltre === 'tous' || (_diplFiltre === 'certifies' ? x.b.cert : _diplFiltre === 'non' ? !x.b.cert : x.b.finis.length > 0));
@@ -519,6 +522,78 @@
       dire(err.message, 'error');
     }
   });
+  /* ══ ACADEMIE · MAILS AUX MEMBRES (21/10) ═════════════════════════════════
+   * Le resultat de chaque quiz, envoye a l eleve des l enregistrement (route
+   * /api/coach/membres, action eleve `mail_quiz`). Gabarit : api/_lib/mail-quiz.js.
+   * ⛔ Interrupteur coupe par defaut, relu par le serveur a chaque envoi. */
+  const MM = (sous_action, corps) => BO('mails_membres', { sous_action, ...(corps || {}) });
+  let _mm = { module: '01', cas: 'reussi' };
+  async function vueMailsMembres() {
+    const z = $('boMailsMembres');
+    let actif = false, journal = { envois: [], sans_mail_7j: 0 };
+    try { actif = (await MM('reglage')).quiz_actif === true; } catch (e) { dire(`Réglage illisible : ${e.message}`, 'error'); }
+    try { journal = await MM('journal'); } catch (e) { dire(`Journal illisible : ${e.message}`, 'error'); }
+    const M = ((window.FormationDonnees && window.FormationDonnees.MODULES) || []).filter((m) => window.FormationDonnees.aUnQuiz(m));
+    z.innerHTML = `<div class="bo-cam-interrupteur" data-actif="${actif ? '1' : ''}"><div><b>Mail de résultat de quiz : ${actif ? 'activé' : 'coupé'}</b>
+        <span>${actif ? 'Chaque quiz terminé, réussi ou non, envoie son résultat à l élève dans la minute.' : 'Aucun mail ne part. Regarde l aperçu et envoie-toi un test, puis active.'}</span></div>
+        <button type="button" class="bo-btn ${actif ? 'bo-btn--fantome' : 'bo-btn--or'}" data-mm-interrupteur="${actif ? '0' : '1'}">${actif ? 'Couper' : 'Activer'}</button></div>
+      <div class="bo-cam">
+        <div class="bo-carte"><div class="bo-carte__tete"><h2>Le mail de résultat de quiz</h2></div>
+          <p class="bo-source" style="margin-top:0">Il part à la fin de chaque quiz : le score, le badge du module si le quiz est réussi (un quiz réussi termine le module), et pour chaque question ratée le conseil et le passage de la vidéo à revoir. Un quiz raté donne aussi son mail : c'est là qu'il sert le plus.</p>
+          <div class="bo-cam__champs">
+            <label class="bo-tun-champ"><span>Module</span><select data-mm-module>${M.map((m) => `<option value="${m.cle}" ${m.cle === _mm.module ? 'selected' : ''}>${m.cle === '10' ? 'Certification' : `Module ${txt(m.numero)}`}${m.titre ? ` · ${txt(m.titre)}` : ''}</option>`).join('')}</select></label>
+            <label class="bo-tun-champ"><span>Cas</span><select data-mm-cas><option value="reussi" ${_mm.cas === 'reussi' ? 'selected' : ''}>Quiz réussi</option><option value="rate" ${_mm.cas === 'rate' ? 'selected' : ''}>Quiz raté</option></select></label>
+          </div>
+          <div class="bo-tun-actions bo-cam__envoi"><button type="button" class="bo-btn bo-btn--or" data-mm-test><i class="fas fa-paper-plane"></i> M'envoyer ce mail en test</button></div>
+          <p class="bo-source">Les textes sont des propositions : dis-moi ce que tu veux changer.</p>
+        </div>
+        <div class="bo-carte bo-cam__apercu"><div class="bo-carte__tete"><h2>Aperçu</h2><span class="bo-pill">Exemple fabriqué, prénom « Nadir »</span></div><iframe data-mm-cadre title="Aperçu du mail de résultat" sandbox=""></iframe></div>
+      </div>
+      <div class="bo-carte"><div class="bo-carte__tete"><h2>Envois <small>${journal.envois.length}</small></h2>
+        ${journal.sans_mail_7j ? `<button type="button" class="bo-btn bo-btn--fantome" data-mm-rattraper>Envoyer les ${journal.sans_mail_7j} résultat${journal.sans_mail_7j > 1 ? 's' : ''} des 7 derniers jours sans mail</button>` : ''}</div>
+        ${journal.envois.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Élève</th><th>Sujet</th><th>État</th><th>Envoyé le</th></tr></thead><tbody>
+          ${journal.envois.map((e) => `<tr><td>${txt(e.email)}</td><td>${txt(e.sujet)}</td><td>${e.erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(e.erreur)}">échec</span>` : e.fournisseur_id ? '<span class="bo-pill bo-pill--ok">envoyé</span>' : '<span class="bo-pill">en cours</span>'}</td><td>${txt(dateFr(e.envoye_le, true))}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="bo-vide">Aucun mail de résultat envoyé pour l instant.</p>'}</div>`;
+    mmApercu();
+  }
+  async function mmApercu() {
+    try {
+      const r = await MM('apercu', { module: _mm.module, cas: _mm.cas });
+      const c = document.querySelector('[data-mm-cadre]'); if (c) c.srcdoc = r.html;
+    } catch (e) { dire(`Aperçu impossible : ${e.message}`, 'error'); }
+  }
+  CHARGEURS['academie/mails'] = vueMailsMembres;
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('[data-mm-module]')) { _mm.module = e.target.value; mmApercu(); }
+    if (e.target.matches('[data-mm-cas]')) { _mm.cas = e.target.value; mmApercu(); }
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-mm-interrupteur],[data-mm-test],[data-mm-rattraper]');
+    if (!b) return;
+    try {
+      if (b.matches('[data-mm-interrupteur]')) {
+        const actif = b.dataset.mmInterrupteur === '1';
+        if (actif && !window.confirm('Activer le mail de résultat de quiz ? Dès maintenant, chaque élève qui termine un quiz recevra son résultat par mail.')) return;
+        b.disabled = true;
+        const r = await MM('activer', { actif });
+        dire(r.quiz_actif ? 'Mails de résultat activés.' : 'Mails de résultat coupés.');
+        return vueMailsMembres();
+      }
+      if (b.matches('[data-mm-test]')) {
+        b.disabled = true;
+        const r = await MM('test', { module: _mm.module, cas: _mm.cas });
+        dire(`Test envoyé à ${r.envoye_a}.`); b.disabled = false; return;
+      }
+      if (b.matches('[data-mm-rattraper]')) {
+        if (!window.confirm('Envoyer maintenant leur mail de résultat aux élèves qui ont passé un quiz ces 7 derniers jours sans le recevoir ?')) return;
+        b.disabled = true;
+        const r = await MM('rattraper');
+        dire(`${r.envoyes} mail${r.envoyes > 1 ? 's' : ''} envoyé${r.envoyes > 1 ? 's' : ''}${r.echecs.length ? `, ${r.echecs.length} échec(s) : ${r.echecs.join(' ; ')}` : ''}.`, r.echecs.length ? 'error' : undefined);
+        return vueMailsMembres();
+      }
+    } catch (err) { b.disabled = false; dire(err.message, 'error'); }
+  });
+
   /* ══ MARKETING · EMAILS (campagnes Brevo) ═══════════════════════════════════
    * Modeles, gabarit et controles : api/_lib/campagnes.js, servis par la route coach
    * (action `campagnes`) : rien n est recopie ici. Une campagne vit dans Brevo :

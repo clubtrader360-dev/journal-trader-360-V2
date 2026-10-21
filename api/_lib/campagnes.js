@@ -161,7 +161,7 @@ export function manquants(c) {
     else if (/\[À VALIDER\]/.test(texte(v))) out.push(`${ch.libelle} (repère à remplacer)`);
   }
   if (!vide(c.bouton_texte) && !/^https:\/\/[^\s]+$/.test(String(c.bouton_lien || '').trim())) out.push('Lien du bouton (adresse https complète)');
-  if (/[–—]/.test(CHAMPS.map((ch) => texte(c[ch.cle])).join(' '))) out.push('Tiret cadratin ou demi-cadratin à remplacer');
+  if (/[\u2013\u2014]/.test(CHAMPS.map((ch) => texte(c[ch.cle])).join(' '))) out.push('Tiret cadratin ou demi-cadratin à remplacer');
   return out;
 }
 
