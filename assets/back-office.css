@@ -220,3 +220,4 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-tun-photo label.bo-btn { cursor: pointer; }
 .bo-btn--occupe { opacity: .55; pointer-events: none; }
 .bo-lien { background: none; border: 0; padding: 0; color: var(--gold); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.bo-btn--danger { color: var(--non); border-color: color-mix(in srgb, var(--non) 45%, transparent); }
