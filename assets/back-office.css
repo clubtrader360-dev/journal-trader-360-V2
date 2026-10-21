@@ -220,3 +220,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-tun-photo label.bo-btn { cursor: pointer; }
 .bo-btn--occupe { opacity: .55; pointer-events: none; }
 .bo-lien { background: none; border: 0; padding: 0; color: var(--gold); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.bo-btn--danger { color: var(--non); border-color: color-mix(in srgb, var(--non) 45%, transparent); }
+.bo-tun-ligne-actions { white-space: nowrap; text-align: right; }
+.bo-tun-ligne-actions .bo-oeil + .bo-oeil { margin-left: 6px; }
+.bo-tun-corbeille { color: var(--text-muted); font-size: 14px; transition: color .2s cubic-bezier(0.16, 1, 0.3, 1); }
+.bo-tun-corbeille:hover { color: var(--non); }

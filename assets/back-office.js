@@ -308,6 +308,14 @@
         <div class="bo-tun-actions"><label class="bo-btn bo-btn--fantome"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" data-tun-photo hidden>${val ? 'Remplacer la photo' : 'Ajouter une photo'}</label>
         ${val ? '<button type="button" class="bo-btn bo-btn--fantome" data-tun-photo-retirer>Retirer</button>' : ''}</div>${aide}</div>`;
     }
+    /**
+     * ⛔ UN GENRE INCONNU N'EST PAS RENDU COMME DU TEXTE. Les champs viennent du site ;
+     * un back-office resté ouvert pendant une mise en ligne reçoit un genre qu'il ne
+     * connaît pas. Le 21/10, l'ancien code a rendu « Photo » en case de texte, et le
+     * site a refusé l'enregistrement sans que rien n'explique pourquoi.
+     */
+    const GENRES = ['texte', 'long', 'liste', 'date', 'url', 'nombre', 'image'];
+    if (!GENRES.includes(c.genre)) return `<div class="bo-tun-champ"><span>${txt(c.libelle)}</span><p class="bo-tun-manque">Ce champ demande une version plus récente du back-office : recharge la page (Cmd + Maj + R).</p></div>`;
     if (c.genre === 'long' || c.genre === 'liste') entree = `<textarea id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" rows="${c.genre === 'liste' ? 5 : 3}">${txt(val)}</textarea>`;
     else if (c.genre === 'date') entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="date" type="text" placeholder="AAAA-MM-JJTHH:MM" value="${txt(val)}">`;
     else entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" type="${c.genre === 'nombre' ? 'number' : 'text'}" value="${txt(val)}">`;
@@ -337,7 +345,9 @@
           ${t.id ? `<a class="bo-btn bo-btn--fantome" href="${txt(lienApercu(t))}" target="_blank" rel="noopener">Aperçu</a>` : ''}
           <button type="button" class="bo-btn bo-btn--or" data-tun-enregistrer>Enregistrer</button>
           ${t.id && t.statut !== 'publie' ? `<button type="button" class="bo-btn bo-btn--or" data-tun-statut="publie" ${manq.length ? `disabled title="À compléter : ${txt(manq.join(', '))}"` : ''}>Publier</button>` : ''}
-          ${t.id && t.statut === 'publie' ? `<button type="button" class="bo-btn bo-btn--fantome" data-tun-statut="brouillon">Dépublier</button>` : ''}</div></div>
+          ${t.id && t.statut === 'publie' ? `<button type="button" class="bo-btn bo-btn--fantome" data-tun-statut="brouillon">Dépublier</button>` : ''}
+          ${t.id && t.statut === 'brouillon' ? `<button type="button" class="bo-btn bo-btn--fantome" data-tun-statut="archive" title="Retire la page de la liste active, garde ses inscrits">Archiver</button>` : ''}
+          ${t.id && t.statut !== 'publie' ? `<button type="button" class="bo-btn bo-btn--fantome bo-btn--danger" data-tun-supprimer title="Supprime la page et sa photo. Impossible si elle a des inscrits.">Supprimer</button>` : ''}</div></div>
         ${manq.length ? `<p class="bo-tun-manque">Avant publication : ${txt(manq.join(' · '))}</p>` : ''}
         ${t.statut === 'publie' ? `<p class="bo-tun-lien">En ligne : <a href="${txt(lienPublic(t))}" target="_blank" rel="noopener">${txt(lienPublic(t))}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienPublic(t))}">Copier le lien</button></p>` : ''}
         <div class="bo-tun-grille">
@@ -361,7 +371,7 @@
     const liste = await lire('tunnels:liste', () => TUN('lister'));
     z.innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>${liste.length}</b> Tunnel${liste.length > 1 ? 's' : ''}</h2><button type="button" class="bo-btn bo-btn--or" data-tun-nouveau><i class="fas fa-plus"></i> Créer un tunnel</button></div>
       ${liste.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Page</th><th>Type</th><th>État</th><th class="num">Inscrits</th><th>Modifiée</th><th></th></tr></thead><tbody>
-        ${liste.map((t) => { const st = LIB_STATUT[t.statut]; return `<tr><td><b>${txt(t.titre)}</b><br><small style="color:var(--text-soft)">/t/${txt(t.slug)}/</small></td><td>${txt(LIB_TYPE[t.type])}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td><td class="num">${t.inscrits}</td><td>${txt(dateFr(t.updated_at))}</td><td><button type="button" class="bo-oeil" data-tun-ouvrir="${t.id}" title="Ouvrir">&#128065;</button></td></tr>`; }).join('')}
+        ${liste.map((t) => { const st = LIB_STATUT[t.statut]; return `<tr><td><b>${txt(t.titre)}</b><br><small style="color:var(--text-soft)">/t/${txt(t.slug)}/</small></td><td>${txt(LIB_TYPE[t.type])}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td><td class="num">${t.inscrits}</td><td>${txt(dateFr(t.updated_at))}</td><td class="bo-tun-ligne-actions"><button type="button" class="bo-oeil" data-tun-ouvrir="${t.id}" title="Ouvrir">&#128065;</button>${t.statut !== 'publie' && !t.inscrits ? `<button type="button" class="bo-oeil bo-tun-corbeille" data-tun-supprimer="${t.id}" data-titre="${txt(t.titre)}" title="Supprimer ce brouillon"><i class="fas fa-trash-alt"></i></button>` : ''}</td></tr>`; }).join('')}
       </tbody></table></div>` : `<p class="bo-vide">Aucun tunnel pour l'instant. « Créer un tunnel » propose quatre modèles avec un exemple prêt à adapter.</p>`}
       <p class="bo-source">Pages publiées sur trader360.fr/t/, inscrits enregistrés dans la base du site et versés dans la liste Brevo choisie. Après chaque page ou inscription, la suite est toujours le questionnaire : l'offre est envoyée en personne après l'appel, depuis Ventes · Offres.</p></div>`;
   }
@@ -435,9 +445,20 @@
     if (e.target.matches('[data-tun-slug]')) { const vu = document.querySelector('[data-tun-slug-vu]'); if (vu) vu.textContent = slugDe(e.target.value); }
   });
   document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier],[data-tun-photo-retirer],[data-tun-creer-liste]');
+    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier],[data-tun-photo-retirer],[data-tun-creer-liste],[data-tun-supprimer]');
     if (!b) return;
     try {
+      if (b.matches('[data-tun-supprimer]')) {
+        // Depuis la liste (id porté par le bouton) ou depuis l'éditeur (brouillon ouvert).
+        const t = b.dataset.tunSupprimer ? { id: Number(b.dataset.tunSupprimer), titre: b.dataset.titre } : _tun.brouillon;
+        if (!window.confirm(`Supprimer définitivement « ${t.titre} » ? La page et sa photo seront effacées. Cette action ne s'annule pas.`)) return;
+        b.disabled = true;
+        await TUN('supprimer', { id: t.id });
+        _cache.delete('tunnels:liste');
+        _tun = { vue: 'liste' };
+        dire('Brouillon supprimé.');
+        return vueTunnels();
+      }
       if (b.matches('[data-tun-creer-liste]')) {
         e.preventDefault();
         const f = lireFormulaire();
@@ -490,7 +511,7 @@
         await TUN('enregistrer', { id: f.id, type: f.type, titre: f.titre, slug: f.slug, contenu: f.contenu, brevo_liste: f.brevo_liste });
         await TUN('statut', { id: f.id, statut });
         _tun.brouillon = await TUN('lire', { id: f.id }); _cache.delete('tunnels:liste');
-        dire(statut === 'publie' ? 'Page publiée.' : 'Page repassée en brouillon.');
+        dire(statut === 'publie' ? 'Page publiée.' : statut === 'archive' ? 'Page archivée.' : 'Page repassée en brouillon.');
         return vueTunnels();
       }
     } catch (err) {
