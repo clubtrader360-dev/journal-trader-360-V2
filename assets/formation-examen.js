@@ -446,8 +446,15 @@
       const q = e.D.questions[e.i];
       if (e.choix[q.id] == null) return;
       if (e.i < e.D.questions.length - 1) { e.i += 1; rendre(); return; }
-      // ⛔ Quiz sans exercice (01, 04, 06, 07, 07bis) : on valide directement. Passer
-      // en partie « exercices » rendait e.D.exercices[0], undefined (constaté le 21/10).
+      /**
+       * ⛔ SANS EXERCICE, LA DERNIERE QUESTION VALIDE. Le correctif du 21/10 (normaliser)
+       * laissait `exercices` vide, mais cette ligne passait quand meme a la partie
+       * « exercices » : `rendreExercice` lisait `exercices[0]`, absent, et levait au clic
+       * sur la derniere question. Les quiz 01, 04, 06, 07, 7 bis et 09 demarraient, mais
+       * ne se validaient pour personne. Trouve par le banc qui parcourt TOUS les quiz
+       * (outils/formation-tous-les-quiz-banc.mjs), pas par un essai a la main. Manu a pose
+       * la meme ligne en parallele (commit 4c26041) : les deux correctifs ont ete fondus ici.
+       */
       if (!e.D.exercices.length) { valider(); return; }
       e.partie = 'exercices'; e.i = 0; rendre(); return;
     }

@@ -356,7 +356,7 @@
           ${m.formulaire ? `<label class="bo-tun-champ"><span>Liste Brevo des inscrits</span>
             <select data-tun-liste><option value="">Aucune : inscrits visibles ici seulement</option>
               ${(_tun.listes || []).map((l) => `<option value="${l.id}" ${String(l.id) === String(t.brevo_liste ?? '') ? 'selected' : ''}>${txt(l.nom)} (n° ${l.id}${l.contacts != null ? `, ${l.contacts} contact${l.contacts > 1 ? 's' : ''}` : ''})</option>`).join('')}
-              ${t.brevo_liste && !(_tun.listes || []).some((l) => String(l.id) === String(t.brevo_liste)) ? `<option value="${txt(t.brevo_liste)}" selected>Liste n° ${txt(t.brevo_liste)}</option>` : ''}
+              ${t.brevo_liste && !(_tun.listes || []).some((l) => String(l.id) === String(t.brevo_liste)) ? `<option value="${txt(t.brevo_liste)}" selected>Liste n° ${txt(t.brevo_liste)} : introuvable dans Brevo, à remplacer</option>` : ''}
             </select>
             <small>Les inscrits y entrent automatiquement. Les listes du brief (17 et 18) ne sont pas proposées. <button type="button" class="bo-lien" data-tun-creer-liste>Créer une liste pour ce tunnel</button></small></label>` : ''}
           ${m.champs.map((c) => champHtml(c, (t.contenu || {})[c.cle])).join('')}
