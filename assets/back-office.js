@@ -371,7 +371,7 @@
     const liste = await lire('tunnels:liste', () => TUN('lister'));
     z.innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>${liste.length}</b> Tunnel${liste.length > 1 ? 's' : ''}</h2><button type="button" class="bo-btn bo-btn--or" data-tun-nouveau><i class="fas fa-plus"></i> Créer un tunnel</button></div>
       ${liste.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Page</th><th>Type</th><th>État</th><th class="num">Inscrits</th><th>Modifiée</th><th></th></tr></thead><tbody>
-        ${liste.map((t) => { const st = LIB_STATUT[t.statut]; return `<tr><td><b>${txt(t.titre)}</b><br><small style="color:var(--text-soft)">/t/${txt(t.slug)}/</small></td><td>${txt(LIB_TYPE[t.type])}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td><td class="num">${t.inscrits}</td><td>${txt(dateFr(t.updated_at))}</td><td><button type="button" class="bo-oeil" data-tun-ouvrir="${t.id}" title="Ouvrir">&#128065;</button></td></tr>`; }).join('')}
+        ${liste.map((t) => { const st = LIB_STATUT[t.statut]; return `<tr><td><b>${txt(t.titre)}</b><br><small style="color:var(--text-soft)">/t/${txt(t.slug)}/</small></td><td>${txt(LIB_TYPE[t.type])}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td><td class="num">${t.inscrits}</td><td>${txt(dateFr(t.updated_at))}</td><td class="bo-tun-ligne-actions"><button type="button" class="bo-oeil" data-tun-ouvrir="${t.id}" title="Ouvrir">&#128065;</button>${t.statut !== 'publie' && !t.inscrits ? `<button type="button" class="bo-oeil bo-tun-corbeille" data-tun-supprimer="${t.id}" data-titre="${txt(t.titre)}" title="Supprimer ce brouillon"><i class="fas fa-trash-alt"></i></button>` : ''}</td></tr>`; }).join('')}
       </tbody></table></div>` : `<p class="bo-vide">Aucun tunnel pour l'instant. « Créer un tunnel » propose quatre modèles avec un exemple prêt à adapter.</p>`}
       <p class="bo-source">Pages publiées sur trader360.fr/t/, inscrits enregistrés dans la base du site et versés dans la liste Brevo choisie. Après chaque page ou inscription, la suite est toujours le questionnaire : l'offre est envoyée en personne après l'appel, depuis Ventes · Offres.</p></div>`;
   }
@@ -449,7 +449,8 @@
     if (!b) return;
     try {
       if (b.matches('[data-tun-supprimer]')) {
-        const t = _tun.brouillon;
+        // Depuis la liste (id porté par le bouton) ou depuis l'éditeur (brouillon ouvert).
+        const t = b.dataset.tunSupprimer ? { id: Number(b.dataset.tunSupprimer), titre: b.dataset.titre } : _tun.brouillon;
         if (!window.confirm(`Supprimer définitivement « ${t.titre} » ? La page et sa photo seront effacées. Cette action ne s'annule pas.`)) return;
         b.disabled = true;
         await TUN('supprimer', { id: t.id });
