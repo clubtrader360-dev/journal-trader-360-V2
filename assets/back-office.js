@@ -787,12 +787,16 @@
       if (o) { z.innerHTML = pageOffre(o); return; }
       _offreOuverte = null;
     }
-    z.innerHTML = `<div class="bo-carte">
-      <div class="bo-carte__tete"><h2><b>${offres.length}</b> Offres</h2><button type="button" class="bo-btn bo-btn--or" disabled title="Avec les clés Stripe, lot Ventes"><i class="fas fa-plus"></i> Créer une offre</button></div>
+    // ⚠️ 21/10 : les offres de la PAGE DE COMMANDE en tête (assets/back-office-offres.js),
+    // l'historique LearnyBox dessous, inchangé.
+    z.innerHTML = `<div id="boOffresCommande"><p class="bo-vide">Chargement des offres…</p></div><div id="boOffresHistorique"><div class="bo-carte">
+      <div class="bo-carte__tete"><h2><b>${offres.length}</b> Offres importées de LearnyBox</h2></div>
       <div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Nom</th><th>État</th><th class="num">Produits</th><th class="num">Clients</th><th class="num">Transactions</th><th class="num">Montant total</th><th>Première vente</th><th>Dernière vente</th><th></th></tr></thead><tbody>
         ${offres.map((o) => `<tr><td><b>${txt(o.nom)}</b><br><small style="color:var(--text-soft)">${[...o.types].filter(Boolean).map(txt).join(' · ')}</small></td><td><span class="bo-pill bo-pill--ok">Importée</span></td><td class="num">${o.produits.size}</td><td class="num">${o.clients.size}</td><td class="num">${o.tx.length}</td><td class="num"><b>${eur(o.montant)}</b></td><td>${txt(dateFr(o.premiere))}</td><td>${txt(dateFr(o.derniere))}</td><td><button type="button" class="bo-oeil" data-offre="${txt(o.nom)}" title="Ouvrir l offre">&#128065;</button></td></tr>`).join('')}
       </tbody></table></div>
-      <p class="bo-source">Offres reconstituées depuis les 111 transactions LearnyBox (une offre = un formulaire de paiement). Créer une offre, l'encaisser par Stripe ou par virement, poser des bons de réduction : lot Ventes, dès que les clés Stripe sont dans Vercel.</p></div>`;
+      <p class="bo-source">Offres reconstituées depuis les 111 transactions LearnyBox (une offre = un formulaire de paiement), en lecture seule.</p></div></div>`;
+    if (window.OffresCommande) await window.OffresCommande.rafraichir();
+    else $('boOffresCommande').innerHTML = '<p class="bo-vide bo-erreur">Module des offres non chargé (assets/back-office-offres.js) : recharge la page.</p>';
   };
   function pageOffre(o) {
     const ONGLETS = [['resume', 'Résumé'], ['statistiques', 'Statistiques'], ['produits', 'Produits'], ['paiement', 'Moyens de paiement'], ['clients', 'Clients'], ['ventes', 'Ventes'], ['paniers', 'Abandons de panier'], ['bons', 'Bons de réduction'], ['parametres', 'Paramètres']];
