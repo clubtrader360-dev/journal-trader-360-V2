@@ -237,8 +237,26 @@
   /* ── L examen en cours ──────────────────────────────────────────────── */
   let _etat = null; // { zone, D, opts, partie, i, choix, reponses, perms, nettoyer }
 
+  /**
+   * ⛔ UN QUIZ ILLUSTRE SANS EXERCICE PASSE AUSSI PAR CE MOTEUR (supabase-formation.js,
+   * `moteur = nbEx > 0 || illustration`). Les quiz 01, 04, 06, 07 et 07bis n ont ni
+   * `exercices`, ni `points_par_exercice`, ni `exercices_minimum` : `D.exercices.forEach`
+   * levait une TypeError au clic sur « Commencer le quiz », et le quiz ne se lancait pour
+   * personne (constate le 21/10/2026). On complete les champs absents, une fois, ici :
+   * tout le reste du moteur lit `_etat.D`.
+   */
+  function normaliser(D) {
+    if (!D) return D;
+    return {
+      ...D,
+      exercices: Array.isArray(D.exercices) ? D.exercices : [],
+      points_par_exercice: D.points_par_exercice || 0,
+      exercices_minimum: D.exercices_minimum || 0,
+    };
+  }
+
   function commencer(zone, opts) {
-    const D = opts.donnees;
+    const D = normaliser(opts.donnees);
     if (!zone || !D) return;
     if (_etat && _etat.nettoyer) _etat.nettoyer();
     const alea = graine(Date.now() % 100000 + 7);
@@ -344,7 +362,7 @@
       </div>
       <div class="quiz__pied">
         ${e.i > 0 ? `<button type="button" class="btn btn-ghost" data-ex-prec>${I.back} Précédent</button>` : '<span></span>'}
-        <button type="button" class="btn btn-gold" data-ex-suiv ${choisi == null ? 'disabled' : ''}>${e.i === e.D.questions.length - 1 ? 'Passer aux exercices' : 'Suivant'} ${I.arrow}</button>
+        <button type="button" class="btn btn-gold" data-ex-suiv ${choisi == null ? 'disabled' : ''}>${e.i === e.D.questions.length - 1 ? (e.D.exercices.length ? 'Passer aux exercices' : 'Valider mon quiz') : 'Suivant'} ${I.arrow}</button>
       </div>`;
   }
 
@@ -428,6 +446,15 @@
       const q = e.D.questions[e.i];
       if (e.choix[q.id] == null) return;
       if (e.i < e.D.questions.length - 1) { e.i += 1; rendre(); return; }
+      /**
+       * ⛔ SANS EXERCICE, LA DERNIERE QUESTION VALIDE. Le correctif du 21/10 (normaliser)
+       * laissait `exercices` vide, mais cette ligne passait quand meme a la partie
+       * « exercices » : `rendreExercice` lisait `exercices[0]`, absent, et levait au clic
+       * sur la derniere question. Les quiz 01, 04, 06, 07, 7 bis et 09 demarraient, mais
+       * ne se validaient pour personne. Trouve par le banc qui parcourt TOUS les quiz
+       * (outils/formation-tous-les-quiz-banc.mjs), pas par un essai a la main.
+       */
+      if (!e.D.exercices.length) { valider(); return; }
       e.partie = 'exercices'; e.i = 0; rendre(); return;
     }
     const ex = e.D.exercices[e.i];
@@ -461,7 +488,8 @@
    * @param ctx    { donnees, resultat, ok (ecrit en base), dejaFini, badge, leconDe(id), ouDe(id) -> [mi,ci] }
    */
   function rendreResultat(zone, ctx) {
-    const { donnees: D, resultat: r } = ctx;
+    const D = normaliser(ctx.donnees);
+    const r = ctx.resultat;
     const largeur = Math.max(300, Math.min(640, zone.clientWidth - 52));
     const fautes = r.reponses.questions.filter((x) => x.choisie !== x.bonne).map((x) => {
       const q = D.questions.find((y) => y.id === x.id);
@@ -598,7 +626,7 @@
     const titre = nbEx ? `${D.questions.length} questions et ${nbEx} exercice${nbEx > 1 ? 's' : ''} sur graphique, ${seuil} points sur ${total} pour ${ctx.certification ? 'être certifié' : 'valider'}.` : `${D.questions.length} questions, ${seuil} bonnes réponses pour valider.`;
     const corps = ctx.certification
       ? `C’est l’examen de sortie : il porte sur toute la méthode. Les questions te mettent en situation de séance ; les exercices te donnent un graphique, et c’est toi qui poses la zone ou qui choisis l’entrée. Il faut 80 % des points${mini ? ` et au moins ${mini} exercices réussis sur ${nbEx}` : ''}. Tu peux le repasser autant de fois que tu veux, et chaque exercice est corrigé graphique à l’appui.`
-      : `C’est 80 %. Une question par écran, puis ${nbEx > 1 ? 'les exercices' : 'l’exercice'} sur graphique, et tu valides à la fin. Pour chaque mauvaise réponse tu auras le conseil et le passage de la vidéo à revoir, et chaque exercice est corrigé graphique à l’appui. Tu peux le repasser autant de fois que tu veux.`;
+      : `C’est 80 %. Une question par écran${nbEx ? `, puis ${nbEx > 1 ? 'les exercices' : 'l’exercice'} sur graphique` : ''}, et tu valides à la fin. Pour chaque mauvaise réponse tu auras le conseil et le passage de la vidéo à revoir${nbEx ? ', et chaque exercice est corrigé graphique à l’appui' : ''}. Tu peux le repasser autant de fois que tu veux.`;
     return `
       <div class="quiz__entree">
         <h3>${titre}</h3>
