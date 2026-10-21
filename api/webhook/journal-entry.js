@@ -470,6 +470,18 @@ async function handleFormationXp(res) {
     }
     let derniere = -1;
     (parcours.header || []).forEach((v, i) => { if (String(v || '').trim()) derniere = i; });
+    // La grille peut s'arrêter juste après la dernière colonne (AQ le 21/10/2026) : on ajoute
+    // les colonnes manquantes à droite, sans rien décaler.
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties(sheetId,title,gridProperties)' });
+    const onglet = (meta.data.sheets || []).find((sh) => sh.properties && sh.properties.title === SHEET_NAME);
+    if (!onglet) throw new Error(`onglet « ${SHEET_NAME} » introuvable`);
+    const manque = (derniere + 3) - (onglet.properties.gridProperties.columnCount || 0);
+    if (manque > 0) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ appendDimension: { sheetId: onglet.properties.sheetId, dimension: 'COLUMNS', length: manque } }] },
+      });
+    }
     const range = `'${SHEET_NAME}'!${columnLetter(derniere + 1)}3:${columnLetter(derniere + 2)}3`;
     await sheets.spreadsheets.values.update({
       spreadsheetId, range, valueInputOption: 'RAW',
