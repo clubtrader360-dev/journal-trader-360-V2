@@ -32,8 +32,9 @@ import crypto from 'crypto';
 import { getServiceClient, readJson } from '../tradovate/_lib/auth.js';
 import { getSheetsClient, getSheetId } from '../coach/_lib/sheets-client.js';
 import { computeT360Score } from '../_lib/t360-score.js';
-import { readParcours, cellA1, TITRES, FIRST_MEMBER_ROW, SHEET_NAME } from '../_lib/parcours-colonnes.js';
+import { readParcours, cellA1, columnLetter, TITRES, FIRST_MEMBER_ROW, SHEET_NAME } from '../_lib/parcours-colonnes.js';
 import { parisDayOf, joursBourseEntre, SEUIL_NON_REMPLI, SEUIL_VIDE } from '../_lib/jours-bourse.js';
+import { xpParEmail, dateParis } from '../_lib/formation-xp.js';
 
 // États écrits dans la colonne « Journal » quand il n'y a pas de note.
 const JOURNAL_VIDE = 'vide';             // aucune saisie, plus de 20 jours de bourse, ou pas inscrit (ex-« NO »)
@@ -154,6 +155,16 @@ async function writeJournalCells(sheets, spreadsheetId, colIdx, cells) {
 export default async function handler(req, res) {
   try {
     const action = (req.query && req.query.action) || '';
+
+    // 0bis. XP et dernière connexion formation (pg_cron Supabase toutes les heures, GET + Bearer
+    // CRON_SECRET ; ou POST X-Webhook-Secret à la main). Voir handleFormationXp.
+    if (action === 'formation-xp') {
+      const ok = req.method === 'GET'
+        ? secretOk(String(req.headers.authorization || '').replace(/^Bearer /, ''), process.env.CRON_SECRET)
+        : secretOk(req.headers['x-webhook-secret'], process.env.SUPABASE_WEBHOOK_SECRET);
+      if (!ok) return res.status(401).json({ ok: false, error: 'unauthorized' });
+      return await handleFormationXp(res);
+    }
 
     // 0. Cron Vercel (GET + Bearer CRON_SECRET) → recalcul quotidien.
     if (req.method === 'GET' && action === 'daily-recalc') {
@@ -419,3 +430,89 @@ async function handleDailyRecalc(res) {
     membres,
   });
 }
+
+// ========================================
+// ?action=formation-xp — colonnes « Dernière connexion formation » et « XP » du tableur.
+// Demande de Manu du 21/10/2026. Lancé toutes les heures par pg_cron (Supabase).
+//   - Dernière connexion formation = auth.users.last_sign_in_at, JJ/MM/AAAA (jour de Paris).
+//   - XP = recalcul exact de xpTotal() de l'espace formation (api/_lib/formation-xp.js).
+// Colonnes retrouvées par TITRE. Si AUCUNE des deux n'existe, elles sont créées en ligne 3,
+// juste après la dernière colonne titrée (rien n'est décalé). Si une seule existe ou si un titre
+// est en double → aucune écriture.
+// Les lignes coachs SONT écrites ici (exception voulue par Manu : il veut voir son propre XP) ;
+// ces deux colonnes sont informatives et ne nourrissent aucun score.
+// Ligne sans compte correspondant → cellules laissées telles quelles, email listé en réponse.
+// Seules les cellules dont la valeur change sont réécrites.
+// ========================================
+const T_CONNEXION = 'derniere connexion formation';
+const T_XP = 'xp';
+const LIB_CONNEXION = 'Dernière connexion formation';
+const LIB_XP = 'XP';
+
+async function handleFormationXp(res) {
+  const t0 = Date.now();
+  const sb = getServiceClient();
+  const parEmail = await xpParEmail(sb);
+
+  const sheets = getSheetsClient();
+  const spreadsheetId = getSheetId();
+  const base = [TITRES.ID, TITRES.MAIL_LB, TITRES.MAIL_PERSO];
+  let parcours = await readParcours(sheets, spreadsheetId, [...base, T_CONNEXION, T_XP]);
+  let created = false;
+
+  if (!parcours.ok) {
+    const manquants = parcours.missing || [];
+    const seulsNouveaux = !(parcours.duplicates || []).length
+      && manquants.length === 2 && manquants.includes(T_CONNEXION) && manquants.includes(T_XP);
+    if (!seulsNouveaux) {
+      console.error(`[FORMATION-XP] ⛔ AUCUNE écriture — ${parcours.error}`);
+      return res.status(200).json({ ok: false, written: 0, error: parcours.error });
+    }
+    let derniere = -1;
+    (parcours.header || []).forEach((v, i) => { if (String(v || '').trim()) derniere = i; });
+    const range = `'${SHEET_NAME}'!${columnLetter(derniere + 1)}3:${columnLetter(derniere + 2)}3`;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId, range, valueInputOption: 'RAW',
+      requestBody: { values: [[LIB_CONNEXION, LIB_XP]] },
+    });
+    created = true;
+    parcours = await readParcours(sheets, spreadsheetId, [...base, T_CONNEXION, T_XP]);
+    if (!parcours.ok) {
+      console.error(`[FORMATION-XP] ⛔ AUCUNE écriture après création — ${parcours.error}`);
+      return res.status(200).json({ ok: false, written: 0, error: parcours.error });
+    }
+  }
+
+  const { cols, rows } = parcours;
+  const data = [];
+  const sansCompte = [];
+  let lignes = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const rowNum = FIRST_MEMBER_ROW + i;
+    const emails = rowEmails(row, cols);
+    if (!emails.length) continue;
+    const hit = emails.map((e) => parEmail.get(e)).find(Boolean);
+    if (!hit) { sansCompte.push(emails[0]); continue; }
+    lignes++;
+    const conn = dateParis(hit.lastSignIn);
+    if (String(row[cols[T_CONNEXION]] ?? '') !== conn) {
+      data.push({ range: cellA1(cols[T_CONNEXION], rowNum), values: [[conn]] });
+    }
+    if (String(row[cols[T_XP]] ?? '') !== String(hit.xp)) {
+      data.push({ range: cellA1(cols[T_XP], rowNum), values: [[hit.xp]] });
+    }
+  }
+  if (data.length) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId, requestBody: { valueInputOption: 'RAW', data },
+    });
+  }
+  const duration_ms = Date.now() - t0;
+  console.log(`[FORMATION-XP] lignes=${lignes} cellules=${data.length} sans_compte=${sansCompte.length} created=${created} in ${duration_ms}ms`);
+  return res.status(200).json({
+    ok: true, created_headers: created, lignes_trouvees: lignes, cellules_ecrites: data.length,
+    sans_compte: sansCompte, duration_ms,
+  });
+}
+
