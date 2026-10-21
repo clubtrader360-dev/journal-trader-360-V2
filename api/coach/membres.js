@@ -451,23 +451,100 @@ async function tunnels(corps, coach) {
  * la base du SITE. Même clé BACKOFFICE_CLE, même garde (requireCoach plus haut).
  * Aucune donnée d'élève du journal ne passe par ce pont.
  */
-const SOUS_ACTIONS_OFFRES = ['reference', 'lister', 'enregistrer', 'statut', 'supprimer', 'code_enregistrer', 'code_supprimer', 'envoyer_lien', 'envois', 'commandes', 'virement_recu', 'annuler'];
-async function offresSite(corps, coach) {
+const SOUS_ACTIONS_OFFRES = ['reference', 'lister', 'enregistrer', 'statut', 'supprimer', 'code_enregistrer', 'code_supprimer', 'envoyer_lien', 'envois', 'commandes', 'virement_recu', 'annuler', 'ouvrir_acces'];
+async function appelSite(sous, corps, coach) {
   const cle = process.env.BACKOFFICE_CLE;
   if (!cle) throw httpError(500, 'BACKOFFICE_CLE absente : le pont vers le site n est pas configure');
-  const sous = String(corps.sous_action || '');
-  if (!SOUS_ACTIONS_OFFRES.includes(sous)) throw httpError(400, 'sous_action inconnue');
   const site = (process.env.SITE_URL || 'https://www.trader360.fr').replace(/\/$/, '');
-  const { action: _a, sous_action: _s, ...reste } = corps;
   const r = await fetch(`${site}/api/offres`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-backoffice-cle': cle },
-    body: JSON.stringify({ ...reste, action: sous, par: coach.email }),
+    body: JSON.stringify({ ...corps, action: sous, par: coach.email }),
   });
   const d = await r.json().catch(() => ({}));
   // ⛔ `r.ok` ET `d.ok` : un refus du site arrive en 4xx sans lever.
   if (!r.ok || !d.ok) throw httpError(r.status >= 400 && r.status < 500 ? r.status : 502, d.motif || `site ${r.status}`);
   return d.resultat;
+}
+async function offresSite(sb, corps, coach, origine) {
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_OFFRES.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  const { action: _a, sous_action: _s, ...reste } = corps;
+  /**
+   * ⚠️ VIREMENT REÇU = COMMANDE PAYÉE + ACCÈS OUVERTS (demande de Nadir du 21/10,
+   * carte P0-3). Le site marque la commande payée, puis le journal ouvre les accès.
+   * `ouvrir_acces` rejoue la seconde moitié seule, si elle a échoué.
+   * ⛔ Le résultat est TOUJOURS rapporté au site (date ou motif) : un échec ne doit
+   * jamais ressembler à un succès dans Ventes · Offres.
+   */
+  if (sous === 'virement_recu' || sous === 'ouvrir_acces') {
+    const k = sous === 'virement_recu' ? await appelSite('virement_recu', reste, coach) : await appelSite('commande', { id: reste.id }, coach);
+    if (!['payee', 'en_cours'].includes(k.statut)) throw httpError(409, 'commande non payée : accès non ouverts');
+    let acces;
+    try {
+      acces = await ouvrirAccesAcheteur(sb, k, coach, origine);
+      if (!acces.sans_objet) await appelSite('acces_resultat', { id: k.id, ok: true }, coach);
+    } catch (e) {
+      await appelSite('acces_resultat', { id: k.id, ok: false, erreur: e.message }, coach).catch(() => null);
+      return { commande: k, acces: { ok: false, erreur: e.message } };
+    }
+    return { commande: k, acces: { ok: true, ...acces } };
+  }
+  return appelSite(sous, reste, coach);
+}
+
+/**
+ * OUVRIR LES ACCÈS D'UN ACHETEUR (virement reçu aujourd'hui, paiement Stripe confirmé demain).
+ *   - offre de type « formation » seulement : un présentiel ne crée pas de compte ;
+ *   - nouveau : `creer()`, la même fonction que « Ajouter un membre » (formation ET
+ *     journal ouverts, arbitrage du 16/10 ; progression LearnyBox reprise si elle existe ;
+ *     mail de première connexion journalisé) ;
+ *   - compte existant (ancien élève qui rachète) : formation et journal rouverts, et le
+ *     même mail d'accès, avec son lien pour choisir un mot de passe ;
+ *   - dans les deux cas, ajouté à la liste Brevo MEMBRES T360 (7). Le ménage du soir
+ *     le sortira de PROSPECTS.
+ * ⛔ Une erreur LÈVE : l'appelant la rapporte au site, rien ne passe en silence.
+ */
+async function ouvrirAccesAcheteur(sb, k, coach, origine) {
+  if (!k.offre || k.offre.type !== 'formation') return { sans_objet: true, motif: 'offre sans compte (présentiel ou autre)' };
+  const email = String(k.email || '').trim().toLowerCase();
+  if (!EMAIL.test(email)) throw httpError(400, 'adresse de la commande invalide');
+  let compte = null;
+  let cree = false;
+  try {
+    compte = await creer(sb, { email, prenom: k.prenom, nom: k.nom, formation: true, journal: true, envoyer_mail: true }, coach, origine);
+    cree = true;
+  } catch (e) {
+    if (e?.statusCode !== 409 && e?.status !== 409) throw e;
+    // Le compte existe : on le retrouve, on rouvre ses droits, on renvoie le mail d'accès.
+    let uid = null;
+    for (let page = 1; page <= 10 && !uid; page += 1) {
+      const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 200 });
+      if (error) throw httpError(500, `liste des comptes illisible : ${error.message}`);
+      const u = (data?.users || []).find((x) => String(x.email || '').toLowerCase() === email);
+      if (u) uid = u.id;
+      if (!data?.users || data.users.length < 200) break;
+    }
+    if (!uid) throw httpError(500, 'compte annoncé existant mais introuvable');
+    const { error: accErr } = await sb.from('acces_membre').upsert({ user_id: uid, formation_actif: true, journal_actif: true, journal_retire_le: null, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (accErr) throw httpError(500, `droits non écrits : ${accErr.message}`);
+    const lien = await lienDeConnexion(sb, email, origine);
+    const { sujet, html, attachments } = mailPremiereConnexion({ prenom: k.prenom, lien, origine });
+    try {
+      const id = await envoyerMail({ to: email, sujet, html, attachments });
+      await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, fournisseur_id: id, envoye_par: coach.email });
+    } catch (er) {
+      await journaliserMail(sb, { user_id: uid, email, type: 'premiere_connexion', sujet, envoye_par: coach.email, erreur: er.message });
+      throw er;
+    }
+    compte = { user_id: uid, email, mail_envoye: true };
+  }
+  // La liste Brevo des membres. ⚠️ Non bloquant pour l'élève, mais rapporté.
+  let brevoMembres = true;
+  const rb = await brevo('/contacts', { method: 'POST', body: { email, listIds: [7], updateEnabled: true, attributes: { PRENOM: k.prenom || '' } } }).catch((e) => ({ status: 0, body: String(e) }));
+  if (!(rb.status >= 200 && rb.status < 300)) { brevoMembres = false; console.error(`[OFFRES] ⚠️ ${email} non ajouté à MEMBRES T360 : ${rb.status} ${JSON.stringify(rb.body).slice(0, 200)}`); }
+  console.log(`[OFFRES] ✅ accès ouverts pour ${email} (commande ${k.reference}, ${cree ? 'compte créé' : 'compte existant rouvert'}) par ${coach.email}`);
+  return { cree, user_id: compte.user_id, email, mail_envoye: !!compte.mail_envoye, brevo_membres: brevoMembres };
 }
 
 /* ══ EMAILS MARKETING (campagnes Brevo) ══════════════════════════════════════
@@ -1364,7 +1441,7 @@ export default async function handler(req, res) {
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
     else if (action === 'annonce') resultat = await annonce(sb, corps, coach, origine);
     else if (action === 'tunnels') resultat = await tunnels(corps, coach);
-    else if (action === 'offres') resultat = await offresSite(corps, coach);
+    else if (action === 'offres') resultat = await offresSite(sb, corps, coach, origine);
     else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
     else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
