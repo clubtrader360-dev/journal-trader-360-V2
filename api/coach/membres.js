@@ -40,6 +40,8 @@ import { join } from 'node:path';
 import { requireCoach, httpError } from '../vimeo/_lib/coach-auth.js';
 import { getServiceClient } from '../tradovate/_lib/auth.js';
 import { getSheetsClient } from './_lib/sheets-client.js';
+import { brevo } from '../_lib/brevo-client.js';
+import { MODELES as MODELES_CAMPAGNE, CHAMPS as CHAMPS_CAMPAGNE, manquants as manquantsCampagne, rendreCampagne, EXPEDITEUR_ID, PREFIXE_NOM } from '../_lib/campagnes.js';
 
 const NIVEAUX = ['debutant', 'intermediaire', 'confirme'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -411,6 +413,118 @@ async function tunnels(corps, coach) {
   // ⛔ `r.ok` : un refus du site arrive en 4xx sans lever.
   if (!r.ok || !d.ok) throw httpError(r.status >= 400 && r.status < 500 ? r.status : 502, d.motif || `site ${r.status}`);
   return d.resultat;
+}
+
+/* ══ EMAILS MARKETING (campagnes Brevo) ══════════════════════════════════════
+ * Modèles et gabarit : api/_lib/campagnes.js. Une campagne vit dans Brevo, pas dans
+ * notre base : brouillon créé au premier test, mis à jour à chaque test, envoyé ensuite.
+ * ⛔ GARDE-FOUS DE L'ENVOI À UNE LISTE (action irréversible) :
+ *   - le mot ENVOYER tapé par le coach, revérifié ici, pas seulement dans le navigateur ;
+ *   - aucun champ obligatoire vide, aucun repère [À VALIDER] (manquants()) ;
+ *   - un test envoyé AVANT pour cette campagne (id existant) ;
+ *   - le nombre de contacts de la liste relu chez Brevo et renvoyé, pour l'écran de confirmation.
+ */
+const SOUS_ACTIONS_CAMPAGNES = ['modeles', 'apercu', 'listes', 'test', 'envoyer', 'historique', 'reglage', 'activer'];
+/**
+ * ⛔ L'INTERRUPTEUR « ENVOI AUX LISTES » (demande de Nadir, 21/10). Coupé par défaut :
+ * tant qu'il l'est, seul le test part. Il vit dans system_settings et la route le relit
+ * à CHAQUE envoi : le masquer à l'écran ne suffirait pas, un onglet ouvert avant la
+ * coupure garderait son bouton. Aucune ligne en base = coupé.
+ */
+const CLE_ENVOI = 'campagnes_envoi_listes';
+async function envoiActif(sb) {
+  const { data, error } = await sb.from('system_settings').select('value').eq('key', CLE_ENVOI).maybeSingle();
+  if (error) throw httpError(502, `réglage illisible : ${error.message}`);
+  return data?.value?.actif === true;
+}
+const personnaliserObjet = (s) => String(s || '').replace(/\{\{\s*prenom\s*\}\}/gi, '{{ contact.PRENOM | default : "toi" }}');
+async function brevoOk(chemin, init, quoi) {
+  const r = await brevo(chemin, init);
+  // ⛔ Le client ne lève pas sur un non-2xx : on tranche ici, avec le détail de Brevo.
+  if (r.status < 200 || r.status >= 300) {
+    const b = r.body || {};
+    const detail = [b.message || b.code || b.raw, b.withoutListEmails?.length ? `adresse hors de toute liste Brevo : ${b.withoutListEmails.join(', ')}` : '', b.unexistingEmails?.length ? `adresse inconnue de Brevo : ${b.unexistingEmails.join(', ')}` : '', b.blackListedEmails?.length ? `adresse désinscrite : ${b.blackListedEmails.join(', ')}` : ''].filter(Boolean).join(' ; ');
+    throw httpError(r.status >= 400 && r.status < 500 ? 400 : 502, `Brevo, ${quoi} : ${detail || 'HTTP ' + r.status}`);
+  }
+  return r.body;
+}
+function contenuCampagne(corps) {
+  const c = corps.contenu && typeof corps.contenu === 'object' ? corps.contenu : {};
+  const out = {};
+  for (const ch of CHAMPS_CAMPAGNE) out[ch.cle] = ch.genre === 'liste' ? (Array.isArray(c[ch.cle]) ? c[ch.cle] : String(c[ch.cle] || '').split('\n')).map((x) => String(x).trim()).filter(Boolean).slice(0, 30) : String(c[ch.cle] ?? '').slice(0, 2000);
+  return out;
+}
+async function campagnes(sb, corps, coach) {
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_CAMPAGNES.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  if (sous === 'modeles') return { champs: CHAMPS_CAMPAGNE, modeles: MODELES_CAMPAGNE };
+  if (sous === 'reglage') return { envoi_actif: await envoiActif(sb) };
+  if (sous === 'activer') {
+    const actif = corps.actif === true;
+    const { error } = await sb.from('system_settings').upsert({ key: CLE_ENVOI, value: { actif, par: coach.email, le: new Date().toISOString() }, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (error) throw httpError(502, `réglage non enregistré : ${error.message}`);
+    // ⛔ On relit ce qui est en base, on ne renvoie pas ce qu'on croit avoir écrit.
+    const relu = await envoiActif(sb);
+    if (relu !== actif) throw httpError(502, 'le réglage relu ne correspond pas à celui demandé');
+    console.log(`[CAMPAGNES] envoi aux listes ${actif ? 'ACTIVÉ' : 'coupé'} par ${coach.email}`);
+    return { envoi_actif: relu };
+  }
+  if (sous === 'apercu') {
+    const c = contenuCampagne(corps);
+    return { html: rendreCampagne(c, { apercu: true }), manquants: manquantsCampagne(c) };
+  }
+  if (sous === 'listes') {
+    const toutes = [];
+    for (let offset = 0; offset < 500; offset += 50) {
+      const b = await brevoOk(`/contacts/lists?limit=50&offset=${offset}&sort=desc`, {}, 'lecture des listes');
+      toutes.push(...(b.lists || []));
+      if (!b.lists || b.lists.length < 50) break;
+    }
+    return toutes.map((l) => ({ id: l.id, nom: l.name, contacts: l.uniqueSubscribers ?? l.totalSubscribers ?? null }));
+  }
+  if (sous === 'historique') {
+    const b = await brevoOk('/emailCampaigns?type=classic&limit=50&offset=0&sort=desc&statistics=globalStats', {}, 'lecture des campagnes');
+    return (b.campaigns || []).filter((x) => String(x.name || '').startsWith(PREFIXE_NOM)).map((x) => {
+      const g = x.statistics?.globalStats || {};
+      return { id: x.id, nom: x.name, objet: x.subject, statut: x.status, envoyee_le: x.sentDate || null, creee_le: x.createdAt, destinataires: g.sent ?? null, delivres: g.delivered ?? null, ouvertures: g.uniqueViews ?? null, clics: g.uniqueClicks ?? null, desinscriptions: g.unsubscriptions ?? null };
+    });
+  }
+  const c = contenuCampagne(corps);
+  const liste = corps.liste == null || corps.liste === '' ? null : Number(corps.liste);
+  if (liste !== null && (!Number.isInteger(liste) || liste <= 0)) throw httpError(400, 'liste Brevo : un numéro attendu');
+  const charge = {
+    name: `${PREFIXE_NOM}${String(c.objet || 'sans objet').slice(0, 90)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    subject: personnaliserObjet(c.objet),
+    previewText: personnaliserObjet(c.pre_entete).slice(0, 180) || undefined,
+    sender: { id: EXPEDITEUR_ID },
+    htmlContent: rendreCampagne(c),
+    ...(liste ? { recipients: { listIds: [liste] } } : {}),
+  };
+  if (!c.objet || !c.titre) throw httpError(400, 'objet et titre requis, même pour un test');
+  let id = corps.id ? Number(corps.id) : null;
+  if (id) await brevoOk(`/emailCampaigns/${id}`, { method: 'PUT', body: { ...charge, name: undefined } }, 'mise à jour du brouillon');
+  else id = (await brevoOk('/emailCampaigns', { method: 'POST', body: charge }, 'création du brouillon')).id;
+  if (!id) throw httpError(502, 'Brevo n a pas rendu d identifiant de campagne');
+
+  if (sous === 'test') {
+    const dest = String(corps.email_test || coach.email || '').trim().toLowerCase();
+    await brevoOk(`/emailCampaigns/${id}/sendTest`, { method: 'POST', body: { emailTo: [dest] } }, 'envoi du test');
+    console.log(`[CAMPAGNES] test de la campagne ${id} envoyé à ${dest} par ${coach.email}`);
+    return { id, envoye_a: dest, manquants: manquantsCampagne(c) };
+  }
+  // ── envoyer : irréversible ──
+  if (!(await envoiActif(sb))) throw httpError(403, 'l envoi aux listes est coupé : active-le en haut de l écran Emails marketing');
+  if (String(corps.confirmation || '') !== 'ENVOYER') throw httpError(400, 'confirmation manquante : taper ENVOYER');
+  if (!corps.id) throw httpError(400, 'envoie-toi d abord un test de cette campagne');
+  if (!liste) throw httpError(400, 'choisis la liste Brevo des destinataires');
+  const manq = manquantsCampagne(c);
+  if (manq.length) throw httpError(400, `à compléter avant l envoi : ${manq.join(', ')}`);
+  const l = await brevoOk(`/contacts/lists/${liste}`, {}, `lecture de la liste ${liste}`);
+  const n = l.uniqueSubscribers ?? l.totalSubscribers ?? null;
+  if (Number(corps.contacts_attendus) !== Number(n)) throw httpError(409, `la liste compte maintenant ${n} contacts (l écran en annonçait ${corps.contacts_attendus}) : recharge et confirme à nouveau`);
+  await brevoOk(`/emailCampaigns/${id}/sendNow`, { method: 'POST' }, 'envoi');
+  console.log(`[CAMPAGNES] ✅ campagne ${id} envoyée à la liste ${liste} (${n} contacts) par ${coach.email}`);
+  return { id, liste, contacts: n };
 }
 
 async function envoyerMail({ to, sujet, html, attachments = [] }) {
@@ -989,6 +1103,7 @@ export default async function handler(req, res) {
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
     else if (action === 'annonce') resultat = await annonce(sb, corps, coach, origine);
     else if (action === 'tunnels') resultat = await tunnels(corps, coach);
+    else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
     else if (action === 'fiche') resultat = await fiche(sb, corps);
