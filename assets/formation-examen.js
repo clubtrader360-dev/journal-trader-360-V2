@@ -452,7 +452,8 @@
        * « exercices » : `rendreExercice` lisait `exercices[0]`, absent, et levait au clic
        * sur la derniere question. Les quiz 01, 04, 06, 07, 7 bis et 09 demarraient, mais
        * ne se validaient pour personne. Trouve par le banc qui parcourt TOUS les quiz
-       * (outils/formation-tous-les-quiz-banc.mjs), pas par un essai a la main.
+       * (outils/formation-tous-les-quiz-banc.mjs), pas par un essai a la main. Manu a pose
+       * la meme ligne en parallele (commit 4c26041) : les deux correctifs ont ete fondus ici.
        */
       if (!e.D.exercices.length) { valider(); return; }
       e.partie = 'exercices'; e.i = 0; rendre(); return;
