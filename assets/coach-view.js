@@ -16,7 +16,12 @@
     'trades', 'journal_entries', 'accounts', 'account_costs', 'payouts',
     'daily_fees', 'user_preferences', 'user_motivation', 'checklist_validations',
     'replay_views', 'replays', 'gamification_state',
-    'users', 'tradovate_credentials', 'tradovate_sync_state'
+    'users', 'tradovate_credentials', 'tradovate_sync_state',
+    // ⚠️ L ESPACE FORMATION DE L ELEVE (21/10) : le coach le consulte, il n y
+    // ecrit jamais. Sans ces tables, un chapitre ouvert par le coach serait
+    // tente au nom de l eleve (la RLS le refuserait, mais en bruit d erreur).
+    'formation_progression', 'formation_notes', 'formation_quiz_resultats',
+    'formation_parcours_vu', 'acces_membre'
   ]);
   const WRITE_METHODS = ['insert', 'update', 'upsert', 'delete'];
 
@@ -53,9 +58,22 @@
     },
 
     // Sortie (bouton du bandeau) → clear + retour au dashboard coach.
-    exit() {
-      try { sessionStorage.removeItem(KEY_UUID); sessionStorage.removeItem(KEY_NAME); } catch (_) {}
-      window.location.href = '/index.html';
+    // ⚠️ `destination` (21/10) : la vue formation revient au back-office.
+    exit(destination) {
+      try { sessionStorage.removeItem(KEY_UUID); sessionStorage.removeItem(KEY_NAME); sessionStorage.removeItem('t360.espaceVoulu'); } catch (_) {}
+      window.location.href = typeof destination === 'string' && destination.startsWith('/') ? destination : '/index.html';
+    },
+
+    /**
+     * L espace FORMATION de l eleve, en lecture seule (demande de Nadir du
+     * 21/10 : « comme la vue journal »). Meme etat que `enter`, plus l espace
+     * voulu que `supabase-acces.js` consomme a l orientation.
+     * ⚠️ La cle `t360.espaceVoulu` est celle de supabase-acces.js (CLE_VOULU).
+     */
+    enterFormation(uuid, name) {
+      if (!uuid) return;
+      try { sessionStorage.setItem('t360.espaceVoulu', 'formation'); } catch (_) {}
+      this.enter(uuid, name);
     },
 
     // Installe la garde d'écriture sur le client Supabase (idempotent, no-op hors coach-view).

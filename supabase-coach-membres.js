@@ -39,6 +39,28 @@
     sans_compte: { t: 'Sans compte', c: 'attend' },
   };
 
+  /**
+   * ⚠️ LA LEGENDE DU TABLEUR DE MANU (Nadir, 21/10). C est elle qui dit si un
+   * membre est actif, plus l etat du compte : celui-ci disait « Actif » a des
+   * gens absents depuis 222 jours. La couleur vient du serveur (`m.tableur`,
+   * api/_lib/tableur-couleurs.js), memes cles que le Suivi Membres.
+   */
+  const LEGENDE = {
+    rouge: { t: 'Inactif', p: '🔴', aide: 'Pas impliqué, plusieurs relances déjà faites : aucune relance.' },
+    blanc: { t: 'En apprentissage', p: '⚪', aide: 'Pas encore qualifié.' },
+    bleu: { t: 'Financé', p: '🔵', aide: 'A qualifié au moins un compte financé.' },
+    vert: { t: 'Premier payout', p: '🟢', aide: 'Premier paiement reçu : à faire devenir ambassadeur.' },
+    autre: { t: 'Autre couleur', p: '🟡', aide: 'Couleur du tableur hors légende.' },
+  };
+  const COULEURS_FILTRE = ['rouge', 'blanc', 'bleu', 'vert'];
+  /** Un eleve absent du tableur : masque, sauf filtre dedie. ⛔ Seulement si le tableur a ete LU. */
+  const horsTableur = (m) => m.role === 'student' && m.tableur_lu === true && !m.tableur;
+  function pastilleTableur(m) {
+    if (!m.tableur) return m.tableur_lu === false ? '<small class="am-statut am-statut--attend" title="Le tableur n a pas pu être lu">Tableur illisible</small>' : (m.role === 'student' ? '<small class="am-statut am-statut--attend">Hors tableur</small>' : '');
+    const l = LEGENDE[m.tableur.couleur] || LEGENDE.autre;
+    return `<small class="am-statut am-couleur am-couleur--${txt(m.tableur.couleur)}" title="${txt(l.aide)} (ligne ${txt(m.tableur.row)} du tableur)"><span aria-hidden="true">${l.p}</span> ${txt(l.t)}</small>`;
+  }
+
   let _membres = [];
   let _filtre = 'tous';
   let _recherche = '';
@@ -92,6 +114,11 @@
       if (q && !`${m.nom} ${m.email}`.toLowerCase().includes(q)) return false;
       if (_filtre === 'coachs') return m.role !== 'student';
       if (m.role !== 'student') return false;
+      // ⚠️ Demande de Nadir du 21/10 : un membre absent du tableur n apparait pas.
+      // Il reste joignable par le filtre « Hors tableur » (compteur en tete).
+      if (_filtre === 'hors_tableur') return horsTableur(m);
+      if (horsTableur(m)) return false;
+      if (COULEURS_FILTRE.includes(_filtre)) return !!(m.tableur && m.tableur.couleur === _filtre);
       if (_filtre === 'sans_compte') return !!m.sans_compte;
       // ⚠️ « Sans journal » / « Sans formation » parlent des droits d un compte :
       // un membre sans compte n a pas de droits a montrer, il a son propre filtre.
@@ -117,11 +144,13 @@
     acces: (m) => (m.sans_compte ? -1 : (m.formation ? 1 : 0) + (m.journal ? 2 : 0)),
     avancement: (m) => (m.sans_compte ? (m.learnybox_pct || 0) / 100 : (totalLecons() ? m.lecons_vues / totalLecons() : 0)),
     quiz: (m) => m.quiz_reussis.length,
+    xp: (m) => (m.xp == null ? -1 : m.xp),
+    statut: (m) => (m.tableur ? ({ rouge: 1, blanc: 2, bleu: 3, vert: 4 }[m.tableur.couleur] || 0) : -1),
     visite: (m) => (m.derniere_activite ? Date.parse(m.derniere_activite) : 0),
   };
   const TITRES = [
-    ['nom', 'Membre'], ['niveau', 'Niveau'], ['acces', 'Accès'], ['avancement', 'Avancement'],
-    ['quiz', 'Quiz'], ['visite', 'Dernière visite'],
+    ['nom', 'Membre'], ['statut', 'Statut'], ['niveau', 'Niveau'], ['acces', 'Accès'], ['avancement', 'Avancement'],
+    ['xp', 'XP'], ['quiz', 'Quiz'], ['visite', 'Dernière visite'],
   ];
   function trier(liste) {
     const f = CLES_TRI[_tri.cle] || CLES_TRI.nom;
@@ -160,12 +189,14 @@
         <small class="am-statut am-statut--attend">${m.signale_seulement ? 'Hors LearnyBox, sans compte' : `Sans compte${m.learnybox_actif === false ? ' · inactif LearnyBox' : ''}`}</small>
         ${pastillesSignalement(m.signalements)}
       </td>
+      <td class="am-statut-tableur">${pastilleTableur(m)}</td>
       <td class="am-niveau">
         <span class="am-niveau-fixe">${m.niveau_learnybox ? txt(NIVEAUX[m.niveau_learnybox] || m.niveau_learnybox) : 'Non posé'}</span>
         <small>LearnyBox${m.learnybox_pct != null ? ` · ${m.learnybox_pct} %` : ''}</small>
       </td>
       <td class="am-droit"><small>Aucun compte dans le journal : ses droits se posent à la création.</small></td>
       <td class="am-avance"><small>Sa progression LearnyBox sera reportée à la création du compte.</small></td>
+      <td class="am-xp">·</td>
       <td class="am-quiz">·</td>
       <td class="am-visite ${d.absent ? 'am-absent' : ''}">${txt(d.t)}</td>
       <td class="am-actions">
@@ -173,6 +204,26 @@
         ${m.signale_seulement || (m.signalements || []).some((x) => x.type === 'doublon') ? '' : '<button type="button" class="am-actions__or" data-creer-depuis title="Créer son compte à partir de LearnyBox">Créer le compte</button>'}
       </td>
     </tr>`;
+  }
+
+  /**
+   * ⚠️ LE NIVEAU EN CURSEUR (Nadir, 21/10 : « comme les interrupteurs d accès »).
+   * Trois positions, la bille glisse sur le niveau effectif. Cliquer une autre
+   * position le pose (le coach l emporte sur LearnyBox) ; « LB » le rend a
+   * LearnyBox. ⛔ Le niveau LearnyBox reste visible : la bille est en creux
+   * tant que c est lui qui fait foi.
+   */
+  const ORDRE_NIVEAUX = ['debutant', 'intermediaire', 'confirme'];
+  const COURT = { debutant: 'Débutant', intermediaire: 'Intermédiaire', confirme: 'Confirmé' };
+  function curseurNiveau(m, actif) {
+    const niv = niveauEffectif(m);
+    const pos = ORDRE_NIVEAUX.indexOf(niv.cle);
+    const source = niv.source === 'coach' ? 'posé par le coach' : niv.source === 'learnybox' ? `LearnyBox${m.learnybox_pct != null ? ` · ${m.learnybox_pct} %` : ''}` : 'aucune source';
+    return `<div class="am-curseur" role="radiogroup" aria-label="Niveau" data-pos="${pos}" data-source="${txt(niv.source || '')}" ${actif ? '' : 'aria-disabled="true"'}>
+        <i class="am-curseur__bille" aria-hidden="true"></i>
+        ${ORDRE_NIVEAUX.map((k) => `<button type="button" role="radio" aria-checked="${niv.cle === k ? 'true' : 'false'}" data-niveau-val="${k}" ${actif ? '' : 'disabled'} title="${COURT[k]}">${COURT[k]}</button>`).join('')}
+      </div>
+      <small>${source}${actif && niv.source === 'coach' && m.niveau_learnybox ? ` · <button type="button" class="am-lien" data-niveau-val="" title="Rendre le niveau à LearnyBox (${txt(COURT[m.niveau_learnybox] || m.niveau_learnybox)})">rendre à LearnyBox</button>` : ''}</small>`;
   }
 
   function ligne(m) {
@@ -184,21 +235,17 @@
     const tq = totalQuiz();
     const d = depuis(m.derniere_activite);
     const eleve = m.role === 'student';
-    const options = [
-      `<option value="" ${m.niveau_coach ? '' : 'selected'}>${m.niveau_learnybox ? `LearnyBox : ${NIVEAUX[m.niveau_learnybox] || m.niveau_learnybox}` : 'Non posé'}</option>`,
-      ...Object.entries(NIVEAUX).map(([k, v]) => `<option value="${k}" ${m.niveau_coach === k ? 'selected' : ''}>${v}</option>`),
-    ].join('');
     return `<tr data-uid="${txt(m.user_id)}" class="${eleve ? '' : 'am-coach'}">
       <td class="am-qui">
         <b>${txt(m.nom || 'Nom non renseigné')}</b>
         <span>${txt(m.email)}</span>
-        <small class="am-statut am-statut--${st.c}">${txt(st.t)}${eleve ? '' : ' · coach'}</small>
+        ${eleve ? (m.statut === 'active' || m.statut === 'approved' ? '' : `<small class="am-statut am-statut--${st.c}" title="État du compte">${txt(st.t)}</small>`) : `<small class="am-statut am-statut--${st.c}">${txt(st.t)} · coach</small>`}
         ${m.learnybox_actif === false ? '<small class="am-statut am-statut--non am-signal" title="Désactivé dans LearnyBox : formation et journal fermés à l import. Les cases ci-contre les rouvrent.">Désactivé LearnyBox</small>' : ''}
         ${pastillesSignalement(m.signalements)}
       </td>
+      <td class="am-statut-tableur">${pastilleTableur(m)}</td>
       <td class="am-niveau">
-        <select aria-label="Niveau" data-niveau ${eleve ? '' : 'disabled'}>${options}</select>
-        ${niv.source === 'coach' ? '<small>posé par le coach</small>' : niv.source === 'learnybox' ? `<small>LearnyBox${m.learnybox_pct != null ? ` · ${m.learnybox_pct} %` : ''}</small>` : '<small>aucune source</small>'}
+        ${curseurNiveau(m, eleve)}
       </td>
       <td class="am-droit">
         <label class="am-switch"><input type="checkbox" data-droit="formation" ${m.formation ? 'checked' : ''}><i></i><span>Formation</span></label>
@@ -210,10 +257,12 @@
         <div class="am-barre"><i style="width:${pct}%"></i></div>
         <span>${m.lecons_vues}${tl ? ` / ${tl}` : ''} · ${pct} %</span>
       </td>
+      <td class="am-xp">${m.xp == null ? '·' : `<b class="am-mono">${txt(Number(m.xp).toLocaleString('fr-FR'))}</b>${m.xp_max ? `<small class="am-mono">/ ${txt(Number(m.xp_max).toLocaleString('fr-FR'))}</small>` : ''}`}</td>
       <td class="am-quiz"><b>${m.quiz_reussis.length}</b>${tq ? ` / ${tq}` : ''}</td>
       <td class="am-visite ${d.absent ? 'am-absent' : ''}">${txt(d.t)}</td>
       <td class="am-actions">
         <button type="button" data-fiche title="Ouvrir la fiche du membre" aria-label="Fiche">&#128065;</button>
+        ${m.formation && eleve ? `<button type="button" data-voir-formation title="Ouvrir son espace formation en lecture seule">Formation</button>` : ''}
         ${m.journal && eleve ? `<button type="button" data-voir title="Ouvrir son journal en lecture seule">Journal</button>` : ''}
         <button type="button" data-mail title="Renvoyer le mail de première connexion">Mail</button>
       </td>
@@ -227,7 +276,12 @@
     const compteur = $('coachMembresCompte');
     const eleves = _membres.filter((m) => m.role === 'student');
     const sansCompte = eleves.filter((m) => m.sans_compte).length;
-    if (compteur) compteur.textContent = `${liste.length} sur ${eleves.length} membres${sansCompte ? ` (${sansCompte} sans compte)` : ''}`;
+    const masques = eleves.filter(horsTableur).length;
+    if (compteur) {
+      compteur.innerHTML = `${liste.length} sur ${eleves.length - masques} membres du tableur${sansCompte ? ` (${sansCompte} sans compte)` : ''}`
+        + (masques && _filtre !== 'hors_tableur' ? ` · <button type="button" class="am-lien" data-filtre="hors_tableur" title="Membres qui ont un compte ou une ligne LearnyBox mais aucune ligne dans le tableur de Manu">${masques} hors tableur masqués</button>` : '')
+        + (eleves.some((m) => m.tableur_lu === false) ? ' · <span class="am-erreur">tableur illisible, personne n est masqué</span>' : '');
+    }
     const bm = $('coachMembresCreerManquants');
     if (bm) { const n = eleves.filter((m) => m.sans_compte && m.learnybox_actif !== false).length; bm.hidden = n === 0; bm.querySelector('span').textContent = String(n); }
     if (!liste.length) {
@@ -272,19 +326,23 @@
     } finally { input.disabled = false; }
   }
 
-  async function changerNiveau(select) {
-    const m = membreDe(select);
+  async function changerNiveau(bouton) {
+    const m = membreDe(bouton);
     if (!m) return;
-    const n = select.value || null;
-    select.disabled = true;
+    const n = bouton.dataset.niveauVal || null;
+    if (n === (m.niveau_coach || null)) return;
+    const groupe = bouton.closest('td, .am-fiche__niveau') || bouton.parentElement;
+    groupe.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     try {
       await appeler('niveau', { user_id: m.user_id, niveau: n });
       m.niveau_coach = n;
       dire(n ? `Niveau ${NIVEAUX[n]} posé pour ${m.nom || m.email}.` : `Niveau rendu à LearnyBox pour ${m.nom || m.email}.`);
       rendre();
+      if (_fiche) rendreFiche();
     } catch (e) {
       dire(`Le niveau n a pas été changé : ${e.message}`, 'error');
       rendre();
+      if (_fiche) rendreFiche();
     }
   }
 
@@ -305,6 +363,14 @@
     const m = membreDe(bouton);
     if (!m) return;
     if (window.CoachView && typeof window.CoachView.enter === 'function') window.CoachView.enter(m.user_id, m.nom || m.email);
+    else dire('La vue coach n est pas disponible.', 'error');
+  }
+
+  /** L espace formation de l eleve, en lecture seule (21/10). */
+  function voirFormation(bouton) {
+    const m = membreDe(bouton);
+    if (!m || !m.user_id) return;
+    if (window.CoachView && typeof window.CoachView.enterFormation === 'function') window.CoachView.enterFormation(m.user_id, m.nom || m.email);
     else dire('La vue coach n est pas disponible.', 'error');
   }
 
@@ -456,7 +522,7 @@
     racine.addEventListener('change', (e) => {
       const t = e.target;
       if (t.matches('[data-droit]')) changerDroit(t);
-      else if (t.matches('[data-niveau]')) changerNiveau(t);
+
     });
     racine.addEventListener('click', (e) => {
       const t = e.target.closest('button, [data-filtre]');
@@ -474,6 +540,9 @@
       else if (t.matches('[data-fiche-mdp]')) poserMotDePasse(t);
       else if (t.matches('[data-fiche-journal]')) voirJournalFiche();
       else if (t.matches('[data-mail]')) renvoyerMail(t);
+      else if (t.matches('[data-niveau-val]')) changerNiveau(t);
+      else if (t.matches('[data-voir-formation]')) voirFormation(t);
+      else if (t.matches('[data-fiche-formation]')) voirFormationFiche();
       else if (t.matches('[data-voir]')) voirJournal(t);
       else if (t.matches('[data-creer-depuis]')) {
         const tr = t.closest('tr[data-lb]');
@@ -488,7 +557,7 @@
         rendre();
       } else if (t.matches('[data-filtre]')) {
         _filtre = t.dataset.filtre;
-        racine.querySelectorAll('[data-filtre]').forEach((b) => b.setAttribute('aria-pressed', b === t ? 'true' : 'false'));
+        racine.querySelectorAll('.am-filtres [data-filtre]').forEach((b) => b.setAttribute('aria-pressed', b === t ? 'true' : 'false'));
         rendre();
       } else if (t.matches('[data-ouvrir-creation]')) ouvrirCreation();
       else if (t.matches('[data-creer-manquants]')) creerManquants(t);
@@ -593,7 +662,8 @@
         <h2 class="am-fiche__nom">${txt(nom || 'Nom non renseigné')}</h2>
         <a class="am-fiche__email" href="mailto:${txt(email)}">${txt(email)}</a>
         <div class="am-fiche__pills">
-          <span class="am-statut am-statut--${st.c}">${txt(st.t)}</span>
+          ${f.compte && ['active', 'approved'].includes((f.profil && f.profil.status) || '') ? '' : `<span class="am-statut am-statut--${st.c}" title="État du compte">${txt(st.t)}</span>`}
+          ${m ? pastilleTableur(m) : (f.tableur && f.tableur.ligne ? pastilleTableur({ role: 'student', tableur: f.tableur.ligne, tableur_lu: true }) : '')}
           ${niv.cle ? `<span class="am-statut am-statut--ok">${txt(NIVEAUX[niv.cle] || niv.cle)}</span>` : ''}
           ${lb.actif === false ? '<span class="am-statut am-statut--non">Inactif LearnyBox</span>' : ''}
         </div>
@@ -601,8 +671,10 @@
         <p class="am-fiche__actif ${d.absent ? 'am-absent' : ''}">${derniere ? `Actif ${txt(d.t)}` : 'Jamais venu'}</p>
         <div class="am-fiche__actions">
           ${f.compte ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-mail title="Renvoyer le mail de première connexion"><i class="fas fa-envelope"></i> Mail</button><button type="button" class="am-btn am-btn--fantome" data-fiche-mdp title="Poser un mot de passe provisoire, à transmettre toi-même"><i class="fas fa-key"></i> Mot de passe</button>` : ''}
+          ${f.compte && f.acces && f.acces.formation_actif ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-formation title="Ouvrir son espace formation en lecture seule"><i class="fas fa-graduation-cap"></i> Formation</button>` : ''}
           ${f.compte && f.acces && f.acces.journal_actif ? `<button type="button" class="am-btn am-btn--fantome" data-fiche-journal title="Ouvrir son journal en lecture seule"><i class="fas fa-book"></i> Journal</button>` : ''}
         </div>
+        ${m && !m.sans_compte && m.role === 'student' ? `<div class="am-fiche__niveau"><span class="am-fiche__etiquette">Niveau</span>${curseurNiveau(m, true)}</div>` : ''}
         ${m && !m.sans_compte ? `
         <div class="am-fiche__droits">
           <label class="am-switch"><input type="checkbox" data-droit="formation" ${m.formation ? 'checked' : ''}><i></i><span>Formation</span></label>
@@ -610,6 +682,7 @@
         </div>` : ''}
         <dl class="am-fiche__stats">
           ${lp.telephone ? `<div><dt>Téléphone</dt><dd>${txt(lp.telephone)}</dd></div>` : ''}
+          ${f.xp ? `<div><dt>XP</dt><dd class="am-mono">${txt(f.xp.total.toLocaleString('fr-FR'))} / ${txt(Number(f.xp.max).toLocaleString('fr-FR'))}</dd></div>` : ''}
           <div><dt>Progression</dt><dd>${f.compte ? `${pct} %` : (lb.progression_pct != null ? `${lb.progression_pct} % (LearnyBox)` : '·')}</dd></div>
           ${lp.temps_passe_s ? `<div><dt>Temps passé (LearnyBox)</dt><dd>${txt(duree(lp.temps_passe_s))}</dd></div>` : ''}
           ${lb.inscrit_le ? `<div><dt>Inscrit le</dt><dd>${txt(dateFr(lb.inscrit_le))}</dd></div>` : ''}
@@ -644,7 +717,8 @@
         ${ligneInfo('fa-handshake', 'Prospection partenaires', lp.prospection_partenaires == null ? '' : (lp.prospection_partenaires ? 'Oui' : 'Non'))}
         ${ligneInfo('fa-file-signature', 'Conditions acceptées', f.profil && f.profil.legal_accepted_at ? txt(dateFr(f.profil.legal_accepted_at)) : (f.compte ? 'Pas encore' : ''))}
         ${ligneInfo('fa-comment', 'Commentaire LearnyBox', txt(lp.commentaire))}
-        <p class="am-source">Téléphone, adresse et prospection : export LearnyBox du 13/10/2026. Notification par email et adresse IP : non reprises de LearnyBox.</p>`);
+        <p class="am-source">Téléphone, adresse et prospection : export LearnyBox du 13/10/2026. Notification par email et adresse IP : non reprises de LearnyBox.</p>`)
+        + blocTableur(f);
     }
     if (k === 'activites') {
       if (!f.activites.length) return bloc('Activités', '<p class="am-vide">Aucune activité connue.</p>', 0);
@@ -680,7 +754,7 @@
         <td><div class="am-barre" style="width:120px;display:inline-block;vertical-align:middle"><i style="width:${pct}%"></i></div> ${pct} % <small>(${vuesN} / ${tl} chapitres)</small></td>
         <td>${m && !m.sans_compte ? `<label class="am-switch"><input type="checkbox" data-droit="formation" ${m.formation ? 'checked' : ''}><i></i><span>${m.formation ? 'Actif' : 'Fermé'}</span></label>` : '<span class="am-statut am-statut--attend">Sans compte</span>'}</td></tr></tbody></table>
         ${!f.compte && lb.progression_pct != null ? `<p class="am-source">Sans compte dans le journal : progression LearnyBox ${lb.progression_pct} %, reportée à la création du compte.</p>` : ''}`, 1)
-      + bloc('Modules', `<div class="am-modules">${modules.map((r) => `<div class="am-module ${r.fini ? 'done' : ''}"><span class="am-module__num">${r.x.bonus ? 'Bonus' : r.x.cle === '10' ? 'Certif.' : `Module ${txt(r.x.numero)}`}</span><span class="am-barre"><i style="width:${r.t ? Math.round((r.n / r.t) * 100) : 0}%"></i></span><span class="am-module__n">${r.n} / ${r.t}${quizOk.has(r.x.cle) ? ' · quiz réussi' : ''}</span></div>`).join('')}</div>`)
+      + bloc('Modules', `${f.xp ? `<p class="am-total"><b class="am-mono">${txt(f.xp.total.toLocaleString('fr-FR'))} XP</b> sur ${txt(Number(f.xp.max).toLocaleString('fr-FR'))} possibles</p>` : ''}<div class="am-modules">${modules.map((r) => { const xm = f.xp ? f.xp.modules.find((x) => x.cle === r.x.cle) : null; return `<div class="am-module ${r.fini ? 'done' : ''}"><span class="am-module__num">${r.x.bonus ? 'Bonus' : r.x.cle === '10' ? 'Certif.' : `Module ${txt(r.x.numero)}`}</span><span class="am-barre"><i style="width:${r.t ? Math.round((r.n / r.t) * 100) : 0}%"></i></span><span class="am-module__n">${r.n} / ${r.t}${quizOk.has(r.x.cle) ? ' · quiz réussi' : ''}</span><span class="am-module__xp am-mono">${xm && xm.compte ? `${txt(xm.xp)} / ${txt(xm.max)} XP` : xm ? '0 XP (hors barème)' : ''}</span></div>`; }).join('')}</div>${f.xp ? '<p class="am-source">XP : même calcul que l espace de l élève et que le tableur (100 par module répartis entre ses chapitres, quiz compris ; +250 par module terminé, 1000 pour la certification ; introduction et bonus hors barème).</p>' : ''}`)
       + bloc('Badges', finis.length ? `<div class="am-badges">${finis.map((r) => `<span class="am-badge">${r.x.cle === '10' ? 'Certification' : `Module ${txt(r.x.numero)} terminé`}</span>`).join('')}</div>` : '<p class="am-vide">Aucun badge : aucun module terminé en entier.</p>', finis.length)
       + bloc('Diplôme', certOk ? '<p><span class="am-statut am-statut--ok">Certification Trader 360 obtenue</span></p>' : '<p class="am-vide">Aucun diplôme obtenu (la certification Trader 360 vient avec le module 10).</p>', certOk ? 1 : 0)
       + bloc('Documents', '<p class="am-vide">Les documents de la formation restent sur LearnyBox pour l instant.</p>');
@@ -711,6 +785,21 @@
   }
 
   /**
+   * ⚠️ LA FICHE DU TABLEUR DE MANU, TOUTES SES COLONNES (Nadir, 21/10). Lue en
+   * lecture seule par le serveur ; une cellule vide est dite vide, pas omise,
+   * pour qu on voie ce que le tableur ne sait pas.
+   */
+  function blocTableur(f) {
+    const t = f.tableur;
+    if (!t) return '';
+    if (!t.lu) return bloc('Tableur de Manu', `<p class="am-vide am-erreur">Le tableur n a pas pu être lu : ${txt(t.erreur || 'erreur inconnue')}</p>`);
+    if (!t.ligne) return bloc('Tableur de Manu', '<p class="am-vide">Ce membre n a pas de ligne dans le tableur (recherche par l adresse du compte et par celle de LearnyBox).</p>');
+    const c = t.ligne.cellules || {};
+    const lignes = t.colonnes.map((k) => { const v = String(c[k] ?? '').trim(); return `<div class="am-info am-info--tableur"><span class="am-info__k">${txt(k)}</span><span class="am-info__v">${v ? txt(v) : '<em>vide</em>'}</span></div>`; }).join('');
+    return bloc('Tableur de Manu', `${lignes}<p class="am-source">Ligne ${txt(t.ligne.row)} de l onglet « Parcours Membre », relue à l ouverture de la fiche (cache d une minute). Lecture seule : rien n est écrit dans le tableur.</p>`, t.colonnes.length);
+  }
+
+  /**
    * Un mot de passe provisoire pose par le coach (15/10, cas Philippe). Le
    * coach le tape, il part UNE fois au serveur, rien ne le garde ici : pas de
    * variable, pas de toast qui le repete, et le champ est vide a la fermeture.
@@ -732,6 +821,11 @@
     try { await appeler('renvoyer_mail', { user_id: _fiche.compte.user_id }); dire(`Mail envoyé à ${_fiche.compte.email}.`); _fiche = await appeler('fiche', _ficheCible); rendreFiche(); }
     catch (e) { dire(`Le mail n est pas parti : ${e.message}`, 'error'); }
     finally { bouton.disabled = false; }
+  }
+  function voirFormationFiche() {
+    if (!_fiche || !_fiche.compte) return;
+    const nom = (_fiche.profil && _fiche.profil.name) || _fiche.compte.email;
+    if (window.CoachView && typeof window.CoachView.enterFormation === 'function') window.CoachView.enterFormation(_fiche.compte.user_id, nom);
   }
   function voirJournalFiche() {
     if (!_fiche || !_fiche.compte) return;

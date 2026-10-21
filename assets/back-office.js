@@ -671,7 +671,13 @@
     }
     let hist = [];
     try { hist = await lire('campagnes:historique', () => CAM('historique')); } catch (e) { dire(`Historique Brevo illisible : ${e.message}`, 'error'); }
-    z.innerHTML = `${barreEnvoi(actif)}<div class="bo-carte"><div class="bo-carte__tete"><h2>Modèles Trader 360</h2><span class="bo-pill">Envoi par Brevo</span></div>
+    // ⚠️ Le menage PROSPECTS / MEMBRES (Manu, 21/10) : compte relu a chaque affichage.
+    let menage = null;
+    try { menage = await CAM('menage_prospects'); } catch (e) { menage = { erreur: e.message }; }
+    const ligneMenage = `<div class="bo-cam-interrupteur"><div><b>Membres retirés des prospects : chaque soir, automatiquement</b>
+      <span>${menage.erreur ? `Comparaison impossible : ${txt(menage.erreur)}` : menage.retires.length ? `${menage.retires.length} membre${menage.retires.length > 1 ? 's sont' : ' est'} encore dans la liste PROSPECTS : ${menage.retires.length > 1 ? 'ils sortiront' : 'il sortira'} ce soir (rien n est supprimé, ils restent dans MEMBRES T360).` : 'Aucun membre dans la liste PROSPECTS : les campagnes de vente ne touchent que des prospects.'}</span></div>
+      ${menage.retires && menage.retires.length ? `<button type="button" class="bo-btn bo-btn--fantome" data-cam-menage>Retirer maintenant</button>` : ''}</div>`;
+    z.innerHTML = `${barreEnvoi(actif)}${ligneMenage}<div class="bo-carte"><div class="bo-carte__tete"><h2>Modèles Trader 360</h2><span class="bo-pill">Envoi par Brevo</span></div>
       <div class="bo-modeles">${M.modeles.map((m) => `<div class="bo-modele ${m.cle === 'libre' ? 'bo-modele--libre' : ''}"><div class="bo-modele__apercu">${m.cle === 'libre' ? '<i class="fas fa-pen-nib"></i>' : '<i class="or"></i><i class="titre"></i><i></i><i style="width:85%"></i><i style="width:60%"></i><i class="btn"></i>'}</div>
         <div class="bo-modele__corps"><h3>${txt(m.nom)}</h3><p>${txt(m.resume)}</p><button type="button" class="bo-btn bo-btn--fantome" data-cam-modele="${m.cle}">${m.cle === 'libre' ? 'Composer' : 'Utiliser'}</button></div></div>`).join('')}</div>
       <p class="bo-source">Chaque modèle est un brouillon à adapter. Les repères [À VALIDER] bloquent l'envoi à une liste, pas le test.</p></div>
@@ -686,9 +692,16 @@
     clearTimeout(_camMinuteur); _camMinuteur = setTimeout(camApercu, 500);
   });
   document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-cam-modele],[data-cam-retour],[data-cam-envoyer-test],[data-cam-envoyer-liste],[data-cam-interrupteur]');
+    const b = e.target.closest('[data-cam-modele],[data-cam-retour],[data-cam-envoyer-test],[data-cam-envoyer-liste],[data-cam-interrupteur],[data-cam-menage]');
     if (!b) return;
     try {
+      if (b.matches('[data-cam-menage]')) {
+        if (!window.confirm('Retirer de la liste PROSPECTS les personnes déjà dans MEMBRES T360 ? Aucun contact n est supprimé, ils restent membres.')) return;
+        b.disabled = true;
+        const r = await CAM('menage_prospects', { appliquer: true });
+        dire(`${r.retires.length} membre${r.retires.length > 1 ? 's retirés' : ' retiré'} de la liste PROSPECTS.`);
+        return vueEmails();
+      }
       if (b.matches('[data-cam-interrupteur]')) {
         const actif = b.dataset.camInterrupteur === '1';
         if (actif && !window.confirm('Activer l envoi aux listes ? Un envoi restera manuel : test, choix de la liste, puis le mot ENVOYER. Tu pourras couper à tout moment.')) return;

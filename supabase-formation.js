@@ -139,11 +139,23 @@
   const D = () => window.FormationDonnees;
   const QUIZ = () => window.FORMATION_QUIZ || {};
 
+  /**
+   * ⚠️ VUE COACH (21/10) : en lecture seule, l identifiant LU est celui de
+   * l eleve consulte. ⛔ Et aucun ecrivain ne passe : `uidEcriture()` rend null,
+   * chaque ecriture s arrete sans bruit (la garde de coach-view.js les
+   * bloquerait de toute facon, mais avec une alerte a chaque seconde de video).
+   */
+  const vueCoach = () => !!(window.CoachView && window.CoachView.isActive());
   async function uid() {
+    if (vueCoach()) return window.CoachView.getViewedUuid();
     try {
       const { data } = await cli().auth.getUser();
       return data?.user?.id || null;
     } catch { return null; }
+  }
+  async function uidEcriture() {
+    if (vueCoach()) return null;
+    return uid();
   }
 
   /** Échappe le texte avant insertion : un titre venu de LearnyBox n'est pas du HTML. */
@@ -224,7 +236,8 @@
     _lb = null;
     try {
       const { data } = await cli().auth.getUser();
-      const email = data && data.user && data.user.email;
+      // ⚠️ Vue coach : l adresse de l eleve consulte (currentUser est sa ligne).
+      const email = vueCoach() ? (window.currentUser && window.currentUser.email) : (data && data.user && data.user.email);
       if (!email) return;
       const r = await cli().from('formation_niveau_learnybox')
         .select('niveau, progression_pct, groupes').ilike('email', email).limit(1);
@@ -280,7 +293,7 @@
         console.warn('[FORMATION] bienvenue illisible, fenetre non montree :', error.message);
         return;
       }
-      _bienvenueAMontrer = !data;
+      _bienvenueAMontrer = !data && !vueCoach(); // ⚠️ vue coach : pas de fenetre de bienvenue
     } catch (e) {
       console.warn('[FORMATION] bienvenue illisible :', e);
     }
@@ -288,7 +301,7 @@
 
   /** Note que la fenetre a ete montree. ⚠️ Idempotent : `upsert` sur la cle. */
   async function marquerBienvenueVue() {
-    const u = await uid();
+    const u = await uidEcriture();
     if (!u) return false;
     const { error } = await cli().from('formation_parcours_vu')
       .upsert({ user_id: u, lecons_vues_au_dernier_affichage: 0 }, { onConflict: 'user_id' });
@@ -356,7 +369,7 @@
   }
 
   async function ecrireProgression(leconId, champs) {
-    const u = await uid();
+    const u = await uidEcriture();
     if (!u) return;
     const avant = _progression[leconId] || { vue: false, progress_seconds: 0, secondes_vues: 0 };
     const ligne = {
@@ -389,7 +402,7 @@
   // ===== NOTES ==============================================================
 
   async function ecrireNote(leconId, texte) {
-    const u = await uid();
+    const u = await uidEcriture();
     if (!u) return false;
     const { error } = await cli().from('formation_notes').upsert({
       user_id: u, lecon_id: leconId, texte, updated_at: new Date().toISOString(),
@@ -712,6 +725,9 @@
       localAuteur = localStorage.getItem('userMantraAuthor') || '';
     } catch { local = ''; }
     if (!local) return;
+    // ⛔ Vue coach : le navigateur est celui du COACH, sa citation locale n est
+    // ni celle de l eleve ni a recopier dans son compte.
+    if (vueCoach()) return;
 
     _citation = { texte: local, auteur: localAuteur };
     const { error: e2 } = await cli().from('user_preferences')
@@ -2614,7 +2630,7 @@
   }
 
   async function ecrireQuiz(cle, score, total, reussi, reponses) {
-    const u = await uid();
+    const u = await uidEcriture();
     if (!u) return false;
     const { error } = await cli().from('formation_quiz_resultats')
       .insert({ user_id: u, module_cle: cle, score, total, reussi, reponses });
@@ -3410,9 +3426,19 @@
     if (theme === 'clair') racine.setAttribute('data-theme', 'clair'); else racine.removeAttribute('data-theme');
     const b = document.querySelector('#formationApp [data-theme-btn]');
     if (b) {
-      b.innerHTML = theme === 'clair' ? ICONE_LUNE : ICONE_SOLEIL;
-      b.setAttribute('aria-label', theme === 'clair' ? 'Passer en sombre' : 'Passer en clair');
-      b.title = b.getAttribute('aria-label');
+      /* ⚠️ UN INTERRUPTEUR, PAS UNE ICONE. Retour de Nadir du 21/10 : il voulait
+       * un curseur comme ceux des acces, et la pastille ronde de 38 px passait
+       * inapercue. Lune a gauche, soleil a droite, le curseur glisse vers le
+       * theme actif. `aria-checked` dit « clair » ; le libelle reste stable. */
+      if (!b.querySelector('.theme-btn__piste')) {
+        b.innerHTML = `<span class="theme-btn__ic theme-btn__ic--lune">${ICONE_LUNE}</span>`
+          + '<span class="theme-btn__piste"><i></i></span>'
+          + `<span class="theme-btn__ic theme-btn__ic--soleil">${ICONE_SOLEIL}</span>`;
+      }
+      b.setAttribute('role', 'switch');
+      b.setAttribute('aria-checked', theme === 'clair' ? 'true' : 'false');
+      b.setAttribute('aria-label', 'Thème clair');
+      b.title = theme === 'clair' ? 'Thème clair (cliquer pour le sombre)' : 'Thème sombre (cliquer pour le clair)';
     }
   }
   function basculerTheme() {
@@ -3720,6 +3746,26 @@
     if (_vueCourante.nom === 'module') dessinerChart(_vueCourante.mi * 31 + _vueCourante.ci * 7 + 3);
   });
 
+  /* ══ LA VUE COACH, EN LECTURE SEULE (21/10) ═══════════════════════════════
+   * Un bandeau en tete de l espace : quel eleve, et le retour au back-office.
+   * ⚠️ Les gestes qui ecriraient (terminer, annuler, commencer un quiz) sont
+   * masques par la regle `[data-vue-coach]` de formation.css : ils ne feraient
+   * rien, et un bouton qui ne fait rien ment. */
+  function poserBandeauVueCoach() {
+    const racine = $('formationApp');
+    if (!racine) return;
+    if (!vueCoach()) { racine.removeAttribute('data-vue-coach'); const b = racine.querySelector('.vue-coach'); if (b) b.remove(); return; }
+    racine.setAttribute('data-vue-coach', '');
+    if (racine.querySelector('.vue-coach')) return;
+    const b = document.createElement('div');
+    b.className = 'vue-coach';
+    b.setAttribute('role', 'status');
+    b.innerHTML = `<span>Espace formation de <b>${txt(window.CoachView.getViewedName())}</b>, en lecture seule.</span>`
+      + '<button type="button" class="btn btn-ghost" data-vue-coach-sortir>Revenir au back-office</button>';
+    b.querySelector('[data-vue-coach-sortir]').addEventListener('click', () => window.CoachView.exit('/back-office.html#/academie/membres'));
+    racine.insertBefore(b, racine.firstChild);
+  }
+
   /* ══ L ENTREE DANS L ESPACE ═══════════════════════════════════════════════ */
   const Formation = {
     /**
@@ -3730,6 +3776,7 @@
      */
     async ouvrir() {
       poserBoutonTheme();
+      poserBandeauVueCoach();
       await charger();
       // ⚠️ Le texte des notes est necessaire des l accueil : la section « Mes
       // notes » y vit. ⛔ Sans cela elle serait vide alors que les notes

@@ -14984,7 +14984,23 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         // Cellules typées par LETTRE de colonne (mapping memory/projects/integration_tableur_manu.md).
         // ============================================================
         const COACH_MEMBERS_CACHE_TTL = 60_000; // 60s : évite un re-fetch à chaque clic sidebar
-        const CM_STATUSES = ['🟢 T360', '🟠 Nouveau', '🟠 À surveiller', '🟠 Peu impliqué', '🟠 Moyen', '🔴 Inactif'];
+        /**
+         * ⛔ LA LÉGENDE DES STATUTS DU TABLEUR (Manu, 21/10/2026). Le tableur porte une pastille
+         * de couleur ; l'ancienne légende (« 🟢 T360 », « 🟠 Nouveau »…) ne correspondait plus à
+         * rien et ses filtres ne retenaient personne. La couleur se lit sur le PREMIER caractère
+         * de la cellule, sans toucher au tableur.
+         */
+        const CM_LEGENDE = [
+            { cle: 'rouge', pastille: '🔴', libelle: 'Inactif', aide: 'Pas impliqué, plusieurs relances déjà faites : aucune relance.', motif: /^(🔴|🟥)/u },
+            { cle: 'blanc', pastille: '⚪', libelle: 'En apprentissage', aide: 'Pas encore qualifié.', motif: /^(⚪|⬜|🤍|◯|○)/u },
+            { cle: 'bleu', pastille: '🔵', libelle: 'Financé', aide: 'A qualifié au moins un compte financé.', motif: /^(🔵|🟦|💙)/u },
+            { cle: 'vert', pastille: '🟢', libelle: 'Premier payout', aide: 'Premier paiement reçu : moins de relances, à faire devenir ambassadeur.', motif: /^(🟢|🟩|💚)/u },
+        ];
+        const cmCouleurDe = (v) => { const r = String(v ?? '').trim(); const l = CM_LEGENDE.find((x) => x.motif.test(r)); return l ? l.cle : (r ? 'autre' : 'vide'); };
+        // ⚠️ La couleur d un membre vient du SERVEUR (`m.couleur`, api/_lib/tableur-couleurs.js) :
+        // la legende de Nadir est un REMPLISSAGE de cellule, que le texte ne porte pas. Le texte
+        // de Statut ne sert plus que de repli, si la reponse ne porte pas la couleur.
+        const cmCouleurMembre = (m, oc) => (m && m.couleur) || cmCouleurDe(oc && oc.statut ? cmVal(m, oc.statut) : '');
 
         let _cmSort = { letter: null, dir: 1 };
         let _cmSearch = '';
@@ -15049,16 +15065,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         }
 
         // Cellule typée → HTML (typée par NOM d'header).
-        function cmCellHtml(name, value) {
+        function cmCellHtml(name, value, membre) {
             const raw = value == null ? '' : String(value).trim();
             const type = cmColKind(name);
             if (raw === '' && type !== 'status') return '<span class="cm-empty">—</span>';
             switch (type) {
                 case 'status': {
-                    if (raw === '') return '<span class="cm-empty">—</span>';
-                    let cls = 'gray';
-                    if (raw.startsWith('🟢')) cls = 'green'; else if (raw.startsWith('🔴')) cls = 'red'; else if (raw.startsWith('🟠')) cls = 'amber';
-                    return `<span class="cm-badge ${cls}">${cmEsc(raw)}</span>`;
+                    const parFond = !!(membre && membre.couleur_source === 'fond');
+                    if (raw === '' && !parFond) return '<span class="cm-empty">—</span>';
+                    const coul = membre && membre.couleur ? membre.couleur : cmCouleurDe(raw);
+                    const leg = CM_LEGENDE.find((x) => x.cle === coul);
+                    const cls = { rouge: 'red', vert: 'green', bleu: 'blue', blanc: 'white' }[coul] || (raw.startsWith('🟠') ? 'amber' : 'gray');
+                    // ⚠️ Quand la couleur vient du FOND de la ligne, le badge dit la legende, et le
+                    // texte de la cellule passe en info-bulle : c est la couleur qui fait foi.
+                    const libelle = parFond && leg ? `${leg.pastille} ${leg.libelle}` : raw;
+                    const bulle = [leg ? `${leg.libelle} : ${leg.aide}` : '', raw && parFond ? `Statut du tableur : ${raw}` : ''].filter(Boolean).join(' · ') || raw;
+                    return `<span class="cm-badge ${cls}" title="${cmEsc(bulle)}">${cmEsc(libelle)}</span>`;
                 }
                 case 'score20': {
                     const n = cmNum(raw); if (n == null) return cmEsc(raw);
@@ -15121,7 +15143,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             let rows = (data.members || []).slice();
             const q = _cmSearch.trim().toLowerCase();
             if (q) rows = rows.filter(m => (cmVal(m, oc.prenom) + ' ' + cmVal(m, oc.nom) + ' ' + cmVal(m, oc.mail)).toLowerCase().includes(q));
-            if (_cmActiveStatuses.size) rows = rows.filter(m => _cmActiveStatuses.has(String(cmVal(m, oc.statut)).trim()));
+            if (_cmActiveStatuses.size) rows = rows.filter(m => _cmActiveStatuses.has(cmCouleurMembre(m, oc)));
 
             // Tri (résolu par nom de colonne)
             if (_cmSort.letter) {
@@ -15144,7 +15166,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 const mailFiche = String(cmVal(m, oc.mail) || '').trim();
                 tb += `<td class="cm-sticky cm-c-fiche">${mailFiche ? `<button type="button" class="cm-fiche-btn" data-fiche-email="${cmEsc(mailFiche)}" title="Ouvrir la fiche de ${cmEsc(mailFiche)}" aria-label="Fiche membre">&#128065;</button>` : ''}</td>`;
                 tb += `<td class="cm-sticky cm-c-num">${m.row}</td>`;
-                oc.stickyDefs.forEach(d => { tb += `<td class="cm-sticky ${d.cls}">${cmCellHtml(d.col.name, m[d.col.name])}</td>`; });
+                oc.stickyDefs.forEach(d => { tb += `<td class="cm-sticky ${d.cls}">${cmCellHtml(d.col.name, m[d.col.name], m)}</td>`; });
                 visibleRest.forEach(c => { tb += `<td>${cmCellHtml(c.name, m[c.name])}</td>`; });
                 tb += '</tr>';
             });
@@ -15169,8 +15191,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         function cmRenderChips() {
             const wrap = document.getElementById('cmStatusChips'); if (!wrap) return;
             const chip = (label, key, active) => `<button type="button" class="cm-chip${active ? ' active' : ''}" data-status="${cmEsc(key)}">${cmEsc(label)}</button>`;
+            // Compte par couleur, sur toutes les lignes du tableur (pas seulement celles affichées).
+            const data = window.__coachMembersData || {};
+            const oc = cmOrderedColumns();
+            const compte = {};
+            (data.members || []).forEach(m => { const k = cmCouleurMembre(m, oc); compte[k] = (compte[k] || 0) + 1; });
             let html = chip('Tous', '__all__', _cmActiveStatuses.size === 0);
-            CM_STATUSES.forEach(s => { html += chip(s, s, _cmActiveStatuses.has(s)); });
+            CM_LEGENDE.forEach(l => {
+                html += `<button type="button" class="cm-chip cm-chip--${l.cle}${_cmActiveStatuses.has(l.cle) ? ' active' : ''}" data-status="${l.cle}" title="${cmEsc(l.aide)}"><span aria-hidden="true">${l.pastille}</span> ${cmEsc(l.libelle)} <b>${compte[l.cle] || 0}</b></button>`;
+            });
             wrap.innerHTML = html;
         }
 
@@ -15285,7 +15314,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             const scoreCol = data.columns.find(c => cmNorm(c.name).includes('score'));
             const ancCol = data.columns.find(c => cmNorm(c.name).includes('anciennete'));
             let chips = '';
-            if (oc.statut && String(cmVal(m, oc.statut)).trim()) chips += cmCellHtml(oc.statut.name, cmVal(m, oc.statut));
+            if (oc.statut && String(cmVal(m, oc.statut)).trim()) chips += cmCellHtml(oc.statut.name, cmVal(m, oc.statut), m);
             if (scoreCol && String(cmVal(m, scoreCol)).trim()) chips += `<span class="cm-badge gold">${cmEsc(cmVal(m, scoreCol))} /20</span>`;
             if (ancCol && String(cmVal(m, ancCol)).trim()) chips += `<span class="cm-badge gray">${cmEsc(cmVal(m, ancCol))}</span>`;
             document.getElementById('cmDrawerChips').innerHTML = chips;

@@ -84,6 +84,10 @@
       const { data } = await cli().auth.getUser();
       uid = data?.user?.id || null;
     } catch { uid = null; }
+    // ⚠️ VUE COACH (21/10) : les droits lus sont ceux de l ELEVE consulte, pas
+    // ceux du coach. Sinon l espace formation s ouvrirait selon les droits du
+    // coach. La session reste celle du coach : la RLS `is_coach()` autorise la lecture.
+    if (uid && window.CoachView && window.CoachView.isActive()) uid = window.CoachView.getViewedUuid() || uid;
 
     if (!uid) {
       // ⛔ `connu: false`, ET PAS `true`. Ne pas avoir de session n est PAS la

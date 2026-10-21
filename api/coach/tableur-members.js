@@ -23,6 +23,7 @@
 import { requireCoach } from '../vimeo/_lib/coach-auth.js';
 import { getSheetsClient, getSheetId } from './_lib/sheets-client.js';
 import { SHEET_NAME, RANGE_ONGLET, columnLetter } from '../_lib/parcours-colonnes.js';
+import { fondsDesLignes, poserCouleurs } from '../_lib/tableur-couleurs.js';
 
 // Range : onglet "👥 Parcours Membre" ENTIER — ni lignes ni colonnes bornées. La borne A:AL
 // (38 colonnes) aurait fait disparaître toute colonne ajoutée ou déplacée au-delà de AL.
@@ -126,6 +127,19 @@ export default async function handler(req, res) {
       })
       .filter(Boolean);
 
+    // 5b. La couleur de chaque membre (légende de Nadir du 21/10), fond de cellule ou pastille.
+    //     ⚠️ Un échec de lecture des formats ne casse pas l'écran : on retombe sur le texte, et
+    //     on le dit dans le journal ET dans la réponse (`couleur_schema: 'texte-repli'`).
+    const colStatut = (columns.find((c) => /statut/i.test(c.name)) || {}).name || null;
+    let couleurSchema;
+    try {
+      couleurSchema = poserCouleurs(members, await fondsDesLignes(sheets, spreadsheetId), colStatut);
+    } catch (e) {
+      console.error('[TABLEUR-MEMBERS] ⚠️ fonds de cellule illisibles, repli sur le texte :', e.message);
+      poserCouleurs(members, new Map(), colStatut);
+      couleurSchema = 'texte-repli';
+    }
+
     // 6. Construction du payload final.
     const result = {
       sheet_id: spreadsheetId,
@@ -134,6 +148,7 @@ export default async function handler(req, res) {
       pulled_at: new Date().toISOString(),
       total_columns: columns.length,
       total_members: members.length,
+      couleur_schema: couleurSchema,
       columns: columns.map(c => ({ letter: c.letter, name: c.name })), // idx interne retiré du payload
       members,
     };

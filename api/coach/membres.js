@@ -41,6 +41,10 @@ import { requireCoach, httpError } from '../vimeo/_lib/coach-auth.js';
 import { getServiceClient } from '../tradovate/_lib/auth.js';
 import { getSheetsClient } from './_lib/sheets-client.js';
 import { brevo } from '../_lib/brevo-client.js';
+import { tableurParEmail } from '../_lib/tableur-par-email.js';
+import { retirerMembresDesProspects } from '../_lib/prospects-membres.js';
+import crypto from 'node:crypto';
+import { xpTotal, xpDetail, xpMaximum, parcoursParUtilisateur } from '../_lib/formation-xp.js';
 import { mailResultatQuiz, donneesQuiz } from '../_lib/mail-quiz.js';
 import { MODELES as MODELES_CAMPAGNE, CHAMPS as CHAMPS_CAMPAGNE, manquants as manquantsCampagne, rendreCampagne, EXPEDITEUR_ID, PREFIXE_NOM } from '../_lib/campagnes.js';
 
@@ -197,6 +201,32 @@ async function lister(sb) {
       signalements: liste, sans_compte: true, signale_seulement: true,
     });
   }
+  /**
+   * ── LE TABLEUR ET L XP (demande de Nadir du 21/10) ──────────────────────
+   *
+   * ⚠️ `tableur` : la ligne du membre dans le tableur de Manu (couleur de la
+   * legende), ou `null` s il n y figure pas. `tableur_lu` dit si le tableur a
+   * ete lu : ⛔ un tableur illisible ne doit PAS faire disparaitre tout le
+   * monde de l ecran, qui masque les absents du tableur. Le client ne masque
+   * que si `tableur_lu` est vrai.
+   * ⚠️ `xp` : le meme calcul que l espace de l eleve et que le tableur
+   * (api/_lib/formation-xp.js), jamais une copie.
+   */
+  let tab = null;
+  let tabErreur = null;
+  try { tab = await tableurParEmail(); } catch (e) { tabErreur = e.message; console.error('[MEMBRES] ⚠️ tableur illisible :', e.message); }
+  let parcours = null;
+  try { parcours = await parcoursParUtilisateur(sb); } catch (e) { console.error('[MEMBRES] ⚠️ XP non calculable :', e.message); }
+  const xpMax = (() => { try { return xpMaximum(); } catch { return null; } })();
+  for (const m of membres) {
+    const t = tab ? tab.parEmail.get(String(m.email || '').toLowerCase()) : null;
+    m.tableur = t ? { row: t.row, couleur: t.couleur, couleur_source: t.couleur_source } : null;
+    m.tableur_lu = !!tab;
+    m.tableur_erreur = tabErreur;
+    m.xp = m.user_id && parcours ? (() => { const p = parcours.get(m.user_id); return p ? xpTotal(p.vues, p.quiz) : 0; })() : null;
+    m.xp_max = xpMax;
+  }
+
   // ⚠️ Les coachs sont listes aussi, en queue : ils ont des droits a gerer
   // comme les autres (leur ligne existe), mais ce ne sont pas des eleves.
   membres.sort((x, y) => (x.role === 'student') === (y.role === 'student')
@@ -425,7 +455,7 @@ async function tunnels(corps, coach) {
  *   - un test envoyé AVANT pour cette campagne (id existant) ;
  *   - le nombre de contacts de la liste relu chez Brevo et renvoyé, pour l'écran de confirmation.
  */
-const SOUS_ACTIONS_CAMPAGNES = ['modeles', 'apercu', 'listes', 'test', 'envoyer', 'historique', 'reglage', 'activer'];
+const SOUS_ACTIONS_CAMPAGNES = ['modeles', 'apercu', 'listes', 'test', 'envoyer', 'historique', 'reglage', 'activer', 'menage_prospects'];
 /**
  * ⛔ L'INTERRUPTEUR « ENVOI AUX LISTES » (demande de Nadir, 21/10). Coupé par défaut :
  * tant qu'il l'est, seul le test part. Il vit dans system_settings et la route le relit
@@ -460,6 +490,8 @@ async function campagnes(sb, corps, coach) {
   if (!SOUS_ACTIONS_CAMPAGNES.includes(sous)) throw httpError(400, 'sous_action inconnue');
   if (sous === 'modeles') return { champs: CHAMPS_CAMPAGNE, modeles: MODELES_CAMPAGNE };
   if (sous === 'reglage') return { envoi_actif: await envoiActif(sb) };
+  // Un membre n est plus un prospect (Manu, 21/10) : compte, ou retire si `appliquer`.
+  if (sous === 'menage_prospects') return retirerMembresDesProspects({ appliquer: corps.appliquer === true });
   if (sous === 'activer') {
     const actif = corps.actif === true;
     const { error } = await sb.from('system_settings').upsert({ key: CLE_ENVOI, value: { actif, par: coach.email, le: new Date().toISOString() }, updated_at: new Date().toISOString() }, { onConflict: 'key' });
@@ -971,7 +1003,32 @@ async function fiche(sb, corps) {
   if (lbN && lbN.inscrit_le) activites.push({ quand: lbN.inscrit_le, type: 'learnybox', detail: 'Inscription LearnyBox' });
   activites.sort((a, b) => String(b.quand).localeCompare(String(a.quand)));
 
+  /**
+   * ⚠️ LA FICHE DU TABLEUR, TOUTES SES COLONNES, et l XP par module (21/10).
+   * Le tableur est cherche par l adresse du compte puis par celle de LearnyBox :
+   * un membre peut figurer dans le tableur sous l une ou l autre.
+   */
+  let tableur = null;
+  try {
+    const tab = await tableurParEmail();
+    const t = tab.parEmail.get(email) || (lbN && lbN.email ? tab.parEmail.get(String(lbN.email).toLowerCase()) : null);
+    tableur = { lu: true, colonnes: tab.colonnes, ligne: t || null };
+  } catch (e) {
+    console.error('[MEMBRES] ⚠️ tableur illisible pour la fiche :', e.message);
+    tableur = { lu: false, erreur: e.message, colonnes: [], ligne: null };
+  }
+  let xp = null;
+  if (uid) {
+    try {
+      const vuesF = new Set(formation.progression.filter((p) => p.vue).map((p) => p.lecon_id));
+      const quizF = new Set(formation.quiz.filter((q) => q.reussi).map((q) => String(q.module_cle)));
+      xp = { ...xpDetail(vuesF, quizF), max: xpMaximum() };
+    } catch (e) { console.error('[MEMBRES] ⚠️ XP de la fiche non calculable :', e.message); }
+  }
+
   return {
+    tableur,
+    xp,
     compte: compte ? { user_id: compte.id, email: compte.email, cree_le: compte.created_at, derniere_connexion: compte.last_sign_in_at, confirme: !!compte.email_confirmed_at } : null,
     profil: pub.data || null,
     acces: acces.data || null,
@@ -1225,6 +1282,25 @@ async function comptabilite() {
 
 /* ══ HANDLER ═══════════════════════════════════════════════════════════════ */
 export default async function handler(req, res) {
+  /**
+   * ⚠️ LE CRON DU MENAGE (21/10) : chaque soir, les membres sortent de la liste
+   * PROSPECTS. GET + `Authorization: Bearer CRON_SECRET`, ce qu envoie Vercel.
+   * ⛔ Une route, plusieurs actions : plan Hobby, 12 fonctions, toutes prises.
+   */
+  if (req.method === 'GET' && String(req.query?.action || '') === 'menage_prospects') {
+    const fourni = Buffer.from(String(req.headers.authorization || '').replace(/^Bearer /, ''));
+    const attendu = Buffer.from(String(process.env.CRON_SECRET || ''));
+    if (!attendu.length || fourni.length !== attendu.length || !crypto.timingSafeEqual(fourni, attendu)) {
+      return res.status(401).json({ ok: false, motif: 'secret de cron absent ou faux' });
+    }
+    try {
+      const r = await retirerMembresDesProspects({ appliquer: true });
+      return res.status(200).json({ ok: true, retires: r.retires.length, prospects: r.prospects, membres: r.membres });
+    } catch (e) {
+      console.error('[PROSPECTS] ⛔ ménage non fait :', e.message);
+      return res.status(500).json({ ok: false, motif: e.message });
+    }
+  }
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ ok: false, motif: 'POST attendu' });
