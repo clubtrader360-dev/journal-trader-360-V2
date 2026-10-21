@@ -54,9 +54,18 @@
   };
   const COULEURS_FILTRE = ['rouge', 'blanc', 'bleu', 'vert'];
   /** Un eleve absent du tableur : masque, sauf filtre dedie. ⛔ Seulement si le tableur a ete LU. */
-  const horsTableur = (m) => m.role === 'student' && m.tableur_lu === true && !m.tableur;
+  /**
+   * ⚠️ UN NOUVEAU MEMBRE N EST PAS UN « HORS TABLEUR » (21/10, constaté par Nadir au
+   * premier « Virement reçu ») : un acheteur n est forcément pas encore dans le tableur
+   * de Manu, et la règle le cachait. Un compte créé depuis moins de 60 jours reste
+   * visible, marqué « Nouveau, pas encore dans le tableur ».
+   */
+  const JOURS_NOUVEAU = 60;
+  // ⛔ Comptes réels seulement : une ligne « signalée » (remboursé…) a aussi une date récente.
+  const estNouveau = (m) => !!m.user_id && !m.sans_compte && !!m.cree_le && (Date.now() - Date.parse(m.cree_le)) < JOURS_NOUVEAU * 86400000;
+  const horsTableur = (m) => m.role === 'student' && m.tableur_lu === true && !m.tableur && !estNouveau(m);
   function pastilleTableur(m) {
-    if (!m.tableur) return m.tableur_lu === false ? '<small class="am-statut am-statut--attend" title="Le tableur n a pas pu être lu">Tableur illisible</small>' : (m.role === 'student' ? '<small class="am-statut am-statut--attend">Hors tableur</small>' : '');
+    if (!m.tableur) return m.tableur_lu === false ? '<small class="am-statut am-statut--attend" title="Le tableur n a pas pu être lu">Tableur illisible</small>' : (m.role === 'student' ? (estNouveau(m) ? '<small class="am-statut am-statut--ok" title="Créé il y a moins de 60 jours : à ajouter au tableur de Manu">Nouveau, pas encore dans le tableur</small>' : '<small class="am-statut am-statut--attend">Hors tableur</small>') : '');
     const l = LEGENDE[m.tableur.couleur] || LEGENDE.autre;
     return `<small class="am-statut am-couleur am-couleur--${txt(m.tableur.couleur)}" title="${txt(l.aide)} (ligne ${txt(m.tableur.row)} du tableur)"><span aria-hidden="true">${l.p}</span> ${txt(l.t)}</small>`;
   }
