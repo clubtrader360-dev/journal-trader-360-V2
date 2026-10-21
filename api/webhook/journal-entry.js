@@ -444,9 +444,9 @@ async function handleDailyRecalc(res) {
 // Ligne sans compte correspondant → cellules laissées telles quelles, email listé en réponse.
 // Seules les cellules dont la valeur change sont réécrites.
 // ========================================
-const T_CONNEXION = 'derniere connexion formation';
+const T_CONNEXION = 'derniere connexion trader360.fr'; // titre choisi par Manu le 21/10/2026 (ex « Dernière connexion formation »)
 const T_XP = 'xp';
-const LIB_CONNEXION = 'Dernière connexion formation';
+const LIB_CONNEXION = 'Dernière connexion Trader360.fr';
 const LIB_XP = 'XP';
 
 async function handleFormationXp(res) {
