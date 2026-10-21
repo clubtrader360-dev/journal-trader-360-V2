@@ -446,6 +446,30 @@ async function tunnels(corps, coach) {
   return d.resultat;
 }
 
+/* ══ LES OFFRES ET LA PAGE DE COMMANDE : même pont vers le site (21/10/2026) ══
+ * Offres, codes de réduction, envois du lien de commande et commandes vivent dans
+ * la base du SITE. Même clé BACKOFFICE_CLE, même garde (requireCoach plus haut).
+ * Aucune donnée d'élève du journal ne passe par ce pont.
+ */
+const SOUS_ACTIONS_OFFRES = ['reference', 'lister', 'enregistrer', 'statut', 'supprimer', 'code_enregistrer', 'code_supprimer', 'envoyer_lien', 'envois', 'commandes', 'virement_recu', 'annuler'];
+async function offresSite(corps, coach) {
+  const cle = process.env.BACKOFFICE_CLE;
+  if (!cle) throw httpError(500, 'BACKOFFICE_CLE absente : le pont vers le site n est pas configure');
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_OFFRES.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  const site = (process.env.SITE_URL || 'https://www.trader360.fr').replace(/\/$/, '');
+  const { action: _a, sous_action: _s, ...reste } = corps;
+  const r = await fetch(`${site}/api/offres`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-backoffice-cle': cle },
+    body: JSON.stringify({ ...reste, action: sous, par: coach.email }),
+  });
+  const d = await r.json().catch(() => ({}));
+  // ⛔ `r.ok` ET `d.ok` : un refus du site arrive en 4xx sans lever.
+  if (!r.ok || !d.ok) throw httpError(r.status >= 400 && r.status < 500 ? r.status : 502, d.motif || `site ${r.status}`);
+  return d.resultat;
+}
+
 /* ══ EMAILS MARKETING (campagnes Brevo) ══════════════════════════════════════
  * Modèles et gabarit : api/_lib/campagnes.js. Une campagne vit dans Brevo, pas dans
  * notre base : brouillon créé au premier test, mis à jour à chaque test, envoyé ensuite.
@@ -1340,6 +1364,7 @@ export default async function handler(req, res) {
     else if (action === 'renvoyer_mail') resultat = await renvoyerMail(sb, corps, coach, origine);
     else if (action === 'annonce') resultat = await annonce(sb, corps, coach, origine);
     else if (action === 'tunnels') resultat = await tunnels(corps, coach);
+    else if (action === 'offres') resultat = await offresSite(corps, coach);
     else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
     else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);

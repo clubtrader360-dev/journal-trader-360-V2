@@ -240,3 +240,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-cam-interrupteur[data-actif="1"] { border-color: var(--gold-line); background: var(--gold-wash); }
 .bo-cam-interrupteur b { display: block; color: var(--text); font-size: 14.5px; }
 .bo-cam-interrupteur span { color: var(--text-soft); font-size: 13px; }
+
+/* ── Ventes · Offres de la page de commande (21/10) ────────────────────────── */
+.of-grille { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .of-grille { grid-template-columns: 1fr; } }
+.of-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.of-champs .of-large { grid-column: 1 / -1; }
+.of-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.of-ligne input { flex: 1; min-width: 90px; }
+.of-pale { color: var(--text-soft); font-weight: 400; }
+.of-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum' 1; }
+.of-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.of-sous { font-size: 14px; margin: 20px 0 10px; }
+.of-titre-hist { font-size: 16px; color: var(--text-soft); margin: 26px 0 10px; }
+.of-mode { display: grid; grid-template-columns: auto 1fr 130px 150px; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.of-mode small { display: block; font-size: 12px; }
+.of-prix { padding: 9px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum' 1; }
+.of-liens { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin: 0 0 14px; display: grid; gap: 8px; }
+.of-liens legend { font-size: 13px; color: var(--text); font-weight: 600; padding: 0 6px; }
+.of-coche { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; color: var(--text-muted); cursor: pointer; overflow-wrap: anywhere; }
+.of-coche input { accent-color: var(--gold); }
+.bo-ecran[data-ecran="ventes/offres"] { --cm-or: var(--gold); --cm-or-2: var(--gold-2); --cm-or-ligne: var(--gold-line); --cm-or-voile: var(--gold-wash); }
