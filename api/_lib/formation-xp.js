@@ -91,6 +91,44 @@ export function xpTotal(vues, quizReussis) {
   return x;
 }
 
+// Détail par module, pour la fiche membre du back-office (demande de Nadir du 21/10).
+// ⛔ Même règle que `xpTotal` ci-dessus, module par module : le banc
+// `outils/formation-xp-detail-banc.mjs` prouve que la somme des parts rend `xpTotal` à
+// l'unité, sur des parcours tirés au hasard. Si l'un change sans l'autre, il échoue.
+export function xpDetail(vues, quizReussis) {
+  const estVue = (id) => (/-quiz$/.test(String(id))
+    ? quizReussis.has(String(id).replace(/^m/, '').replace(/-quiz$/, ''))
+    : vues.has(id));
+  const modules = [];
+  let total = 0;
+  for (const m of modulesFormation()) {
+    const compte = !m.introduction && !m.bonus;
+    const parts = partsXp(m.lecons.length);
+    let xp = 0;
+    m.lecons.forEach((l, i) => { if (compte && estVue(l.id)) xp += parts[i]; });
+    const fini = _D.moduleTermine(m, estVue, (cle) => quizReussis.has(cle));
+    const prime = fini && compte ? (m.certification ? XP_CERT : XP_MOD) : 0;
+    const max = compte && m.lecons.length ? XP_MODULE + (m.certification ? XP_CERT : XP_MOD) : 0;
+    total += xp + prime;
+    modules.push({ cle: m.cle, numero: m.numero, titre: m.titre || '', xp: xp + prime, max, fini: !!fini, compte });
+  }
+  return { total, modules };
+}
+
+// Les chapitres vus et les quiz réussis de CHAQUE compte, lus par pages.
+// @returns {Promise<Map<string, { vues: Set<string>, quiz: Set<string> }>>} par user_id
+export async function parcoursParUtilisateur(sb) {
+  const [prog, quiz] = await Promise.all([
+    toutLire(() => sb.from('formation_progression').select('user_id, lecon_id').eq('vue', true).order('user_id').order('lecon_id')),
+    toutLire(() => sb.from('formation_quiz_resultats').select('user_id, module_cle').eq('reussi', true).order('user_id').order('module_cle')),
+  ]);
+  const out = new Map();
+  const de = (u) => { if (!out.has(u)) out.set(u, { vues: new Set(), quiz: new Set() }); return out.get(u); };
+  prog.forEach((r) => de(r.user_id).vues.add(r.lecon_id));
+  quiz.forEach((r) => de(r.user_id).quiz.add(String(r.module_cle)));
+  return out;
+}
+
 // Maximum atteignable, calculé comme `xpMaximum()` de l'espace formation : 100 par module
 // compté (intro et bonus exclus) + 250 par module terminé, 1000 pour la certification.
 export function xpMaximum() {

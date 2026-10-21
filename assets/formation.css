@@ -947,6 +947,18 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp .theme-btn{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--ink-soft);cursor:pointer}
 #formationApp .theme-btn:hover{border-color:var(--gold-line);color:var(--ink)}
 #formationApp .theme-btn svg{width:17px;height:17px}
+/* ── Le theme en interrupteur (21/10) ──────────────────────────────────────
+   Remplace la pastille ronde : meme gabarit que les interrupteurs d acces du
+   back-office (piste 36 x 20, curseur 14 px), encadre de la lune et du soleil.
+   ⚠️ Les regles ci-dessous ecrasent largeur, hauteur et rayon de la pastille. */
+#formationApp .theme-btn[role="switch"]{display:inline-flex;align-items:center;gap:7px;width:auto;height:38px;padding:0 11px;border-radius:999px}
+#formationApp .theme-btn__ic{display:grid;place-items:center;color:var(--ink-mute);transition:color .25s cubic-bezier(.16,1,.3,1)}
+#formationApp .theme-btn__ic svg{width:15px;height:15px}
+#formationApp .theme-btn[aria-checked="false"] .theme-btn__ic--lune,#formationApp .theme-btn[aria-checked="true"] .theme-btn__ic--soleil{color:var(--gold)}
+#formationApp .theme-btn__piste{position:relative;width:36px;height:20px;border-radius:20px;background:var(--surface-3);border:1px solid var(--line);flex-shrink:0}
+#formationApp .theme-btn__piste i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:linear-gradient(180deg,var(--gold-2),var(--gold));transition:transform .25s cubic-bezier(.16,1,.3,1)}
+#formationApp .theme-btn[aria-checked="true"] .theme-btn__piste i{transform:translateX(16px)}
+#formationApp .theme-btn[role="switch"]:focus-visible{outline:2px solid var(--gold-line);outline-offset:2px}
 
 /* ══════════════════════════════════════════════════════════════════════════
    RETOURS DE NADIR SUR L APERCU DU 14/10, NUIT (lot connexion quater)
@@ -1188,3 +1200,12 @@ body:not(.dark-mode) #formationApp .ex__bougie--b line,body:not(.dark-mode) #for
 #formationApp .mod .num__cadenas{display:inline-flex;vertical-align:-2px;margin-left:8px;color:var(--ink-mute)}
 #formationApp .mod .num__cadenas svg{width:13px;height:13px}
 #formationApp .ex__suiveur{fill:none;stroke:#f23645;stroke-width:1.5;stroke-dasharray:5 4}
+
+/* ── La vue coach, en lecture seule (21/10) ────────────────────────────────
+   Bandeau en tete, et les gestes d ecriture retires : ils ne feraient rien.
+   ⚠️ `!important` : plusieurs de ces boutons portent un `display` d auteur
+   (regle du depot, CLAUDE.md : masquer demande `!important`). */
+#formationApp .vue-coach{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;padding:10px 20px;background:var(--gold-wash);border-bottom:1px solid var(--gold-line);color:var(--ink);font-size:14px}
+#formationApp .vue-coach b{color:var(--gold)}
+#formationApp .vue-coach .btn{padding:7px 14px;font-size:13px}
+#formationApp[data-vue-coach] [data-complete],#formationApp[data-vue-coach] [data-undo],#formationApp[data-vue-coach] [data-quiz-commencer],#formationApp[data-vue-coach] [data-quiz-reecrire],#formationApp[data-vue-coach] .formation-deconnexion,#formationApp[data-vue-coach] .formation-retour-journal,#formationApp[data-vue-coach] .formation-retour-coach{display:none!important}

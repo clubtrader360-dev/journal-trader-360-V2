@@ -1847,3 +1847,13 @@ body:has(#authScreen[style*="display: flex"]) .app-footer { display: none; }
   .app-footer-inner { flex-direction: column; align-items: flex-start; padding: 18px 20px; }
   .app-footer-links { gap: 16px; }
 }
+
+/* Suivi Membres T360 · légende des statuts (21/10) : lisible dans les deux thèmes.
+   ⚠️ Le texte des pastilles était en bleu marine fixe, invisible sur le fond sombre. */
+#coachMembersTable .cm-chip b { font-variant-numeric: tabular-nums; opacity: .75; margin-left: 2px; }
+#coachMembersTable .cm-badge.blue  { background: rgba(37,99,235,0.12); color: #1d4ed8; }
+#coachMembersTable .cm-badge.white { background: rgba(15,28,61,0.06); color: rgba(15,28,61,0.75); }
+body.dark-mode #coachMembersTable .cm-chip { color: rgba(255,255,255,0.86); background: rgba(232,184,75,0.08); border-color: rgba(232,184,75,0.30); }
+body.dark-mode #coachMembersTable .cm-chip:hover { border-color: rgba(232,184,75,0.65); }
+body.dark-mode #coachMembersTable .cm-chip.active { color: #fff; background: rgba(232,184,75,0.22); border-color: rgba(232,184,75,0.85); }
+body.dark-mode #coachMembersTable .cm-count { color: rgba(255,255,255,0.65); }
