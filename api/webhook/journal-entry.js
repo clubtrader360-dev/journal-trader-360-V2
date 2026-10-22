@@ -26,6 +26,8 @@
 //                                              une saisie (ni coachs). GET du cron Vercel
 //                                              (Bearer CRON_SECRET, lun-ven 6h Paris) ou POST
 //                                              X-Webhook-Secret pour un lancement à la main.
+//   - ?action=nouveaux-membres[&depuis=…]    → LECTURE SEULE : comptes élèves créés depuis une
+//                                              date (GET ou POST, X-Webhook-Secret). Aucune écriture.
 // ========================================
 
 import crypto from 'crypto';
@@ -155,6 +157,14 @@ async function writeJournalCells(sheets, spreadsheetId, colIdx, cells) {
 export default async function handler(req, res) {
   try {
     const action = (req.query && req.query.action) || '';
+
+    // 0ter. Liste des nouveaux comptes élèves, EN LECTURE SEULE (GET ou POST + X-Webhook-Secret).
+    if (action === 'nouveaux-membres') {
+      if (!secretOk(req.headers['x-webhook-secret'], process.env.SUPABASE_WEBHOOK_SECRET)) {
+        return res.status(401).json({ ok: false, error: 'unauthorized' });
+      }
+      return await handleNouveauxMembres(req, res);
+    }
 
     // 0bis. XP et dernière connexion formation (pg_cron Supabase toutes les heures, GET + Bearer
     // CRON_SECRET ; ou POST X-Webhook-Secret à la main). Voir handleFormationXp.
@@ -544,3 +554,75 @@ async function handleFormationXp(res) {
   });
 }
 
+
+// ========================================
+// ?action=nouveaux-membres — comptes élèves (public.users, role 'student') créés depuis une date,
+// avec leurs droits (public.acces_membre, joint par user_id = users.uuid comme dans creer()).
+// LECTURE SEULE : rien n'est écrit, ni en base, ni dans le tableur, ni chez Brevo.
+//   - ?depuis=AAAA-MM-JJ facultatif (absent = aujourd'hui moins 60 jours, format invalide = 400).
+//   - test = true si l'adresse contient « +test » ou finit par @example.com : signalé, pas retiré.
+// ========================================
+const NOUVEAUX_JOURS_DEFAUT = 60;
+
+async function handleNouveauxMembres(req, res) {
+  const brut = String((req.query && req.query.depuis) || '').trim();
+  let depuis;
+  if (brut) {
+    const d = new Date(`${brut}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(brut) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== brut) {
+      return res.status(400).json({ ok: false, error: 'depuis attendu au format AAAA-MM-JJ' });
+    }
+    depuis = brut;
+  } else {
+    depuis = new Date(Date.now() - NOUVEAUX_JOURS_DEFAUT * 86400000).toISOString().slice(0, 10);
+  }
+
+  const sb = getServiceClient();
+  const comptes = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from('users')
+      .select('uuid, email, name, created_at')
+      .eq('role', 'student')
+      .gte('created_at', depuis)
+      .order('created_at', { ascending: true })
+      .range(from, from + 999);
+    if (error) throw error;
+    comptes.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+
+  // Droits par paquets de 200 user_id (URL PostgREST bornée), chaque paquet paginé par 1000.
+  const acces = new Map();
+  const uuids = comptes.map((c) => c.uuid).filter(Boolean);
+  for (let i = 0; i < uuids.length; i += 200) {
+    const paquet = uuids.slice(i, i + 200);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await sb.from('acces_membre')
+        .select('user_id, formation_actif, journal_actif, niveau')
+        .in('user_id', paquet)
+        .range(from, from + 999);
+      if (error) throw error;
+      (data || []).forEach((a) => acces.set(a.user_id, a));
+      if (!data || data.length < 1000) break;
+    }
+  }
+
+  const membres = comptes.map((c) => {
+    const email = String(c.email || '').replace(/\s+/g, '').toLowerCase();
+    const mots = String(c.name || '').trim().split(/\s+/).filter(Boolean);
+    const a = acces.get(c.uuid) || {};
+    return {
+      email,
+      prenom: mots[0] || '',
+      nom: mots.slice(1).join(' '),
+      cree_le: c.created_at ? new Date(c.created_at).toISOString() : null,
+      formation_actif: a.formation_actif ?? null,
+      journal_actif: a.journal_actif ?? null,
+      niveau: a.niveau ?? null,
+      test: email.includes('+test') || email.endsWith('@example.com'),
+    };
+  });
+
+  console.log(`[NOUVEAUX-MEMBRES] depuis=${depuis} total=${membres.length}`);
+  return res.status(200).json({ ok: true, depuis, total: membres.length, membres });
+}
