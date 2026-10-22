@@ -958,6 +958,14 @@ dialog.f-bienvenue::backdrop { background: rgba(5, 5, 6, .78); }
 #formationApp .theme-btn__piste{position:relative;width:36px;height:20px;border-radius:20px;background:var(--surface-3);border:1px solid var(--line);flex-shrink:0}
 #formationApp .theme-btn__piste i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:linear-gradient(180deg,var(--gold-2),var(--gold));transition:transform .25s cubic-bezier(.16,1,.3,1)}
 #formationApp .theme-btn[aria-checked="true"] .theme-btn__piste i{transform:translateX(16px)}
+/* ── Piste GRISE (Manu, 22/10) : sur la piste beige, le curseur or ne se distinguait
+   pas, surtout pour un œil daltonien. La piste passe au gris neutre, plus sombre en
+   thème clair, et le curseur gagne un liseré qui le détache dans les deux thèmes :
+   la position se lit au contraste de luminosité, pas à la couleur. */
+#formationApp .theme-btn__piste{background:#5d5d63;border-color:#77777d}
+#formationApp .theme-btn__piste i{box-shadow:0 0 0 1.5px rgba(10,10,13,.85)}
+#formationApp[data-theme="clair"] .theme-btn__piste{background:#55555a;border-color:#45454a}
+#formationApp[data-theme="clair"] .theme-btn__piste i{box-shadow:0 0 0 1.5px #ffffff}
 #formationApp .theme-btn[role="switch"]:focus-visible{outline:2px solid var(--gold-line);outline-offset:2px}
 
 /* ══════════════════════════════════════════════════════════════════════════
