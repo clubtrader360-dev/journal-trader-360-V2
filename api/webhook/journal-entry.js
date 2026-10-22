@@ -523,7 +523,7 @@ async function handleFormationXp(res) {
     if (colPct !== null && maxXp > 0) {
       // Fraction 0..1 arrondie au pourcent ; la colonne est au format pourcentage dans le tableur.
       // Pourcentage entier arrondi au supérieur (Manu 21/10) : 1826/4250 = 42,96 % donne 43 %.
-      const pct = Math.ceil((hit.xp / maxXp) * 100) / 100;
+      const pct = Math.ceil((hit.xp * 100) / maxXp) / 100;
       const lu = String(row[colPct] ?? '').replace(/\s/g, '').replace(',', '.');
       const luFrac = lu.endsWith('%') ? Number(lu.slice(0, -1)) / 100 : Number(lu);
       if (lu === '' || !Number.isFinite(luFrac) || Math.abs(luFrac - pct) > 0.0001) {
