@@ -151,7 +151,7 @@ async function toutLire(construire) {
   }
 }
 
-// Pour chaque compte (email en minuscules) : { xp, lastSignIn }.
+// Pour chaque compte (email en minuscules) : { xp, lastSignIn, certifie }.
 // `lastSignIn` = auth.users.last_sign_in_at, la même source que `api/coach/membres.js`
 // (journal et formation partagent la même authentification).
 export async function xpParEmail(sb) {
@@ -172,12 +172,18 @@ export async function xpParEmail(sb) {
   const quizOk = new Map();
   quiz.forEach((r) => { if (!quizOk.has(r.user_id)) quizOk.set(r.user_id, new Set()); quizOk.get(r.user_id).add(String(r.module_cle)); });
 
+  // Module de certification (examen final) : sa clé dans formation_quiz_resultats.
+  const modCert = modulesFormation().find((m) => m.certification);
+  const cleCert = modCert ? String(modCert.cle) : null;
+
   const parEmail = new Map();
   for (const c of comptes) {
     if (!c.email) continue;
     parEmail.set(String(c.email).trim().toLowerCase(), {
       xp: xpTotal(vues.get(c.id) || new Set(), quizOk.get(c.id) || new Set()),
       lastSignIn: c.last_sign_in_at || null,
+      // Examen de certification réussi (demande de Manu du 22/10/2026 : « ✅ Certifié » à la place du %).
+      certifie: !!(cleCert && quizOk.get(c.id) && quizOk.get(c.id).has(cleCert)),
     });
   }
   return parEmail;

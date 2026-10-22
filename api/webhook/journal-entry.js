@@ -459,6 +459,10 @@ const T_XP = 'xp';
 // Colonne FACULTATIVE (demande de Manu du 21/10/2026) : % du maximum d'XP atteignable.
 // Écrite seulement si un titre « % XP max » existe en ligne 3 ; absente, rien ne bloque.
 const T_PCT_XP = '% xp max';
+// Membre certifié (examen final réussi) : « ✅ Certifié » sur fond vert clair À LA PLACE du
+// pourcentage (demande de Manu du 22/10/2026, pas de colonne dédiée).
+const PCT_CERTIFIE = '✅ Certifié';
+const PCT_CERTIFIE_BG = { red: 0.851, green: 0.918, blue: 0.827 }; // #D9EAD3
 const LIB_CONNEXION = 'Dernière connexion Trader360.fr';
 const LIB_XP = 'XP';
 
@@ -513,6 +517,7 @@ async function handleFormationXp(res) {
   const colPct = hitsPct.length === 1 ? hitsPct[0][1] : null;
   const maxXp = xpMaximum();
   const data = [];
+  const fonds = []; // { rowNum, bg } : fond de la cellule « % XP max » (vert si certifié, effacé sinon)
   const sansCompte = [];
   let lignes = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -531,19 +536,51 @@ async function handleFormationXp(res) {
       data.push({ range: cellA1(cols[T_XP], rowNum), values: [[hit.xp]] });
     }
     if (colPct !== null && maxXp > 0) {
-      // Fraction 0..1 arrondie au pourcent ; la colonne est au format pourcentage dans le tableur.
-      // Pourcentage entier arrondi au supérieur (Manu 21/10) : 1826/4250 = 42,96 % donne 43 %.
-      const pct = Math.ceil((hit.xp * 100) / maxXp) / 100;
-      const lu = String(row[colPct] ?? '').replace(/\s/g, '').replace(',', '.');
-      const luFrac = lu.endsWith('%') ? Number(lu.slice(0, -1)) / 100 : Number(lu);
-      if (lu === '' || !Number.isFinite(luFrac) || Math.abs(luFrac - pct) > 0.0001) {
-        data.push({ range: cellA1(colPct, rowNum), values: [[pct]] });
+      const brutPct = String(row[colPct] ?? '');
+      const etaitCertifie = brutPct.includes('Certifié');
+      if (hit.certifie) {
+        if (brutPct !== PCT_CERTIFIE) {
+          data.push({ range: cellA1(colPct, rowNum), values: [[PCT_CERTIFIE]] });
+          fonds.push({ rowNum, bg: PCT_CERTIFIE_BG });
+        }
+      } else {
+        // Fraction 0..1 arrondie au pourcent ; la colonne est au format pourcentage dans le tableur.
+        // Pourcentage entier arrondi au supérieur (Manu 21/10) : 1826/4250 = 42,96 % donne 43 %.
+        const pct = Math.ceil((hit.xp * 100) / maxXp) / 100;
+        const lu = brutPct.replace(/\s/g, '').replace(',', '.');
+        const luFrac = lu.endsWith('%') ? Number(lu.slice(0, -1)) / 100 : Number(lu);
+        if (lu === '' || !Number.isFinite(luFrac) || Math.abs(luFrac - pct) > 0.0001) {
+          data.push({ range: cellA1(colPct, rowNum), values: [[pct]] });
+          if (etaitCertifie) fonds.push({ rowNum, bg: null }); // fond vert retiré
+        }
       }
     }
   }
   if (data.length) {
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId, requestBody: { valueInputOption: 'RAW', data },
+    });
+  }
+  if (fonds.length && colPct !== null) {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties(sheetId,title)' });
+    const onglet = (meta.data.sheets || []).find((sh) => sh.properties && sh.properties.title === SHEET_NAME);
+    if (!onglet) throw new Error(`onglet « ${SHEET_NAME} » introuvable pour la mise en forme`);
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: fonds.map((f) => ({
+          repeatCell: {
+            range: {
+              sheetId: onglet.properties.sheetId,
+              startRowIndex: f.rowNum - 1, endRowIndex: f.rowNum,
+              startColumnIndex: colPct, endColumnIndex: colPct + 1,
+            },
+            // bg null : champs dans le masque sans valeur → fond effacé.
+            cell: { userEnteredFormat: f.bg ? { backgroundColor: f.bg, backgroundColorStyle: { rgbColor: f.bg } } : {} },
+            fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle',
+          },
+        })),
+      },
     });
   }
   const duration_ms = Date.now() - t0;
