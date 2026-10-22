@@ -575,9 +575,12 @@ async function handleFormationXp(res) {
               startRowIndex: f.rowNum - 1, endRowIndex: f.rowNum,
               startColumnIndex: colPct, endColumnIndex: colPct + 1,
             },
-            // bg null : champs dans le masque sans valeur → fond effacé.
-            cell: { userEnteredFormat: f.bg ? { backgroundColor: f.bg, backgroundColorStyle: { rgbColor: f.bg } } : {} },
-            fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle',
+            // Certifié : fond vert + police 10 (demande de Manu du 22/10/2026).
+            // bg null : fond effacé, police laissée telle quelle.
+            cell: { userEnteredFormat: f.bg ? { backgroundColor: f.bg, backgroundColorStyle: { rgbColor: f.bg }, textFormat: { fontSize: 10 } } : {} },
+            fields: f.bg
+              ? 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle,userEnteredFormat.textFormat.fontSize'
+              : 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle',
           },
         })),
       },
