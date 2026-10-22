@@ -238,10 +238,16 @@
   }
   function renderToolbar() {
     if (!_toolbar) return;
+    // Hors édition, la barre est vide et masquée : le bouton d'entrée vit dans le menu
+    // (sous le prénom, Manu 22/10). ⚠️ `setProperty(..., 'important')` : la classe
+    // pose son propre `display`, qu'un style ordinaire ne battrait pas.
     if (!_editMode) {
-      _toolbar.innerHTML = '<button type="button" class="dash-btn dash-btn-ghost" data-act="edit">' +
-        '<i class="fas fa-sliders-h"></i> Personnaliser mon dashboard</button>';
-    } else {
+      _toolbar.innerHTML = '';
+      _toolbar.style.setProperty('display', 'none', 'important');
+      return;
+    }
+    _toolbar.style.removeProperty('display');
+    {
       _toolbar.innerHTML = '<span class="dash-edit-tag">Mode édition</span>' +
         '<div class="dash-toolbar-actions">' +
         '<button type="button" class="dash-btn dash-btn-ghost" data-act="add"><i class="fas fa-plus"></i> Ajouter une métrique</button>' +
@@ -317,6 +323,14 @@
     })();
   }
 
+  // L'entrée du menu : ouvre le tableau de bord, puis le mode édition.
+  window.personnaliserDashboard = function () {
+    if (typeof window.showSection === 'function') window.showSection('dashboard');
+    if (!_toolbar) boot();
+    enterEdit();
+    var d = DASH(); if (d && d.scrollIntoView) d.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    if (typeof window.closeSidebar === 'function' && window.innerWidth < 1024) window.closeSidebar();
+  };
   window.initDashboardCustomizer = boot;
   if (document.readyState !== 'loading') boot();
   else document.addEventListener('DOMContentLoaded', boot);

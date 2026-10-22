@@ -138,6 +138,33 @@ body:not(.dark-mode) #coachAppSidebar .sidebar-group-title { color: #b98a2e; }
 /* L entree « Formation » : la porte vers l autre espace, en or. */
 #mainAppSidebar .formation-acces, #coachAppSidebar .formation-acces { color: #e8b84b; font-weight: 600; }
 body:not(.dark-mode) #mainAppSidebar .formation-acces, body:not(.dark-mode) #coachAppSidebar .formation-acces { color: #b98a2e; }
+/* Le bouton « Formation » en pastille arrondie, plus visible (Manu, 22/10).
+   ⚠️ `display: flex` ici ne rouvre PAS l entrée d un élève sans droit : la règle
+   `[data-droit][hidden] { display: none !important }` (formation.css) l emporte. */
+#mainAppSidebar .formation-acces, #coachAppSidebar .formation-acces {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 16px auto 4px; padding: 10px 20px; border-radius: 999px; width: auto; max-width: 220px;
+  border: 1px solid rgba(232, 184, 75, .55); border-left-width: 1px;
+  background: linear-gradient(180deg, rgba(232, 184, 75, .18), rgba(232, 184, 75, .06));
+  transition: background .3s cubic-bezier(.16,1,.3,1), border-color .3s cubic-bezier(.16,1,.3,1), transform .3s cubic-bezier(.16,1,.3,1);
+}
+#mainAppSidebar .formation-acces:hover, #coachAppSidebar .formation-acces:hover,
+#mainAppSidebar .formation-acces:focus-visible, #coachAppSidebar .formation-acces:focus-visible {
+  border-color: #e8b84b; background: linear-gradient(180deg, rgba(232, 184, 75, .28), rgba(232, 184, 75, .10)); transform: translateY(-1px);
+}
+#mainAppSidebar .formation-acces i, #coachAppSidebar .formation-acces i { margin-right: 0; }
+body:not(.dark-mode) #mainAppSidebar .formation-acces, body:not(.dark-mode) #coachAppSidebar .formation-acces {
+  border-color: rgba(185, 138, 46, .55); background: linear-gradient(180deg, rgba(185, 138, 46, .14), rgba(185, 138, 46, .04));
+}
+/* « Personnaliser mon dashboard », remonté sous le prénom et le curseur Trading / Pause. */
+#mainAppSidebar .sidebar-perso { width: 100%; justify-content: center; margin-top: 8px; font-size: 12px; }
+#mainAppSidebar .sidebar-vacation-toggle { margin-top: 10px !important; }
+/* « Partager mes performances » dans le haut du menu : le bloc a déjà son propre
+   rembourrage (p-6), les 20 px de l enveloppe en plus rendaient le bouton trop étroit
+   pour son texte, qui ne se coupe pas (`nowrap` des boutons) et débordait du cadre.
+   ⚠️ `!important` : le rembourrage est écrit en style en ligne dans index.html. */
+#mainAppSidebar .share-dropdown-wrapper { padding: 0 !important; margin-top: 12px !important; }
+#mainAppSidebar #shareDropdownToggle { white-space: normal; padding: 10px 12px !important; line-height: 1.25; }
 
 /* ── 4. La coquille des cartes : fond, bordure, arrondi, ombre. RIEN DEDANS ── */
 #mainApp .trader-card, body.dark-mode #mainApp .trader-card, #mainApp .metric-item, body.dark-mode #mainApp .metric-item,

@@ -4201,7 +4201,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <span class="marque marque--verrou" role="img" aria-label="Trader 360"
                       style="width: 170px; margin: 0 auto;"></span>
-                <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
+                <!-- ORDRE DU HAUT DU MENU (Manu, 22/10/2026) : Formation, prénom, Trading /
+                     Pause, Personnaliser, thème, Partager. Les blocs sont DÉPLACÉS tels quels,
+                     identifiants et attaches compris. ⚠️ La bannière « Mode Pause actif » reste
+                     COLLÉE au curseur : elle s affiche par `.is-paused + .vacation-active-banner`. -->
                 <!-- ⚠️ « Espace membre » mène à la FORMATION, dans cette page, et non à
                      LearnyBox. Il est posé ici, sous le bloc nom et prénom, et non dans
                      la navigation plus bas : c'est une porte vers un autre espace, pas
@@ -4216,6 +4219,75 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                      onclick="Acces.entrer('formation')" role="button" tabindex="0" hidden
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
                     <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
+                </div>
+                <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
+                <!-- Mode Pause (vacances) — #59 -->
+                <div class="sidebar-vacation-toggle" style="margin-top: 18px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center;">
+                    <span class="vacation-label vacation-label-left" id="vacationLabelLeft">
+                        <i class="fas fa-chart-line" aria-hidden="true"></i> Trading
+                    </span>
+                    <div class="vacation-toggle" id="vacationToggle" role="switch" aria-checked="false" tabindex="0"
+                         onclick="toggleVacationMode()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleVacationMode();}"
+                         aria-label="Basculer entre mode Trading et mode Pause">
+                        <div class="vacation-toggle-slider"></div>
+                    </div>
+                    <span class="vacation-label vacation-label-right" id="vacationLabelRight">
+                        Pause <i class="fas fa-umbrella-beach" aria-hidden="true"></i>
+                    </span>
+                </div>
+                <div class="vacation-active-banner" id="vacationActiveBanner" aria-live="polite" style="margin: 0 20px;">
+                    🌴 Mode Pause actif — tu n'apparaîtras pas comme inactif côté coach
+                </div>
+                <!-- « Personnaliser mon dashboard », remonté dans le menu (Manu, 22/10).
+                     Ouvre le tableau de bord en mode édition ; la barre d enregistrement
+                     apparaît alors en haut du tableau de bord, comme avant. -->
+                <button type="button" class="dash-btn dash-btn-ghost sidebar-perso"
+                        onclick="window.personnaliserDashboard && window.personnaliserDashboard()">
+                    <i class="fas fa-sliders-h" aria-hidden="true"></i> Personnaliser mon dashboard
+                </button>
+                <!-- Theme Toggle + Zoom dans la Sidebar -->
+                <div class="sidebar-theme-toggle" style="margin-top: 15px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <i class="fas fa-sun theme-icon" style="color: #f59e0b; font-size: 16px;"></i>
+                    <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+                        <div class="theme-toggle-slider"></div>
+                    </div>
+                    <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
+                    <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
+                        <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
+                        <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span>
+                        <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
+                        <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
+                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
+                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
+                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
+                    </label>
+                    <input type="range" class="surface-opacity-slider" min="0.7" max="2.0" step="0.05" value="1.0"
+                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
+                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                </div>
+                <!-- Bouton Partager Performances (#35 : dropdown 3 timeframes) -->
+                <div class="share-dropdown-wrapper" style="position: relative; margin-top: 15px; padding: 0 20px;">
+                    <button id="shareDropdownToggle" type="button" class="share-btn"
+                            style="width: 100%; font-size: 13px; padding: 10px 16px; display: flex; align-items: center; justify-content: center; gap: 8px;"
+                            onclick="toggleShareDropdown(event)">
+                        <i class="fas fa-share-alt"></i>
+                        <span>Partager mes performances</span>
+                        <i class="fas fa-chevron-down" style="font-size: 10px; margin-left: 4px; opacity: 0.7;"></i>
+                    </button>
+                    <div id="shareDropdownMenu" class="share-dropdown-menu" style="display: none;">
+                        <button type="button" onclick="sharePerformance('day')" class="share-dropdown-item">
+                            <i class="fas fa-calendar-day"></i> Performance du jour
+                        </button>
+                        <button type="button" onclick="sharePerformance('week')" class="share-dropdown-item">
+                            <i class="fas fa-calendar-week"></i> Performance de la semaine
+                        </button>
+                        <button type="button" onclick="sharePerformance('month')" class="share-dropdown-item">
+                            <i class="fas fa-calendar-alt"></i> Performance du mois
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -4316,29 +4388,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" onclick="window.open('https://chatgpt.com/g/g-69690516bf0c819184d382d2dd56d04c-analyste-journal-de-trading', '_blank')" style="margin-top: 5px;">
                     <i class="fas fa-brain mr-3"></i>Analyse IA
                 </div>
-                <!-- Theme Toggle + Zoom dans la Sidebar -->
-                <div class="sidebar-theme-toggle" style="margin-top: 15px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <i class="fas fa-sun theme-icon" style="color: #f59e0b; font-size: 16px;"></i>
-                    <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
-                        <div class="theme-toggle-slider"></div>
-                    </div>
-                    <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
-                    <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
-                        <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
-                        <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span>
-                        <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
-                        <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
-                    </div>
-                </div>
-                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
-                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
-                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
-                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
-                    </label>
-                    <input type="range" class="surface-opacity-slider" min="0.7" max="2.0" step="0.05" value="1.0"
-                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
-                           aria-label="Régler l'opacité du fond des modales (dark mode)">
-                </div>
 
                 <!-- Lien Instagram -->
                 <div style="margin-top: 20px; padding: 10px 20px; text-align: center;">
@@ -4351,45 +4400,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <p style="color: #9ca3af; font-size: 11px; margin-top: 4px;">@trader360_officiel</p>
                 </div>
                 
-                <!-- Bouton Partager Performances (#35 : dropdown 3 timeframes) -->
-                <div class="share-dropdown-wrapper" style="position: relative; margin-top: 15px; padding: 0 20px;">
-                    <button id="shareDropdownToggle" type="button" class="share-btn"
-                            style="width: 100%; font-size: 13px; padding: 10px 16px; display: flex; align-items: center; justify-content: center; gap: 8px;"
-                            onclick="toggleShareDropdown(event)">
-                        <i class="fas fa-share-alt"></i>
-                        <span>Partager mes performances</span>
-                        <i class="fas fa-chevron-down" style="font-size: 10px; margin-left: 4px; opacity: 0.7;"></i>
-                    </button>
-                    <div id="shareDropdownMenu" class="share-dropdown-menu" style="display: none;">
-                        <button type="button" onclick="sharePerformance('day')" class="share-dropdown-item">
-                            <i class="fas fa-calendar-day"></i> Performance du jour
-                        </button>
-                        <button type="button" onclick="sharePerformance('week')" class="share-dropdown-item">
-                            <i class="fas fa-calendar-week"></i> Performance de la semaine
-                        </button>
-                        <button type="button" onclick="sharePerformance('month')" class="share-dropdown-item">
-                            <i class="fas fa-calendar-alt"></i> Performance du mois
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Mode Pause (vacances) — #59 -->
-                <div class="sidebar-vacation-toggle" style="margin-top: 18px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center;">
-                    <span class="vacation-label vacation-label-left" id="vacationLabelLeft">
-                        <i class="fas fa-chart-line" aria-hidden="true"></i> Trading
-                    </span>
-                    <div class="vacation-toggle" id="vacationToggle" role="switch" aria-checked="false" tabindex="0"
-                         onclick="toggleVacationMode()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleVacationMode();}"
-                         aria-label="Basculer entre mode Trading et mode Pause">
-                        <div class="vacation-toggle-slider"></div>
-                    </div>
-                    <span class="vacation-label vacation-label-right" id="vacationLabelRight">
-                        Pause <i class="fas fa-umbrella-beach" aria-hidden="true"></i>
-                    </span>
-                </div>
-                <div class="vacation-active-banner" id="vacationActiveBanner" aria-live="polite" style="margin: 0 20px;">
-                    🌴 Mode Pause actif — tu n'apparaîtras pas comme inactif côté coach
-                </div>
             </nav>
         </div>
 
