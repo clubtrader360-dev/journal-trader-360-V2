@@ -517,7 +517,7 @@ async function handleFormationXp(res) {
   const colPct = hitsPct.length === 1 ? hitsPct[0][1] : null;
   const maxXp = xpMaximum();
   const data = [];
-  const fonds = []; // { rowNum, bg } : fond de la cellule « % XP max » (vert si certifié, effacé sinon)
+  const fonds = []; // { rowNum, col, bg, police } : mise en forme des certifiés (« % XP max » et « XP »)
   const sansCompte = [];
   let lignes = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -541,8 +541,11 @@ async function handleFormationXp(res) {
       if (hit.certifie) {
         if (brutPct !== PCT_CERTIFIE) {
           data.push({ range: cellA1(colPct, rowNum), values: [[PCT_CERTIFIE]] });
-          fonds.push({ rowNum, bg: PCT_CERTIFIE_BG });
         }
+        // Mise en forme reposée à chaque passage (quelques cellules) : se répare seule si
+        // quelqu'un l'efface. « % XP max » fond vert + police 10, « XP » fond vert (Manu 22/10).
+        fonds.push({ rowNum, col: colPct, bg: PCT_CERTIFIE_BG, police: 10 });
+        fonds.push({ rowNum, col: cols[T_XP], bg: PCT_CERTIFIE_BG });
       } else {
         // Fraction 0..1 arrondie au pourcent ; la colonne est au format pourcentage dans le tableur.
         // Pourcentage entier arrondi au supérieur (Manu 21/10) : 1826/4250 = 42,96 % donne 43 %.
@@ -551,7 +554,10 @@ async function handleFormationXp(res) {
         const luFrac = lu.endsWith('%') ? Number(lu.slice(0, -1)) / 100 : Number(lu);
         if (lu === '' || !Number.isFinite(luFrac) || Math.abs(luFrac - pct) > 0.0001) {
           data.push({ range: cellA1(colPct, rowNum), values: [[pct]] });
-          if (etaitCertifie) fonds.push({ rowNum, bg: null }); // fond vert retiré
+          if (etaitCertifie) { // fond vert retiré des deux cellules
+            fonds.push({ rowNum, col: colPct, bg: null });
+            fonds.push({ rowNum, col: cols[T_XP], bg: null });
+          }
         }
       }
     }
@@ -573,14 +579,15 @@ async function handleFormationXp(res) {
             range: {
               sheetId: onglet.properties.sheetId,
               startRowIndex: f.rowNum - 1, endRowIndex: f.rowNum,
-              startColumnIndex: colPct, endColumnIndex: colPct + 1,
+              startColumnIndex: f.col, endColumnIndex: f.col + 1,
             },
-            // Certifié : fond vert + police 10 (demande de Manu du 22/10/2026).
             // bg null : fond effacé, police laissée telle quelle.
-            cell: { userEnteredFormat: f.bg ? { backgroundColor: f.bg, backgroundColorStyle: { rgbColor: f.bg }, textFormat: { fontSize: 10 } } : {} },
-            fields: f.bg
-              ? 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle,userEnteredFormat.textFormat.fontSize'
-              : 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle',
+            cell: { userEnteredFormat: {
+              ...(f.bg ? { backgroundColor: f.bg, backgroundColorStyle: { rgbColor: f.bg } } : {}),
+              ...(f.police ? { textFormat: { fontSize: f.police } } : {}),
+            } },
+            fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.backgroundColorStyle'
+              + (f.police ? ',userEnteredFormat.textFormat.fontSize' : ''),
           },
         })),
       },
