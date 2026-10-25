@@ -215,7 +215,7 @@ Publier un événement absent de Forex Factory ET Investing pour aujourd'hui. De
 - Le brief NE DONNE PAS de plan de trading précis (= réservé au Discord).
 
 ## CONTEXTE TEMPOREL (France ~6h)
-- Asie = vrai overnight. News US (CPI/PPI/NFP/FOMC) à 14h30 ou 20h Paris.
+- Asie = vrai overnight. News US (CPI/PPI/NFP/FOMC) à 14h30 ou 20h Paris en temps normal. ⚠️ Les heures qui font foi sont celles de la ligne « Heures de Paris ce jour » en tête de ce message : pendant les semaines de décalage (changements d'heure européen et américain à des dates différentes), tout arrive une heure plus tôt. Si cette ligne demande de signaler un changement d'heure, fais-le en une phrase claire en tête du brief.
 - ⛔ Pas d'« overnight » pour des news US en journée Paris. ⛔ Pas d'injonction horaire — toujours « prudence à signaler ».
 
 ## DONNÉES À RÉCUPÉRER
