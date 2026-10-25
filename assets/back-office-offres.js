@@ -151,7 +151,7 @@
       ${E.commandes.map((c) => { const [st, cl] = STATUTS_CMD[c.statut] || [c.statut, 'attend'];
         return `<tr><td class="of-mono"><b>${txt(c.reference)}</b></td><td>${txt(dateFr(c.created_at, true))}</td><td>${txt(c.prenom)} ${txt(c.nom)}<br><small class="of-pale">${txt(c.email)}${c.telephone ? ` · ${txt(c.telephone)}` : ''}</small></td><td>${txt(c.offre_nom)}</td><td>${txt(nomMode(c.mode))}${c.code ? `<br><small class="of-pale">code ${txt(c.code)}</small>` : ''}</td>
           <td class="num of-mono"><b>${eur(c.total)}</b>${c.echeances > 1 ? `<br><small class="of-pale">${c.paiements_recus} / ${c.echeances} échéances</small>` : ''}</td><td><span class="bo-pill bo-pill--${cl}">${st}</span>${c.mail_erreur ? `<br><small class="bo-erreur">${c.mode === 'virement' ? 'bon de commande non parti' : 'reçu de paiement non parti'}</small>` : ''}${etatAcces(c)}</td>
-          <td class="of-actions">${c.statut === 'attente_virement' ? `<button type="button" class="bo-btn bo-btn--or" data-of-recu="${c.id}">Virement reçu</button><button type="button" class="bo-btn bo-btn--fantome" data-of-annuler="${c.id}">Annuler</button>` : ''}${['payee', 'en_cours'].includes(c.statut) && c.acces_erreur ? `<button type="button" class="bo-btn bo-btn--or" data-of-acces="${c.id}" title="${txt(c.acces_erreur)}">Réessayer d ouvrir ses accès</button>` : ''}</td></tr>`; }).join('')}
+          <td class="of-actions">${c.statut === 'attente_virement' ? `<button type="button" class="bo-btn bo-btn--or" data-of-recu="${c.id}">Virement reçu</button><button type="button" class="bo-btn bo-btn--fantome" data-of-annuler="${c.id}">Annuler</button>` : ''}${['payee', 'en_cours'].includes(c.statut) && c.acces_erreur ? `<button type="button" class="bo-btn bo-btn--or" data-of-acces="${c.id}" title="${txt(c.acces_erreur)}">Réessayer d ouvrir ses accès</button>` : ''}${c.reprise_debut && !c.stripe_abonnement && c.statut === 'en_cours' ? `<button type="button" class="bo-btn bo-btn--or" data-of-reprise="${c.id}" title="Reprise LearnyBox : à activer APRÈS la suppression de LearnyBox">Activer l'échéancier</button><br><small class="of-pale">dès le ${txt(dateFr(c.reprise_debut))}</small>` : ''}${c.reprise_debut && c.stripe_abonnement ? '<small class="of-pale">échéancier Stripe actif</small>' : ''}</td></tr>`; }).join('')}
       </tbody></table></div>` : '<p class="bo-vide">Aucune commande pour l instant.</p>'}
       <p class="bo-source">« Virement reçu » passe la commande en payée ET ouvre les accès : compte créé (ou rouvert s'il existe), formation et journal ouverts, mail d'accès envoyé, ajout à la liste Brevo MEMBRES T360. Les modules suivants se débloquent ensuite à la main, comme avant. Un paiement par carte fait la même chose tout seul, dès que Stripe le confirme ; une session abandonnée s'annule d'elle-même au bout de 35 minutes.</p>
     </div>
@@ -251,7 +251,7 @@
     }
   });
   document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-of-nouvelle],[data-of-modifier],[data-of-retour],[data-of-enregistrer],[data-of-statut],[data-of-supprimer],[data-of-envoyer],[data-of-k-creer],[data-of-code-suppr],[data-of-recu],[data-of-annuler],[data-of-revoquer],[data-of-acces]');
+    const b = e.target.closest('[data-of-nouvelle],[data-of-modifier],[data-of-retour],[data-of-enregistrer],[data-of-statut],[data-of-supprimer],[data-of-envoyer],[data-of-k-creer],[data-of-code-suppr],[data-of-recu],[data-of-annuler],[data-of-revoquer],[data-of-acces],[data-of-reprise]');
     if (!b) return;
     try {
       if (b.matches('[data-of-nouvelle]')) { E.edition = { type: 'formation', formation_cle: 'trader360', inclus: [], modes: {} }; return rafraichir(); }
@@ -319,6 +319,17 @@
         b.disabled = true;
         const r = await OF('ouvrir_acces', { id: c.id });
         dire(resumeAcces(r, c), r.acces && r.acces.ok === false ? 'error' : undefined);
+        return rafraichir();
+      }
+      if (b.matches('[data-of-reprise]')) {
+        const c = E.commandes.find((x) => String(x.id) === b.dataset.ofReprise);
+        const reste = Number(c.echeances) - Number(c.paiements_recus);
+        const montant = Math.round((Number(c.total) / Number(c.echeances)) * 100) / 100;
+        // ⛔ L'ordre compte : tant que LearnyBox existe, il prélève lui aussi.
+        if (!window.confirm(`LearnyBox est-il bien SUPPRIMÉ ?\n\nSinon, ${c.prenom} ${c.nom} serait prélevé deux fois.\n\nActiver l'échéancier : ${reste} × ${eur(montant)} sur sa carte enregistrée, à partir du ${dateFr(c.reprise_debut)}, arrêt automatique après la dernière.`)) return;
+        b.disabled = true;
+        await OF('reprise_activer', { id: c.id });
+        dire(`Échéancier activé pour ${c.prenom} ${c.nom} : ${reste} × ${eur(montant)} dès le ${dateFr(c.reprise_debut)}.`);
         return rafraichir();
       }
       if (b.matches('[data-of-revoquer]')) {
