@@ -42,6 +42,7 @@ try {
 }
 
 import { generateWeeklyReportHTML, generatePassiveReportHTML, generateFormationReportHTML, formatDate } from './_lib/weekly-expert-system.js';
+import { resumeEleve, genererRapportCoachs } from './_lib/rapport-coachs.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -138,7 +139,12 @@ export async function buildUserReport(supabase, user, period, { preview = false 
     endDate: endDateStr,
     radarMode: preview ? 'datauri' : 'cid', // preview navigateur = data URI ; email = CID attachment
   });
-  return { html, attachments };
+  // Le résumé destiné au rapport des coachs, calculé sur les MÊMES données.
+  const resume = resumeEleve({
+    user, trades: weekTrades, journalEntries: weekJournal, accounts: accounts || [],
+    historicalTrades: historicalTrades || [], startDate: startDateStr,
+  });
+  return { html, attachments, resume };
 }
 
 // ========================================
@@ -266,7 +272,7 @@ export async function generateForUser(supabase, user, period) {
       attachments: report.attachments,
       subject: `📊 Ton rapport hebdomadaire — semaine du ${formatDate(period.startDateStr)}`,
       reportType: entriesWeek >= 1 ? 'active' : 'active_no_journal',
-      entriesWeek, tradesWeek,
+      entriesWeek, tradesWeek, resume: report.resume,
     };
   }
 
@@ -316,6 +322,17 @@ export default async function handler(req, res) {
   }
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
+  /**
+   * ── LE RAPPORT DES COACHS ──────────────────────────────────────────────
+   * Il part à la fin d'un envoi COMPLET (jamais sur un test ciblé `onlyUserId`,
+   * qui ne verrait qu'un élève et donnerait des moyennes fausses).
+   * `?coachOnly=1` le produit seul, SANS rien envoyer aux élèves : sert à le
+   * relancer ou à l'éprouver sans renvoyer 90 rapports.
+   */
+  const coachOnly = req.query.coachOnly === '1';
+  if (coachOnly && onlyUserId) return res.status(400).json({ error: 'coachOnly et onlyUserId sont incompatibles (moyennes sur un seul élève)' });
+  const COACHS_A = process.env.RAPPORT_COACHS_DESTINATAIRE || 'clubtrader360@gmail.com';
+
   try {
     const supabase = createServiceClient();
     const period = getWeekBounds();
@@ -334,6 +351,8 @@ export default async function handler(req, res) {
     }
 
     const results = [];
+    const resumes = [];   // élèves actifs, pour le rapport des coachs
+    const autres = [];    // élèves sans rapport chiffré
     for (const user of usersToProcess) {
       try {
         // #21 — dispatch 3 versions sur (tradesWeek, entriesWeek) de la semaine ISO.
@@ -348,8 +367,15 @@ export default async function handler(req, res) {
           results.push({ email: user.email, status: 'skipped', reportType: 'aucun_droit' });
           continue;
         }
-        const { html, attachments, subject, reportType, entriesWeek, tradesWeek } = resultat;
+        const { html, attachments, subject, reportType, entriesWeek, tradesWeek, resume } = resultat;
         console.log(`[WEEKLY-REPORT] 📬 ${user.email} → ${reportType} (trades=${tradesWeek}, journal=${entriesWeek})`);
+        if (resume) resumes.push(resume);
+        else autres.push({ nom: user.name || user.email, email: user.email, reportType, entriesWeek });
+
+        if (coachOnly) {
+          results.push({ email: user.email, status: 'coach_only', reportType });
+          continue;
+        }
 
         if (DRY_RUN) {
           console.log(`[WEEKLY-REPORT] 🧪 DRY_RUN — rapport ${reportType} généré (non envoyé) pour ${user.email}`);
@@ -369,8 +395,26 @@ export default async function handler(req, res) {
       }
     }
 
+    let rapportCoachs = { status: 'non_prevu' };
+    if (!onlyUserId) {
+      try {
+        const rc = genererRapportCoachs({ periode: period, resumes, autres });
+        if (DRY_RUN) rapportCoachs = { status: 'dry_run', stats: rc.stats };
+        else {
+          const envoi = await sendEmail({ to: COACHS_A, subject: rc.objet, html: rc.html, text: rc.texte });
+          rapportCoachs = envoi.success
+            ? { status: 'sent', to: COACHS_A, emailId: envoi.id, stats: rc.stats }
+            : { status: 'failed', to: COACHS_A, error: envoi.error };
+        }
+      } catch (e) {
+        console.error('[WEEKLY-REPORT] ❌ rapport coachs :', e);
+        rapportCoachs = { status: 'error', error: e.message };
+      }
+      console.log('[WEEKLY-REPORT] 🧑‍🏫 rapport coachs :', JSON.stringify(rapportCoachs));
+    }
+
     console.log('[WEEKLY-REPORT] ========== FIN ==========', JSON.stringify(results));
-    return res.status(200).json({ success: true, period, eligible: eligible.length, dryRun: DRY_RUN, onlyUserId: onlyUserId || undefined, testToOverride: testTo || undefined, testSubject: testSubject || undefined, results });
+    return res.status(200).json({ success: true, period, eligible: eligible.length, dryRun: DRY_RUN, coachOnly: coachOnly || undefined, onlyUserId: onlyUserId || undefined, testToOverride: testTo || undefined, testSubject: testSubject || undefined, rapportCoachs, results });
   } catch (error) {
     console.error('[WEEKLY-REPORT] ❌ Erreur globale:', error);
     return res.status(500).json({ error: error.message });
@@ -380,9 +424,10 @@ export default async function handler(req, res) {
 // ========================================
 // Envoi email via Resend
 // ========================================
-async function sendEmail({ to, subject, html, attachments }) {
+async function sendEmail({ to, subject, html, attachments, text }) {
   try {
     const payload = { from: 'Trader 360 <noreply@mail.journaltrader360.fr>', to: [to], subject, html };
+    if (text) payload.text = text;
     if (Array.isArray(attachments) && attachments.length > 0) payload.attachments = attachments;
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
