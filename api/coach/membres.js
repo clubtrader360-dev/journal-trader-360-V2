@@ -1239,13 +1239,16 @@ async function boProgression(sb) {
     // ⚠️ La certification (lot du 15/10) : une tentative reussie a l examen
     // final, module_cle '10' dans formation_quiz_resultats. Ce n est pas une
     // lecon vue, la progression par chapitre ne la connait pas.
-    sb.from('formation_quiz_resultats').select('user_id, created_at').eq('module_cle', '10').eq('reussi', true),
+    sb.from('formation_quiz_resultats').select('user_id, created_at, score, total').eq('module_cle', '10').eq('reussi', true),
   ]);
   if (error) throw httpError(500, `progression illisible : ${error.message}`);
   if (acces.error) throw httpError(500, `droits illisibles : ${acces.error.message}`);
   if (certs.error) throw httpError(500, `certifications illisibles : ${certs.error.message}`);
   const certifieLe = new Map();
   for (const c of certs.data || []) if (!certifieLe.has(c.user_id) || c.created_at < certifieLe.get(c.user_id)) certifieLe.set(c.user_id, c.created_at);
+  // Le certificat porte le MEILLEUR score réussi : le même que celui de l'espace élève.
+  const certScore = new Map();
+  for (const c of certs.data || []) { const m = certScore.get(c.user_id); if (!m || c.score / Math.max(1, c.total) > m.score / Math.max(1, m.total)) certScore.set(c.user_id, { score: c.score, total: c.total }); }
   const parAcces = new Map((acces.data || []).map((a) => [a.user_id, a]));
   const parProg = new Map((data || []).map((p) => [p.user_id, p]));
   // ⛔ Les quiz réussis : depuis le 21/10, un module avec quiz est terminé quand son
@@ -1265,7 +1268,7 @@ async function boProgression(sb) {
     if (id.role !== 'student' || id.statut === 'revoked') continue;
     const p = parProg.get(uid);
     const a = parAcces.get(uid);
-    eleves.push({ ...id, user_id: uid, lecons: (p && p.lecons) || [], derniere: (p && p.derniere) || null, formation: !!(a && a.formation_actif), niveau_coach: (a && a.niveau) || null, certifie_le: certifieLe.get(uid) || null, quiz_reussis: [...(quizParEleve.get(uid) || [])] });
+    eleves.push({ ...id, user_id: uid, lecons: (p && p.lecons) || [], derniere: (p && p.derniere) || null, formation: !!(a && a.formation_actif), niveau_coach: (a && a.niveau) || null, certifie_le: certifieLe.get(uid) || null, certifie_score: certScore.get(uid) || null, quiz_reussis: [...(quizParEleve.get(uid) || [])] });
   }
   eleves.sort((x, y) => String(x.nom || x.email).localeCompare(String(y.nom || y.email), 'fr'));
   return eleves;
