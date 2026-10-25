@@ -63,8 +63,15 @@ jobs:
             exit 1
           fi
 
-          DATE_ISO=$(TZ=Europe/Paris date +%Y-%m-%d)
-          DOW=$(TZ=Europe/Paris date +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
+          # ⚠️ LA DATE DU BRIEF EST CELLE DU MATIN OÙ IL SERA LU, pas celle de l'instant
+          # où le runner démarre. Le cron 22h43 UTC tombe à 00h43 à Paris en été, mais à
+          # 23h43 en hiver : sans ce décalage, un run parti à l'heure en hiver datait le
+          # brief de la VEILLE (« dimanche 25 octobre » pour le brief du lundi). On ajoute
+          # huit heures : un départ entre 22h et 4h donne toujours le bon matin, et un
+          # essai manuel l'après-midi reste daté du jour même. Correctif du 25/10/2026,
+          # jour même du passage à l'heure d'hiver.
+          DATE_ISO=$(TZ=Europe/Paris date -d '+8 hours' +%Y-%m-%d)
+          DOW=$(TZ=Europe/Paris date -d '+8 hours' +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
 
           # Date longue formatée par api/_lib/date-fr.js, la MÊME fonction que celle
           # qu'utilise l'endpoint. Elle n'est pas recopiée ici : une deuxième
@@ -135,17 +142,25 @@ jobs:
           # rassurante, et personne ne lisait les fichiers : `collecterMarche` accepte
           # un paramètre `historique` qu'aucun appelant ne remplissait. Les hauts et
           # bas d'ES seraient restés en n/d indéfiniment.
-          INSTANTANES=""
-          if git fetch origin donnees-marche --depth=30 2>/dev/null \
-             && git archive origin/donnees-marche seances 2>/dev/null | tar -x -C /tmp; then
-            INSTANTANES=/tmp/seances
-            echo "📈 Instantanés extraits : $(ls -1 $INSTANTANES 2>/dev/null | wc -l | tr -d ' ') séance(s)"
-            ls -1 "$INSTANTANES" 2>/dev/null | tail -6 | sed 's/^/     /'
+          # ⚠️ 25/10/2026 : la branche ne porte plus de dossier `seances` depuis le 16/09 —
+          # le prélèvement de 17h05 n'a plus rien déposé (crons GitHub en retard de
+          # plusieurs heures, sortis en succès hors de leur fenêtre). `git archive … seances`
+          # échouait donc sur « This does not look like a tar archive ». On extrait la
+          # branche ENTIÈRE, et les dossiers existent toujours, même vides.
+          # Les hauts et bas de SÉANCE ne dépendent plus d'eux (barres TradingView par
+          # rang) ; ceux de SEMAINE se reconstruisent à partir des séances que CHAQUE
+          # brief dépose désormais (étape « Déposer les séances vérifiées »).
+          mkdir -p /tmp/donnees/seances /tmp/donnees/semaines
+          if git fetch origin donnees-marche --depth=1 2>/dev/null \
+             && git archive origin/donnees-marche 2>/dev/null | tar -x -C /tmp/donnees; then
+            echo "📈 Séances déposées : $(ls -1 /tmp/donnees/seances 2>/dev/null | wc -l | tr -d ' ') · semaines : $(ls -1 /tmp/donnees/semaines 2>/dev/null | wc -l | tr -d ' ')"
+            ls -1 /tmp/donnees/seances 2>/dev/null | tail -6 | sed 's/^/     /'
           else
-            echo "📈 Aucun instantané déposé — hauts et bas d'ES en n/d, le reste du tableau n'en dépend pas"
+            echo "📈 Branche donnees-marche illisible : semaine ES en n/d si une séance manque"
           fi
+          INSTANTANES=/tmp/donnees/seances
 
-          MARCHE=$(node outils/marche.mjs collecte "$DATE_ISO" "$INSTANTANES" 2>/tmp/marche_err.log)
+          MARCHE=$(SORTIE_SEANCES=/tmp/seances-nouvelles node outils/marche.mjs collecte "$DATE_ISO" "$INSTANTANES" 2>/tmp/marche_err.log)
           if [ -z "$MARCHE" ]; then
             echo "::error::La collecte de marché n'a rien produit. $(cat /tmp/marche_err.log)"
             exit 1
@@ -306,6 +321,28 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+      - name: Déposer les séances vérifiées
+        # Chaque brief dépose la séance d'ES qu'il vient de VÉRIFIER (barre TradingView
+        # dont la clôture concorde avec le règlement daté), et les barres antérieures
+        # lisibles. C'est ce qui reconstruit le haut et le bas de SEMAINE sans aucun
+        # rendez-vous horaire (25/10/2026). ⛔ Ne bloque jamais l'envoi du brief.
+        if: always() && steps.brief.outcome == 'success'
+        continue-on-error: true
+        run: |
+          N=$(ls -1 /tmp/seances-nouvelles 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$N" = "0" ]; then echo "Aucune séance vérifiée à déposer (voir les motifs n/d)."; exit 0; fi
+          git config user.name  "Instantané marché"
+          git config user.email "clubtrader360@gmail.com"
+          rm -rf /tmp/depot && git clone -q --depth=1 --branch donnees-marche \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" /tmp/depot
+          mkdir -p /tmp/depot/seances
+          cp /tmp/seances-nouvelles/*.json /tmp/depot/seances/
+          cd /tmp/depot && git add seances
+          if git diff --cached --quiet; then echo "Séances déjà déposées, identiques."; exit 0; fi
+          git -c user.name="Instantané marché" -c user.email="clubtrader360@gmail.com" commit -qm "séances vérifiées (brief du ${{ steps.brief.outputs.date_iso }})"
+          git push -q origin donnees-marche
+          echo "✅ $(git show --stat --format= HEAD | tail -1)"
+
       - name: POST to daily-brief endpoint
         id: post
         env:
@@ -414,6 +451,24 @@ jobs:
           # variables sont désormais toujours renseignées, et surtout ce défaut-là
           # transformait un « inconnu » en « 0 », ce qui est le contraire du but.
           { echo "sent=$sent"; echo "failed=$failed"; echo "dest=$dest"; } >> "$GITHUB_OUTPUT"
+
+      - name: Prévenir Nadir si une valeur est en n/d
+        # Demande du 25/10/2026 : un niveau en n/d ne devrait pas arriver, et quand il
+        # arrive, le coach le sait par courriel, motif par motif. Ne bloque rien.
+        if: always() && steps.brief.outputs.marche_nd != '' && steps.brief.outputs.marche_nd != '0'
+        continue-on-error: true
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ND: ${{ steps.brief.outputs.marche_nd }}
+          MOTIFS: ${{ steps.brief.outputs.marche_motifs }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PAYLOAD=$(jq -n --arg date "${{ steps.brief.outputs.date_iso }}" --arg nd "$ND" --arg motifs "$MOTIFS" --arg run "$RUN_URL" \
+            '{alerte_marche:{date:$date, nd:($nd|tonumber), motifs:($motifs|split("\n")|map(select(length>0))), run:$run}}')
+          code=$(curl -sS -o /tmp/alerte.json -w '%{http_code}' -X POST "https://www.journaltrader360.fr/api/cron/daily-brief" \
+            -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d "$PAYLOAD" --max-time 60)
+          cat /tmp/alerte.json; echo
+          if [ "$code" != "200" ]; then echo "::warning::Alerte n/d NON envoyée (HTTP $code)"; exit 1; fi
 
       - name: Archiver le brief et la notion de culture
         id: archive

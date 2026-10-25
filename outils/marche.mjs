@@ -40,14 +40,36 @@ async function historiqueDe(dateBrief, dossier) {
 }
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Les séances à déposer sur la branche de données (25/10/2026). Le workflow du brief
+ * les pousse ensuite : chaque brief ajoute la séance qu'il vient de vérifier, et la
+ * semaine se reconstruit d'elle-même, sans aucun rendez-vous horaire à tenir.
+ * `SORTIE_SEANCES` : dossier où écrire ; absent, rien n'est écrit.
+ */
+async function deposer(r) {
+  const sortie = process.env.SORTIE_SEANCES;
+  if (!sortie || !r.es?.aDeposer?.length) return;
+  const fs = await import('node:fs');
+  fs.mkdirSync(sortie, { recursive: true });
+  for (const x of r.es.aDeposer) {
+    fs.writeFileSync(`${sortie}/${x.date}.json`, JSON.stringify({
+      date: x.date, contrat: r.contratAttendu.contrat, esHaut: x.esHaut, esBas: x.esBas, esCloture: x.esCloture,
+      source: r.sources.esHautBas || 'TradingView barres journalières', preleveA: new Date().toISOString(),
+    }, null, 2) + '\n');
+  }
+}
+const semainesDe = (dossier) => (dossier ? dossier.replace(/seances\/?$/, 'semaines') : null);
+
 if (commande === 'collecte') {
   const d = arg || aujourdhui();
-  console.log(versPrompt(await collecterMarche(d, { historique: await historiqueDe(d, arg2) })));
+  const r = await collecterMarche(d, { historique: await historiqueDe(d, arg2), dossier: arg2, dossierSemaines: semainesDe(arg2) });
+  await deposer(r);
+  console.log(versPrompt(r));
 }
 
 else if (commande === 'json') {
   const d = arg || aujourdhui();
-  console.log(JSON.stringify(await collecterMarche(d, { historique: await historiqueDe(d, arg2) }), null, 2));
+  console.log(JSON.stringify(await collecterMarche(d, { historique: await historiqueDe(d, arg2), dossier: arg2, dossierSemaines: semainesDe(arg2) }), null, 2));
 }
 
 else if (commande === 'determinisme') {

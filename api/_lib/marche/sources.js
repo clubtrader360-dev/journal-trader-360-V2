@@ -336,3 +336,86 @@ export async function esCnbc(contrat) {
 
 /** Le code CNBC du contrat : ESZ26 là où TradingView écrit ESZ2026. */
 export const codeCnbc = (contratTv) => contratTv.replace(/^ES([FGHJKMNQUVXZ])\d{2}(\d{2})$/, 'ES$1$2');
+
+// ── ES, BARRES JOURNALIÈRES DATÉES PAR LEUR RANG, source TradingView ───────────────
+//
+// ⚠️ LA TROUVAILLE DU 25/10/2026, ET ELLE REMPLACE LE PRÉLÈVEMENT DE 17H05.
+// Ce prélèvement n'a plus rien déposé depuis le 16/09 : GitHub lance ses crons avec
+// des heures de retard (le run du 23/10 est parti à 20h30 à New York pour un horaire
+// de 17h05), le job constatait « hors de la fenêtre » et sortait en SUCCÈS. Cinquante-
+// sept runs verts, zéro instantané, et des hauts et bas d'ES en n/d chaque matin.
+//
+// Le scanner de TradingView sert aussi les barres journalières PRÉCÉDENTES, par rang :
+// `high[1]`, `low[1]`, `close[1]` décrivent la séance d'avant la séance courante, et
+// ainsi jusqu'au rang 2. Mesuré le 25/10 (dimanche, Globex fermé) sur ESZ2026 :
+//   rang 0 : 7 706,25 / 7 714,25 / 7 648,50 / 7 659,75  → vendredi 23
+//   rang 1 :   7 797  / 7 798,75 / 7 676,75 / 7 704,50  → jeudi 22, et 7 704,50 est
+//            EXACTEMENT le règlement CNBC daté du 22/10 publié par le brief du 23.
+//   rang 3 et au-delà : null.
+// Le rang 1 porte donc la clôture de RÈGLEMENT : c'est ce qui permet de vérifier que
+// la barre lue est bien celle de la séance visée, au lieu de le supposer.
+export async function esBarresTradingView(contrat) {
+  if (!/^ES[FGHJKMNQUVXZ]\d{4}$/.test(contrat)) {
+    throw new Error(`contrat mal formé : « ${contrat} » (attendu ESZ2026 et compagnie)`);
+  }
+  const rangs = [0, 1, 2];
+  const suffixe = (r) => (r ? `[${r}]` : '');
+  const champs = ['expiration', 'description', 'update_mode',
+    ...rangs.flatMap((r) => ['open', 'high', 'low', 'close'].map((c) => c + suffixe(r)))].join(',');
+  const txt = await obtenir(
+    `https://scanner.tradingview.com/symbol?symbol=CME_MINI%3A${contrat}&fields=${champs}&no_404=true`);
+  let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+  if (!j.description) throw new Error('champ « description » absent : contrat non vérifiable');
+  const barres = rangs.map((r) => ({
+    rang: r, ouverture: nombre(j['open' + suffixe(r)]), haut: nombre(j['high' + suffixe(r)]),
+    bas: nombre(j['low' + suffixe(r)]), cloture: nombre(j['close' + suffixe(r)]),
+  }));
+  return { contrat, expiration: j.expiration ?? null, libelle: j.description, modeMaj: j.update_mode || null,
+           barres, source: `TradingView (scanner.tradingview.com, CME_MINI:${contrat}, barres journalières par rang)` };
+}
+
+/**
+ * Le rang de la barre qui porte la séance VISÉE, selon l'heure de New York.
+ *
+ * La séance d'ES se règle à 17h00 à New York et la suivante ouvre à 18h00. Pendant
+ * l'interruption (17h00-18h00 en semaine) et tout le week-end, la séance réglée est
+ * encore la barre courante : rang 0. En dehors, la barre courante est une séance EN
+ * COURS, et la séance réglée la plus récente est au rang 1.
+ * ⚠️ Ce calcul ne fait pas foi seul : la barre retenue est ensuite VÉRIFIÉE contre le
+ * règlement daté (cf. `collecterMarche`). Un rang mal deviné produit un n/d, pas un
+ * chiffre faux.
+ */
+export function rangSeanceReglee(maintenant = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', hourCycle: 'h23',
+  }).formatToParts(maintenant).map((x) => [x.type, x.value]));
+  const h = Number(p.hour);
+  const j = p.weekday;                                   // Mon … Sun
+  if (j === 'Sat') return 0;
+  if (j === 'Sun') return h < 18 ? 0 : 1;
+  if (j === 'Fri') return h >= 17 ? 0 : 1;
+  return h === 17 ? 0 : 1;
+}
+
+// ── VIX, cadran différé Cboe, second chemin ───────────────────────────────────────
+//
+// ⚠️ POURQUOI UN SECOND CHEMIN. L'historique de graphique `_VIX.json` est mis à jour
+// PLUS TARD que celui du SPX : le brief du 23/10 a trouvé la ligne du 22 pour le SPX
+// et pas pour le VIX (« dernière disponible : 2026-10-21 »). D'où un VIX en n/d une
+// fois sur trois environ. Le cadran différé, lui, porte la clôture de la séance avec
+// son HORODATAGE (`last_trade_time`, heure de New York) : la date est vérifiée, pas
+// supposée. Mesuré le 25/10 : close 19,45, last_trade_time 2026-10-23T16:15:01.
+export async function vixQuoteCboe(dateIso) {
+  const txt = await obtenir('https://cdn.cboe.com/api/global/delayed_quotes/quotes/_VIX.json');
+  let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+  const d = j?.data;
+  if (!d) throw new Error('champ « data » absent');
+  const date = String(d.last_trade_time || '').slice(0, 10);
+  if (date !== dateIso) throw new Error(`cadran daté du ${date || 'inconnu'}, séance ${dateIso} attendue`);
+  const cloture = nombre(d.close);
+  if (cloture === null) throw new Error('champ « close » absent ou non numérique');
+  return { cloture, haut: nombre(d.high), bas: nombre(d.low), date,
+           source: 'Cboe (cadran différé _VIX, last_trade_time vérifié)' };
+}

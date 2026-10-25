@@ -27,9 +27,14 @@ export const CIBLE = {
 
   // La branche où vit la structure d'accueil de l'archive : la collection
   // `src/contenu/briefs`, le gabarit de page, et les fichiers du courriel sous
-  // `public/courriel/`. Tant que la refonte du site n'est pas fusionnée, c'est
-  // cette branche de chantier, et pas la branche par défaut.
-  branche: 'chantier/ossature-site',
+  // `public/courriel/`.
+  // ⛔ 25/10/2026 : C'ÉTAIT ENCORE `chantier/ossature-site`, alors que le site est
+  // mis en ligne depuis `main`. Du 9 au 23 octobre, chaque brief a été archivé
+  // fidèlement… sur une branche qui ne se publie plus : la page /brief/ s'arrêtait au
+  // 8 octobre, et le contrôleur, qui lit la MÊME cible, répondait « à jour ».
+  // Exactement la panne verte que ce fichier devait rendre impossible : la ligne
+  // ci-dessous n'a pas suivi la fusion.
+  branche: 'main',
 
   // Chemins, relatifs à la racine du dépôt du site.
   dossierBriefs: 'src/contenu/briefs',
