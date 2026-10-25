@@ -397,6 +397,33 @@ export default async function handler(req, res) {
   }
   if (!SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' });
 
+  // ⚠️ RAPPELS DES WEBINAIRES (25/10/2026). Mode à part, appelé tous les quarts d'heure
+  // par .github/workflows/webinaires-rappels.yml. ⛔ Le Journal ne touche pas la base du
+  // site : il appelle /api/tunnels avec la clé partagée BACKOFFICE_CLE, comme le
+  // back-office. Tout le travail (fenêtres, réservations, mails) se fait côté site, dans
+  // src/serveur/webinaires.ts. Ici, on transmet et on rend le rapport tel quel.
+  if (req.body && req.body.rappels_webinaires === true) {
+    const cle = process.env.BACKOFFICE_CLE;
+    if (!cle) return res.status(500).json({ ok: false, mode: 'rappels_webinaires', error: 'BACKOFFICE_CLE absente du Journal' });
+    const site = (process.env.SITE_URL || 'https://www.trader360.fr').replace(/\/$/, '');
+    try {
+      const r = await fetch(`${site}/api/tunnels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-backoffice-cle': cle },
+        body: JSON.stringify({ action: 'rappels', par: 'cron webinaires' }),
+      });
+      const d = await r.json().catch(() => ({}));
+      // ⛔ `r.ok` ET `d.ok` : un refus du site arrive en 4xx sans lever.
+      if (!r.ok || !d.ok) return res.status(502).json({ ok: false, mode: 'rappels_webinaires', error: d.motif || `site ${r.status}` });
+      const rap = d.resultat || {};
+      console.log(`[RAPPELS-WEBINAIRES] ${rap.webinaires || 0} webinaire(s) dans la fenêtre, veille ${rap.veille || 0}, heure ${rap.heure || 0}, erreurs ${(rap.erreurs || []).length}, alertes ${(rap.alertes || []).length}`);
+      // Des envois refusés : 502, pour que le run apparaisse en rouge dans GitHub Actions.
+      return res.status((rap.erreurs || []).length ? 502 : 200).json({ ok: !(rap.erreurs || []).length, mode: 'rappels_webinaires', resultat: rap });
+    } catch (e) {
+      return res.status(502).json({ ok: false, mode: 'rappels_webinaires', error: e.message });
+    }
+  }
+
   // ⚠️ ALERTE « NIVEAU EN n/d » (Nadir, 25/10/2026) : « préviens-moi quand un niveau est
   // en ND, normalement ça ne devrait pas arriver ». Mode à part, appelé par le workflow
   // APRÈS l'envoi du brief : il ne touche ni aux destinataires ni à l'envoi. Un courriel
