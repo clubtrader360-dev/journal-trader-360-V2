@@ -40,6 +40,14 @@
  *     — les seuils 30 et 70 du RSI, le zéro du MACD — jamais une légende.
  *  8. Rien ne touche le bord.
  */
+
+// ⛔ Remplacé le 25/10/2026 par generer_tv.py (graphiques façon TradingView, validés par Nadir).
+// Lancé tel quel, ce script écraserait les 20 PNG en ligne par l'ancienne série, sans erreur.
+if (!process.env.ANCIENNE_SERIE) {
+  console.error('generer.mjs est remplacé : python3 assets/culture/generer_tv.py');
+  process.exit(1);
+}
+
 import { Resvg } from '@resvg/resvg-js';
 import fs from 'node:fs';
 import path from 'node:path';
