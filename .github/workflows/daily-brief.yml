@@ -180,9 +180,21 @@ jobs:
             echo "::warning::$ND valeur(s) de marché indisponibles — elles partiront en n/d."
           fi
 
+          # Les heures de Paris des rendez-vous américains, calculées pour CE matin
+          # (api/_lib/heure-marche.js). Europe et États-Unis ne changent pas d'heure le
+          # même jour : sans cette ligne, le brief annonçait 15h30 une semaine où
+          # Wall Street ouvre à 14h30 (25/10/2026).
+          HORAIRES=$(node -e "
+            import('./api/_lib/heure-marche.js')
+              .then(m => process.stdout.write(m.contexteHoraire('$DATE_ISO')))
+              .catch(e => { console.error(e.message); process.exit(1); })
+          ")
+          if [ -z "$HORAIRES" ]; then echo "::error::Calcul des horaires échoué pour $DATE_ISO."; exit 1; fi
+          echo "🕐 $HORAIRES"
+
           # Contexte daté injecté en tête (évite que Claude devine la date).
-          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n%s\n\n%s\n\n%s' \
-            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$CULTURE" "$MARCHE" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
+          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n%s\n%s\n\n%s\n\n%s' \
+            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$HORAIRES" "$CULTURE" "$MARCHE" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
 
           echo "🤖 Claude Code CLI version : $(claude --version 2>&1 || echo 'inconnue')"
           echo "📝 Prompt système : $(wc -l < .github/workflows/prompts/daily-brief-system.md) lignes, $(wc -c < .github/workflows/prompts/daily-brief-system.md) octets"
