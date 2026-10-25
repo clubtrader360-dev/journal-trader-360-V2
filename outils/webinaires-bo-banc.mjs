@@ -109,7 +109,7 @@ dire(/data-web-creer/.test(w) && !/data-web-creer[^>]*disabled/.test(w), 'bouton
 dire(/data-tun-copier="https:\/\/www\.trader360\.fr\/t\/web-sans-lien\/"/.test(ligne('À venir sans lien')), 'publié : lien d’inscription affiché, avec « Copier »');
 dire(/data-tun-copier="https:\/\/www\.trader360\.fr\/t\/web-sans-lien\/candidater\/"/.test(ligne('À venir sans lien')), 'publié : lien « candidater » du live, avec « Copier »');
 dire(/>3 <small title="par le lien du live">dont 2 live<\/small>/.test(ligne('Passé à envoyer')), 'candidatures : 3, dont 2 par le lien du live');
-dire(/\/t\/web-sans-lien\/direct\/\?coach=11111111-1111-4111-8111-111111111111/.test(ligne('À venir sans lien')), 'lien « salle du live en coach » avec la clé d’aperçu');
+dire(/\/t\/web-sans-lien\/regie\/\?coach=11111111-1111-4111-8111-111111111111/.test(ligne('À venir sans lien')), 'lien « régie du live » avec la clé d’aperçu');
 dire(!/data-tun-copier/.test(ligne('Réponse sans retombées')) && /Pas encore publié/.test(ligne('Réponse sans retombées')), 'brouillon : pas de lien à partager, « Pas encore publié »');
 dire(/data-tun-copier="https:\/\/www\.trader360\.fr\/t\/web-fini\/"/.test(ligne('Passé envoyé')) === false, '⚠️ TÉMOIN : un webinaire archivé ne propose pas son lien');
 
@@ -139,7 +139,7 @@ dire(/title="Brevo 400 adresse refusée">non parti/.test(ed2), 'un rappel refus�
 dire(/veille \+ heure/.test(ed2), 'Alice : « veille + heure »');
 dire(/<b class="num">2<\/b> présents/.test(ed2) && /<b class="num">1<\/b> candidatures/.test(ed2), 'suivi : 2 présents, 1 candidature');
 dire(/data-web-replay="3" data-reste="2"/.test(ed2), 'éditeur : « Envoyer le replay (2) »');
-dire(/Ouvrir la salle du live en coach/.test(ed2) && /\/t\/web-passe\/direct\/\?coach=/.test(ed2), 'éditeur : bouton « Ouvrir la salle du live en coach »');
+dire(/Ouvrir la régie du live/.test(ed2) && /\/t\/web-passe\/regie\/\?coach=/.test(ed2), 'éditeur : bouton « Ouvrir la régie du live »');
 // Témoin : une sous-action fermée est refusée par le double, comme par le pont.
 const refus = await fetch('', { body: JSON.stringify({ action: 'tunnels', sous_action: 'rappels' }) });
 dire(refus.status === 400, '⚠️ TÉMOIN : « rappels » n’est PAS ouvert au back-office (seul le cron l’appelle)');
