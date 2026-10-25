@@ -16,6 +16,10 @@ on:
         description: 'UUID élève cible (test ciblé — vide = envoi à TOUS les éligibles)'
         required: false
         default: ''
+      coach_only:
+        description: 'Rapport des coachs SEUL (aucun mail aux élèves) : true / false'
+        required: false
+        default: 'false'
 
 jobs:
   send-weekly-report:
@@ -30,6 +34,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           REASON: ${{ github.event.inputs.reason || 'cron auto' }}
           ONLY_USER_ID: ${{ github.event.inputs.only_user_id }}
+          COACH_ONLY: ${{ github.event.inputs.coach_only }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::error::CRON_SECRET secret manquant côté GitHub. Settings → Secrets and variables → Actions → crée 'CRON_SECRET' (même valeur que l'env var Vercel)."
@@ -45,6 +50,9 @@ jobs:
             fi
             URL="${URL}?onlyUserId=${ONLY_USER_ID}"
             echo "🎯 Mode test ciblé : onlyUserId=$ONLY_USER_ID"
+          elif [ "$COACH_ONLY" = "true" ]; then
+            URL="${URL}?coachOnly=1"
+            echo "🧑‍🏫 Rapport des coachs SEUL : aucun mail aux élèves"
           else
             echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
           fi
@@ -77,6 +85,12 @@ jobs:
           failed=$(echo "$body" | { grep -o '"status":"failed"' || true; } | wc -l | tr -d ' ')
           skipped=$(echo "$body" | { grep -o '"status":"skipped"' || true; } | wc -l | tr -d ' ')
 
+          # Le rapport des coachs part à la fin d'un envoi complet : son statut est à part.
+          coachs=$(echo "$body" | grep -oE '"rapportCoachs":\{"status":"[a-z_]+"' | grep -oE '[a-z_]+"$' | tr -d '"' || true)
+          echo "🧑‍🏫 Rapport des coachs : ${coachs:-absent}"
+          if [ -z "$ONLY_USER_ID" ] && [ "$coachs" != "sent" ]; then
+            echo "::warning::Le rapport des coachs n'est pas parti (statut : ${coachs:-absent})."
+          fi
           echo "✅ Succès : $sent envoyé(s) · $failed échec(s) · $skipped skippé(s) · $eligible éligible(s)"
 
           if [ "${failed:-0}" -gt 0 ]; then
