@@ -209,6 +209,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-tun-champ input:focus, .bo-tun-champ textarea:focus, .bo-tun-champ select:focus { outline: none; border-color: var(--gold-line); }
 .bo-tun-champ small { color: var(--text-muted); font-size: 12px; }
 .bo-oblig { color: var(--gold); font-weight: 700; }
+.bo-tun-non { color: var(--text-soft); }
+.bo-web-lien { color: var(--text-soft); }
+.bo-web-lien a { color: inherit; }
+.bo-web-suivi { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0 0 10px; font-size: 14px; color: var(--text-soft); }
+.bo-web-suivi b { color: var(--text); font-size: 18px; margin-right: 4px; }
 .bo-tun-manque { margin: 14px 0 0; padding: 10px 14px; border: 1px dashed var(--gold-line); border-radius: 10px; color: var(--text-soft); font-size: 13px; }
 .bo-tun-lien { margin: 14px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; }
 .bo-tun-lien a { color: var(--gold); }

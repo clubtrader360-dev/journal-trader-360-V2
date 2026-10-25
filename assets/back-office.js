@@ -314,6 +314,8 @@
   const LIB_STATUT = { brouillon: ['Brouillon', 'attend'], publie: ['Publié', 'ok'], archive: ['Archivé', ''] };
   let _tun = { vue: 'liste', id: null, type: null, brouillon: null, inscrits: null };
   const lienPublic = (t) => `${SITE_PUBLIC}/t/${t.slug}/`;
+  // Le lien « candidater » du live (/t/<slug>/candidater/) : le site redirige vers le questionnaire marqué utm_campaign=<slug>.
+  const lienCandidatureLive = (t) => `${SITE_PUBLIC}/t/${t.slug}/candidater/`;
   const lienApercu = (t) => `${SITE_PUBLIC}/t/${t.slug}/?apercu=${t.jeton_apercu}`;
   const slugDe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 
@@ -384,7 +386,7 @@
             <small>Les inscrits y entrent automatiquement. Les listes du brief (17 et 18) ne sont pas proposées. <button type="button" class="bo-lien" data-tun-creer-liste>Créer une liste pour ce tunnel</button></small></label>` : ''}
           ${m.champs.map((c) => champHtml(c, (t.contenu || {})[c.cle])).join('')}
         </div></div>
-        ${t.id && m.formulaire ? `<div class="bo-carte"><div class="bo-carte__tete"><h2>Inscrits <small>${_tun.inscrits ? _tun.inscrits.length : '…'}</small></h2></div>${tableInscrits(_tun.inscrits)}</div>` : ''}`;
+        ${t.id && m.formulaire ? `<div class="bo-carte"><div class="bo-carte__tete"><h2>Inscrits <small>${_tun.inscrits ? _tun.inscrits.length : '…'}</small></h2>${t.type === 'webinaire' ? boutonReplay(t, _tun.inscrits) : ''}</div>${t.type === 'webinaire' ? suiviWebinaire(t) : ''}${tableInscrits(_tun.inscrits, t.type)}</div>` : ''}`;
       if (t.id && m.formulaire && !_tun.inscrits) {
         try { _tun.inscrits = await TUN('inscrits', { id: t.id }); } catch (e) { _tun.inscrits = []; dire(`Inscrits illisibles : ${e.message}`, 'error'); }
         if (_tun.vue === 'edition' && _tun.brouillon && _tun.brouillon.id === t.id) vueTunnels();
@@ -398,12 +400,28 @@
       </tbody></table></div>` : `<p class="bo-vide">Aucun tunnel pour l'instant. « Créer un tunnel » propose quatre modèles avec un exemple prêt à adapter.</p>`}
       <p class="bo-source">Pages publiées sur trader360.fr/t/, inscrits enregistrés dans la base du site et versés dans la liste Brevo choisie. Après chaque page ou inscription, la suite est toujours le questionnaire : l'offre est envoyée en personne après l'appel, depuis Ventes · Offres.</p></div>`;
   }
-  function tableInscrits(l) {
+  function tableInscrits(l, type) {
     if (!l) return '<p class="bo-vide">Chargement…</p>';
     if (!l.length) return '<p class="bo-vide">Aucun inscrit pour l instant.</p>';
-    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th><th>Inscrit le</th></tr></thead><tbody>
-      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td><td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
+    // Le suivi du webinaire (25/10) : rappels, présence au direct, replay, candidature qui en vient.
+    const w = type === 'webinaire';
+    const oui = (v, titre) => (v ? `<span class="bo-pill bo-pill--ok" title="${txt(titre || dateFr(v))}">oui</span>` : '<span class="bo-tun-non">non</span>');
+    const rappel = (i) => (i.rappel_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.rappel_erreur)}">non parti</span>`
+      : [i.rappel_veille_le && 'veille', i.rappel_heure_le && 'heure'].filter(Boolean).join(' + ') || '<span class="bo-tun-non">pas encore</span>');
+    const replay = (i) => (i.replay_vu_le ? oui(i.replay_vu_le, `vu le ${dateFr(i.replay_vu_le)}`).replace('>oui<', '>vu<') : i.replay_envoye_le ? 'envoyé' : '<span class="bo-tun-non">non</span>');
+    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th>${w ? '<th>Rappels</th><th>Présent</th><th>Replay</th><th>Candidature</th>' : ''}<th>Inscrit le</th></tr></thead><tbody>
+      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td>${w ? `<td>${rappel(i)}</td><td>${oui(i.present_le)}</td><td>${replay(i)}</td><td>${i.a_candidate ? '<span class="bo-pill bo-pill--ok">oui</span>' : '<span class="bo-tun-non">non</span>'}</td>` : ''}<td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
     </tbody></table></div>`;
+  }
+  /** Un brouillon tiré de l'exemple d'un modèle, à la première adresse libre. Partagé par Tunnels et Webinaires. */
+  async function brouillonDepuisModele(type) {
+    const m = (await lire('tunnels:modeles', () => TUN('modeles'))).find((x) => x.type === type);
+    if (!m) throw new Error(`modèle « ${type} » introuvable : recharge la page`);
+    // Repartir d'un exemple déjà utilisé proposait la même adresse, refusée à l'enregistrement : on prend la première libre.
+    const prises = new Set((await lire('tunnels:liste', () => TUN('lister'))).map((x) => x.slug));
+    let slug = m.exemple.slug;
+    for (let n = 2; prises.has(slug); n += 1) slug = `${m.exemple.slug}-${n}`;
+    return { type: m.type, statut: 'brouillon', titre: m.exemple.titre, slug, contenu: JSON.parse(JSON.stringify(m.exemple.contenu)), brevo_liste: null, manquants: [] };
   }
   function lireFormulaire() {
     const t = _tun.brouillon;
@@ -506,12 +524,7 @@
       if (b.matches('[data-tun-retour]')) { _tun = { vue: 'liste' }; _cache.delete('tunnels:liste'); return vueTunnels(); }
       if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
       if (b.matches('[data-tun-creer]')) {
-        const m = (await lire('tunnels:modeles', () => TUN('modeles'))).find((x) => x.type === b.dataset.tunCreer);
-        // Repartir d'un exemple déjà utilisé proposait la même adresse, refusée à l'enregistrement : on prend la première libre.
-        const prises = new Set((await lire('tunnels:liste', () => TUN('lister'))).map((x) => x.slug));
-        let slug = m.exemple.slug;
-        for (let n = 2; prises.has(slug); n += 1) slug = `${m.exemple.slug}-${n}`;
-        _tun = { vue: 'edition', brouillon: { type: m.type, statut: 'brouillon', titre: m.exemple.titre, slug, contenu: JSON.parse(JSON.stringify(m.exemple.contenu)), brevo_liste: null, manquants: [] }, inscrits: null };
+        _tun = { vue: 'edition', brouillon: await brouillonDepuisModele(b.dataset.tunCreer), inscrits: null };
         return vueTunnels();
       }
       if (b.matches('[data-tun-ouvrir]')) {
@@ -770,10 +783,89 @@
       }
     } catch (err) { b.disabled = false; dire(err.message, 'error'); }
   });
-  CHARGEURS['marketing/webinaires'] = async () => {
-    $('boWebinaires').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>0</b> Webinaire</h2><button type="button" class="bo-btn bo-btn--or" disabled title="À travailler plus tard"><i class="fas fa-plus"></i> Créer un webinaire</button></div>
-      ${avenir([['Avant', 'Une date, un titre, une page d inscription (c est un tunnel), un rappel par mail.'], ['Pendant', 'Le lien du direct (YouTube ou autre), envoyé aux inscrits.'], ['Après', 'Le replay, et les retombées : inscrits, présents, candidatures qui en viennent.']])}</div>`;
-  };
+  /* ══ MARKETING · WEBINAIRES LIVE (25/10/2026) ═════════════════════════════
+   * Un webinaire EST un tunnel de type « webinaire » : il se crée et se modifie dans
+   * Marketing · Tunnels. Cet écran en donne le suivi : rappels, présents, replay,
+   * candidatures. Tout est lu et envoyé par le site (src/serveur/webinaires.ts) :
+   *   - rappels la veille et une heure avant, tous les quarts d'heure par GitHub
+   *     Actions (.github/workflows/webinaires-rappels.yml → daily-brief) ;
+   *   - un lien PERSONNEL par inscrit, qui compte la présence puis redirige ;
+   *   - le replay, envoyé d'ici, une fois, avec un texte pour présents et absents. */
+  const heureWeb = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(d || '')); if (!m) return 'date à poser';
+    return `${new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(+m[1], m[2] - 1, +m[3])))}, ${m[4]} h ${m[5]}`; };
+  const taux = (n, sur) => (sur ? ` <small>${Math.round((n / sur) * 100)} %</small>` : '');
+  function suiviWebinaire(t) {
+    const l = _tun.inscrits || [];
+    const n = (f) => l.filter(f).length;
+    const c = t.contenu || {};
+    return `<div class="bo-web-suivi"><span><b class="num">${l.length}</b> inscrits</span><span><b class="num">${n((i) => i.rappel_heure_le)}</b> rappelés</span><span><b class="num">${n((i) => i.present_le)}</b> présents</span><span><b class="num">${n((i) => i.replay_vu_le)}</b> replays vus</span><span><b class="num">${n((i) => i.a_candidate)}</b> candidatures</span></div>
+      ${t.statut === 'publie' ? `<p class="bo-tun-lien">Lien « candidater » à coller pendant le live : <b>${txt(lienCandidatureLive(t).replace('https://', ''))}</b> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienCandidatureLive(t))}">Copier</button></p>` : ''}
+      <p class="bo-source">Lien du direct : ${String(c.lien_direct || '').trim() ? 'posé' : '<b>à poser au plus tard une heure avant</b> (sans lui, le rappel « dans une heure » ne part pas et vous êtes prévenus par mail)'}. Lien du replay : ${String(c.lien_replay || '').trim() ? 'posé' : 'à poser après le direct'}. « Présent » : a ouvert son lien personnel pendant le direct ; quelqu'un qui rejoint par un lien partagé n'est pas compté.</p>`;
+  }
+  function boutonReplay(t, l) {
+    const pose = !!String((t.contenu || {}).lien_replay || '').trim();
+    const reste = (l || []).filter((i) => !i.replay_envoye_le).length;
+    if (l && l.length && !reste) return '<span class="bo-pill bo-pill--ok">Replay envoyé à tous</span>';
+    return `<button type="button" class="bo-btn bo-btn--or" data-web-replay="${t.id}" data-reste="${reste}" ${pose && l && reste ? '' : `disabled title="${pose ? 'Aucun inscrit à qui l envoyer' : 'Pose d abord le lien du replay, puis enregistre'}"`}>Envoyer le replay${l && reste ? ` (${reste})` : ''}</button>`;
+  }
+  async function vueWebinaires() {
+    const z = $('boWebinaires');
+    const tous = await lire('tunnels:liste', () => TUN('lister'));
+    const maintenant = Date.now();
+    const w = tous.filter((t) => t.type === 'webinaire');
+    const aVenir = w.filter((t) => !t.debut || Date.parse(t.debut) >= maintenant - 3 * 3600e3).sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
+    const passes = w.filter((t) => !aVenir.includes(t)).sort((a, b) => String(b.debut).localeCompare(String(a.debut)));
+    const r = (t) => t.retombees || {};
+    const somme = (k) => w.reduce((s, t) => s + (Number(r(t)[k]) || 0), 0);
+    const ligne = (t) => { const st = LIB_STATUT[t.statut] || ['?', '']; const p = Date.parse(t.debut) < maintenant;
+      const reste = (Number(t.inscrits) || 0) - (Number(r(t).replays_envoyes) || 0);
+      // Le lien d'inscription à partager : en ligne seulement quand la page est publiée.
+      const inscription = t.statut === 'publie'
+        ? `Inscription : <a href="${txt(lienPublic(t))}" target="_blank" rel="noopener">${txt(lienPublic(t).replace('https://', ''))}</a> <button type="button" class="bo-lien" data-tun-copier="${txt(lienPublic(t))}">Copier</button>`
+          + `<br>Candidater, à coller pendant le live : <b>${txt(lienCandidatureLive(t).replace('https://', ''))}</b> <button type="button" class="bo-lien" data-tun-copier="${txt(lienCandidatureLive(t))}">Copier</button>`
+        : `<span class="bo-tun-non">Pas encore publié${t.jeton_apercu ? ` · <a href="${txt(lienApercu(t))}" target="_blank" rel="noopener">aperçu</a>` : ''}</span>`;
+      return `<tr><td><b>${txt(t.titre)}</b><br><small class="bo-web-lien">${inscription}</small></td><td>${txt(heureWeb(t.date))}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td>
+        <td>${t.lien_direct_pose ? 'posé' : (p ? '<span class="bo-tun-non">non</span>' : '<span class="bo-pill bo-pill--attend">à poser</span>')}</td>
+        <td class="num">${t.inscrits}</td><td class="num">${r(t).presents ?? '…'}${taux(r(t).presents || 0, t.inscrits)}</td><td class="num">${r(t).replays_vus ?? '…'}</td><td class="num">${r(t).candidatures ?? '…'}${r(t).candidatures_live ? ` <small title="par le lien du live">dont ${r(t).candidatures_live} live</small>` : ''}</td>
+        <td class="bo-tun-ligne-actions"><button type="button" class="bo-oeil" data-web-ouvrir="${t.id}" title="Ouvrir dans Tunnels">&#128065;</button>${p && t.lien_replay_pose && reste > 0 ? `<button type="button" class="bo-btn bo-btn--fantome" data-web-replay="${t.id}" data-reste="${reste}">Envoyer le replay (${reste})</button>` : ''}</td></tr>`; };
+    const table = (l, vide) => (l.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Webinaire</th><th>Date (Paris)</th><th>Page</th><th>Lien du direct</th><th class="num">Inscrits</th><th class="num">Présents</th><th class="num">Replays vus</th><th class="num">Candidatures</th><th></th></tr></thead><tbody>${l.map(ligne).join('')}</tbody></table></div>` : `<p class="bo-vide">${vide}</p>`);
+    z.innerHTML = `<div class="bo-kpis">${kpi('fa-user-plus', 'Inscrits', somme('inscrits'), `${w.length} webinaire${w.length > 1 ? 's' : ''}`)}${kpi('fa-video', 'Présents', somme('presents'), somme('inscrits') ? `${Math.round((somme('presents') / somme('inscrits')) * 100)} % des inscrits` : '')}${kpi('fa-play', 'Replays vus', somme('replays_vus'), '')}${kpi('fa-file-signature', 'Candidatures', somme('candidatures'), 'déposées après l’inscription')}</div>
+      <div class="bo-carte"><div class="bo-carte__tete"><h2>À venir <small>${aVenir.length}</small></h2><button type="button" class="bo-btn bo-btn--or" data-web-creer><i class="fas fa-plus"></i> Créer un webinaire</button></div>
+        ${table(aVenir, 'Aucun webinaire à venir. « Créer un webinaire » part de l’exemple, à adapter dans Tunnels.')}</div>
+      <div class="bo-carte"><div class="bo-carte__tete"><h2>Passés <small>${passes.length}</small></h2></div>${table(passes, 'Aucun webinaire passé.')}
+        <p class="bo-source">Les inscrits reçoivent un rappel la veille et une heure avant, avec leur lien personnel. Après le direct, pose le lien du replay dans le tunnel, puis « Envoyer le replay » : les présents reçoivent un merci, les absents le replay à regarder, et chacun la proposition de remplir le questionnaire. Une candidature compte pour un webinaire quand la même adresse remplit le questionnaire après son inscription, ou quand quelqu'un passe par le lien « candidater » de ce live (inscrit ou non).</p></div>`;
+  }
+  CHARGEURS['marketing/webinaires'] = vueWebinaires;
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-web-creer],[data-web-ouvrir],[data-web-replay]');
+    if (!b) return;
+    try {
+      if (b.matches('[data-web-creer]')) {
+        b.disabled = true;
+        _tun = { vue: 'edition', brouillon: await brouillonDepuisModele('webinaire'), inscrits: null };
+        location.hash = '#/marketing/tunnels';
+        return;
+      }
+      if (b.matches('[data-web-ouvrir]')) {
+        _tun = { vue: 'edition', brouillon: await TUN('lire', { id: Number(b.dataset.webOuvrir) }), inscrits: null };
+        location.hash = '#/marketing/tunnels';
+        return;
+      }
+      if (b.matches('[data-web-replay]')) {
+        const id = Number(b.dataset.webReplay);
+        const depuisEditeur = _ecranCourant === 'marketing/tunnels' && _tun.brouillon && _tun.brouillon.id === id;
+        if (!window.confirm(`Envoyer le replay à ${b.dataset.reste} inscrit(s) ? Les présents reçoivent un merci, les absents le replay à regarder. Chacun ne le reçoit qu'une fois.`)) return;
+        b.disabled = true;
+        // Depuis l'éditeur, on enregistre d'abord : un lien tapé mais pas enregistré serait lu absent par le site.
+        if (depuisEditeur) { const f = lireFormulaire(); await TUN('enregistrer', { id: f.id, type: f.type, titre: f.titre, slug: f.slug, contenu: f.contenu, brevo_liste: f.brevo_liste }); }
+        const r = await TUN('envoyer_replay', { id });
+        _cache.delete('tunnels:liste');
+        dire(r.erreurs && r.erreurs.length ? `Replay envoyé à ${r.envoyes}, ${r.erreurs.length} échec(s) : ${r.erreurs[0]}` : `Replay envoyé à ${r.envoyes} inscrit(s) : ${r.presents} présent(s), ${r.absents} absent(s).`, r.erreurs && r.erreurs.length ? 'error' : undefined);
+        if (depuisEditeur) { _tun.brouillon = await TUN('lire', { id }); _tun.inscrits = null; return vueTunnels(); }
+        return vueWebinaires();
+      }
+    } catch (err) { b.disabled = false; dire(err.message, 'error'); }
+  });
   CHARGEURS.crm = async () => {
     $('boCrm').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2>Listes Brevo</h2><span class="bo-pill">Lot CRM, après les ventes</span></div>
       ${avenir([['Les listes', 'Toutes vos listes Brevo, avec leur nombre de contacts, lues en direct (la clé existe déjà côté serveur).'], ['Les contacts', 'Qui est dans quelle liste, et le lien vers sa fiche membre quand il en a une.'], ['Les mouvements', 'Un membre qui s inscrit ici entre dans la bonne liste là-bas, sans double saisie.']])}</div>`;
