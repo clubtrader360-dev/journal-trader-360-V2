@@ -33,7 +33,7 @@ const T = [
 ];
 const MODELES = [{ type: 'webinaire', nom: 'Inscription à un webinaire', resume: 'r', formulaire: true, champs: [
   { cle: 'date', libelle: 'Date et heure (Paris)', genre: 'date', obligatoire: true },
-  { cle: 'lien_direct', libelle: 'Lien du direct (Zoom, YouTube, Meet…)', genre: 'url', aide: 'Jamais affiché sur la page.' },
+  { cle: 'lien_direct', libelle: 'Lien du direct YouTube', genre: 'url', aide: 'Jamais affiché sur la page.' },
   { cle: 'lien_replay', libelle: 'Lien du replay', genre: 'url' }], exemple: { slug: 'web-sans-lien', titre: 'Exemple', contenu: { date: '2026-11-05T19:00' } } }];
 const INSCRITS = [
   { prenom: 'Alice', email: 'a@x.fr', created_at: h(-50), rappel_veille_le: h(-31), rappel_heure_le: h(-31), present_le: h(-30), replay_envoye_le: h(-2), replay_vu_le: h(-1), a_candidate: true, mail_confirmation_envoye: true },
@@ -50,7 +50,7 @@ const fetch = async (u, o) => {
   if (b.sous_action === 'lister') return rep(T);
   if (b.sous_action === 'modeles') return rep(MODELES);
   if (b.sous_action === 'listes_brevo') return rep([]);
-  if (b.sous_action === 'lire') return rep({ ...T.find((x) => x.id === b.id), contenu: { date: T.find((x) => x.id === b.id).date, lien_direct: 'https://zoom.us/j/1', lien_replay: 'https://youtu.be/r' }, manquants: [] });
+  if (b.sous_action === 'lire') return rep({ ...T.find((x) => x.id === b.id), contenu: { date: T.find((x) => x.id === b.id).date, lien_direct: 'https://youtube.com/live/abc', lien_replay: 'https://vimeo.com/1130000000/a1b2c3' }, manquants: [] });
   if (b.sous_action === 'inscrits') return rep(INSCRITS);
   if (b.sous_action === 'envoyer_replay') return rep(replayRendu);
   if (b.sous_action === 'enregistrer') return rep({ ...b, manquants: [] });
