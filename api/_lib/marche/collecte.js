@@ -87,12 +87,28 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
     // Les chemins sont rangés du plus autoritaire au moins autoritaire. Le règlement
     // daté vient en tête : c'est le seul qui porte SA PROPRE date, au lieu de laisser
     // déduire de quelle séance il parle.
-    const chemins = [
-      { nom: 'règlement CNBC daté', valeur: cnbc.ok?.reglement ?? null,
-        motif: cnbc.err || (cnbc.ok?.reglement == null ? 'champ settlePrice absent' : null) },
+    // ⚠️ LES CHEMINS DÉPENDENT DE L'HEURE (25/10/2026). « Clôture veille » et
+    // « close − change » décrivent la séance qui PRÉCÈDE la barre courante. Après la
+    // réouverture de 18h00, c'est bien la séance visée ; mais pendant l'interruption
+    // (17h-18h) et tout le week-end, la barre courante EST la séance visée, et ces deux
+    // chemins rendent la séance d'avant. Mesuré dimanche 25/10 au matin : règlement
+    // 7 659,75 contre 7 704,50 deux fois, n/d par divergence. Dès le 2 novembre, le
+    // cron de 22h43 UTC tombe à 17h43 à New York, en pleine interruption.
+    // Rang 0 : règlement daté + clôture de la barre courante. Rang 1 : les trois
+    // chemins d'origine, plus la clôture de la barre précédente.
+    const tvb = await essai(() => esBarresTradingView(front.contrat));
+    const rang = rangSeanceReglee(maintenant);
+    const clotureBarre = tvb.ok?.barres?.[rang]?.cloture ?? null;
+    const cheminBarre = { nom: `TradingView barre journalière rang ${rang}`, valeur: clotureBarre,
+      motif: tvb.err || (clotureBarre == null ? 'clôture de barre absente' : null) };
+    const reglement = { nom: 'règlement CNBC daté', valeur: cnbc.ok?.reglement ?? null,
+      motif: cnbc.err || (cnbc.ok?.reglement == null ? 'champ settlePrice absent' : null) };
+    const chemins = rang === 0 ? [reglement, cheminBarre] : [
+      reglement,
       { nom: 'clôture veille CNBC', valeur: cnbc.ok?.clotureVeille ?? null,
         motif: cnbc.err || (cnbc.ok?.clotureVeille == null ? 'champ previous_day_closing absent' : null) },
       { nom: 'TradingView close−change', valeur: tv.ok?.clotureVeille ?? null, motif: tv.err },
+      cheminBarre,
     ];
     r.chemins.esCloture = chemins.map((c) => `${c.nom} = ${c.valeur ?? `n/d (${c.motif})`}`);
 
@@ -120,8 +136,6 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
     // rang 0 (interruption ou week-end), à 3 points près. Un rang mal deviné donne un
     // n/d avec son motif, jamais la fourchette d'une autre séance.
     const h = historique || {};
-    const tvb = await essai(() => esBarresTradingView(front.contrat));
-    const rang = rangSeanceReglee(maintenant);
     let barre = null;
     let motifBarre = null;
     if (tvb.err) motifBarre = `barres TradingView indisponibles (${tvb.err})`;

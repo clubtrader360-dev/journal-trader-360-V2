@@ -8,7 +8,7 @@ import fs from 'node:fs'; import os from 'node:os';
 let ko = 0; const dire = (ok, m, v) => { console.log((ok ? 'ok  ' : '⛔  ') + m + (v !== undefined ? '  ' + JSON.stringify(v).slice(0, 200) : '')); if (!ok) ko++; };
 
 const SEANCE = '2026-10-23';            // vendredi ; brief du lundi 26
-const S = { vixHistoManque: false, vixQuoteDate: '2026-10-23T16:15:01', barres: null };
+const S = { vixHistoManque: false, vixQuoteDate: '2026-10-23T16:15:01', barres: null, veille: 7659.75 };
 const hist = (sym) => {
   const base = sym === '_VIX' ? 19 : 7660;
   const data = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23']
@@ -23,10 +23,10 @@ globalThis.fetch = async (url) => {
   if (u.includes('charts/historical/_SPX')) return rep(hist('_SPX'));
   if (u.includes('charts/historical/_VIX')) return rep(hist('_VIX'));
   if (u.includes('quotes/_VIX.json')) return rep({ timestamp: '2026-10-25', data: { close: 19.45, high: 20.66, low: 18.88, last_trade_time: S.vixQuoteDate } });
-  if (u.includes('quote.cnbc.com')) return rep({ FormattedQuoteResult: { FormattedQuote: [{ code: 0, shortName: 'E-MINI S&P DEC26', settlePrice: '7,659.75', settleDate: SEANCE, previous_day_closing: '7,659.75', last: '7770', high: '7790', low: '7740', expiration_date: '2026-12-18', curmktstatus: 'REG_MKT' }] } });
+  if (u.includes('quote.cnbc.com')) return rep({ FormattedQuoteResult: { FormattedQuote: [{ code: 0, shortName: 'E-MINI S&P DEC26', settlePrice: '7,659.75', settleDate: SEANCE, previous_day_closing: String(S.veille), last: '7770', high: '7790', low: '7740', expiration_date: '2026-12-18', curmktstatus: 'REG_MKT' }] } });
   if (u.includes('scanner.tradingview.com')) {
     const b = S.barres || BARRES;
-    const o = { description: 'E-mini S&P 500 Futures (Dec 2026)', expiration: 20261218, update_mode: 'delayed_streaming_600', close: b[0][3], change_abs: b[0][3] - 7659.75, high: b[0][1], low: b[0][2] };
+    const o = { description: 'E-mini S&P 500 Futures (Dec 2026)', expiration: 20261218, update_mode: 'delayed_streaming_600', close: b[0][3], change_abs: b[0][3] - S.veille, high: b[0][1], low: b[0][2] };
     for (const r of [0, 1, 2]) { const s = r ? `[${r}]` : ''; [o['open' + s], o['high' + s], o['low' + s], o['close' + s]] = b[r]; }
     return rep(o);
   }
@@ -63,8 +63,15 @@ r = await lancer({ dossier: `${d}/seances`, dossierSemaines: `${d}/semaines` });
 dire(r.es.hautSemaine.valeur === 7812.25 && r.es.basSemaine.valeur === 7648.5, 'semaine relevée d’un bloc (backfill du 19/10) : utilisée', [r.es.hautSemaine, r.es.basSemaine]);
 
 console.log('— rang mal deviné, barre fausse : n/d, jamais une autre séance');
-r = await collecterMarche('2026-10-26', { maintenant: new Date('2026-10-25T15:00:00Z') }); // dimanche 11h NY : rang 0 = barre déjà rouverte dans ce double
-dire(r.es.haut.nd && /n'est pas la séance du 2026-10-23/.test(r.es.haut.motif), 'barre de rang 0 qui ne clôture pas au règlement : n/d', r.es.haut.motif);
+r = await collecterMarche('2026-10-26', { maintenant: new Date('2026-10-25T15:00:00Z') }); // dimanche 11h NY : rang 0, mais la barre 0 du double est une autre séance
+dire(r.es.cloture.nd && r.es.haut.nd && /divergents/.test(r.es.cloture.motif), 'rang 0 sur une barre qui n’est pas la séance : clôture ET hauts en n/d', r.es.cloture.motif);
+
+console.log('— week-end réel (mesure du 25/10) : la barre courante EST la séance');
+S.barres = { 0: BARRES[1], 1: BARRES[2], 2: [7785, 7812.25, 7751, 7800.25] }; S.veille = 7704.5;
+r = await collecterMarche('2026-10-26', { maintenant: new Date('2026-10-25T15:00:00Z') });
+dire(r.es.cloture.valeur === 7659.75 && r.es.haut.valeur === 7714.25 && r.es.bas.valeur === 7648.5, 'dimanche matin : règlement + barre 0 concordants, haut/bas du vendredi', [r.es.cloture.valeur, r.es.haut.valeur, r.es.bas.valeur]);
+dire(!r.es.cloture.chemins.some((c) => /veille|close−change/.test(c)), 'les chemins « veille » (séance d’avant) sont écartés au rang 0', r.es.cloture.chemins);
+S.barres = null; S.veille = 7659.75;
 S.barres = { ...BARRES, 1: [7706.25, 7650, 7648.5, 7659.75] };
 r = await lancer({});
 dire(r.es.haut.nd, 'barre incohérente (haut ≈ bas) refusée par le contrôle OHLC', r.es.haut.motif); S.barres = null;
