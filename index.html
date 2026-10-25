@@ -648,6 +648,22 @@
             user-select: none;
         }
 
+        /* Le zoom en petit menu replié (22/10) : une pastille « loupe + 100 % »,
+           les boutons s ouvrent au clic. <details> natif : clavier et lecteur
+           d écran sans script. */
+        .zoom-menu { position: relative; }
+        .zoom-menu > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+            padding: 4px 10px; border-radius: var(--radius-pill); border: 1px solid rgba(172, 134, 43, 0.35);
+            color: var(--sidebar-text-muted); font-size: 11px; user-select: none; }
+        .zoom-menu > summary::-webkit-details-marker { display: none; }
+        .zoom-menu > summary:hover, .zoom-menu[open] > summary { border-color: rgba(212, 175, 55, 0.7); color: var(--accent-bright); }
+        .zoom-menu > summary:focus-visible { outline: 2px solid var(--accent, #ac862b); outline-offset: 2px; }
+        .zoom-menu > summary .zoom-level { min-width: 0; }
+        /* Ouvert, le menu se déplie SOUS la pastille et pousse la suite : posé en
+           surimpression, il laissait transparaître le bouton Partager (aperçu du 25/10). */
+        .zoom-menu { text-align: center; }
+        .zoom-menu .zoom-controls { display: flex; justify-content: center; margin-top: 6px; white-space: nowrap; }
+
         /* Backdrop for mobile drawer */
         .sidebar-backdrop {
             display: none;
@@ -3342,8 +3358,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <span class="marque marque--verrou" role="img" aria-label="Trader 360"
                       style="width: 170px; margin: 0 auto;"></span>
-                <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
-                <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
                 <!-- ⚠️ LE COACH VOIT « FORMATION » LUI AUSSI. Arbitrage de Nadir du
                      10/10/2026 : il relit les lecons telles qu un eleve les voit.
                      ⛔ PAS DE `data-droit` ICI, et c est volontaire : un coach n a pas de
@@ -3357,6 +3371,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
                     <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
                 </div>
+                <div class="sidebar-section-title text-sm mt-3">MODE COACH</div>
+                <div class="sidebar-section-title text-xs mt-1" id="coachUserInfo"></div>
                 <!-- #33 commit 3 — entrée mode personnalisation du dashboard coach -->
                 <button type="button" onclick="window.enterCoachDashboardEdit && window.enterCoachDashboardEdit()"
                         class="dash-btn dash-btn-ghost" style="margin-top:12px; font-size:12px; width:100%; justify-content:center;">
@@ -3416,21 +3432,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div class="theme-toggle-slider"></div>
                     </div>
                     <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
-                    <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
+                    <details class="zoom-menu">
+                        <summary title="Zoom de l'affichage"><i class="fas fa-search-plus" aria-hidden="true"></i> <span class="zoom-level zoom-level-coach" aria-live="polite">100%</span></summary>
+                        <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
                         <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
-                        <span class="zoom-level zoom-level-coach" aria-live="polite">100%</span>
+                        
                         <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
                         <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
                     </div>
-                </div>
-                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
-                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
-                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
-                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
-                    </label>
-                    <input type="range" class="surface-opacity-slider" min="0.7" max="2.0" step="0.05" value="1.0"
-                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
-                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                    </details>
                 </div>
             </nav>
         </div>
@@ -4252,21 +4262,15 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <div class="theme-toggle-slider"></div>
                     </div>
                     <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
-                    <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
+                    <details class="zoom-menu">
+                        <summary title="Zoom de l'affichage"><i class="fas fa-search-plus" aria-hidden="true"></i> <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span></summary>
+                        <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
                         <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
-                        <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span>
+                        
                         <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
                         <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
                     </div>
-                </div>
-                <!-- Curseur opacité modales (#53) — visible uniquement en dark mode -->
-                <div class="surface-opacity-control" style="display: none; margin-top: 12px; padding: 10px 20px;" role="group" aria-label="Opacité des cartes et modales (dark mode)">
-                    <label class="sidebar-control-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sidebar-text-muted); margin-bottom: 6px;">
-                        🎨 Opacité des cartes <span class="surface-opacity-level" aria-live="polite" style="margin-left: auto; font-size: 11px;">100%</span>
-                    </label>
-                    <input type="range" class="surface-opacity-slider" min="0.7" max="2.0" step="0.05" value="1.0"
-                           style="width: 100%; cursor: pointer; accent-color: var(--accent, #ac862b);"
-                           aria-label="Régler l'opacité du fond des modales (dark mode)">
+                    </details>
                 </div>
                 <!-- Bouton Partager Performances (#35 : dropdown 3 timeframes) -->
                 <div class="share-dropdown-wrapper" style="position: relative; margin-top: 15px; padding: 0 20px;">
@@ -8477,7 +8481,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             document.querySelectorAll('.surface-opacity-control').forEach(el => { el.style.display = isDark ? '' : 'none'; });
         }
         document.addEventListener('DOMContentLoaded', () => {
-            applySurfaceOpacity(_readSurfaceOpacity());
+            // Le réglage « Opacité des cartes » est retiré (Manu, 22/10) : chacun revient
+            // au rendu d'origine, y compris ceux qui l'avaient modifié.
+            try { localStorage.removeItem(SURFACE_OPACITY_KEY); } catch (_) {}
+            applySurfaceOpacity(SURFACE_OPACITY_DEFAULT);
             updateSurfaceOpacityControlVisibility();
             document.querySelectorAll('.surface-opacity-slider').forEach(slider => {
                 slider.addEventListener('input', (e) => applySurfaceOpacity(parseFloat(e.target.value)));

@@ -117,7 +117,8 @@
             
             // Afficher le nom (ou email si pas de nom) sous le logo
             if (userInfo) {
-                const displayName = window.currentUser.name || window.currentUser.email;
+                // Le prénom seul (Nadir, 22/10) : premier mot du nom, sinon l'adresse.
+                const displayName = String(window.currentUser.name || '').trim().split(/\s+/)[0] || window.currentUser.email;
                 userInfo.textContent = displayName;
                 console.log('[OK] Nom affiché:', displayName);
             }
@@ -603,7 +604,7 @@
                         mainApp.style.opacity = '1';
                     }
                     if (authScreen) authScreen.style.display = 'none';
-                    if (userInfo) userInfo.textContent = effectiveUser.name || effectiveUser.email;
+                    if (userInfo) userInfo.textContent = String(effectiveUser.name || '').trim().split(/\s+/)[0] || effectiveUser.email;
                     // Coach-view : bandeau lecture seule + grisage des écritures.
                     if (coachViewing && window.CoachView) {
                         try { window.CoachView.activateUI(); } catch (_) {}
