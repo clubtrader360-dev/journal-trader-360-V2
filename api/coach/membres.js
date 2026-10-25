@@ -479,18 +479,47 @@ async function offresSite(sb, corps, coach, origine) {
    */
   if (sous === 'virement_recu' || sous === 'ouvrir_acces') {
     const k = sous === 'virement_recu' ? await appelSite('virement_recu', reste, coach) : await appelSite('commande', { id: reste.id }, coach);
-    if (!['payee', 'en_cours'].includes(k.statut)) throw httpError(409, 'commande non payée : accès non ouverts');
-    let acces;
-    try {
-      acces = await ouvrirAccesAcheteur(sb, k, coach, origine);
-      if (!acces.sans_objet) await appelSite('acces_resultat', { id: k.id, ok: true }, coach);
-    } catch (e) {
-      await appelSite('acces_resultat', { id: k.id, ok: false, erreur: e.message }, coach).catch(() => null);
-      return { commande: k, acces: { ok: false, erreur: e.message } };
-    }
-    return { commande: k, acces: { ok: true, ...acces } };
+    return ouvrirEtRapporter(sb, k, coach, origine);
   }
   return appelSite(sous, reste, coach);
+}
+
+/**
+ * Ouvre les accès d'une commande payée et rapporte le résultat au site.
+ * Partagé par « Virement reçu », « Réessayer » (back-office) et le paiement Stripe (webhook).
+ */
+async function ouvrirEtRapporter(sb, k, coach, origine) {
+  if (!k || !['payee', 'en_cours'].includes(k.statut)) throw httpError(409, 'commande non payée : accès non ouverts');
+  let acces;
+  try {
+    acces = await ouvrirAccesAcheteur(sb, k, coach, origine);
+    if (!acces.sans_objet) await appelSite('acces_resultat', { id: k.id, ok: true }, coach);
+  } catch (e) {
+    await appelSite('acces_resultat', { id: k.id, ok: false, erreur: e.message }, coach).catch(() => null);
+    return { commande: k, acces: { ok: false, erreur: e.message } };
+  }
+  return { commande: k, acces: { ok: true, ...acces } };
+}
+
+/**
+ * LE PAIEMENT STRIPE CONFIRMÉ (22/10/2026). Appelé par le webhook du SITE, serveur à
+ * serveur, avec la clé partagée BACKOFFICE_CLE (la même que le pont, dans l'autre sens).
+ * ⛔ Le site n'envoie qu'un identifiant : la commande est RELUE chez lui, et son statut
+ * (payée ou en cours) revérifié ici. Aucune donnée d'élève du journal ne part vers le site.
+ * ⛔ Déjà ouverts : on ne recommence pas (pas de second mail d'accès).
+ */
+const COACH_STRIPE = { email: 'paiement Stripe' };
+async function commandePayee(sb, corps, origine) {
+  const id = Number(corps.id);
+  if (!Number.isInteger(id)) throw httpError(400, 'id attendu');
+  const k = await appelSite('commande', { id }, COACH_STRIPE);
+  if (k?.acces_ouverts_le) return { commande: k, acces: { ok: true, deja: true } };
+  return ouvrirEtRapporter(sb, k, COACH_STRIPE, origine);
+}
+function cleBackofficeOk(req) {
+  const fourni = Buffer.from(String(req.headers['x-backoffice-cle'] || ''));
+  const attendu = Buffer.from(String(process.env.BACKOFFICE_CLE || ''));
+  return attendu.length > 0 && fourni.length === attendu.length && crypto.timingSafeEqual(fourni, attendu);
 }
 
 /**
@@ -1411,6 +1440,18 @@ export default async function handler(req, res) {
   {
     let c0 = {};
     try { c0 = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {}); } catch { c0 = {}; }
+    // Le webhook Stripe du site : ni élève ni coach, la clé partagée seule.
+    if (c0.action === 'commande_payee') {
+      if (!cleBackofficeOk(req)) return res.status(401).json({ ok: false, motif: 'clé absente ou fausse' });
+      try {
+        const r = await commandePayee(getServiceClient(), c0, origineDe(req));
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ ok: true, action: 'commande_payee', resultat: r });
+      } catch (e) {
+        console.error('[OFFRES] commande_payee :', e.message);
+        return res.status(e?.statusCode || e?.status || 500).json({ ok: false, motif: e.message });
+      }
+    }
     if (c0.action === 'mail_quiz') {
       try {
         const r = await mailQuizEleve(getServiceClient(), req, origineDe(req));
