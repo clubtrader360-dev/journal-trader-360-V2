@@ -659,9 +659,10 @@
         .zoom-menu > summary:hover, .zoom-menu[open] > summary { border-color: rgba(212, 175, 55, 0.7); color: var(--accent-bright); }
         .zoom-menu > summary:focus-visible { outline: 2px solid var(--accent, #ac862b); outline-offset: 2px; }
         .zoom-menu > summary .zoom-level { min-width: 0; }
-        .zoom-menu .zoom-controls { position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); z-index: 5;
-            background: var(--sidebar-bg, #0b0d12); border: 1px solid rgba(172, 134, 43, 0.35); border-radius: 12px; padding: 4px 6px;
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .6); white-space: nowrap; }
+        /* Ouvert, le menu se déplie SOUS la pastille et pousse la suite : posé en
+           surimpression, il laissait transparaître le bouton Partager (aperçu du 25/10). */
+        .zoom-menu { text-align: center; }
+        .zoom-menu .zoom-controls { display: flex; justify-content: center; margin-top: 6px; white-space: nowrap; }
 
         /* Backdrop for mobile drawer */
         .sidebar-backdrop {
