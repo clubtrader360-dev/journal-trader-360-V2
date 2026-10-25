@@ -279,3 +279,7 @@ body:not(.dark-mode) .am-couleur--rouge { color: #b91c1c; }
 .am-fiche__niveau small { font-size: 12px; color: var(--text-soft, #9c9b94); }
 .am-info--tableur { grid-template-columns: 220px 1fr; padding: 8px 0; } .am-info--tableur .am-info__k, .am-info--tableur .am-info__v { padding-top: 0; }
 @media (max-width: 640px) { .am-info--tableur { grid-template-columns: 1fr; } .am-info--tableur .am-info__v { grid-column: 1; } }
+
+/* Nouveau membre épinglé en tête (25/10) : filet or à gauche, pastille au-dessus du nom. */
+tr.am-nouveau > td:first-child { box-shadow: inset 3px 0 0 var(--cm-or); }
+.am-nouveau__pastille { display: table; margin: 0 0 4px; }

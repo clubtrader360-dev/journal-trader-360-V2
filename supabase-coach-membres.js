@@ -63,6 +63,15 @@
   const JOURS_NOUVEAU = 60;
   // ⛔ Comptes réels seulement : une ligne « signalée » (remboursé…) a aussi une date récente.
   const estNouveau = (m) => !!m.user_id && !m.sans_compte && !!m.cree_le && (Date.now() - Date.parse(m.cree_le)) < JOURS_NOUVEAU * 86400000;
+  /**
+   * ÉPINGLÉ EN TÊTE (Nadir, 25/10 : « dès qu'on a un nouveau membre, il faut le mettre
+   * en premier, pour qu'on le voie ; là j'ai dû taper le mail pour le trouver »).
+   * Un élève nouveau reste en tête tant qu'il n'est pas dans le tableur, et au moins
+   * 7 jours. ⛔ Quel que soit le tri choisi : c'est le but, le voir sans le chercher.
+   */
+  const JOURS_EPINGLE = 7;
+  const aEpingler = (m) => m.role === 'student' && estNouveau(m)
+    && (!m.tableur || (Date.now() - Date.parse(m.cree_le)) < JOURS_EPINGLE * 86400000);
   const horsTableur = (m) => m.role === 'student' && m.tableur_lu === true && !m.tableur && !estNouveau(m);
   function pastilleTableur(m) {
     if (!m.tableur) return m.tableur_lu === false ? '<small class="am-statut am-statut--attend" title="Le tableur n a pas pu être lu">Tableur illisible</small>' : (m.role === 'student' ? (estNouveau(m) ? '<small class="am-statut am-statut--ok" title="Créé il y a moins de 60 jours : à ajouter au tableur de Manu">Nouveau, pas encore dans le tableur</small>' : '<small class="am-statut am-statut--attend">Hors tableur</small>') : '');
@@ -164,12 +173,15 @@
   function trier(liste) {
     const f = CLES_TRI[_tri.cle] || CLES_TRI.nom;
     const nomDe = CLES_TRI.nom;
-    return liste.slice().sort((a, b) => {
+    const tries = liste.slice().sort((a, b) => {
       const x = f(a); const y = f(b);
       let c = typeof x === 'string' ? x.localeCompare(y, 'fr') : (x - y);
       if (c === 0) c = nomDe(a).localeCompare(nomDe(b), 'fr');
       return c * _tri.sens;
     });
+    // Les nouveaux d'abord, du plus récent au plus ancien ; le reste garde le tri choisi.
+    const nouveaux = tries.filter(aEpingler).sort((a, b) => Date.parse(b.cree_le) - Date.parse(a.cree_le));
+    return nouveaux.concat(tries.filter((m) => !aEpingler(m)));
   }
   function enTete() {
     return TITRES.map(([cle, titre]) => {
@@ -244,8 +256,10 @@
     const tq = totalQuiz();
     const d = depuis(m.derniere_activite);
     const eleve = m.role === 'student';
-    return `<tr data-uid="${txt(m.user_id)}" class="${eleve ? '' : 'am-coach'}">
+    const nouveau = aEpingler(m);
+    return `<tr data-uid="${txt(m.user_id)}" class="${eleve ? '' : 'am-coach'}${nouveau ? ' am-nouveau' : ''}">
       <td class="am-qui">
+        ${nouveau ? `<small class="am-statut am-statut--ok am-nouveau__pastille" title="Compte créé ${txt(depuis(m.cree_le).t)}">Nouveau · ${txt(depuis(m.cree_le).t)}</small>` : ''}
         <b>${txt(m.nom || 'Nom non renseigné')}</b>
         <span>${txt(m.email)}</span>
         ${eleve ? (m.statut === 'active' || m.statut === 'approved' ? '' : `<small class="am-statut am-statut--${st.c}" title="État du compte">${txt(st.t)}</small>`) : `<small class="am-statut am-statut--${st.c}">${txt(st.t)} · coach</small>`}
