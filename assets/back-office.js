@@ -316,6 +316,8 @@
   const lienPublic = (t) => `${SITE_PUBLIC}/t/${t.slug}/`;
   // Le lien « candidater » du live (/t/<slug>/candidater/) : le site redirige vers le questionnaire marqué utm_campaign=<slug>.
   const lienCandidatureLive = (t) => `${SITE_PUBLIC}/t/${t.slug}/candidater/`;
+  // La salle du live en mode coach : écrire au nom de Trader 360, épingler, masquer. ⛔ Clé = jeton d'aperçu, ne pas la partager.
+  const lienSalleCoach = (t) => `${SITE_PUBLIC}/t/${t.slug}/direct/?coach=${t.jeton_apercu}`;
   const lienApercu = (t) => `${SITE_PUBLIC}/t/${t.slug}/?apercu=${t.jeton_apercu}`;
   const slugDe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 
@@ -799,6 +801,7 @@
     const n = (f) => l.filter(f).length;
     const c = t.contenu || {};
     return `<div class="bo-web-suivi"><span><b class="num">${l.length}</b> inscrits</span><span><b class="num">${n((i) => i.rappel_heure_le)}</b> rappelés</span><span><b class="num">${n((i) => i.present_le)}</b> présents</span><span><b class="num">${n((i) => i.replay_vu_le)}</b> replays vus</span><span><b class="num">${n((i) => i.a_candidate)}</b> candidatures</span></div>
+      ${t.jeton_apercu ? `<p class="bo-tun-lien"><a class="bo-btn bo-btn--or" href="${txt(lienSalleCoach(t))}" target="_blank" rel="noopener">Ouvrir la salle du live en coach</a> <small>Pendant le direct : répondre au chat au nom de Trader 360, épingler, masquer. Ce lien est une clé : ne le partage pas.</small></p>` : ''}
       ${t.statut === 'publie' ? `<p class="bo-tun-lien">Lien « candidater » à coller pendant le live : <b>${txt(lienCandidatureLive(t).replace('https://', ''))}</b> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienCandidatureLive(t))}">Copier</button></p>` : ''}
       <p class="bo-source">Lien du direct : ${String(c.lien_direct || '').trim() ? 'posé' : '<b>à poser au plus tard une heure avant</b> (sans lui, le rappel « dans une heure » ne part pas et vous êtes prévenus par mail)'}. Lien du replay : ${String(c.lien_replay || '').trim() ? 'posé' : 'à poser après le direct'}. « Présent » : a ouvert son lien personnel pendant le direct ; quelqu'un qui rejoint par un lien partagé n'est pas compté.</p>`;
   }
@@ -823,6 +826,7 @@
       const inscription = t.statut === 'publie'
         ? `Inscription : <a href="${txt(lienPublic(t))}" target="_blank" rel="noopener">${txt(lienPublic(t).replace('https://', ''))}</a> <button type="button" class="bo-lien" data-tun-copier="${txt(lienPublic(t))}">Copier</button>`
           + `<br>Candidater, à coller pendant le live : <b>${txt(lienCandidatureLive(t).replace('https://', ''))}</b> <button type="button" class="bo-lien" data-tun-copier="${txt(lienCandidatureLive(t))}">Copier</button>`
+          + (t.jeton_apercu ? `<br><a href="${txt(lienSalleCoach(t))}" target="_blank" rel="noopener"><b>Ouvrir la salle du live en coach</b></a> (chat, épingler, masquer)` : '')
         : `<span class="bo-tun-non">Pas encore publié${t.jeton_apercu ? ` · <a href="${txt(lienApercu(t))}" target="_blank" rel="noopener">aperçu</a>` : ''}</span>`;
       return `<tr><td><b>${txt(t.titre)}</b><br><small class="bo-web-lien">${inscription}</small></td><td>${txt(heureWeb(t.date))}</td><td><span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></td>
         <td>${t.lien_direct_pose ? 'posé' : (p ? '<span class="bo-tun-non">non</span>' : '<span class="bo-pill bo-pill--attend">à poser</span>')}</td>
