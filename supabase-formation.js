@@ -119,6 +119,7 @@
    * tentative l est, et le dernier score pour l afficher.
    */
   let _quiz = {};
+  let _uid = null;
   /**
    * ── ⚠️ LE NIVEAU ACQUIS DANS LEARNYBOX, POUR LES ELEVES EXISTANTS ─────────
    *
@@ -189,6 +190,7 @@
   async function charger() {
     const u = await uid();
     if (!u) return;
+    _uid = u;
     const [p, n, v, q] = await Promise.all([
       cli().from('formation_progression')
         .select('lecon_id, vue, progress_seconds, secondes_vues, last_watched_at').eq('user_id', u),
@@ -212,14 +214,7 @@
     if (v.error) console.error('[FORMATION] ⚠️ videos illisibles :', v.error.message);
     _quiz = {};
     (q.data || []).forEach((r) => {
-      const s = _quiz[r.module_cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
-      s.tentatives += 1;
-      s.reussi = s.reussi || !!r.reussi;
-      // ⚠️ Le MEILLEUR score reste affiche : un eleve qui rejoue pour reviser
-      // ne doit pas voir son badge accompagne d un score inferieur.
-      if (r.score / Math.max(1, r.total) >= s.score / Math.max(1, s.total)) { s.score = r.score; s.total = r.total; }
-      s.derniere = r.created_at;
-      _quiz[r.module_cle] = s;
+      noterQuiz(r.module_cle, r.score, r.total, r.reussi, r.created_at);
     });
     if (q.error) console.warn('[FORMATION] resultats de quiz illisibles :', q.error.message);
     await chargerNiveauLearnybox();
@@ -353,6 +348,38 @@
   const estQuiz = (id) => /-quiz$/.test(String(id));
   const cleDuQuiz = (id) => String(id).replace(/^m/, '').replace(/-quiz$/, '');
   const quizReussi = (cle) => !!(_quiz[cle] && _quiz[cle].reussi);
+  /**
+   * ⛔ UNE SEULE FAÇON DE NOTER UN RÉSULTAT, au chargement comme après un passage.
+   * Il y en avait quatre copies : la date de première réussite et le meilleur score
+   * réussi (ceux du certificat) n'auraient été tenus que par celle du chargement.
+   */
+  function noterQuiz(cle, score, total, reussi, quand) {
+    const s = _quiz[cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null, premiere: null, meilleurReussi: null };
+    s.tentatives += 1;
+    s.reussi = s.reussi || !!reussi;
+    // ⚠️ Le MEILLEUR score reste affiché : un élève qui rejoue pour réviser
+    // ne doit pas voir son badge accompagné d'un score inférieur.
+    if (score / Math.max(1, total) >= s.score / Math.max(1, s.total)) { s.score = score; s.total = total; }
+    if (reussi && !s.premiere) s.premiere = quand;
+    if (reussi && (!s.meilleurReussi || score / Math.max(1, total) > s.meilleurReussi.score / Math.max(1, s.meilleurReussi.total))) s.meilleurReussi = { score, total };
+    s.derniere = quand;
+    _quiz[cle] = s;
+    return s;
+  }
+  /** Les données du certificat de l'élève connecté, ou null s'il n'est pas certifié. */
+  function donneesCertificat() {
+    const q = _quiz['10'];
+    if (!q || !q.reussi || !q.premiere) return null;
+    const nom = (window.currentUser && (window.currentUser.name || window.currentUser.email)) || '';
+    const an = new Date(q.premiere).getFullYear();
+    return {
+      prenom: nom, nom: '', date: q.premiere,
+      score: q.meilleurReussi ? q.meilleurReussi.score : q.score, total: q.meilleurReussi ? q.meilleurReussi.total : q.total,
+      // Stable et propre à l'élève : il ne change pas s'il repasse l'examen.
+      numero: `T360-C-${an}-${String(_uid || '').replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+      logo: '/assets/marque/t360-logo-or.png',
+    };
+  }
   const estVue = (id) => (estQuiz(id)
     ? quizReussi(cleDuQuiz(id))
     : !!(_progression[id] && _progression[id].vue));
@@ -2521,8 +2548,9 @@
         <div class="quiz__fait">
           <span class="quiz__coche" aria-hidden="true">${I.check}</span>
           <h3>Réussi : ${r.score} / ${r.total}${r.derniere ? `, le ${dateCourte(r.derniere)}` : ''}.</h3>
-          <p>Ton score et ton badge restent acquis. Tu peux le refaire quand tu veux, pour réviser.</p>
-          <button type="button" class="btn btn-ghost" data-quiz-commencer>Refaire le quiz</button>
+          <p>${c.examen ? 'Ta certification est acquise. Ton certificat se télécharge quand tu veux.' : 'Ton score et ton badge restent acquis. Tu peux le refaire quand tu veux, pour réviser.'}</p>
+          ${c.examen && window.FormationDiplome ? `<button type="button" class="btn btn-gold" data-certificat>Télécharger mon certificat ${I.arrow}</button>` : ''}
+          <button type="button" class="btn btn-ghost" data-quiz-commencer>${c.examen ? 'Repasser l’examen' : 'Refaire le quiz'}</button>
         </div>`;
     } else if (!quizOuvert(m)) {
       const prochainCi = m.lecons.findIndex((l) => !l.quiz && !estVue(l.id));
@@ -2678,12 +2706,7 @@
     if (zone) zone.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     const ok = await ecrireQuiz(m.cle, score, total, reussi, reponses);
     if (ok) {
-      const s = _quiz[m.cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
-      s.tentatives += 1;
-      s.reussi = s.reussi || reussi;
-      if (score / total >= s.score / Math.max(1, s.total)) { s.score = score; s.total = total; }
-      s.derniere = new Date().toISOString();
-      _quiz[m.cle] = s;
+      noterQuiz(m.cle, score, total, reussi, new Date().toISOString());
     }
     e.resultat = { score, total, reussi, reponses, ok, av };
     rendreResultat();
@@ -2734,12 +2757,7 @@
         const av = { xp: xpTotal(), niveau: niveauCourant().cle, fini: moduleFini(m), badges: badges().filter((b) => b.ok()).map((b) => b.id) };
         const ok = await ecrireQuiz(m.cle, res.score, res.total, res.reussi, res.reponses);
         if (ok) {
-          const s = _quiz[m.cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
-          s.tentatives += 1;
-          s.reussi = s.reussi || res.reussi;
-          if (res.score / res.total >= s.score / Math.max(1, s.total)) { s.score = res.score; s.total = res.total; }
-          s.derniere = new Date().toISOString();
-          _quiz[m.cle] = s;
+          noterQuiz(m.cle, res.score, res.total, res.reussi, new Date().toISOString());
         }
         const e = _quizEtat && _quizEtat.examen ? _quizEtat : null;
         if (e) {
@@ -2821,11 +2839,7 @@
     const ok = await ecrireQuiz(e.cle, score, total, reussi, reponses);
     if (!ok) { toast('⚠️', 'Toujours pas enregistré.'); return; }
     e.resultat.ok = true;
-    const s = _quiz[e.cle] || { reussi: false, score: 0, total: 0, tentatives: 0, derniere: null };
-    s.tentatives += 1; s.reussi = s.reussi || reussi;
-    if (score / total >= s.score / Math.max(1, s.total)) { s.score = score; s.total = total; }
-    s.derniere = new Date().toISOString();
-    _quiz[e.cle] = s;
+    noterQuiz(e.cle, score, total, reussi, new Date().toISOString());
     rendreResultat();
   }
 
@@ -2839,8 +2853,17 @@
     const av = e.resultat.av;
     _quizEtat = null;
     ouvrirAudio();
-    if (!motionOk()) { await sansMouvement(mi, ci, av); return; }
-    await jouerScene(mi, ci, av);
+    if (!motionOk()) await sansMouvement(mi, ci, av);
+    else await jouerScene(mi, ci, av);
+    /**
+     * LA CERTIFICATION A SA PROPRE FIN : après la scène des XP, la fusée et le
+     * certificat (P2, tâche 17). La fusée respecte elle aussi la réduction des
+     * animations : la carte s'affiche alors sans mouvement.
+     */
+    if (e.cle === '10' && window.FormationDiplome) {
+      const d = donneesCertificat();
+      if (d) await window.FormationDiplome.celebrer({ certificat: d }).catch((er) => console.warn('[FORMATION] célébration :', er && er.message));
+    }
   }
 
   /**
@@ -3693,7 +3716,7 @@
   document.addEventListener('click', (e) => {
     const racine = $('formationApp');
     if (!racine || !racine.contains(e.target)) return;
-    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module],[data-rejouer],[data-theme-btn]');
+    const t = e.target.closest('[data-go],[data-mod],[data-open],[data-chap],[data-complete],[data-undo],[data-export],[data-bienvenue],[data-son],[data-lire],[data-quiz-commencer],[data-quiz-suiv],[data-quiz-prec],[data-rep],[data-quiz-scene],[data-quiz-reecrire],[data-quiz-module],[data-rejouer],[data-theme-btn],[data-certificat]');
     if (!t) return;
     // ⛔ LA CARTE INTRODUCTION OUVRE LA VIDEO DE BIENVENUE, forcee : c est le
     // moyen d y revenir apres l avoir fermee a la premiere connexion.
@@ -3712,6 +3735,16 @@
     if (t.hasAttribute('data-quiz-suiv')) { quizSuivant(); return; }
     if (t.hasAttribute('data-quiz-prec')) { quizPrecedent(); return; }
     if (t.hasAttribute('data-quiz-scene')) { sceneQuiz(); return; }
+    if (t.hasAttribute('data-certificat')) {
+      const d = donneesCertificat();
+      if (!d || !window.FormationDiplome) { toast('⚠️', 'Certificat indisponible pour l’instant.'); return; }
+      t.disabled = true;
+      window.FormationDiplome.telecharger(d)
+        .then(() => toast(I.check, 'Certificat téléchargé.'))
+        .catch(() => toast('⚠️', 'Le certificat n’a pas pu être préparé. Réessaie.'))
+        .finally(() => { t.disabled = false; });
+      return;
+    }
     if (t.hasAttribute('data-quiz-reecrire')) { reecrireQuiz(); return; }
     if (t.dataset.rejouer) { rejouerBadge(t.dataset.rejouer); return; }
     if (t.dataset.quizModule) {

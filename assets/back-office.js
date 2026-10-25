@@ -268,11 +268,31 @@
             <td><div class="bo-barre-prog"><i style="width:${tl ? Math.round(b.vus / tl * 100) : 0}%"></i></div><small style="color:var(--text-soft)">${b.vus} / ${tl} chapitres</small></td>
             <td>${b.finis.length ? b.finis.map((x) => `<span class="am-badge">${x.m.cle === '10' ? 'Certification' : `Module ${txt(x.m.numero)}`}</span>`).join(' ') : '<span style="color:var(--text-disabled)">aucun</span>'}</td>
             <td><span class="bo-pill ${b.cert ? 'bo-pill--ok' : ''}">${b.cert ? 'Certifié Trader 360' : 'Non certifié'}</span>${b.cert ? `<br><small style="color:var(--text-soft)">le ${txt(dateFr(e.certifie_le))}</small>` : ''}</td>
-            <td><a class="bo-oeil" href="#/academie/membres?fiche=${encodeURIComponent(e.email)}" title="Ouvrir la fiche">&#128065;</a></td></tr>`).join('')}
+            <td>${b.cert && window.FormationDiplome ? `<button type="button" class="bo-btn bo-btn--fantome" data-dipl-pdf="${txt(e.user_id)}" title="Le même certificat que celui de l'élève">Certificat PDF</button> ` : ''}<a class="bo-oeil" href="#/academie/membres?fiche=${encodeURIComponent(e.email)}" title="Ouvrir la fiche">&#128065;</a></td></tr>`).join('')}
         </tbody></table></div>
-        <p class="bo-source">Un badge = un module terminé en entier (tous ses chapitres, quiz compris). La certification Trader 360 = l'examen final réussi (20 questions et 4 exercices sur graphique, 80 % et 3 exercices sur 4) ; la date est celle de la première réussite. Le diplôme PDF reste à accorder à la main, comme convenu.</p>
+        <p class="bo-source">Un badge = un module terminé en entier (tous ses chapitres, quiz compris). La certification Trader 360 = l'examen final réussi (20 questions et 4 exercices sur graphique, 80 % et 3 exercices sur 4) ; la date est celle de la première réussite. Le certificat PDF est celui que l'élève télécharge dans son espace : même nom, même date, même score, même numéro.</p>
       </div>`;
   };
+  /**
+   * ⛔ LE MÊME CERTIFICAT QUE CELUI DE L'ÉLÈVE : mêmes champs, même règle de numéro
+   * (supabase-formation.js, donneesCertificat). Un écart ferait circuler deux
+   * certificats différents pour la même personne.
+   */
+  document.addEventListener('click', async (e) => {
+    const p = e.target.closest('[data-dipl-pdf]');
+    if (!p) return;
+    const el = (await lire('progression', () => BO('progression'))).find((x) => x.user_id === p.dataset.diplPdf);
+    if (!el || !el.certifie_le) return;
+    p.disabled = true;
+    try {
+      await window.FormationDiplome.telecharger({
+        prenom: el.nom || el.email, nom: '', date: el.certifie_le,
+        score: el.certifie_score ? el.certifie_score.score : null, total: el.certifie_score ? el.certifie_score.total : null,
+        numero: `T360-C-${new Date(el.certifie_le).getFullYear()}-${String(el.user_id).replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+        logo: '/assets/marque/t360-logo-or.png',
+      });
+    } finally { p.disabled = false; }
+  });
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-dipl-filtre]');
     if (!b) return;
