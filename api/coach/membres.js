@@ -451,7 +451,7 @@ async function tunnels(corps, coach) {
  * la base du SITE. Même clé BACKOFFICE_CLE, même garde (requireCoach plus haut).
  * Aucune donnée d'élève du journal ne passe par ce pont.
  */
-const SOUS_ACTIONS_OFFRES = ['reference', 'lister', 'enregistrer', 'statut', 'supprimer', 'code_enregistrer', 'code_supprimer', 'envoyer_lien', 'envois', 'commandes', 'virement_recu', 'annuler', 'ouvrir_acces'];
+const SOUS_ACTIONS_OFFRES = ['reference', 'lister', 'enregistrer', 'statut', 'supprimer', 'code_enregistrer', 'code_supprimer', 'envoyer_lien', 'envois', 'commandes', 'virement_recu', 'annuler', 'ouvrir_acces', 'reprise_activer'];
 async function appelSite(sous, corps, coach) {
   const cle = process.env.BACKOFFICE_CLE;
   if (!cle) throw httpError(500, 'BACKOFFICE_CLE absente : le pont vers le site n est pas configure');
