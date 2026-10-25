@@ -397,6 +397,24 @@ export default async function handler(req, res) {
   }
   if (!SUPABASE_SERVICE_KEY) return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' });
 
+  // ⚠️ ALERTE « NIVEAU EN n/d » (Nadir, 25/10/2026) : « préviens-moi quand un niveau est
+  // en ND, normalement ça ne devrait pas arriver ». Mode à part, appelé par le workflow
+  // APRÈS l'envoi du brief : il ne touche ni aux destinataires ni à l'envoi. Un courriel
+  // au coach, avec chaque valeur manquante et son motif en clair.
+  if (req.body && req.body.alerte_marche) {
+    const a = req.body.alerte_marche;
+    const dest = process.env.ALERTE_BRIEF_DESTINATAIRE || 'clubtrader360@gmail.com';
+    const motifs = (Array.isArray(a.motifs) ? a.motifs : []).map((m) => String(m).slice(0, 400)).slice(0, 20);
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111">`
+      + `<p><b>Brief du ${esc(a.date || '?')} : ${Number(a.nd) || motifs.length} valeur(s) de marché en n/d.</b></p>`
+      + `<ul>${motifs.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>`
+      + (a.run ? `<p><a href="${esc(a.run)}">Voir le run</a></p>` : '') + `</div>`;
+    const r = await sendBriefEmail({ to: dest, subject: `⚠️ Brief du ${a.date || '?'} : ${Number(a.nd) || motifs.length} valeur(s) en n/d`, html });
+    console.log(`[DAILY-BRIEF] alerte n/d → ${dest} : ${r.success ? 'envoyée' : 'ÉCHEC ' + r.error}`);
+    return res.status(r.success ? 200 : 502).json({ ok: r.success, mode: 'alerte_marche', error: r.error || null });
+  }
+
   // #20 — dry run des destinataires tableur (validation avant envoi, aucun brief_html requis).
   if (req.body && req.body.dry_recipients === true) {
     try {

@@ -16,10 +16,15 @@ name: Instantané de clôture marché
 # lui-même l'heure de New York et s'arrête si elle est hors de la fenêtre, plutôt que
 # de faire confiance au cron. Un cron qui dérive d'une heure deux fois par an est
 # exactement le genre de panne saisonnière qu'on ne diagnostique jamais.
+# ⛔ PLANIFICATION RETIRÉE LE 25/10/2026. Cinquante-sept runs VERTS depuis le 16/09,
+# zéro instantané déposé : GitHub lance ses crons avec des heures de retard (le run du
+# 23/10 est parti à 20h30 à New York), le job se trouvait hors de sa fenêtre et
+# sortait en succès. Un contrôle qui ne prélève rien et répond « réussi » est pire
+# qu'une absence de contrôle. Les hauts et bas d'ES viennent désormais des barres
+# journalières TradingView lues par rang, vérifiées contre le règlement daté, et
+# chaque brief dépose la séance qu'il a vérifiée (daily-brief.yml). Ce workflow ne
+# reste que pour un prélèvement manuel.
 on:
-  schedule:
-    - cron: '5 21 * * 1-5'
-    - cron: '5 22 * * 1-5'
   workflow_dispatch:
     inputs:
       forcer:

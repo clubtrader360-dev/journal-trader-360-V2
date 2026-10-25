@@ -90,3 +90,37 @@ export function historiqueInstantanes(dossier, seanceIso, contratAttendu) {
   }
   return res;
 }
+
+/**
+ * Toutes les séances déposées, contrat vérifié : `Map(date → { haut, bas, ... })`.
+ * Sert au haut et au bas de SEMAINE, qui se reconstruisent séance par séance (25/10).
+ */
+export function seancesDeposees(dossier, contratAttendu) {
+  const m = new Map();
+  if (!dossier || !fs.existsSync(dossier)) return m;
+  for (const f of fs.readdirSync(dossier)) {
+    const d = f.replace(/\.json$/, '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    const s = lireSeance(dossier, d);
+    if (s && (!contratAttendu || !s.contrat || s.contrat === contratAttendu)) m.set(d, s);
+  }
+  return m;
+}
+
+/**
+ * Une semaine relevée D'UN BLOC, quand les séances isolées manquent : `semaines/<lundi>.json`,
+ * `{ lundi, haut, bas, contrat, source }`. Utilisée une seule fois, le 25/10/2026, pour
+ * la semaine du 19 : relevée marché fermé (TradingView High.5D / Low.5D sur ESZ2026),
+ * alors que les séances du 19 et du 20 n'avaient jamais été déposées.
+ */
+export function semaineDeposee(dossierSemaines, lundiIso, contratAttendu) {
+  if (!dossierSemaines) return null;
+  const f = path.join(dossierSemaines, `${lundiIso}.json`);
+  if (!fs.existsSync(f)) return null;
+  let j;
+  try { j = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; }
+  const nb = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  if (j?.lundi !== lundiIso || nb(j.haut) === null || nb(j.bas) === null || !(j.haut > j.bas)) return null;
+  if (contratAttendu && j.contrat && j.contrat !== contratAttendu) return null;
+  return { haut: j.haut, bas: j.bas, source: j.source || 'semaine déposée' };
+}

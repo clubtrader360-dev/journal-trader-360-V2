@@ -10,15 +10,16 @@
 // rien céder sur l'exigence : un écart supérieur à un tick reste un n/d.
 // ========================================================================
 import { spxCboe, vixCboe, esTradingView, esCnbc, codeCnbc, contratFrontMonth,
-         seanceCboe, semaineCboe } from './sources.js';
-import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre } from './validation.js';
+         seanceCboe, semaineCboe, esBarresTradingView, rangSeanceReglee, vixQuoteCboe } from './sources.js';
+import { seancesDeposees, semaineDeposee } from './instantanes.js';
+import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre, FERIES_US } from './validation.js';
 import { concilier, TOLERANCE_ES } from './croisement.js';
 
 const val = (v, meta = {}) => ({ nd: false, valeur: v, ...meta });
 const nd = (motif) => ({ nd: true, valeur: null, motif });
 const essai = async (f) => { try { return { ok: await f() }; } catch (e) { return { err: e.message }; } };
 
-export async function collecterMarche(dateBrief, { historique = null } = {}) {
+export async function collecterMarche(dateBrief, { historique = null, dossier = null, dossierSemaines = null, maintenant = new Date() } = {}) {
   const seance = dernierJourOuvre(dateBrief);
   const front = contratFrontMonth(dateBrief);
   const r = { dateBrief, seanceVisee: seance, contratAttendu: front,
@@ -31,7 +32,14 @@ export async function collecterMarche(dateBrief, { historique = null } = {}) {
   // lignes du tableau insensibles à l'heure de génération : plus besoin de se demander
   // si le cadran affiche la séance close ou celle en cours, la question ne se pose pas.
   for (const [bloc, symbole] of [['spx', '_SPX'], ['vix', '_VIX']]) {
-    const s = await essai(() => seanceCboe(symbole, seance));
+    let s = await essai(() => seanceCboe(symbole, seance));
+    // VIX : l'historique de graphique arrive en retard sur celui du SPX (n/d du 23/10).
+    // Second chemin daté : le cadran différé, dont l'horodatage est vérifié.
+    if (s.err && bloc === 'vix') {
+      const q = await essai(() => vixQuoteCboe(seance));
+      if (q.ok) s = { ok: { ...q.ok, ouverture: null, haut: q.ok.haut ?? q.ok.cloture, bas: q.ok.bas ?? q.ok.cloture } };
+      else s = { err: `${s.err} ; cadran différé : ${q.err}` };
+    }
     if (s.err) {
       const motif = `source ${bloc.toUpperCase()} indisponible (${s.err})`;
       noter(motif);
@@ -102,29 +110,93 @@ export async function collecterMarche(dateBrief, { historique = null } = {}) {
       if (accord.absents?.length) noter(`ES clôture publiée avec ${accord.chemins.length} chemins — ${accord.absents.join(' ; ')}`);
     }
 
-    // ── Hauts et bas d'ES ─────────────────────────────────────────────────────
+    // ── Hauts et bas d'ES (refonte du 25/10/2026) ─────────────────────────────
     //
-    // Aucun des fournisseurs atteignables ne rend la bougie JOURNALIÈRE DATÉE d'un
-    // contrat CME : CNBC n'a pas d'historique (404 sur ses trois routes de graphique),
-    // TradingView ne rend que la séance en cours, Investing est inatteignable par les
-    // sept portes essayées. Et à l'heure du brief, 18h43 à New York, la séance en
-    // cours est la NOUVELLE — le Globex a rouvert à 18h00.
-    //
-    // D'où le prélèvement de 17h05, pendant l'interruption technique du Globex. Il
-    // n'est PAS la voie unique par choix : il est la seule voie mesurée. Le jour où il
-    // manque, ces deux cases sortent en n/d, et elles seules — le reste du tableau ne
-    // dépend plus de lui.
+    // ⚠️ LE PRÉLÈVEMENT DE 17H05 N'A RIEN DÉPOSÉ DEPUIS LE 16/09 : les crons GitHub
+    // partent avec des heures de retard, le job tombait hors de sa fenêtre et sortait
+    // en succès. Les hauts et bas d'ES viennent désormais des barres journalières de
+    // TradingView, lues PAR RANG (cf. `esBarresTradingView`), et la barre retenue est
+    // VÉRIFIÉE contre la clôture conciliée : rang 1, c'est le règlement au tick près ;
+    // rang 0 (interruption ou week-end), à 3 points près. Un rang mal deviné donne un
+    // n/d avec son motif, jamais la fourchette d'une autre séance.
     const h = historique || {};
-    const manque = h.motif
-      || "haut/bas d'ES : aucun fournisseur atteignable ne rend la bougie journalière datée d'un contrat CME ; prélèvement de 17h05 absent pour cette séance";
-    const deHisto = (cle) => (typeof h[cle] === 'number'
-      ? val(h[cle], { source: 'prélèvement 17h05', seances: h.seancesSemaine, preleveA: h.preleveA })
-      : nd(manque));
-    if (h.ecartes?.length) noter(`ES : instantanés écartés pour cause de contrat différent — ${h.ecartes.join(', ')}`);
-    r.es.haut = deHisto('esHautSeance');
-    r.es.bas = deHisto('esBasSeance');
-    r.es.hautSemaine = deHisto('esHautSemaine');
-    r.es.basSemaine = deHisto('esBasSemaine');
+    const tvb = await essai(() => esBarresTradingView(front.contrat));
+    const rang = rangSeanceReglee(maintenant);
+    let barre = null;
+    let motifBarre = null;
+    if (tvb.err) motifBarre = `barres TradingView indisponibles (${tvb.err})`;
+    else {
+      const mC = controlerContrat(tvb.ok, front);
+      const b = tvb.ok.barres[rang];
+      const clo = r.es.cloture?.valeur;
+      if (mC.length) motifBarre = mC[0];
+      else if (!b || [b.haut, b.bas, b.cloture].some((x) => x === null)) motifBarre = `barre de rang ${rang} incomplète`;
+      else if (typeof clo !== 'number') motifBarre = 'clôture ES non publiée : la barre ne peut pas être vérifiée';
+      else if (Math.abs(b.cloture - clo) > (rang === 1 ? TOLERANCE_ES : 3)) {
+        motifBarre = `la barre de rang ${rang} clôture à ${b.cloture}, la clôture conciliée vaut ${clo} : ce n'est pas la séance du ${seance}`;
+      } else {
+        const mO = controlerOhlc('ES', { haut: b.haut, bas: b.bas, cloture: clo });
+        if (mO.length) motifBarre = mO[0];
+        else barre = { ...b, date: seance };
+      }
+    }
+    if (barre) {
+      r.sources.esHautBas = `${tvb.ok.source}, rang ${rang}`;
+      r.es.haut = val(barre.haut, { source: 'TradingView barre journalière', rang });
+      r.es.bas = val(barre.bas, { source: 'TradingView barre journalière', rang });
+    } else if (typeof h.esHautSeance === 'number') {
+      r.es.haut = val(h.esHautSeance, { source: 'prélèvement 17h05' });
+      r.es.bas = val(h.esBasSeance, { source: 'prélèvement 17h05' });
+      noter(`ES haut/bas : ${motifBarre} ; repli sur le prélèvement de 17h05`);
+    } else {
+      r.es.haut = nd(motifBarre); r.es.bas = nd(motifBarre);
+    }
+
+    // Les séances à DÉPOSER : celle-ci, et les barres antérieures quand elles sont
+    // lisibles. Datées en remontant les jours ouvrés depuis la séance visée.
+    r.es.aDeposer = [];
+    if (barre && tvb.ok) {
+      r.es.aDeposer.push({ date: seance, esHaut: barre.haut, esBas: barre.bas, esCloture: barre.cloture });
+      let d = seance;
+      for (let k = rang + 1; k < tvb.ok.barres.length; k++) {
+        d = dernierJourOuvre(d);
+        const b = tvb.ok.barres[k];
+        if ([b.haut, b.bas, b.cloture].some((x) => x === null) || !(b.haut > b.bas)) break;
+        r.es.aDeposer.push({ date: d, esHaut: b.haut, esBas: b.bas, esCloture: b.cloture });
+      }
+    }
+
+    // ── La semaine : du lundi à la séance visée, séance par séance ─────────────
+    // ⛔ Une semaine à laquelle il manque une séance n'est pas publiée : son haut ou
+    // son bas pourrait être justement dans la séance absente.
+    const [ya, ym, yj] = seance.split('-').map(Number);
+    const fin = Date.UTC(ya, ym - 1, yj);
+    const lundi = new Date(fin - ((new Date(fin).getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+    const connues = seancesDeposees(dossier, front.contrat);
+    for (const x of r.es.aDeposer) connues.set(x.date, { haut: x.esHaut, bas: x.esBas });
+    const attendues = [];
+    for (let t = Date.parse(lundi + 'T00:00:00Z'); t <= fin; t += 86400000) {
+      const iso = new Date(t).toISOString().slice(0, 10);
+      const jour = new Date(t).getUTCDay();
+      if (jour !== 0 && jour !== 6 && !FERIES_US.has(iso)) attendues.push(iso);
+    }
+    const manquantes = attendues.filter((d) => !connues.has(d));
+    const bloc = semaineDeposee(dossierSemaines, lundi, front.contrat);
+    if (!barre) {
+      const m = `semaine ES : séance du ${seance} non vérifiée (${motifBarre})`;
+      r.es.hautSemaine = nd(m); r.es.basSemaine = nd(m);
+    } else if (!manquantes.length) {
+      const dans = attendues.map((d) => connues.get(d));
+      r.es.hautSemaine = val(Math.max(...dans.map((x) => x.haut)), { seances: dans.length });
+      r.es.basSemaine = val(Math.min(...dans.map((x) => x.bas)), { seances: dans.length });
+    } else if (bloc && seance === attendues.at(-1)) {
+      // Semaine relevée d'un bloc ; la séance visée, lue aujourd'hui, est intégrée.
+      r.es.hautSemaine = val(Math.max(bloc.haut, barre.haut), { source: bloc.source });
+      r.es.basSemaine = val(Math.min(bloc.bas, barre.bas), { source: bloc.source });
+    } else {
+      const m = `semaine ES : séance(s) ${manquantes.join(', ')} jamais relevée(s), haut et bas de semaine non calculables`;
+      r.es.hautSemaine = nd(m); r.es.basSemaine = nd(m);
+    }
   }
 
   for (const [bloc, champs] of Object.entries({ spx: r.spx, es: r.es, vix: r.vix })) {
