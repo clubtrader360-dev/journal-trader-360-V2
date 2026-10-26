@@ -24,7 +24,7 @@ dire(OUVERTES.includes('lister') && OUVERTES.length >= 10, 'sous-actions du pont
 const h = (n) => new Date(Date.now() + n * 3600e3).toISOString();
 const dateSaisie = (iso) => iso.slice(0, 16);
 const T = [
-  { id: 1, slug: 'web-sans-lien', type: 'webinaire', statut: 'publie', titre: 'À venir sans lien', inscrits: 4, date: dateSaisie(h(30)), debut: h(30), lien_direct_pose: false, lien_replay_pose: false, retombees: { inscrits: 4, presents: 0, replays_vus: 0, replays_envoyes: 0, candidatures: 0 } },
+  { id: 1, slug: 'web-sans-lien', type: 'webinaire', statut: 'publie', jeton_apercu: '11111111-1111-4111-8111-111111111111', titre: 'À venir sans lien', inscrits: 4, date: dateSaisie(h(30)), debut: h(30), lien_direct_pose: false, lien_replay_pose: false, retombees: { inscrits: 4, presents: 0, replays_vus: 0, replays_envoyes: 0, candidatures: 0 } },
   { id: 2, slug: 'web-avec-lien', type: 'webinaire', statut: 'publie', titre: 'À venir avec lien', inscrits: 2, date: dateSaisie(h(2)), debut: h(2), lien_direct_pose: true, lien_replay_pose: false, retombees: { inscrits: 2, presents: 0, replays_vus: 0, replays_envoyes: 0, candidatures: 0 } },
   { id: 3, slug: 'web-passe', type: 'webinaire', statut: 'publie', titre: 'Passé à envoyer', inscrits: 3, date: dateSaisie(h(-30)), debut: h(-30), lien_direct_pose: true, lien_replay_pose: true, retombees: { inscrits: 3, presents: 2, replays_vus: 1, replays_envoyes: 1, candidatures: 3, candidatures_live: 2 } },
   { id: 4, slug: 'web-fini', type: 'webinaire', statut: 'archive', titre: 'Passé envoyé', inscrits: 2, date: dateSaisie(h(-300)), debut: h(-300), lien_direct_pose: true, lien_replay_pose: true, retombees: { inscrits: 2, presents: 1, replays_vus: 2, replays_envoyes: 2, candidatures: 0 } },
@@ -50,7 +50,7 @@ const fetch = async (u, o) => {
   if (b.sous_action === 'lister') return rep(T);
   if (b.sous_action === 'modeles') return rep(MODELES);
   if (b.sous_action === 'listes_brevo') return rep([]);
-  if (b.sous_action === 'lire') return rep({ ...T.find((x) => x.id === b.id), contenu: { date: T.find((x) => x.id === b.id).date, lien_direct: 'https://youtube.com/live/abc', lien_replay: 'https://vimeo.com/1130000000/a1b2c3' }, manquants: [] });
+  if (b.sous_action === 'lire') return rep({ ...T.find((x) => x.id === b.id), contenu: { date: T.find((x) => x.id === b.id).date, lien_direct: 'https://youtube.com/live/abc', lien_replay: 'https://vimeo.com/1130000000/a1b2c3' }, manquants: [], jeton_apercu: '22222222-2222-4222-8222-222222222222' });
   if (b.sous_action === 'inscrits') return rep(INSCRITS);
   if (b.sous_action === 'envoyer_replay') return rep(replayRendu);
   if (b.sous_action === 'enregistrer') return rep({ ...b, manquants: [] });
@@ -109,6 +109,7 @@ dire(/data-web-creer/.test(w) && !/data-web-creer[^>]*disabled/.test(w), 'bouton
 dire(/data-tun-copier="https:\/\/www\.trader360\.fr\/t\/web-sans-lien\/"/.test(ligne('À venir sans lien')), 'publié : lien d’inscription affiché, avec « Copier »');
 dire(/data-tun-copier="https:\/\/www\.trader360\.fr\/t\/web-sans-lien\/candidater\/"/.test(ligne('À venir sans lien')), 'publié : lien « candidater » du live, avec « Copier »');
 dire(/>3 <small title="par le lien du live">dont 2 live<\/small>/.test(ligne('Passé à envoyer')), 'candidatures : 3, dont 2 par le lien du live');
+dire(/\/t\/web-sans-lien\/regie\/\?coach=11111111-1111-4111-8111-111111111111/.test(ligne('À venir sans lien')), 'lien « régie du live » avec la clé d’aperçu');
 dire(!/data-tun-copier/.test(ligne('Réponse sans retombées')) && /Pas encore publié/.test(ligne('Réponse sans retombées')), 'brouillon : pas de lien à partager, « Pas encore publié »');
 dire(/data-tun-copier="https:\/\/www\.trader360\.fr\/t\/web-fini\/"/.test(ligne('Passé envoyé')) === false, '⚠️ TÉMOIN : un webinaire archivé ne propose pas son lien');
 
@@ -138,6 +139,7 @@ dire(/title="Brevo 400 adresse refusée">non parti/.test(ed2), 'un rappel refus�
 dire(/veille \+ heure/.test(ed2), 'Alice : « veille + heure »');
 dire(/<b class="num">2<\/b> présents/.test(ed2) && /<b class="num">1<\/b> candidatures/.test(ed2), 'suivi : 2 présents, 1 candidature');
 dire(/data-web-replay="3" data-reste="2"/.test(ed2), 'éditeur : « Envoyer le replay (2) »');
+dire(/Ouvrir la régie du live/.test(ed2) && /\/t\/web-passe\/regie\/\?coach=/.test(ed2), 'éditeur : bouton « Ouvrir la régie du live »');
 // Témoin : une sous-action fermée est refusée par le double, comme par le pont.
 const refus = await fetch('', { body: JSON.stringify({ action: 'tunnels', sous_action: 'rappels' }) });
 dire(refus.status === 400, '⚠️ TÉMOIN : « rappels » n’est PAS ouvert au back-office (seul le cron l’appelle)');
