@@ -1178,6 +1178,7 @@
         ${kpi('fa-arrow-pointer', 'Clics', nb(somme('clics')), 'ouvertures du questionnaire par un lien')}
         ${kpi('fa-file-signature', 'Candidatures', nb(somme('candidatures')), 'venues d un lien')}
         ${kpi('fa-handshake', 'Ventes', nb(somme('ventes')), eur(somme('montant')))}
+        ${kpi('fa-coins', 'Commissions dues', eur(somme('commission_due')), somme('commission_attente') ? `${eur(somme('commission_attente'))} en attente de paiement` : '20 % du HT des formations payées')}
       </div>
       <div class="bo-carte">
         <div class="bo-carte__tete"><h2>Affiliés <small>${vus.length}</small></h2>
@@ -1200,14 +1201,14 @@
             <option value="externe" ${_aff.filtre === 'externe' ? 'selected' : ''}>Extérieurs</option>
           </select>
         </div>
-        ${vus.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Affilié</th><th>Lien</th><th class="num">Clics</th><th class="num">Candidatures</th><th class="num">Ventes</th><th class="num">Montant</th><th>État</th></tr></thead><tbody>
+        ${vus.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Affilié</th><th>Lien</th><th class="num">Clics</th><th class="num">Candidatures</th><th class="num">Ventes</th><th class="num">Montant</th><th class="num">Commission due</th><th>État</th></tr></thead><tbody>
           ${vus.map((a) => `<tr class="${a.actif ? '' : 'aff-inactif'}">
             <td><b>${txt(a.nom)}</b> <span class="bo-pill ${a.type === 'membre' ? 'bo-pill--ok' : ''}">${a.type === 'membre' ? 'Membre' : 'Extérieur'}</span><small class="aff-sous">${txt(a.email || '')}${a.note ? ` · ${txt(a.note)}` : ''}</small></td>
             <td><button type="button" class="aff-lien" data-aff-copier="${txt(a.lien)}" title="Copier le lien"><span class="chiffre">${txt(a.code)}</span> <i class="fas fa-copy"></i></button></td>
-            <td class="num chiffre">${nb(a.clics)}</td><td class="num chiffre">${nb(a.candidatures)}</td><td class="num chiffre">${nb(a.ventes)}</td><td class="num chiffre">${a.montant ? eur(a.montant) : ''}</td>
+            <td class="num chiffre">${nb(a.clics)}</td><td class="num chiffre">${nb(a.candidatures)}</td><td class="num chiffre">${nb(a.ventes)}</td><td class="num chiffre">${a.montant ? eur(a.montant) : ''}</td><td class="num chiffre">${a.commission_due ? `<b>${eur(a.commission_due)}</b>` : ''}${a.commission_attente ? `<small class="aff-sous">${eur(a.commission_attente)} en attente</small>` : ''}</td>
             <td><button type="button" class="bo-btn bo-btn--fantome" data-aff-actif="${a.id}" data-valeur="${a.actif ? '0' : '1'}">${a.actif ? 'Désactiver' : 'Réactiver'}</button></td></tr>`).join('')}
         </tbody></table></div>` : `<p class="bo-vide">${tous.length ? 'Aucun affilié ne correspond.' : 'Aucun lien pour l instant. « Liens des membres » en crée un pour chaque membre ; « Affilié extérieur » pour une personne hors club.'}</p>`}
-        <p class="bo-source">Le lien mène au questionnaire. Une candidature venue d'un lien est attribuée à son affilié et l'alerte « Candidature de … » le précise ; une vente est attribuée quand l'e-mail de la commande est celui de la candidature. Aucun traceur chez le visiteur : quelqu'un qui revient plus tard par l'accueil n'est plus attribué. Un lien désactivé mène toujours au questionnaire, sans rien compter.</p>
+        <p class="bo-source">Le lien mène au questionnaire. Une candidature venue d'un lien est attribuée à son affilié et l'alerte « Candidature de … » le précise ; une vente est attribuée quand l'e-mail de la commande est celui de la candidature. Commission : 20 % du montant hors taxes (TTC / 1,2) de la formation, due une fois la formation payée ; « en attente » pour un paiement en plusieurs fois pas encore soldé ; rien sur un présentiel. Aucun traceur chez le visiteur : quelqu'un qui revient plus tard par l'accueil n'est plus attribué. Un lien désactivé mène toujours au questionnaire, sans rien compter.</p>
       </div>`;
   };
   document.addEventListener('click', async (e) => {
