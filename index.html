@@ -16432,6 +16432,10 @@ function computeMetricsForTimeframe(timeframe) {
         label = 'Performance du jour';
         dateRange = _capitalize(dObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
         bestTrade = Math.max(...scoped.map(t => parseFloat(t.pnl) || 0));
+        // Partage noir et or (27/10) : la courbe cumulée de la journée, dans l'ordre des entrées.
+        let cumul = 0;
+        var courbe = scoped.slice().sort((a, b) => String(a.entry_time || '').localeCompare(String(b.entry_time || '')))
+            .map(t => (cumul += (parseFloat(t.pnl) || 0)));
     } else if (timeframe === 'week') {
         const dow = (today.getDay() + 6) % 7;
         const monday = new Date(today); monday.setDate(today.getDate() - dow); monday.setHours(0, 0, 0, 0);
@@ -16452,15 +16456,17 @@ function computeMetricsForTimeframe(timeframe) {
         const y = today.getFullYear(), m = today.getMonth();
         scoped = valid.filter(t => { const p = _shareDateOf(t).split('-'); return Number(p[0]) === y && Number(p[1]) - 1 === m; });
         if (!scoped.length) return null;
-        label = 'Performance — ' + _capitalize(today.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }));
+        label = 'Performance du mois';
         dateRange = _capitalize(today.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }));
         const byDay = {};
         scoped.forEach(t => { const d = _shareDateOf(t); byDay[d] = (byDay[d] || 0) + (parseFloat(t.pnl) || 0); });
         dailyBars = Object.entries(byDay).map(([date, pnl]) => ({ date, pnl }));
     }
     const kpis = _computeShareKpis(scoped);
+    const meilleurJour = (dailyBars || []).filter(b => b.pnl !== 0).reduce((m, b) => (!m || b.pnl > m.pnl ? b : m), null);
     return { timeframe, label, dateRange, netPnl: kpis.netPnl, netPnlInR: kpis.netPnlInR,
-        winRate: kpis.winRate, profitFactor: kpis.profitFactor, totalTrades: kpis.totalTrades, bestTrade, dailyBars };
+        winRate: kpis.winRate, profitFactor: kpis.profitFactor, totalTrades: kpis.totalTrades, bestTrade, dailyBars,
+        courbe: (typeof courbe !== 'undefined') ? courbe : null, meilleurJour, reference: _shareLocalISO(today) };
 }
 
 // ---- Helpers canvas ----
@@ -16701,6 +16707,9 @@ async function sharePerformance(timeframe) {
             alert('⚠️ Aucune donnée disponible pour cette période. Ajoute des trades pour pouvoir partager.');
             return;
         }
+        // Partage noir et or (27/10) : la scène animée, avec image et vidéo à télécharger.
+        // L'ancienne carte reste en secours si le module n'est pas chargé.
+        if (window.PartagePerf) { window.PartagePerf.ouvrir(metrics); return; }
         loadingMsg = showShareLoader(timeframe);
         const canvas = await renderInstagramCanvas(metrics, timeframe);
         canvas.toBlob((blob) => {
@@ -16728,6 +16737,7 @@ console.log('[SHARE] ✅ Fonction sharePerformance() exposée');
     
 
     <!-- "Bourse à l'Aube" — fond multi-couches (bougies + ticker + particules) + chorégraphie -->
+    <script src="/assets/partage-perf.js" defer></script>
     <script src="/assets/mic-dictation.js" defer></script>
     <script src="/assets/candles-bg.js" defer></script>
     <script src="/assets/aube-bg.js" defer></script>
