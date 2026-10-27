@@ -43,6 +43,7 @@ import { getSheetsClient } from './_lib/sheets-client.js';
 import { brevo } from '../_lib/brevo-client.js';
 import { crm } from '../_lib/crm.js';
 import { fusionnerLeads, sourceDe } from '../_lib/leads-fusion.js';
+import { statutsResend, questionnaireTableur } from '../_lib/fiche-complements.js';
 import { tableurParEmail } from '../_lib/tableur-par-email.js';
 import { retirerMembresDesProspects } from '../_lib/prospects-membres.js';
 import crypto from 'node:crypto';
@@ -784,6 +785,27 @@ async function prenomDe(sb, userId, email) {
   const { data } = await sb.from('users').select('name').eq('uuid', userId).maybeSingle();
   return String((data && data.name) || '').trim().split(' ')[0] || '';
 }
+/**
+ * Le mail de certification envoyé À LA MAIN depuis la fiche (Nadir, 27/10) : pour les
+ * certifiés d'avant le mail automatique (21/10) et pour ceux que le plafond a privés.
+ * ⛔ Jamais deux fois : même réservation que l'envoi automatique (type, référence).
+ */
+async function mailCertification(sb, corps, coach, origine) {
+  const uid = String(corps.user_id || '').trim();
+  if (!UUID.test(uid)) throw httpError(400, 'user_id attendu');
+  const { data: rows, error } = await sb.from('formation_quiz_resultats').select('id, user_id, module_cle, score, total, reussi, reponses, created_at')
+    .eq('user_id', uid).eq('module_cle', '10').eq('reussi', true).order('created_at', { ascending: true }).limit(1);
+  if (error) throw httpError(500, `résultats illisibles : ${error.message}`);
+  if (!rows || !rows.length) throw httpError(409, 'pas de certification réussie pour ce membre');
+  const { data: u } = await sb.auth.admin.getUserById(uid);
+  const email = u && u.user && u.user.email;
+  if (!email) throw httpError(404, 'compte introuvable');
+  const prenom = await prenomDe(sb, uid, email);
+  const r = await envoyerMailResultat(sb, rows[0], { email, prenom, origine, par: coach.email });
+  if (!r.envoye) throw httpError(409, r.motif || 'mail non envoyé');
+  console.log(`[MAILS MEMBRES] ✅ mail de certification envoyé à la main à ${email} par ${coach.email}`);
+  return { envoye: true, email };
+}
 /** Envoie le mail d'UN résultat, si personne ne l'a déjà fait. Rend { envoye, motif }. */
 async function envoyerMailResultat(sb, row, { email, prenom, origine, par }) {
   if (!donneesQuiz(row.module_cle)) return { envoye: false, motif: `quiz ${row.module_cle} inconnu` };
@@ -820,10 +842,18 @@ async function mailQuizEleve(sb, req, origine) {
   if (!(await reglageActif(sb, CLE_MAILS_QUIZ))) return { envoyes: 0, motif: 'mails de quiz coupés' };
   const depuis = new Date(Date.now() - 24 * 3600e3).toISOString();
   const { count: jour } = await sb.from('mails_envoyes').select('id', { count: 'exact', head: true }).eq('user_id', u.id).eq('type', TYPE_MAIL_QUIZ).gte('envoye_le', depuis);
-  if ((jour || 0) >= 8) return { envoyes: 0, motif: 'plafond de 8 mails de quiz par 24 h atteint' };
-  const { data: rows, error: eR } = await sb.from('formation_quiz_resultats').select('id, user_id, module_cle, score, total, reussi, reponses, created_at')
+  const { data: rows0, error: eR } = await sb.from('formation_quiz_resultats').select('id, user_id, module_cle, score, total, reussi, reponses, created_at')
     .eq('user_id', u.id).gte('created_at', new Date(Date.now() - 15 * 60e3).toISOString()).order('created_at', { ascending: false }).limit(3);
   if (eR) throw httpError(500, `résultats illisibles : ${eR.message}`);
+  /**
+   * ⛔ LE PLAFOND NE BLOQUE JAMAIS LA CERTIFICATION. Mesuré le 27/10 : un élève qui avait
+   * enchaîné ses quiz le 23/10 a réussi la certification après son 8e mail du jour, et
+   * n'a jamais reçu « Tu es certifié Trader 360 ». Le plafond protège des rafales de
+   * quiz ; le mail de certification, lui, n'arrive qu'une fois dans une vie.
+   */
+  const plafond = (jour || 0) >= 8;
+  const rows = plafond ? (rows0 || []).filter((r) => String(r.module_cle) === '10' && r.reussi) : rows0;
+  if (plafond && !rows.length) return { envoyes: 0, motif: 'plafond de 8 mails de quiz par 24 h atteint' };
   const prenom = await prenomDe(sb, u.id, u.email);
   let envoyes = 0;
   for (const row of rows || []) {
@@ -1140,7 +1170,7 @@ async function fiche(sb, corps) {
     uid ? sb.from('acces_membre').select('*').eq('user_id', uid).maybeSingle() : Promise.resolve({ data: null }),
     sb.from('formation_niveau_learnybox').select('*').ilike('email', email).limit(1),
     sb.from('membres_profil_learnybox').select('*').ilike('email', email).limit(1),
-    sb.from('mails_envoyes').select('type, sujet, envoye_le, erreur, envoye_par').ilike('email', email).order('envoye_le', { ascending: false }).limit(100),
+    sb.from('mails_envoyes').select('type, sujet, envoye_le, erreur, envoye_par, fournisseur, fournisseur_id, reference').ilike('email', email).order('envoye_le', { ascending: false }).limit(100),
     sb.from('membres_signalements').select('type, note, montant, depuis, reference_email, cree_par, created_at').ilike('email', email).order('created_at', { ascending: false }),
   ]);
   for (const r of [pub, acces, lbNiveau, lbProfil, mails, sigF]) if (r.error) throw httpError(500, `lecture impossible : ${r.error.message}`);
@@ -1226,9 +1256,29 @@ async function fiche(sb, corps) {
     } catch (e) { console.error('[MEMBRES] ⚠️ XP de la fiche non calculable :', e.message); }
   }
 
+  /**
+   * ⚠️ LA FICHE COMPLÈTE (Nadir, 27/10) : trois sources de plus, lues en parallèle, chacune
+   * protégée : une source qui échoue le dit dans la fiche, elle ne la casse pas.
+   *  - le dossier du SITE (questionnaires de positionnement, CGV acceptées, affiliation) ;
+   *  - le statut Resend des mails (délivré, ouvert…) ;
+   *  - l'onglet « Questionnaire » du tableur de Manu (réponses d'avant le site).
+   */
+  const [dossier, resend, questionnaire] = await Promise.all([
+    appelSite('dossier', { email, user_id: uid || null }, { email: 'fiche' }, '/api/crm').catch((e) => ({ erreur: e.message })),
+    statutsResend(mails.data || [], RESEND_API_KEY).catch(() => new Map()),
+    questionnaireTableur(email).catch((e) => ({ lu: false, erreur: e.message })),
+  ]);
+  const mailsAvecStatut = (mails.data || []).map((m) => { const st = m.fournisseur_id ? resend.get(m.fournisseur_id) : null; return { ...m, resend: st || null }; });
+  // La certification : le premier passage réussi du module 10 (quiz réussi = module terminé).
+  const certQuiz = formation.quiz.filter((q) => String(q.module_cle) === '10' && q.reussi).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0] || null;
+  const certification = certQuiz ? { le: certQuiz.created_at, score: certQuiz.score, total: certQuiz.total, mail_envoye: mailsAvecStatut.some((m) => m.type === 'quiz_resultat' && /^Tu es certifié/.test(m.sujet || '')) } : null;
+
   return {
     tableur,
     xp,
+    dossier,
+    questionnaire,
+    certification,
     compte: compte ? { user_id: compte.id, email: compte.email, cree_le: compte.created_at, derniere_connexion: compte.last_sign_in_at, confirme: !!compte.email_confirmed_at } : null,
     profil: pub.data || null,
     acces: acces.data || null,
@@ -1236,7 +1286,7 @@ async function fiche(sb, corps) {
     learnybox_profil: (lbProfil.data && lbProfil.data[0]) || null,
     formation,
     journal,
-    mails: mails.data || [],
+    mails: mailsAvecStatut,
     transactions: { lignes: transactions.data || [], source: 'learnybox', importe: (transactions.data || []).length > 0 },
     activites: activites.slice(0, 300),
     signalements: sigF.data || [],
@@ -1571,6 +1621,7 @@ export default async function handler(req, res) {
     else if (action === 'crm') resultat = await crm(sb, corps, { brevoOk, httpError });
     else if (action === 'affiliation') resultat = await affiliation(sb, corps, coach);
     else if (action === 'leads') resultat = await leads(sb, corps, coach);
+    else if (action === 'mail_certification') resultat = await mailCertification(sb, corps, coach, origine);
     else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
