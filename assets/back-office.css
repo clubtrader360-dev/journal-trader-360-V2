@@ -338,3 +338,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lead-histo__tete { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; }
 .lead-histo__tete span { color: var(--text-soft); font-size: 12px; }
 .lead-histo p { margin: 4px 0 0; font-size: 13.5px; color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.lead-interne { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-soft); cursor: pointer; }
+.lead-interne input { accent-color: var(--gold); }

@@ -42,6 +42,7 @@ import { getServiceClient } from '../tradovate/_lib/auth.js';
 import { getSheetsClient } from './_lib/sheets-client.js';
 import { brevo } from '../_lib/brevo-client.js';
 import { crm } from '../_lib/crm.js';
+import { fusionnerLeads, sourceDe } from '../_lib/leads-fusion.js';
 import { tableurParEmail } from '../_lib/tableur-par-email.js';
 import { retirerMembresDesProspects } from '../_lib/prospects-membres.js';
 import crypto from 'node:crypto';
@@ -739,10 +740,21 @@ async function leads(sb, corps, coach) {
   const sous = String(corps.sous_action || '');
   if (!SOUS_ACTIONS_LEADS.includes(sous)) throw httpError(400, 'sous_action inconnue');
   const { action: _a, sous_action: _s, par: _p, ...reste } = corps;
+  if (sous === 'leads') {
+    // Un lead = une adresse : le site (candidatures, prospects, étapes) + Brevo (listes).
+    const [r, listes, contacts, coachs] = await Promise.all([
+      appelSite('leads', {}, coach, '/api/crm'),
+      crm(sb, { sous_action: 'listes' }, { brevoOk, httpError }),
+      crm(sb, { sous_action: 'contacts' }, { brevoOk, httpError }),
+      sb.from('users').select('email').eq('role', 'coach').then(({ data }) => (data || []).map((u) => u.email)),
+    ]);
+    const leads = fusionnerLeads({ site: r.leads, prospects: r.prospects, brevo: contacts.contacts, listes, coachs }).map((x) => ({ ...x, source: sourceDe(x) }));
+    return { statuts: r.statuts, types: r.types, calendly: r.calendly, listes: listes.map((l) => l.nom), leads, brevo_tronque: !!contacts.tronque };
+  }
   const r = await appelSite(sous, reste, coach, '/api/crm');
-  if (sous === 'lead' && r && r.lead && r.lead.email) {
+  if (sous === 'lead' && r && r.email) {
     // Brevo : un lead peut ne pas y être (404) ; ce n'est pas une erreur de la fiche.
-    try { r.brevo = await crm(sb, { sous_action: 'contact', email: r.lead.email }, { brevoOk, httpError }); }
+    try { r.brevo = await crm(sb, { sous_action: 'contact', email: r.email }, { brevoOk, httpError }); }
     catch (e) { r.brevo = null; r.brevo_motif = /404|does not exist|introuvable/i.test(e.message) ? 'absent de Brevo' : e.message; }
   }
   return r;
