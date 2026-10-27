@@ -560,6 +560,9 @@
       else if (t.matches('[data-onglet]')) { _ongletFiche = t.dataset.onglet; rendreFiche(); }
       else if (t.matches('[data-quiz-detail]')) { const i = Number(t.dataset.quizDetail); _quizOuvert = _quizOuvert === i ? null : i; rendreFiche(); }
       else if (t.matches('[data-fiche-mail]')) renvoyerMailFiche(t);
+      else if (t.matches('[data-fiche-cert]')) telechargerCertificat(t);
+      else if (t.matches('[data-fiche-mail-cert]')) envoyerMailCertification(t);
+      else if (t.matches('[data-fiche-copier]')) { navigator.clipboard.writeText(t.dataset.ficheCopier).then(() => dire('Lien copié.')).catch(() => dire('Copie impossible.', 'error')); }
       else if (t.matches('[data-fiche-mdp]')) poserMotDePasse(t);
       else if (t.matches('[data-fiche-journal]')) voirJournalFiche();
       else if (t.matches('[data-mail]')) renvoyerMail(t);
@@ -720,7 +723,8 @@
   function pointOnglet(k, f) {
     if (k === 'formation') return f.formation.progression.length > 0 || !!f.learnybox;
     if (k === 'transactions') return f.transactions.lignes.length > 0;
-    if (k === 'questionnaires') return f.formation.quiz.length > 0;
+    if (k === 'questionnaires') return f.formation.quiz.length > 0 || !!(f.dossier && f.dossier.candidatures && f.dossier.candidatures.length) || !!(f.questionnaire && f.questionnaire.reponses && f.questionnaire.reponses.length);
+    if (k === 'affiliation') return !!(f.dossier && f.dossier.affiliation);
     if (k === 'emails') return f.mails.length > 0;
     return false;
   }
@@ -756,8 +760,11 @@
           return `<div class="am-activite"><span class="am-activite__ic"><i class="fas ${IC[a.type] || 'fa-circle'}"></i></span><span class="am-activite__h">${String(a.quand).includes('T12:00:00Z') ? '' : txt(new Date(a.quand).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))}</span><span class="am-activite__t"><b>${LIB[a.type] || a.type}</b> ${txt(l ? l.titre : a.detail)}</span></div>`; }).join('')}`).join(''), f.activites.length);
     }
     if (k === 'emails') {
-      const lignes = f.mails.map((e) => `<tr><td><span class="am-statut ${e.erreur ? 'am-statut--non' : 'am-statut--ok'}">${e.erreur ? 'Échec' : 'Transactionnel'}</span></td><td>${txt(e.sujet)}</td><td>${txt(dateFr(e.envoye_le, true))}</td><td>${txt(e.envoye_par || '')}</td></tr>`).join('');
-      return bloc('Emails', `${f.mails.length ? `<table class="am-table am-table--simple"><thead><tr><th>Type</th><th>Sujet</th><th>Date d envoi</th><th>Par</th></tr></thead><tbody>${lignes}</tbody></table>` : '<p class="am-vide">Aucun mail envoyé depuis le journal.</p>'}<p class="am-source">Mails envoyés par le journal (Resend). Les mails envoyés par LearnyBox ne sont pas repris.</p>`, f.mails.length);
+      const TYPES_MAIL = { quiz_resultat: 'Résultat de quiz', premiere_connexion: 'Accès au journal', annonce_bascule: 'Annonce', mot_de_passe_provisoire: 'Mot de passe' };
+      const EVT = { delivered: ['Délivré', ''], opened: ['Ouvert', 'am-statut--ok'], clicked: ['Cliqué', 'am-statut--ok'], bounced: ['Rebond', 'am-statut--non'], complained: ['Signalé en spam', 'am-statut--non'], sent: ['Envoyé', ''], delivery_delayed: ['Retardé', 'am-statut--attend'], scheduled: ['Programmé', ''] };
+      const etat = (e) => { if (e.erreur) return '<span class="am-statut am-statut--non">Échec</span>'; const r = e.resend; if (!r) return '<span class="am-statut">·</span>'; if (r.erreur) return `<span class="am-statut" title="${txt(r.erreur)}">?</span>`; const [lib, cl] = EVT[r.evenement] || [r.evenement || '·', '']; return `<span class="am-statut ${cl}">${txt(lib)}</span>`; };
+      const lignes = f.mails.map((e) => `<tr><td>${txt(TYPES_MAIL[e.type] || e.type)}</td><td>${txt(e.sujet)}</td><td>${txt(dateFr(e.envoye_le, true))}</td><td>${etat(e)}</td><td>${txt(e.envoye_par || '')}</td></tr>`).join('');
+      return bloc('Emails', `${f.mails.length ? `<table class="am-table am-table--simple"><thead><tr><th>Type</th><th>Sujet</th><th>Date d envoi</th><th>Statut</th><th>Par</th></tr></thead><tbody>${lignes}</tbody></table>` : '<p class="am-vide">Aucun mail envoyé depuis le journal.</p>'}<p class="am-source">Mails envoyés par le journal (Resend), dont les résultats de quiz depuis le 22/10. Statut relu chez Resend à l ouverture de la fiche (25 mails les plus récents) ; « Ouvert » n apparaît que si le suivi des ouvertures est activé chez Resend. Les mails envoyés par LearnyBox ne sont pas repris.</p>`, f.mails.length);
     }
     if (k === 'formation') {
       const M = (window.FormationDonnees && window.FormationDonnees.MODULES) || [];
@@ -769,8 +776,11 @@
       const quizOk = new Set(f.formation.quiz.filter((q) => q.reussi).map((q) => q.module_cle));
       const tl = totalLecons(); const vuesN = vus.size; const pct = tl ? Math.round((vuesN / tl) * 100) : 0;
       const demarrage = lb.inscrit_le || (f.compte && f.compte.cree_le) || null;
-      const cert = M.find((x) => x.cle === '10');
-      const certOk = cert && modules.find((r) => r.x === cert) && modules.find((r) => r.x === cert).fini;
+      // ⚠️ La certification se lit dans ses quiz (module 10 réussi), pas dans la liste des
+      // modules à chapitres : le module 10 n'en a pas, il en était absent, d'où « 0 diplôme »
+      // affiché à des certifiés (relevé par Nadir le 27/10).
+      const c = f.certification;
+      const certOk = !!c;
       return bloc('Formation', `
         <table class="am-table am-table--simple"><thead><tr><th>Formation</th><th>Date de démarrage</th><th>Niveau</th><th>Progression</th><th>État</th></tr></thead>
         <tbody><tr><td><b>Trader 360</b></td><td>${txt(dateFr(demarrage))}</td><td>${m ? txt(NIVEAUX[niveauEffectif(m).cle] || '·') : txt(NIVEAUX[lb.niveau] || '·')}</td>
@@ -778,9 +788,12 @@
         <td>${m && !m.sans_compte ? `<label class="am-switch"><input type="checkbox" data-droit="formation" ${m.formation ? 'checked' : ''}><i></i><span>${m.formation ? 'Actif' : 'Fermé'}</span></label>` : '<span class="am-statut am-statut--attend">Sans compte</span>'}</td></tr></tbody></table>
         ${!f.compte && lb.progression_pct != null ? `<p class="am-source">Sans compte dans le journal : progression LearnyBox ${lb.progression_pct} %, reportée à la création du compte.</p>` : ''}`, 1)
       + bloc('Modules', `${f.xp ? `<p class="am-total"><b class="am-mono">${txt(f.xp.total.toLocaleString('fr-FR'))} XP</b> sur ${txt(Number(f.xp.max).toLocaleString('fr-FR'))} possibles</p>` : ''}<div class="am-modules">${modules.map((r) => { const xm = f.xp ? f.xp.modules.find((x) => x.cle === r.x.cle) : null; return `<div class="am-module ${r.fini ? 'done' : ''}"><span class="am-module__num">${r.x.bonus ? 'Bonus' : r.x.cle === '10' ? 'Certif.' : `Module ${txt(r.x.numero)}`}</span><span class="am-barre"><i style="width:${r.t ? Math.round((r.n / r.t) * 100) : 0}%"></i></span><span class="am-module__n">${r.n} / ${r.t}${quizOk.has(r.x.cle) ? ' · quiz réussi' : ''}</span><span class="am-module__xp am-mono">${xm && xm.compte ? `${txt(xm.xp)} / ${txt(xm.max)} XP` : xm ? '0 XP (hors barème)' : ''}</span></div>`; }).join('')}</div>${f.xp ? '<p class="am-source">XP : même calcul que l espace de l élève et que le tableur (100 par module répartis entre ses chapitres, quiz compris ; +250 par module terminé, 1000 pour la certification ; introduction et bonus hors barème).</p>' : ''}`)
-      + bloc('Badges', finis.length ? `<div class="am-badges">${finis.map((r) => `<span class="am-badge">${r.x.cle === '10' ? 'Certification' : `Module ${txt(r.x.numero)} terminé`}</span>`).join('')}</div>` : '<p class="am-vide">Aucun badge : aucun module terminé en entier.</p>', finis.length)
-      + bloc('Diplôme', certOk ? '<p><span class="am-statut am-statut--ok">Certification Trader 360 obtenue</span></p>' : '<p class="am-vide">Aucun diplôme obtenu (la certification Trader 360 vient avec le module 10).</p>', certOk ? 1 : 0)
-      + bloc('Documents', '<p class="am-vide">Les documents de la formation restent sur LearnyBox pour l instant.</p>');
+      + bloc('Badges', finis.length || certOk ? `<div class="am-badges">${finis.filter((r) => r.x.cle !== '10').map((r) => `<span class="am-badge">Module ${txt(r.x.numero)} terminé</span>`).join('')}${certOk ? '<span class="am-badge">Certification</span>' : ''}</div>` : '<p class="am-vide">Aucun badge : aucun module terminé en entier.</p>', finis.filter((r) => r.x.cle !== '10').length + (certOk ? 1 : 0))
+      + bloc('Diplôme', certOk ? `<p><span class="am-statut am-statut--ok">Certifié Trader 360</span> le ${txt(dateFr(c.le))}${c.total ? ` · examen ${txt(c.score)} / ${txt(c.total)}` : ''}</p>
+          <p>${f.compte ? '<button type="button" class="am-btn" data-fiche-cert>Certificat PDF</button>' : ''}</p>
+          <p class="am-source">${c.mail_envoye ? `Mail « Tu es certifié Trader 360 » envoyé${(() => { const ml = f.mails.find((m) => /^Tu es certifié/.test(m.sujet || '')); return ml ? ` le ${txt(dateFr(ml.envoye_le, true))}${ml.resend && ml.resend.evenement ? ` (${txt(ml.resend.evenement === 'opened' ? 'ouvert' : ml.resend.evenement === 'clicked' ? 'cliqué' : ml.resend.evenement === 'delivered' ? 'délivré' : ml.resend.evenement)})` : ''}` : ''; })()}.` : `Le mail « Tu es certifié Trader 360 » n est jamais parti. ${f.compte ? '<button type="button" class="am-btn am-btn--fantome" data-fiche-mail-cert>Envoyer le mail de certification</button>' : ''}`}</p>`
+          : '<p class="am-vide">Aucun diplôme obtenu (la certification Trader 360 vient avec le module 10).</p>', certOk ? 1 : 0)
+      + blocDocuments(f, c);
     }
     if (k === 'transactions') {
       const t = f.transactions;
@@ -790,7 +803,19 @@
         : '<p class="am-vide">Aucune transaction importée. Les transactions LearnyBox arriveront par un export du CRM (Ventes, Transactions) ; ensuite, les paiements passeront par les offres du back-office.</p>', t.lignes.length);
     }
     if (k === 'affiliation') {
-      return bloc('Affiliation', `<p class="am-vide">Pas encore d affiliation. Le jour venu : un lien personnel que le membre partage, et une notification à chaque inscription qui vient de lui.</p><p><button type="button" class="am-btn am-btn--fantome" disabled title="À venir">Créer l affilié</button></p>`);
+      const d = f.dossier || {};
+      if (d.erreur) return bloc('Affiliation', `<p class="am-vide am-erreur">Le site n a pas répondu : ${txt(d.erreur)}</p>`);
+      const a = d.affiliation;
+      if (!a) return bloc('Affiliation', '<p class="am-vide">Pas encore de lien d affiliation. Il se crée tout seul quand le membre ouvre son espace formation, ou d un coup pour tous depuis Ventes · Affiliation (« Liens des membres »).</p>');
+      const eur = (n) => Number(n || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+      return bloc('Affiliation', `
+        ${ligneInfo('fa-link', 'Son lien', `<span class="am-mono">${txt(a.lien)}</span> <button type="button" class="am-btn am-btn--fantome" data-fiche-copier="${txt(a.lien)}">Copier</button>${a.actif ? '' : ' <span class="am-statut am-statut--non">Désactivé</span>'}`)}
+        ${ligneInfo('fa-calendar', 'Créé le', txt(dateFr(a.cree_le)))}
+        ${ligneInfo('fa-arrow-pointer', 'Clics', `<span class="am-mono">${txt(a.clics)}</span>`)}
+        ${ligneInfo('fa-file-signature', 'Candidatures', `<span class="am-mono">${txt(a.candidatures)}</span>`)}
+        ${ligneInfo('fa-handshake', 'Ventes', `<span class="am-mono">${txt(a.ventes)}</span>${a.montant ? ` · ${txt(eur(a.montant))}` : ''}`)}
+        ${ligneInfo('fa-coins', 'Commission due', `<b class="am-mono">${txt(eur(a.commission_due))}</b>${a.commission_attente ? ` · ${txt(eur(a.commission_attente))} en attente de paiement` : ''}`)}
+        <p class="am-source">20 % du montant hors taxes de la formation, due une fois la formation payée. Lu dans la base du site à l ouverture de la fiche.</p>`);
     }
     if (k === 'questionnaires') {
       const Q = window.FORMATION_QUIZ || {};
@@ -800,7 +825,7 @@
         const detail = _quizOuvert === i && def ? `<tr class="am-quiz-detail"><td colspan="5"><ol class="am-reponses">${(q.reponses || []).map((r) => { const qq = (def.questions || []).find((x) => x.id === r.id); if (!qq) return `<li>${txt(r.id)}</li>`; const okR = r.choisie === r.bonne; return `<li class="${okR ? 'ok' : 'ko'}"><b>${txt(qq.enonce)}</b><br>Réponse : ${txt(qq.options[r.choisie] != null ? qq.options[r.choisie] : '(aucune)')}${okR ? '' : `<br><em>Attendu : ${txt(qq.options[r.bonne])}</em>`}</li>`; }).join('')}</ol></td></tr>` : '';
         return `<tr><td>Quiz Trader 360 : Module ${txt(q.module_cle)}</td><td>${txt(dateFr(q.created_at, true))}</td><td><span class="am-statut ${q.reussi ? 'am-statut--ok' : 'am-statut--non'}">${q.reussi ? 'Réussi' : 'Non réussi'}</span></td><td><b>${q.score} / ${q.total}</b> (${q.total ? Math.round((q.score / q.total) * 100) : 0} %)</td><td><button type="button" class="am-oeil" data-quiz-detail="${i}" title="Voir ses réponses">&#128065;</button></td></tr>${detail}`;
       }).join('');
-      return bloc('Sondage', '<p class="am-vide">Le questionnaire de positionnement (candidature) est dans la base du site : à relier à la fiche.</p>')
+      return blocPositionnement(f)
         + bloc('Quiz', quiz.length ? `<table class="am-table am-table--simple"><thead><tr><th>Quiz</th><th>Date</th><th>État</th><th>Score</th><th></th></tr></thead><tbody>${lignes}</tbody></table>` : '<p class="am-vide">Aucune réponse à un quiz.</p>', quiz.length)
         + bloc('Évaluations LearnyBox', '<p class="am-vide">Non importées : les quiz du journal les remplacent.</p>');
     }
@@ -812,6 +837,53 @@
    * lecture seule par le serveur ; une cellule vide est dite vide, pas omise,
    * pour qu on voie ce que le tableur ne sait pas.
    */
+  /** Documents : le certificat, et les CGV acceptées à la commande (version et PDF). */
+  function blocDocuments(f, c) {
+    const d = f.dossier || {};
+    const cmds = (d.commandes || []).filter((k) => k.cgv_acceptees_le);
+    const lignes = [];
+    if (c && f.compte) lignes.push(`<tr><td>Certificat Trader 360</td><td>${txt(dateFr(c.le))}</td><td><button type="button" class="am-btn am-btn--fantome" data-fiche-cert>Télécharger (PDF)</button></td></tr>`);
+    for (const k of cmds) lignes.push(`<tr><td>Conditions générales de vente et d adhésion${k.cgv_version ? ` (version ${txt(k.cgv_version)})` : ''}<br><small>acceptées avec la commande ${txt(k.reference)}</small></td><td>${txt(dateFr(k.cgv_acceptees_le, true))}</td><td>${k.cgv_pdf ? `<a class="am-btn am-btn--fantome" href="${txt(k.cgv_pdf)}" target="_blank" rel="noopener">Ouvrir (PDF)</a>` : '<small>version non enregistrée</small>'}</td></tr>`);
+    return bloc('Documents', `${lignes.length ? `<table class="am-table am-table--simple"><thead><tr><th>Document</th><th>Date</th><th></th></tr></thead><tbody>${lignes.join('')}</tbody></table>` : '<p class="am-vide">Aucun document.</p>'}
+      ${d.erreur ? `<p class="am-source am-erreur">Commandes du site non lues : ${txt(d.erreur)}</p>` : ''}<p class="am-source">Les CGV acceptées s ajoutent ici pour chaque commande passée sur le site (depuis le 27/10/2026). Les contrats signés avant, hors du site, ne sont pas repris.</p>`, lignes.length);
+  }
+
+  /** Le questionnaire de positionnement : celui du site, puis celui du tableur de Manu. */
+  function blocPositionnement(f) {
+    const d = f.dossier || {};
+    const q = f.questionnaire || {};
+    const site = (d.candidatures || []).map((cd) => `<h4 class="am-jour">Questionnaire du site · ${txt(dateFr(cd.created_at, true))}</h4>${cd.reponses.map((r) => ligneInfo('fa-angle-right', txt(r.question), r.reponse ? txt(r.reponse) : '')).join('')}`).join('');
+    const tab = (q.reponses || []).map((cells, i) => `<h4 class="am-jour">Tableur de Manu${(q.reponses || []).length > 1 ? ` · réponse ${i + 1}` : ''}</h4>${Object.entries(cells).filter(([, v]) => String(v ?? '').trim()).map(([k, v]) => ligneInfo('fa-angle-right', txt(k), txt(v))).join('')}`).join('');
+    const n = (d.candidatures || []).length + (q.reponses || []).length;
+    const sources = [
+      d.erreur ? `Site non lu : ${txt(d.erreur)}.` : 'Site : questionnaire de candidature (depuis octobre 2026).',
+      q.lu === false ? `Tableur non lu : ${txt(q.erreur || '')}.` : q.onglet ? `Tableur de Manu : onglet « ${txt(q.onglet)} », lecture seule.` : 'Tableur de Manu : aucun onglet « Questionnaire » trouvé.',
+    ].join(' ');
+    return bloc('Questionnaire de positionnement', `${n ? site + tab : '<p class="am-vide">Aucune réponse trouvée pour cette adresse, ni sur le site ni dans le tableur.</p>'}<p class="am-source">${sources}</p>`, n);
+  }
+
+  async function telechargerCertificat(bouton) {
+    const f = _fiche; const c = f && f.certification;
+    if (!c || !f.compte || !window.FormationDiplome) { dire('Certificat indisponible ici.', 'error'); return; }
+    bouton.disabled = true;
+    try {
+      // ⛔ Le même certificat que celui de l'élève et de l'écran Diplômes : mêmes champs, même numéro.
+      await window.FormationDiplome.telecharger({
+        prenom: (f.profil && f.profil.name) || f.compte.email, nom: '', date: c.le, score: c.score, total: c.total,
+        numero: `T360-C-${new Date(c.le).getFullYear()}-${String(f.compte.user_id).replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+        logo: '/assets/marque/t360-logo-or.png',
+      });
+    } catch (e) { dire(`Certificat non généré : ${e.message}`, 'error'); }
+    finally { bouton.disabled = false; }
+  }
+  async function envoyerMailCertification(bouton) {
+    if (!_fiche || !_fiche.compte) return;
+    if (!window.confirm(`Envoyer à ${_fiche.compte.email} le mail « Tu es certifié Trader 360 » ? Il ne part qu'une fois.`)) return;
+    bouton.disabled = true;
+    try { await appeler('mail_certification', { user_id: _fiche.compte.user_id }); dire(`Mail de certification envoyé à ${_fiche.compte.email}.`); _fiche = await appeler('fiche', _ficheCible); rendreFiche(); }
+    catch (e) { bouton.disabled = false; dire(`Le mail n est pas parti : ${e.message}`, 'error'); }
+  }
+
   function blocTableur(f) {
     const t = f.tableur;
     if (!t) return '';
