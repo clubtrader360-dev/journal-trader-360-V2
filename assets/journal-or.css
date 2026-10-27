@@ -156,8 +156,14 @@ body:not(.dark-mode) #mainAppSidebar .formation-acces, body:not(.dark-mode) #coa
 body:not(.dark-mode) #mainAppSidebar .formation-acces, body:not(.dark-mode) #coachAppSidebar .formation-acces {
   border-color: rgba(185, 138, 46, .55); background: linear-gradient(180deg, rgba(185, 138, 46, .14), rgba(185, 138, 46, .04));
 }
-/* « Personnaliser mon dashboard », remonté sous le prénom et le curseur Trading / Pause. */
-#mainAppSidebar .sidebar-perso { width: 100%; justify-content: center; margin-top: 8px; font-size: 12px; }
+/* RÉGLAGES, tout en bas du menu (Nadir, 27/10) : Personnaliser, thème, zoom.
+   Le bloc n est plus dans le haut rembourré (p-6) : il porte son propre retrait,
+   aligné sur celui des entrées du menu. */
+#mainAppSidebar .sidebar-reglages { margin-top: 18px; padding: 16px 20px 24px; border-top: 1px solid var(--sidebar-divider); text-align: center; }
+#mainAppSidebar .sidebar-reglages-titre { font-size: 11px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: #e8b84b; opacity: .9; margin-bottom: 10px; }
+body:not(.dark-mode) #mainAppSidebar .sidebar-reglages-titre { color: #b98a2e; }
+#mainAppSidebar .sidebar-perso { width: 100%; justify-content: center; margin-top: 0; font-size: 12px; }
+#mainAppSidebar .sidebar-reglages .sidebar-theme-toggle { margin-top: 10px !important; padding: 6px 0 !important; }
 #mainAppSidebar .sidebar-vacation-toggle { margin-top: 10px !important; }
 /* « Partager mes performances » dans le haut du menu : le bloc a déjà son propre
    rembourrage (p-6), les 20 px de l enveloppe en plus rendaient le bouton trop étroit
