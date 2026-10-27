@@ -453,11 +453,11 @@ async function tunnels(corps, coach) {
  * Aucune donnée d'élève du journal ne passe par ce pont.
  */
 const SOUS_ACTIONS_OFFRES = ['reference', 'lister', 'enregistrer', 'statut', 'supprimer', 'code_enregistrer', 'code_supprimer', 'envoyer_lien', 'envois', 'commandes', 'virement_recu', 'annuler', 'ouvrir_acces', 'reprise_activer'];
-async function appelSite(sous, corps, coach) {
+async function appelSite(sous, corps, coach, route = '/api/offres') {
   const cle = process.env.BACKOFFICE_CLE;
   if (!cle) throw httpError(500, 'BACKOFFICE_CLE absente : le pont vers le site n est pas configure');
   const site = (process.env.SITE_URL || 'https://www.trader360.fr').replace(/\/$/, '');
-  const r = await fetch(`${site}/api/offres`, {
+  const r = await fetch(`${site}${route}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-backoffice-cle': cle },
     body: JSON.stringify({ ...corps, action: sous, par: coach.email }),
@@ -689,6 +689,44 @@ async function campagnes(sb, corps, coach) {
   await brevoOk(`/emailCampaigns/${id}/sendNow`, { method: 'POST' }, 'envoi');
   console.log(`[CAMPAGNES] ✅ campagne ${id} envoyée à la liste ${liste} (${n} contacts) par ${coach.email}`);
   return { id, liste, contacts: n };
+}
+
+/* ══ AFFILIATION (27/10) ════════════════════════════════════════════════════
+ * Le registre des affiliés vit dans la base du SITE (/api/affiliation) : le journal
+ * n'y écrit rien lui-même, il fait le pont. Deux portes :
+ *  - le COACH (back-office) : lister, créer un affilié extérieur, activer ou
+ *    désactiver, et créer d'un coup les liens des membres qui n'en ont pas ;
+ *  - le MEMBRE, pour SON lien seul (`mon_affiliation`, plus bas, hors requireCoach) :
+ *    son identité vient de sa session vérifiée, jamais du corps de la requête.
+ */
+const SOUS_ACTIONS_AFFILIATION = ['lister', 'creer', 'modifier', 'generer_membres'];
+const decouperNom = (name, email) => {
+  const mots = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return { prenom: mots[0] || String(email || '').split('@')[0], nom: mots.slice(1).join(' ') };
+};
+async function affiliation(sb, corps, coach) {
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_AFFILIATION.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  if (sous === 'generer_membres') {
+    const { data, error } = await sb.from('users').select('uuid, name, email, role').eq('role', 'student');
+    if (error) throw httpError(500, `membres illisibles : ${error.message}`);
+    const membres = (data || []).filter((u) => u.uuid && u.email).map((u) => ({ user_id: u.uuid, email: u.email, ...decouperNom(u.name, u.email) }));
+    if (!membres.length) return { crees: 0, total: 0 };
+    return appelSite('membres', { membres }, coach, '/api/affiliation');
+  }
+  const { action: _a, sous_action: _s, ...reste } = corps;
+  return appelSite(sous, reste, coach, '/api/affiliation');
+}
+/** Le lien du membre connecté. ⛔ `user_id` et `email` viennent du jeton, pas du corps. */
+async function monAffiliation(sb, req) {
+  const auth = req.headers?.authorization || '';
+  const jeton = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!jeton) throw httpError(401, 'jeton manquant');
+  const { data, error } = await sb.auth.getUser(jeton);
+  if (error || !data?.user?.id) throw httpError(401, 'jeton invalide');
+  const u = data.user;
+  const { data: pub } = await sb.from('users').select('name').eq('uuid', u.id).maybeSingle();
+  return appelSite('membre', { user_id: u.id, email: u.email, ...decouperNom(pub && pub.name, u.email) }, { email: 'membre' }, '/api/affiliation');
 }
 
 /* ══ MAILS AUX MEMBRES : LE RÉSULTAT DE QUIZ (21/10) ═════════════════════════
@@ -1439,7 +1477,8 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ ok: false, motif: 'POST attendu' });
   }
-  // ⛔ LA SEULE ACTION OUVERTE À UN ÉLÈVE : le mail de son propre résultat de quiz.
+  // ⛔ LES SEULES ACTIONS OUVERTES À UN ÉLÈVE : le mail de son propre résultat de quiz,
+  // et son propre lien d'affiliation (mon_affiliation).
   // Tout le reste de la route exige un coach (requireCoach, ci-dessous).
   {
     let c0 = {};
@@ -1453,6 +1492,16 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, action: 'commande_payee', resultat: r });
       } catch (e) {
         console.error('[OFFRES] commande_payee :', e.message);
+        return res.status(e?.statusCode || e?.status || 500).json({ ok: false, motif: e.message });
+      }
+    }
+    if (c0.action === 'mon_affiliation') {
+      try {
+        const r = await monAffiliation(getServiceClient(), req);
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ ok: true, action: 'mon_affiliation', resultat: r });
+      } catch (e) {
+        console.error('[AFFILIATION] mon_affiliation :', e.message);
         return res.status(e?.statusCode || e?.status || 500).json({ ok: false, motif: e.message });
       }
     }
@@ -1489,6 +1538,7 @@ export default async function handler(req, res) {
     else if (action === 'offres') resultat = await offresSite(sb, corps, coach, origine);
     else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
     else if (action === 'crm') resultat = await crm(sb, corps, { brevoOk, httpError });
+    else if (action === 'affiliation') resultat = await affiliation(sb, corps, coach);
     else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);

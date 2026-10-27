@@ -2067,8 +2067,17 @@
         </${o ? 'button' : 'div'}>`; }).join('')}
       </div>
     </section>
+
+    <section id="parrainage">
+      <div class="sec-head">
+        <div><div class="eyebrow">Parrainage</div><h2>Parle de nous.</h2></div>
+        <p>Tu connais quelqu'un que le trading intéresse ? Partage-lui ton lien personnel : il mène tout droit au questionnaire, et on saura que c'est toi qui nous l'as envoyé.</p>
+      </div>
+      <div class="dash parrainage" id="parrainageEncart">${encartParrainage()}</div>
+    </section>
     ${piedDePage()}`;
 
+    chargerParrainage();
     const ns = $('noteSearch');
     if (ns) {
       ns.addEventListener('input', () => { $('notesList').innerHTML = notesHtml(ns.value); });
@@ -2095,6 +2104,60 @@
       window.scrollTo({ top: 0 });
     }
     montrerBienvenue();
+  }
+
+  /* ══ PARRAINAGE : LE LIEN D AFFILIATION DU MEMBRE (27/10) ══════════════════
+   * Demande de Nadir : « si tu veux parler de nous, voici ton lien à partager, on
+   * saura que c'est toi ». Le lien est créé au premier affichage, côté serveur, et ne
+   * change plus. ⛔ Aucune promesse de récompense ici : rien n'a été décidé.
+   * ⚠️ Lu UNE fois par session : l'accueil se redessine souvent (retour de module,
+   * badge), et chaque rendu ne doit pas rappeler le serveur.
+   */
+  let _parrainage = null;      // null : pas encore lu ; { erreur } ; ou le lien
+  let _parrainageEnCours = false;
+  function encartParrainage() {
+    const p = _parrainage;
+    if (!p) return '<p class="parrainage__attente">Ton lien arrive…</p>';
+    if (p.erreur) return '<p class="parrainage__attente">Ton lien n’a pas pu être chargé. Recharge la page, ou écris-nous si ça dure.</p>';
+    if (!p.actif) return '<p class="parrainage__attente">Ton lien est en pause pour le moment. Écris-nous si tu veux le réactiver.</p>';
+    const pluriel = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`;
+    return `<div class="parrainage__ligne">
+        <input class="parrainage__lien" id="parrainageLien" type="text" readonly value="${txt(p.lien)}" aria-label="Ton lien personnel">
+        <button type="button" class="btn btn-gold" id="parrainageCopier"><span>Copier mon lien</span></button>
+      </div>
+      <p class="parrainage__suivi">${p.clics || p.candidatures
+        ? `${pluriel(p.clics, 'personne a ouvert ton lien', 'personnes ont ouvert ton lien')} · ${pluriel(p.candidatures, 'a candidaté', 'ont candidaté')}. Merci.`
+        : 'Personne n’a encore ouvert ton lien. Il est à toi dès maintenant.'}</p>`;
+  }
+  function poserParrainage() {
+    const z = $('parrainageEncart'); if (!z) return;
+    z.innerHTML = encartParrainage();
+    const b = $('parrainageCopier'), champ = $('parrainageLien');
+    if (b && champ) b.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(champ.value); }
+      catch { champ.select(); document.execCommand && document.execCommand('copy'); }
+      b.querySelector('span').textContent = 'Lien copié';
+      setTimeout(() => { const s = b.querySelector('span'); if (s) s.textContent = 'Copier mon lien'; }, 2200);
+    });
+  }
+  async function chargerParrainage() {
+    if (_parrainage && !_parrainage.erreur) return poserParrainage();
+    if (_parrainageEnCours) return;
+    _parrainageEnCours = true;
+    try {
+      const { data } = await cli().auth.getSession();
+      const jeton = data && data.session && data.session.access_token;
+      if (!jeton) throw new Error('session absente');
+      const r = await fetch('/api/coach/membres', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` }, body: JSON.stringify({ action: 'mon_affiliation' }) });
+      const c = await r.json().catch(() => ({}));
+      // ⛔ `r.ok` ET `c.ok` : un refus du serveur arrive en 4xx sans lever.
+      if (!r.ok || !c.ok) throw new Error(c.motif || `réponse ${r.status}`);
+      _parrainage = c.resultat;
+    } catch (e) {
+      console.warn('[FORMATION] lien de parrainage non chargé :', e && e.message);
+      _parrainage = { erreur: true };
+    } finally { _parrainageEnCours = false; }
+    poserParrainage();
   }
 
   /* ══ L ECRAN DES CONDITIONS ═══════════════════════════════════════════════

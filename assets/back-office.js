@@ -1001,10 +1001,101 @@
     if (_ecranCourant !== 'crm') return;
     if (e.target.matches('[data-crm-statut]')) { _crm.statut = e.target.value; _crm.page = 0; CHARGEURS.crm(); }
   });
+  /* ══ VENTES · AFFILIATION (27/10) ════════════════════════════════════════════
+   * Le registre vit dans la base du site ; le journal fait le pont (action `affiliation`).
+   * Un membre voit son propre lien dans son espace formation (encart « Parle de nous »). */
+  const _aff = { filtre: 'tous', q: '', creation: false };
+  const AFF = (sous, corps) => BO('affiliation', { sous_action: sous, ...(corps || {}) });
   CHARGEURS['ventes/affiliation'] = async () => {
-    $('boAffiliation').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>0</b> Affilié</h2><button type="button" class="bo-btn bo-btn--or" disabled title="Plus tard"><i class="fas fa-plus"></i> Créer un affilié</button></div>
-      ${avenir([['Un lien par membre', 'Un membre qui parle de vous reçoit un lien personnel vers le questionnaire.'], ['La trace', 'Chaque candidature venue de ce lien lui est attribuée, et vous en êtes notifiés.'], ['Les retombées', 'Par affilié : candidatures, inscrits, ventes.']])}<p class="bo-source">Jamais utilisé sur LearnyBox ; à faire quand vous le déciderez.</p></div>`;
+    const z = $('boAffiliation');
+    const d = await lire('affiliation', () => AFF('lister'));
+    const tous = d.affilies || [];
+    const q = sansAccent(_aff.q).trim();
+    const vus = tous.filter((a) => (_aff.filtre === 'tous' || a.type === _aff.filtre) && (!q || sansAccent(`${a.nom} ${a.email || ''} ${a.code}`).includes(q)))
+      .sort((a, b) => (b.ventes - a.ventes) || (b.candidatures - a.candidatures) || (b.clics - a.clics) || String(a.nom).localeCompare(String(b.nom)));
+    const somme = (k) => tous.reduce((s, a) => s + Number(a[k] || 0), 0);
+    const membres = tous.filter((a) => a.type === 'membre').length;
+    z.innerHTML = `
+      <div class="bo-kpis">
+        ${kpi('fa-share-nodes', 'Affiliés', nb(tous.length), `${nb(membres)} membre${membres > 1 ? 's' : ''} · ${nb(tous.length - membres)} extérieur${tous.length - membres > 1 ? 's' : ''}`)}
+        ${kpi('fa-arrow-pointer', 'Clics', nb(somme('clics')), 'ouvertures du questionnaire par un lien')}
+        ${kpi('fa-file-signature', 'Candidatures', nb(somme('candidatures')), 'venues d un lien')}
+        ${kpi('fa-handshake', 'Ventes', nb(somme('ventes')), eur(somme('montant')))}
+      </div>
+      <div class="bo-carte">
+        <div class="bo-carte__tete"><h2>Affiliés <small>${vus.length}</small></h2>
+          <div class="aff-actions">
+            <button type="button" class="bo-btn bo-btn--fantome" data-aff-generer title="Crée le lien de chaque membre qui n'en a pas encore. Un membre en reçoit aussi un dès qu'il ouvre son espace."><i class="fas fa-users"></i> Liens des membres</button>
+            <button type="button" class="bo-btn bo-btn--or" data-aff-nouveau><i class="fas fa-plus"></i> Affilié extérieur</button>
+          </div></div>
+        ${_aff.creation ? `<form class="aff-form" data-aff-form>
+          <label><span>Nom <b class="bo-oblig">*</b></span><input name="nom" required maxlength="120" placeholder="Prénom Nom ou nom du partenaire"></label>
+          <label><span>E-mail</span><input name="email" type="email" maxlength="200" placeholder="facultatif"></label>
+          <label><span>Code du lien</span><input name="code" maxlength="40" pattern="[a-z0-9][a-z0-9-]{1,38}[a-z0-9]" placeholder="automatique : prénom + 4 caractères"></label>
+          <label class="aff-form__note"><span>Note</span><input name="note" maxlength="500" placeholder="d'où vient ce partenaire, ce qui a été convenu…"></label>
+          <div class="aff-form__btns"><button type="button" class="bo-btn bo-btn--fantome" data-aff-annuler>Annuler</button><button type="submit" class="bo-btn bo-btn--or">Créer le lien</button></div>
+        </form>` : ''}
+        <div class="crm-filtres">
+          <input type="search" class="am-recherche" placeholder="Rechercher un affilié, un code…" data-aff-q value="${txt(_aff.q)}" aria-label="Rechercher un affilié">
+          <select class="bo-select" data-aff-filtre aria-label="Type d'affilié">
+            <option value="tous" ${_aff.filtre === 'tous' ? 'selected' : ''}>Tous</option>
+            <option value="membre" ${_aff.filtre === 'membre' ? 'selected' : ''}>Membres</option>
+            <option value="externe" ${_aff.filtre === 'externe' ? 'selected' : ''}>Extérieurs</option>
+          </select>
+        </div>
+        ${vus.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Affilié</th><th>Lien</th><th class="num">Clics</th><th class="num">Candidatures</th><th class="num">Ventes</th><th class="num">Montant</th><th>État</th></tr></thead><tbody>
+          ${vus.map((a) => `<tr class="${a.actif ? '' : 'aff-inactif'}">
+            <td><b>${txt(a.nom)}</b> <span class="bo-pill ${a.type === 'membre' ? 'bo-pill--ok' : ''}">${a.type === 'membre' ? 'Membre' : 'Extérieur'}</span><small class="aff-sous">${txt(a.email || '')}${a.note ? ` · ${txt(a.note)}` : ''}</small></td>
+            <td><button type="button" class="aff-lien" data-aff-copier="${txt(a.lien)}" title="Copier le lien"><span class="chiffre">${txt(a.code)}</span> <i class="fas fa-copy"></i></button></td>
+            <td class="num chiffre">${nb(a.clics)}</td><td class="num chiffre">${nb(a.candidatures)}</td><td class="num chiffre">${nb(a.ventes)}</td><td class="num chiffre">${a.montant ? eur(a.montant) : ''}</td>
+            <td><button type="button" class="bo-btn bo-btn--fantome" data-aff-actif="${a.id}" data-valeur="${a.actif ? '0' : '1'}">${a.actif ? 'Désactiver' : 'Réactiver'}</button></td></tr>`).join('')}
+        </tbody></table></div>` : `<p class="bo-vide">${tous.length ? 'Aucun affilié ne correspond.' : 'Aucun lien pour l instant. « Liens des membres » en crée un pour chaque membre ; « Affilié extérieur » pour une personne hors club.'}</p>`}
+        <p class="bo-source">Le lien mène au questionnaire. Une candidature venue d'un lien est attribuée à son affilié et l'alerte « Candidature de … » le précise ; une vente est attribuée quand l'e-mail de la commande est celui de la candidature. Aucun traceur chez le visiteur : quelqu'un qui revient plus tard par l'accueil n'est plus attribué. Un lien désactivé mène toujours au questionnaire, sans rien compter.</p>
+      </div>`;
   };
+  document.addEventListener('click', async (e) => {
+    if (_ecranCourant !== 'ventes/affiliation') return;
+    const b = e.target.closest('button'); if (!b) return;
+    try {
+      if (b.matches('[data-aff-copier]')) { await navigator.clipboard.writeText(b.dataset.affCopier); return dire('Lien copié.'); }
+      if (b.matches('[data-aff-nouveau]')) { _aff.creation = true; await CHARGEURS['ventes/affiliation'](); const n = document.querySelector('[data-aff-form] [name="nom"]'); if (n) n.focus(); return; }
+      if (b.matches('[data-aff-annuler]')) { _aff.creation = false; return CHARGEURS['ventes/affiliation'](); }
+      if (b.matches('[data-aff-generer]')) {
+        if (!window.confirm('Créer le lien de chaque membre qui n en a pas encore ? Les liens existants ne changent pas.')) return;
+        b.disabled = true;
+        const r = await AFF('generer_membres');
+        _cache.delete('affiliation'); dire(`${r.crees} lien(s) créé(s) sur ${r.total} membre(s).`);
+        return CHARGEURS['ventes/affiliation']();
+      }
+      if (b.matches('[data-aff-actif]')) {
+        const actif = b.dataset.valeur === '1';
+        if (!actif && !window.confirm('Désactiver ce lien ? Il mènera toujours au questionnaire, mais plus rien ne sera compté.')) return;
+        b.disabled = true;
+        await AFF('modifier', { id: Number(b.dataset.affActif), actif });
+        _cache.delete('affiliation'); return CHARGEURS['ventes/affiliation']();
+      }
+    } catch (err) { b.disabled = false; dire(err.message, 'error'); }
+  });
+  document.addEventListener('submit', async (e) => {
+    const f = e.target.closest && e.target.closest('[data-aff-form]'); if (!f) return;
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(f).entries());
+    const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
+    try {
+      const a = await AFF('creer', { nom: v.nom, email: v.email || '', code: String(v.code || '').trim().toLowerCase(), note: v.note || '' });
+      _aff.creation = false; _cache.delete('affiliation');
+      try { await navigator.clipboard.writeText(a.lien); dire(`Lien de ${a.nom} créé et copié : ${a.lien}`); } catch { dire(`Lien de ${a.nom} créé : ${a.lien}`); }
+      return CHARGEURS['ventes/affiliation']();
+    } catch (err) { btn.disabled = false; dire(err.message, 'error'); }
+  });
+  document.addEventListener('input', (e) => {
+    if (_ecranCourant !== 'ventes/affiliation' || !e.target.matches('[data-aff-q]')) return;
+    const t = e.target; _aff.q = t.value; clearTimeout(t._m);
+    t._m = setTimeout(() => { const pos = t.selectionStart; CHARGEURS['ventes/affiliation']().then(() => { const n = document.querySelector('[data-aff-q]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }, 200);
+  });
+  document.addEventListener('change', (e) => {
+    if (_ecranCourant === 'ventes/affiliation' && e.target.matches('[data-aff-filtre]')) { _aff.filtre = e.target.value; CHARGEURS['ventes/affiliation'](); }
+  });
 
   /* ══ VENTES · OFFRES ═══════════════════════════════════════════════════════ */
   let _offreOuverte = null;
