@@ -1223,5 +1223,6 @@ body:not(.dark-mode) #formationApp .ex__bougie--b line,body:not(.dark-mode) #for
 #formationApp .parrainage__ligne{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 #formationApp .parrainage__lien{flex:1 1 320px;min-width:0;padding:13px 18px;border-radius:var(--r-pill);border:1px solid var(--gold-line);background:var(--gold-wash);color:var(--ink);font:500 15px var(--f-mono);font-feature-settings:'tnum' 1;text-overflow:ellipsis}
 #formationApp .parrainage__lien:focus{outline:2px solid var(--gold);outline-offset:2px}
+#formationApp .parrainage__mention{display:block;margin-top:6px;font-size:13px;color:var(--ink-mute)}
 #formationApp .parrainage__suivi,#formationApp .parrainage__attente{margin:0;color:var(--ink-soft);font-size:14.5px}
 @media (max-width:560px){#formationApp .parrainage__ligne .btn{width:100%;justify-content:center}}

@@ -2071,7 +2071,7 @@
     <section id="parrainage">
       <div class="sec-head">
         <div><div class="eyebrow">Parrainage</div><h2>Parle de nous.</h2></div>
-        <p>Tu connais quelqu'un que le trading intéresse ? Partage-lui ton lien personnel : il mène tout droit au questionnaire, et on saura que c'est toi qui nous l'as envoyé.</p>
+        <p>Tu connais quelqu'un que le trading intéresse ? Partage-lui ton lien personnel : il mène tout droit au questionnaire, et on saura que c'est toi qui nous l'as envoyé. S'il rejoint la formation, tu touches une commission de <b>20&nbsp;%</b> du montant hors taxes de la formation. <small class="parrainage__mention">Versée une fois la formation payée.</small></p>
       </div>
       <div class="dash parrainage" id="parrainageEncart">${encartParrainage()}</div>
     </section>
@@ -2109,7 +2109,8 @@
   /* ══ PARRAINAGE : LE LIEN D AFFILIATION DU MEMBRE (27/10) ══════════════════
    * Demande de Nadir : « si tu veux parler de nous, voici ton lien à partager, on
    * saura que c'est toi ». Le lien est créé au premier affichage, côté serveur, et ne
-   * change plus. ⛔ Aucune promesse de récompense ici : rien n'a été décidé.
+   * change plus. ⚠️ Commission décidée par Nadir le 27/10 : 20 % du montant HT de la
+   * formation, versée une fois la formation payée. Rien d'autre n'est promis.
    * ⚠️ Lu UNE fois par session : l'accueil se redessine souvent (retour de module,
    * badge), et chaque rendu ne doit pas rappeler le serveur.
    */
