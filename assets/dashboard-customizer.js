@@ -29,7 +29,19 @@
     'trades-no-method': 'Trades Hors Méthode', 'trader-score': 'Trader 360 Score'
   };
   var CATALOG = KPI_IDS.concat(['trader-score']);
-  var DEFAULT_HIDDEN = ['trader-score']; // Score masqué par défaut (état actuel du V2)
+  // Rien n est masqué par défaut : le Trader 360 Score s affiche (Nadir, 27/10/2026).
+  var DEFAULT_HIDDEN = [];
+  // ⚠️ VERSION 2 DES DISPOSITIONS. Jusqu au 27/10, le Score était masqué PAR DÉFAUT, donc
+  // toute disposition enregistrée en version 1 porte `trader-score` dans `hidden` sans
+  // que l élève l ait choisi (5 sur 15 en base ce jour-là, toutes avec ce seul bloc).
+  // On lit donc une version 1 SANS ce masquage hérité ; une fois réenregistrée en
+  // version 2, un Score masqué l est par choix et reste masqué.
+  var LAYOUT_VERSION = 2;
+  function hiddenOf(layout) {
+    if (!layout || !Array.isArray(layout.hidden)) return DEFAULT_HIDDEN;
+    if ((Number(layout.version) || 1) < 2) return layout.hidden.filter(function (id) { return id !== 'trader-score'; });
+    return layout.hidden;
+  }
 
   var HANDLE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>';
 
@@ -107,7 +119,7 @@
 
   // ---------- Sérialisation / application ----------
   function serialize() {
-    var c = containers(), out = { version: 1, containers: {}, hidden: currentHidden() };
+    var c = containers(), out = { version: LAYOUT_VERSION, containers: {}, hidden: currentHidden() };
     Object.keys(c).forEach(function (cid) {
       var def = c[cid]; if (!def.el) return;
       out.containers[cid] = Array.prototype.slice.call(def.el.querySelectorAll(':scope > ' + def.sel))
@@ -126,7 +138,7 @@
         });
       });
     }
-    applyHidden(layout && layout.hidden ? layout.hidden : DEFAULT_HIDDEN);
+    applyHidden(hiddenOf(layout));
     resizeCharts();
   }
 

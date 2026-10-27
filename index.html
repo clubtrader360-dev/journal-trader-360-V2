@@ -4212,10 +4212,13 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             <div class="p-6 border-b border-gray-700" style="text-align: center;">
                 <span class="marque marque--verrou" role="img" aria-label="Trader 360"
                       style="width: 170px; margin: 0 auto;"></span>
-                <!-- ORDRE DU HAUT DU MENU (Manu, 22/10/2026) : Formation, prénom, Trading /
-                     Pause, Personnaliser, thème, Partager. Les blocs sont DÉPLACÉS tels quels,
-                     identifiants et attaches compris. ⚠️ La bannière « Mode Pause actif » reste
+                <!-- ORDRE DU HAUT DU MENU (Nadir, 27/10/2026) : prénom, Formation, Trading /
+                     Pause, Partager. « Personnaliser mon dashboard », le thème et le zoom sont
+                     des RÉGLAGES : ils vivent tout en bas du menu, sous Analyse IA et
+                     Connexion API. Les blocs sont DÉPLACÉS tels quels, identifiants et
+                     attaches compris. ⚠️ La bannière « Mode Pause actif » reste
                      COLLÉE au curseur : elle s affiche par `.is-paused + .vacation-active-banner`. -->
+                <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
                 <!-- ⚠️ « Espace membre » mène à la FORMATION, dans cette page, et non à
                      LearnyBox. Il est posé ici, sous le bloc nom et prénom, et non dans
                      la navigation plus bas : c'est une porte vers un autre espace, pas
@@ -4231,7 +4234,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Acces.entrer('formation')}">
                     <i class="fas fa-graduation-cap mr-3" aria-hidden="true"></i>Formation
                 </div>
-                <div class="sidebar-section-title text-sm mt-3" id="userInfo"></div>
                 <!-- Mode Pause (vacances) — #59 -->
                 <div class="sidebar-vacation-toggle" style="margin-top: 18px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center;">
                     <span class="vacation-label vacation-label-left" id="vacationLabelLeft">
@@ -4248,30 +4250,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 </div>
                 <div class="vacation-active-banner" id="vacationActiveBanner" aria-live="polite" style="margin: 0 20px;">
                     🌴 Mode Pause actif — tu n'apparaîtras pas comme inactif côté coach
-                </div>
-                <!-- « Personnaliser mon dashboard », remonté dans le menu (Manu, 22/10).
-                     Ouvre le tableau de bord en mode édition ; la barre d enregistrement
-                     apparaît alors en haut du tableau de bord, comme avant. -->
-                <button type="button" class="dash-btn dash-btn-ghost sidebar-perso"
-                        onclick="window.personnaliserDashboard && window.personnaliserDashboard()">
-                    <i class="fas fa-sliders-h" aria-hidden="true"></i> Personnaliser mon dashboard
-                </button>
-                <!-- Theme Toggle + Zoom dans la Sidebar -->
-                <div class="sidebar-theme-toggle" style="margin-top: 15px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <i class="fas fa-sun theme-icon" style="color: #f59e0b; font-size: 16px;"></i>
-                    <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
-                        <div class="theme-toggle-slider"></div>
-                    </div>
-                    <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
-                    <details class="zoom-menu">
-                        <summary title="Zoom de l'affichage"><i class="fas fa-search-plus" aria-hidden="true"></i> <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span></summary>
-                        <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
-                        <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
-                        
-                        <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
-                        <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
-                    </div>
-                    </details>
                 </div>
                 <!-- Bouton Partager Performances (#35 : dropdown 3 timeframes) -->
                 <div class="share-dropdown-wrapper" style="position: relative; margin-top: 15px; padding: 0 20px;">
@@ -4298,11 +4276,11 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
             <!-- Accounts Section -->
             <div class="p-4 border-b border-gray-700">
-                <!-- Section Mes Comptes Actifs (avec accordion + drop zone) -->
+                <!-- Section Compte actif (avec accordion + drop zone) -->
                 <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('active')">
                     <h3 class="text-sm font-semibold sidebar-section-title">
                         <i id="activeAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
-                        Mes Comptes Actifs
+                        Compte actif
                     </h3>
                     <button onclick="event.stopPropagation(); showAddAccountModal()" class="text-xs bg-transparent border border-gold text-gold px-2 py-1 rounded hover:bg-gold hover:text-blue transition-colors" style="border-color: #ac862b; color: #ac862b;">
                         +
@@ -4326,12 +4304,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                     <!-- Accounts will be populated here -->
                 </div>
                 
-                <!-- Section Comptes Cramés (avec accordion + drop zone) - TOUJOURS VISIBLE -->
+                <!-- Section Compte inactif, ex « Comptes Cramés » (Nadir, 27/10) - TOUJOURS VISIBLE -->
                 <div id="blownAccountsSection" style="display: block; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--sidebar-divider);">
                     <div class="flex justify-between items-center mb-3 cursor-pointer" onclick="toggleAccountsSection('blown')">
                         <h3 class="text-sm font-semibold sidebar-section-title">
                             <i id="blownAccountsChevron" class="fas fa-chevron-down mr-2" style="font-size: 10px;"></i>
-                            🔥 Comptes Cramés
+                            Compte inactif 🔥
                         </h3>
                     </div>
                     <div id="blownAccountsList" style="display: block; min-height: 60px; padding: 8px; border-radius: 6px; transition: background-color 0.2s;" 
@@ -4342,9 +4320,6 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             </div>
             
             <nav class="mt-6">
-                <div class="sidebar-item" data-section="connections" onclick="showSection('connections')">
-                    <i class="fas fa-plug mr-3"></i>Connexion API
-                </div>
                 <div class="sidebar-item active" data-section="dashboard" onclick="showSection('dashboard')">
                     <i class="fas fa-tachometer-alt mr-3"></i>Tableau de bord
                 </div>
@@ -4393,6 +4368,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 <div class="sidebar-item" onclick="window.open('https://chatgpt.com/g/g-69690516bf0c819184d382d2dd56d04c-analyste-journal-de-trading', '_blank')" style="margin-top: 5px;">
                     <i class="fas fa-brain mr-3"></i>Analyse IA
                 </div>
+                <!-- Connexion API : pas utilisée pour l instant (Nadir, 27/10), rangée sous Analyse IA. -->
+                <div class="sidebar-item" data-section="connections" onclick="showSection('connections')">
+                    <i class="fas fa-plug mr-3"></i>Connexion API
+                </div>
 
                 <!-- Lien Instagram -->
                 <div style="margin-top: 20px; padding: 10px 20px; text-align: center;">
@@ -4403,6 +4382,36 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         <span style="font-weight: 500;">Notre Instagram</span>
                     </a>
                     <p style="color: #9ca3af; font-size: 11px; margin-top: 4px;">@trader360_officiel</p>
+                </div>
+
+                <!-- RÉGLAGES, tout en bas du menu (Nadir, 27/10/2026) : personnaliser le
+                     tableau de bord, thème clair / sombre, zoom. Blocs déplacés tels quels. -->
+                <div class="sidebar-reglages" role="group" aria-label="Réglages">
+                    <div class="sidebar-reglages-titre">Réglages</div>
+                    <!-- « Personnaliser mon dashboard » : ouvre le tableau de bord en mode
+                         édition ; la barre d enregistrement apparaît alors en haut du
+                         tableau de bord, comme avant. -->
+                    <button type="button" class="dash-btn dash-btn-ghost sidebar-perso"
+                            onclick="window.personnaliserDashboard && window.personnaliserDashboard()">
+                        <i class="fas fa-sliders-h" aria-hidden="true"></i> Personnaliser mon dashboard
+                    </button>
+                    <!-- Theme Toggle + Zoom dans la Sidebar -->
+                    <div class="sidebar-theme-toggle" style="margin-top: 15px; padding: 10px 20px; display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <i class="fas fa-sun theme-icon" style="color: #f59e0b; font-size: 16px;"></i>
+                        <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+                            <div class="theme-toggle-slider"></div>
+                        </div>
+                        <i class="fas fa-moon theme-icon" style="color: #818cf8; font-size: 16px;"></i>
+                        <details class="zoom-menu">
+                            <summary title="Zoom de l'affichage"><i class="fas fa-search-plus" aria-hidden="true"></i> <span class="zoom-level" id="zoomLevel" aria-live="polite">100%</span></summary>
+                            <div class="zoom-controls" role="group" aria-label="Zoom de l'application">
+                            <button type="button" class="zoom-btn" onclick="zoomOut()" aria-label="Réduire le zoom" title="Réduire (Ctrl -)">−</button>
+                        
+                            <button type="button" class="zoom-btn" onclick="zoomIn()" aria-label="Augmenter le zoom" title="Augmenter (Ctrl +)">+</button>
+                            <button type="button" class="zoom-btn zoom-reset" onclick="zoomReset()" aria-label="Réinitialiser le zoom" title="Réinitialiser (Ctrl 0)"><i class="fas fa-undo" aria-hidden="true"></i></button>
+                        </div>
+                        </details>
+                    </div>
                 </div>
                 
 
@@ -4822,8 +4831,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
 
                 <!-- Charts Section -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                    <!-- Trader 360 Score - MASQUÉ -->
-                    <div class="trader-card p-6" style="display: none;">
+                    <!-- Trader 360 Score : AFFICHÉ PAR DÉFAUT (Nadir, 27/10/2026). Sa visibilité
+                         relève de « Personnaliser mon dashboard » (dashboard-customizer.js,
+                         bloc `trader-score`), pas d un style écrit ici. -->
+                    <div class="trader-card p-6">
                         <h3 class="text-lg font-semibold mb-4 flex items-center">
                             Trader 360 Score <i class="fas fa-info-circle info-icon text-gray-400 ml-2"><span class="tooltip">Score global évaluant votre performance de trading sur plusieurs critères : win rate, profit factor, consistency, et gestion du risque.</span></i>
                         </h3>
@@ -4831,10 +4842,12 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                             <canvas id="traderScoreChart"></canvas>
                         </div>
                         <div class="mt-4 text-center">
-                            <div class="text-sm text-gray-600">Your Trader 360 Score</div>
-                            <div class="text-3xl font-bold text-orange-500" id="traderScore">75.2</div>
+                            <div class="text-sm text-gray-600">Mon score Trader 360</div>
+                            <div class="text-3xl font-bold" id="traderScore" style="color: #d4af37; font-family: 'JetBrains Mono', monospace; font-feature-settings: 'tnum' 1;">0.0</div>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-2 rounded-full" style="width: 75.2%"></div>
+                                <!-- ⚠️ La jauge suit le score (afficherScore360). Elle était figée à 75,2 %
+                                     quelle que soit la valeur, invisible tant que la carte était masquée. -->
+                                <div id="traderScoreBar" class="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-2 rounded-full" style="width: 0%; transition: width .6s cubic-bezier(0.16, 1, 0.3, 1);"></div>
                             </div>
                             <div class="flex justify-between text-xs text-gray-500 mt-1">
                                 <span>0</span>
@@ -14086,7 +14099,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             traderScoreChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: ['Win %', 'Consistency', 'Profit factor', 'Max drawdown', 'Avg win/loss', 'Recovery factor'],
+                    labels: ['Taux de réussite', 'Régularité', 'Profit factor', 'Drawdown max', 'Gain / perte moyen', 'Récupération'],
                     datasets: [{
                         label: 'Trader 360 Score',
                         data: [75, 68, 82, 45, 70, 60],
@@ -14312,9 +14325,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                 traderScoreChart.data.datasets[0].data = [0, 0, 0, 0, 0, 0];
                 traderScoreChart.update('none');
             }
-            if (document.getElementById('traderScore')) {
-                document.getElementById('traderScore').textContent = '0.0';
-            }
+            afficherScore360(0);
             
             // 2. Trade Time Performance (#42 : 1 seul dataset bubble)
             if (tradeTimeChart && tradeTimeChart.data && tradeTimeChart.data.datasets && tradeTimeChart.data.datasets[0]) {
@@ -14391,15 +14402,22 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
         // FONCTIONS DE MISE À JOUR DES GRAPHIQUES
         // ==========================================
         
+        // Le chiffre ET la jauge du score Trader 360, toujours ensemble.
+        function afficherScore360(v) {
+            const n = Math.max(0, Math.min(100, Number(v) || 0));
+            const el = document.getElementById('traderScore');
+            if (el) el.textContent = n.toFixed(1);
+            const bar = document.getElementById('traderScoreBar');
+            if (bar) bar.style.width = n + '%';
+        }
+
         function updateTraderScoreChart(filteredTrades) {
             if (!traderScoreChart) return;
             
             if (filteredTrades.length === 0) {
                 traderScoreChart.data.datasets[0].data = [0, 0, 0, 0, 0, 0];
                 traderScoreChart.update();
-                if (document.getElementById('traderScore')) {
-                    document.getElementById('traderScore').textContent = '0.0';
-                }
+                afficherScore360(0);
                 return;
             }
             
@@ -14411,9 +14429,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             if (activeAccounts.length === 0) {
                 traderScoreChart.data.datasets[0].data = [0, 0, 0, 0, 0, 0];
                 traderScoreChart.update();
-                if (document.getElementById('traderScore')) {
-                    document.getElementById('traderScore').textContent = '0.0';
-                }
+                afficherScore360(0);
                 return;
             }
             
@@ -14539,9 +14555,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             traderScoreChart.update();
             
             // Afficher le score global
-            if (document.getElementById('traderScore')) {
-                document.getElementById('traderScore').textContent = globalScore.toFixed(1);
-            }
+            afficherScore360(globalScore);
             
             console.log("[DATA] Trader 360 Score - Moyenne de", accountScores.length, "compte(s):");
             console.log('  Win Rate:', avgWinRate.toFixed(1) + '%');
