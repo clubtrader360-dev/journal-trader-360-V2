@@ -729,6 +729,25 @@ async function monAffiliation(sb, req) {
   return appelSite('membre', { user_id: u.id, email: u.email, ...decouperNom(pub && pub.name, u.email) }, { email: 'membre' }, '/api/affiliation');
 }
 
+/* ══ CRM DES LEADS (27/10) ══════════════════════════════════════════════════
+ * Les leads (candidatures) et leur historique vivent dans la base du SITE (/api/crm).
+ * Le journal fait le pont et ajoute à la fiche l'activité e-mail lue dans Brevo.
+ * ⛔ L'auteur d'une note est le coach de la session (`coach.email`), jamais le corps.
+ */
+const SOUS_ACTIONS_LEADS = ['leads', 'lead', 'noter', 'statut'];
+async function leads(sb, corps, coach) {
+  const sous = String(corps.sous_action || '');
+  if (!SOUS_ACTIONS_LEADS.includes(sous)) throw httpError(400, 'sous_action inconnue');
+  const { action: _a, sous_action: _s, par: _p, ...reste } = corps;
+  const r = await appelSite(sous, reste, coach, '/api/crm');
+  if (sous === 'lead' && r && r.lead && r.lead.email) {
+    // Brevo : un lead peut ne pas y être (404) ; ce n'est pas une erreur de la fiche.
+    try { r.brevo = await crm(sb, { sous_action: 'contact', email: r.lead.email }, { brevoOk, httpError }); }
+    catch (e) { r.brevo = null; r.brevo_motif = /404|does not exist|introuvable/i.test(e.message) ? 'absent de Brevo' : e.message; }
+  }
+  return r;
+}
+
 /* ══ MAILS AUX MEMBRES : LE RÉSULTAT DE QUIZ (21/10) ═════════════════════════
  * Spécifié le 14/10 (specification-gamification.md §4), construit le 21/10.
  * ⛔ DÉCLENCHÉ PAR L'ÉLÈVE, JUSTE APRÈS L'ÉCRITURE DE SON QUIZ (supabase-formation.js) :
@@ -1539,6 +1558,7 @@ export default async function handler(req, res) {
     else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
     else if (action === 'crm') resultat = await crm(sb, corps, { brevoOk, httpError });
     else if (action === 'affiliation') resultat = await affiliation(sb, corps, coach);
+    else if (action === 'leads') resultat = await leads(sb, corps, coach);
     else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);
