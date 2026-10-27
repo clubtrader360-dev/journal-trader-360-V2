@@ -925,8 +925,8 @@
         </div>
       </div></div>`;
   }
-  CHARGEURS.crm = async () => {
-    const z = $('boCrm');
+  async function crmContacts() {
+    const z = $('boCrmCorps');
     const [listes, d] = await Promise.all([lire('crm:listes', () => BO('crm', { sous_action: 'listes' })), lire('crm:contacts', () => BO('crm', { sous_action: 'contacts' }))]);
     const nomsListes = new Map(listes.map((l) => [l.id, l.nom]));
     const tous = d.contacts || [];
@@ -970,7 +970,146 @@
         ${pages > 1 ? `<div class="crm-pages"><button type="button" class="bo-btn bo-btn--fantome" data-crm-page="-1" ${_crm.page === 0 ? 'disabled' : ''}>Précédent</button><span class="chiffre">${_crm.page + 1} / ${pages}</span><button type="button" class="bo-btn bo-btn--fantome" data-crm-page="1" ${_crm.page >= pages - 1 ? 'disabled' : ''}>Suivant</button></div>` : ''}
         <p class="bo-source">Lu dans Brevo, en lecture seule. Pour ajouter, retirer ou désinscrire un contact, c'est dans Brevo (bouton « Ouvrir dans Brevo » de la fiche). Recharger la page relit Brevo.</p>
       </div>`;
+  }
+  /* ══ CRM · LEADS (27/10) : la fiche « façon HubSpot » ═══════════════════════
+   * Un lead = une candidature. Étape, historique des contacts (qui, quand, quoi,
+   * conclusion), RDV Calendly, activité e-mail Brevo, commandes. Écrit dans la base
+   * du site par /api/crm ; l'auteur est le coach connecté. */
+  const _crmOnglet = { v: 'leads' };
+  const _lead = { statut: '', q: '', ouvert: null, fiche: null };
+  const LEADS = (sous, corps) => BO('leads', { sous_action: sous, ...(corps || {}) });
+  CHARGEURS.crm = async () => {
+    const z = $('boCrm');
+    if (!$('boCrmCorps')) z.innerHTML = `<nav class="am-onglets" data-crm-onglets></nav><div id="boCrmCorps"></div>`;
+    document.querySelector('[data-crm-onglets]').innerHTML = [['leads', 'Leads'], ['contacts', 'Contacts Brevo']].map(([k, t]) => `<button type="button" data-crm-onglet="${k}" aria-selected="${_crmOnglet.v === k}">${t}</button>`).join('');
+    return _crmOnglet.v === 'leads' ? crmLeads() : crmContacts();
   };
+  const nomStatut = (d, k) => ((d.statuts || []).find((x) => x.cle === k) || {}).nom || k;
+  const nomType = (d, k) => ((d.types || []).find((x) => x.cle === k) || {}).nom || (k === 'statut' ? 'Étape' : k);
+  const auteurCourt = (a) => String(a || '').split('@')[0];
+  function sourceLead(l) {
+    if (l.affilies) return `Lien de ${txt(l.affilies.nom)}`;
+    if (l.utm_source === 'webinaire') return `Live ${txt(l.utm_campaign || '')}`;
+    if (l.utm_source) return txt(l.utm_source);
+    return l.recommande_par ? txt(l.recommande_par) : 'Direct';
+  }
+  async function crmLeads() {
+    const z = $('boCrmCorps');
+    const d = await lire('leads', () => LEADS('leads'));
+    const tous = d.leads || [];
+    const q = sansAccent(_lead.q).trim();
+    const vus = tous.filter((l) => (!_lead.statut || (_lead.statut === 'client' ? l.client : l.statut === _lead.statut)) && (!q || sansAccent(`${l.prenom} ${l.nom} ${l.email} ${l.telephone}`).includes(q)));
+    const compte = (k) => tous.filter((l) => l.statut === k).length;
+    z.innerHTML = `
+      ${_lead.ouvert ? ficheLead(d) : ''}
+      <div class="bo-carte">
+        <div class="crm-listes" role="group" aria-label="Étapes">
+          <button type="button" class="crm-liste" data-lead-statut="" aria-pressed="${!_lead.statut}"><span>Tous</span><b class="chiffre">${nb(tous.length)}</b></button>
+          ${(d.statuts || []).map((s) => `<button type="button" class="crm-liste" data-lead-statut="${s.cle}" aria-pressed="${_lead.statut === s.cle}"><span>${txt(s.nom)}</span><b class="chiffre">${nb(compte(s.cle))}</b></button>`).join('')}
+          <button type="button" class="crm-liste" data-lead-statut="client" aria-pressed="${_lead.statut === 'client'}"><span>Clients</span><b class="chiffre">${nb(tous.filter((l) => l.client).length)}</b></button>
+        </div>
+        <div class="crm-filtres"><input type="search" class="am-recherche" placeholder="Rechercher un lead…" data-lead-q value="${txt(_lead.q)}" aria-label="Rechercher un lead"><span class="crm-compte chiffre">${nb(vus.length)} lead${vus.length > 1 ? 's' : ''}</span></div>
+        ${vus.length ? `<div class="bo-enveloppe"><table class="bo-table crm-table"><thead><tr><th>Lead</th><th>Reçu le</th><th>Source</th><th>Étape</th><th>Dernier mouvement</th><th class="num">Contacts</th></tr></thead><tbody>
+          ${vus.map((l) => `<tr data-lead="${txt(l.id)}" class="${_lead.ouvert === l.id ? 'crm-actif' : ''}" tabindex="0">
+            <td><b>${txt(`${l.prenom || ''} ${l.nom || ''}`.trim() || '(sans nom)')}</b>${l.client ? ' <span class="bo-pill bo-pill--ok">Client</span>' : ''}<small>${txt(l.email || '')}</small></td>
+            <td>${txt(dateFr(l.created_at))}</td><td>${sourceLead(l)}</td>
+            <td><span class="bo-pill lead-etape lead-etape--${txt(l.statut)}">${txt(nomStatut(d, l.statut))}</span></td>
+            <td>${l.dernier_contact ? txt(dateFr(l.dernier_contact, true)) : '<span class="lead-rien">Jamais</span>'}</td>
+            <td class="num chiffre">${nb(l.interactions)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="bo-vide">Aucun lead ne correspond.</p>'}
+        <p class="bo-source">Un lead est une candidature reçue par le questionnaire du site. L'étape et l'historique s'écrivent ici ; « Client » vient d'une commande payée avec la même adresse.${d.calendly ? '' : ' Les rendez-vous Calendly s afficheront sur la fiche une fois Calendly relié (jeton CALENDLY_TOKEN côté site).'}</p>
+      </div>`;
+  }
+  function ficheLead(d) {
+    const f = _lead.fiche;
+    if (!f) return `<div class="bo-carte crm-fiche"><p class="bo-vide">Lecture de la fiche…</p></div>`;
+    const l = f.lead, b = f.brevo, a = (b && b.activite) || null;
+    const nom = `${l.prenom || ''} ${l.nom || ''}`.trim() || l.email;
+    const rdv = f.rdv || {};
+    const rdvHtml = !rdv.relie ? '<p class="lead-rien">Calendly pas encore relié : les rendez-vous ne remontent pas encore ici. Note-les dans l historique en attendant.</p>'
+      : rdv.erreur ? `<p class="bo-erreur">Calendly n'a pas répondu : ${txt(rdv.erreur)}</p>`
+      : rdv.liste.length ? `<ul class="lead-rdv">${rdv.liste.map((r) => `<li><b>${txt(dateFr(r.debut, true))}</b> · ${txt(r.nom)} ${r.statut === 'annule' ? `<span class="bo-pill bo-pill--non">Annulé</span>${r.annule_motif ? ` <small>${txt(r.annule_motif)}</small>` : ''}` : new Date(r.debut) > new Date() ? '<span class="bo-pill bo-pill--ok">À venir</span>' : r.absent ? '<span class="bo-pill bo-pill--non">Absent</span>' : '<span class="bo-pill">Passé</span>'}</li>`).join('')}</ul>`
+      : '<p class="lead-rien">Aucun rendez-vous pris dans Calendly.</p>';
+    return `<div class="bo-carte crm-fiche">
+      <div class="bo-carte__tete"><h2>${txt(nom)} ${l.affilies ? `<small>· venu du lien de ${txt(l.affilies.nom)}</small>` : ''}</h2>
+        <div class="crm-fiche__actions">
+          <label class="lead-etape-choix"><span>Étape</span><select class="bo-select" data-lead-changer="${txt(l.id)}">${f.statuts.map((s) => `<option value="${s.cle}" ${s.cle === l.statut ? 'selected' : ''}>${txt(s.nom)}</option>`).join('')}</select></label>
+          ${b && b.compte ? `<a class="bo-btn bo-btn--fantome" href="#/academie/membres?fiche=${encodeURIComponent(l.email)}"><i class="fas fa-id-card"></i> Fiche membre</a>` : ''}
+          <button type="button" class="bo-btn bo-btn--fantome" data-lead-fermer aria-label="Fermer la fiche"><i class="fas fa-xmark"></i></button>
+        </div></div>
+      <div class="crm-fiche__grille">
+        <div>
+          <dl class="crm-dl">
+            <dt>Adresse</dt><dd>${txt(l.email)}</dd>
+            <dt>Téléphone</dt><dd class="chiffre">${txt(telFr(l.telephone) || l.telephone || '')}</dd>
+            <dt>Candidature</dt><dd>${txt(dateFr(l.created_at, true))}</dd>
+            <dt>Source</dt><dd>${sourceLead(l)}${l.utm_campaign && l.utm_source !== 'webinaire' ? ` · ${txt(l.utm_campaign)}` : ''}</dd>
+            ${f.commandes.length ? `<dt>Commandes</dt><dd>${f.commandes.map((k) => `<span class="bo-pill ${['payee', 'en_cours'].includes(k.statut) ? 'bo-pill--ok' : ''}">${txt(k.reference)} · ${eur(k.total)}</span>`).join(' ')}</dd>` : ''}
+            ${f.autres_candidatures.length ? `<dt>Autres candidatures</dt><dd>${f.autres_candidatures.map((c) => `<button type="button" class="aff-lien" data-lead="${txt(c.id)}">${txt(dateFr(c.created_at))}</button>`).join(' ')}</dd>` : ''}
+          </dl>
+          <h3 class="lead-titre">Rendez-vous</h3>${rdvHtml}
+          <h3 class="lead-titre">E-mails <small>90 derniers jours, Brevo</small></h3>
+          ${a ? `<div class="crm-activite"><div><b class="chiffre">${nb(a.envoyes)}</b><span>Reçus</span></div><div><b class="chiffre">${nb(a.ouverts)}</b><span>Campagnes ouvertes</span></div><div><b class="chiffre">${nb(a.cliques)}</b><span>Campagnes cliquées</span></div><div><b class="chiffre">${a.derniere_ouverture ? txt(dateFr(a.derniere_ouverture)) : '·'}</b><span>Dernière ouverture</span></div></div>` : `<p class="lead-rien">${txt(f.brevo_motif || 'Pas d activité e-mail connue.')}</p>`}
+          <details class="lead-questionnaire"><summary>Ses réponses au questionnaire</summary><dl class="crm-dl">${f.reponses.map((r) => `<dt>${txt(r.question)}</dt><dd>${r.reponse ? txt(r.reponse) : '<span class="lead-rien">Pas répondu</span>'}</dd>`).join('')}</dl></details>
+        </div>
+        <div>
+          <form class="lead-noter" data-lead-noter="${txt(l.id)}">
+            <div class="lead-noter__types" role="radiogroup" aria-label="Type">${f.types.map((t, i) => `<label><input type="radio" name="type" value="${t.cle}" ${i === 1 ? 'checked' : ''}><span>${txt(t.nom)}</span></label>`).join('')}</div>
+            <textarea name="contenu" rows="4" maxlength="4000" required placeholder="Ce qui s'est dit, la conclusion, la suite prévue…"></textarea>
+            <div class="lead-noter__pied"><span>Signé ${txt(auteurCourt(_moi))}, daté automatiquement</span><button type="submit" class="bo-btn bo-btn--or">Ajouter à l'historique</button></div>
+          </form>
+          <h3 class="lead-titre">Historique</h3>
+          ${f.interactions.length ? `<ol class="lead-histo">${f.interactions.map((i) => `<li class="lead-histo__${txt(i.type)}">
+              <div class="lead-histo__tete"><b>${i.type === 'statut' ? `${txt(nomStatut(f, i.statut_avant))} → ${txt(nomStatut(f, i.statut_apres))}` : txt(nomType(f, i.type))}</b><span>${txt(dateFr(i.created_at, true))} · ${txt(auteurCourt(i.auteur))}</span></div>
+              ${i.contenu ? `<p>${txt(i.contenu)}</p>` : ''}</li>`).join('')}</ol>` : '<p class="lead-rien">Aucun contact noté pour l instant.</p>'}
+        </div>
+      </div></div>`;
+  }
+  let _moi = '';
+  (async () => { try { const { data } = await cli().auth.getSession(); _moi = data?.session?.user?.email || ''; } catch { /* rien */ } })();
+  async function leadOuvrir(id) {
+    _lead.ouvert = id; _lead.fiche = null;
+    await crmLeads();
+    try { _lead.fiche = await LEADS('lead', { id }); }
+    catch (e) { _lead.ouvert = null; dire(e.message, 'error'); }
+    if (_ecranCourant === 'crm' && _crmOnglet.v === 'leads') { await crmLeads(); const f = document.querySelector('.crm-fiche'); if (f && f.scrollIntoView) f.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+  }
+  document.addEventListener('click', (e) => {
+    if (_ecranCourant !== 'crm') return;
+    const t = e.target;
+    const o = t.closest('[data-crm-onglet]'); if (o) { _crmOnglet.v = o.dataset.crmOnglet; CHARGEURS.crm(); return; }
+    if (_crmOnglet.v !== 'leads') return;
+    const s = t.closest('[data-lead-statut]'); if (s) { _lead.statut = s.dataset.leadStatut; CHARGEURS.crm(); return; }
+    if (t.closest('[data-lead-fermer]')) { _lead.ouvert = null; _lead.fiche = null; CHARGEURS.crm(); return; }
+    const r = t.closest('[data-lead]'); if (r) leadOuvrir(r.dataset.lead);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (_ecranCourant !== 'crm' || _crmOnglet.v !== 'leads' || (e.key !== 'Enter' && e.key !== ' ')) return;
+    const r = e.target.closest && e.target.closest('tr[data-lead]'); if (!r) return;
+    e.preventDefault(); leadOuvrir(r.dataset.lead);
+  });
+  document.addEventListener('change', async (e) => {
+    const sel = e.target.closest && e.target.closest('[data-lead-changer]'); if (!sel) return;
+    const id = sel.dataset.leadChanger, statut = sel.value;
+    const mot = window.prompt(`Passer ce lead en « ${sel.options[sel.selectedIndex].text} ». Un mot pour l'historique ? (facultatif)`, '');
+    if (mot === null) { sel.value = _lead.fiche.lead.statut; return; }
+    sel.disabled = true;
+    try { await LEADS('statut', { id, statut, contenu: mot }); _cache.delete('leads'); dire('Étape changée.'); await leadOuvrir(id); }
+    catch (err) { sel.disabled = false; sel.value = _lead.fiche.lead.statut; dire(err.message, 'error'); }
+  });
+  document.addEventListener('submit', async (e) => {
+    const f = e.target.closest && e.target.closest('[data-lead-noter]'); if (!f) return;
+    e.preventDefault();
+    const v = Object.fromEntries(new FormData(f).entries());
+    const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
+    try { await LEADS('noter', { id: f.dataset.leadNoter, type: v.type, contenu: v.contenu }); _cache.delete('leads'); dire('Ajouté à l historique.'); await leadOuvrir(f.dataset.leadNoter); }
+    catch (err) { btn.disabled = false; dire(err.message, 'error'); }
+  });
+  document.addEventListener('input', (e) => {
+    if (_ecranCourant !== 'crm' || !e.target.matches('[data-lead-q]')) return;
+    const t = e.target; _lead.q = t.value; clearTimeout(t._m);
+    t._m = setTimeout(() => { const pos = t.selectionStart; crmLeads().then(() => { const n = document.querySelector('[data-lead-q]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }, 200);
+  });
   async function crmOuvrir(id) {
     _crm.fiche = id; _crm.ficheDonnees = null;
     await CHARGEURS.crm();
