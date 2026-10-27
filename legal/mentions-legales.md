@@ -7,22 +7,26 @@ Société par actions simplifiée unipersonnelle (SASU) au capital de 100 €
 Immatriculée au Registre du Commerce et des Sociétés d'Antibes sous le n° 989 832 175  
 Siège social : 2 Montée des Grimonds, Les Jardins de l'Olivier, 06700 Saint-Laurent-du-Var, France  
 Numéro de TVA intracommunautaire : FR35989832175  
-Président : GLN CONSULTING (SAS – RCS Grasse n° 879 644 359)  
+Président : GLN CONSULTING (SAS, RCS Grasse n° 879 644 359)  
 Directeur de la publication : Emmanuel Galiano  
 Contact : contact@trader360.fr
 
 ## Hébergement
 
-OVHcloud – 2 rue Kellermann, 59100 Roubaix, France  
-Téléphone : 09 72 10 10 07 – Site : [www.ovh.com](https://www.ovh.com)
+Le site trader360.fr et l'espace membre app.journaltrader360.fr sont hébergés par :  
+Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis. Site : [vercel.com](https://vercel.com)
+
+Les données de l'espace membre sont hébergées par Supabase Inc. ([supabase.com](https://supabase.com)), sur des serveurs situés en Europe.
+
+Le nom de domaine et la messagerie @trader360.fr sont gérés par OVHcloud, 2 rue Kellermann, 59100 Roubaix, France. Téléphone : 09 72 10 10 07. Site : [www.ovh.com](https://www.ovh.com)
 
 ## Plateforme
 
-Le site est opéré sur la solution SaaS LearnyBox. L'hébergement technique est assuré par OVHcloud.
+Le site et l'espace membre (formation et journal de trading) sont conçus, développés et exploités par TRADER 360.
 
 ## Accès et utilisation du site
 
-L'accès au site et son utilisation impliquent l'acceptation des présentes mentions et des conditions contractuelles applicables (CGV/CGU). Les informations publiées ont une finalité pédagogique et ne constituent en aucun cas un conseil en investissement au sens des textes applicables.
+L'accès au site et son utilisation impliquent l'acceptation des présentes mentions et des conditions contractuelles applicables (conditions générales de vente et d'adhésion, CGU). Les informations publiées ont une finalité pédagogique et ne constituent en aucun cas un conseil en investissement au sens des textes applicables.
 
 ## Propriété intellectuelle
 
@@ -50,4 +54,4 @@ Les présentes mentions légales sont soumises au droit français. À défaut d'
 
 ## Crédits
 
-Édition : TRADER 360. Réalisation du site : TRADER 360. Plateforme : LearnyBox. Hébergement : OVHcloud.
+Édition : TRADER 360. Réalisation du site et de l'espace membre : TRADER 360. Hébergement : Vercel. Données de l'espace membre : Supabase. Nom de domaine et messagerie : OVHcloud.
