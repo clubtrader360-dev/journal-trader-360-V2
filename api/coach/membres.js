@@ -41,6 +41,7 @@ import { requireCoach, httpError } from '../vimeo/_lib/coach-auth.js';
 import { getServiceClient } from '../tradovate/_lib/auth.js';
 import { getSheetsClient } from './_lib/sheets-client.js';
 import { brevo } from '../_lib/brevo-client.js';
+import { crm } from '../_lib/crm.js';
 import { tableurParEmail } from '../_lib/tableur-par-email.js';
 import { retirerMembresDesProspects } from '../_lib/prospects-membres.js';
 import crypto from 'node:crypto';
@@ -1487,6 +1488,7 @@ export default async function handler(req, res) {
     else if (action === 'tunnels') resultat = await tunnels(corps, coach);
     else if (action === 'offres') resultat = await offresSite(sb, corps, coach, origine);
     else if (action === 'campagnes') resultat = await campagnes(sb, corps, coach);
+    else if (action === 'crm') resultat = await crm(sb, corps, { brevoOk, httpError });
     else if (action === 'mails_membres') resultat = await mailsMembres(sb, corps, coach, origine);
     else if (action === 'mot_de_passe') resultat = await motDePasse(sb, corps, coach);
     else if (action === 'creer_manquants') resultat = await creerManquants(sb, corps, coach);

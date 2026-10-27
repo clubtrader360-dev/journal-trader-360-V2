@@ -871,10 +871,136 @@
       }
     } catch (err) { b.disabled = false; dire(err.message, 'error'); }
   });
+  /* ══ CRM : la recopie de Brevo, en lecture seule (Nadir, 27/10) ═════════════
+   * ⛔ Rien ne s'écrit d'ici : Brevo reste la source, la fiche y renvoie.
+   * Tous les contacts sont chargés une fois (quelques centaines), puis filtrés ici. */
+  const _crm = { liste: 'toutes', q: '', statut: '', page: 0, fiche: null, ficheDonnees: null };
+  const CRM_PAGE = 50;
+  const telFr = (t) => { const d = String(t || '').replace(/\D/g, ''); if (!d) return ''; if (d.startsWith('33') && d.length === 11) return `+33 ${d[2]} ${d.slice(3).replace(/(\d{2})(?=\d)/g, '$1 ')}`; return `+${d}`; };
+  const sansAccent = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function crmFiltrer(contacts) {
+    const q = sansAccent(_crm.q).trim();
+    return contacts.filter((c) => {
+      if (_crm.liste !== 'toutes' && !c.listes.includes(Number(_crm.liste))) return false;
+      if (_crm.statut === 'membre' && c.compte !== 'membre') return false;
+      if (_crm.statut === 'hors' && c.compte) return false;
+      if (_crm.statut === 'desinscrit' && !c.bloque) return false;
+      if (q && !sansAccent(`${c.prenom} ${c.nom} ${c.email} ${c.telephone}`).includes(q)) return false;
+      return true;
+    });
+  }
+  function crmFiche(nomsListes) {
+    const f = _crm.ficheDonnees;
+    if (!_crm.fiche) return '';
+    if (!f) return `<div class="bo-carte crm-fiche"><p class="bo-vide">Lecture de la fiche dans Brevo…</p></div>`;
+    const a = f.activite || {};
+    const nomComplet = `${f.prenom} ${f.nom}`.trim() || f.email;
+    const attrs = Object.entries(f.attributs || {}).filter(([k]) => !['PRENOM', 'NOM', 'SMS'].includes(k));
+    return `<div class="bo-carte crm-fiche">
+      <div class="bo-carte__tete"><h2>${txt(nomComplet)}</h2>
+        <div class="crm-fiche__actions">
+          ${f.compte ? `<a class="bo-btn bo-btn--fantome" href="#/academie/membres?fiche=${encodeURIComponent(f.email)}"><i class="fas fa-id-card"></i> Fiche membre</a>` : ''}
+          <a class="bo-btn bo-btn--fantome" href="https://app.brevo.com/contact/index/${encodeURIComponent(f.id)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Ouvrir dans Brevo</a>
+          <button type="button" class="bo-btn bo-btn--fantome" data-crm-fermer aria-label="Fermer la fiche"><i class="fas fa-xmark"></i></button>
+        </div></div>
+      <div class="crm-fiche__grille">
+        <dl class="crm-dl">
+          <dt>Adresse</dt><dd>${txt(f.email)}${f.bloque ? ' <span class="bo-pill bo-pill--non">Désinscrit</span>' : ''}</dd>
+          ${f.telephone ? `<dt>Téléphone</dt><dd class="chiffre">${txt(telFr(f.telephone))}</dd>` : ''}
+          <dt>Compte</dt><dd>${f.compte === 'coach' ? 'Coach' : f.compte === 'membre' ? '<span class="bo-pill bo-pill--ok">Membre</span>' : 'Pas de compte dans le journal'}</dd>
+          <dt>Listes</dt><dd>${f.listes.length ? f.listes.map((id) => `<span class="bo-pill">${txt(nomsListes.get(id) || `Liste ${id}`)}</span>`).join(' ') : 'Aucune'}</dd>
+          ${f.desinscrit_listes.length ? `<dt>Désinscrit de</dt><dd>${f.desinscrit_listes.map((id) => `<span class="bo-pill bo-pill--non">${txt(nomsListes.get(id) || `Liste ${id}`)}</span>`).join(' ')}</dd>` : ''}
+          <dt>Ajouté le</dt><dd>${txt(dateFr(f.cree_le, true))}</dd>
+          <dt>Modifié le</dt><dd>${txt(dateFr(f.modifie_le, true))}</dd>
+          ${attrs.map(([k, v]) => `<dt>${txt(k)}</dt><dd>${txt(Array.isArray(v) ? v.join(', ') : v)}</dd>`).join('')}
+        </dl>
+        <div>
+          <div class="crm-activite">
+            <div><b class="chiffre">${nb(a.envoyes)}</b><span>Envoyés</span></div>
+            <div><b class="chiffre">${nb(a.delivres)}</b><span>Délivrés</span></div>
+            <div><b class="chiffre">${nb(a.ouverts)}</b><span>Campagnes ouvertes</span></div>
+            <div><b class="chiffre">${nb(a.cliques)}</b><span>Campagnes cliquées</span></div>
+          </div>
+          <p class="bo-source">Activité des 90 derniers jours, telle que Brevo la conserve.${a.derniere_ouverture ? ` Dernière ouverture : ${txt(dateFr(a.derniere_ouverture, true))}.` : ''}${a.rebonds ? ` ${a.rebonds} rebond(s).` : ''}${a.desinscriptions ? ` ${a.desinscriptions} désinscription(s).` : ''}</p>
+        </div>
+      </div></div>`;
+  }
   CHARGEURS.crm = async () => {
-    $('boCrm').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2>Listes Brevo</h2><span class="bo-pill">Lot CRM, après les ventes</span></div>
-      ${avenir([['Les listes', 'Toutes vos listes Brevo, avec leur nombre de contacts, lues en direct (la clé existe déjà côté serveur).'], ['Les contacts', 'Qui est dans quelle liste, et le lien vers sa fiche membre quand il en a une.'], ['Les mouvements', 'Un membre qui s inscrit ici entre dans la bonne liste là-bas, sans double saisie.']])}</div>`;
+    const z = $('boCrm');
+    const [listes, d] = await Promise.all([lire('crm:listes', () => BO('crm', { sous_action: 'listes' })), lire('crm:contacts', () => BO('crm', { sous_action: 'contacts' }))]);
+    const nomsListes = new Map(listes.map((l) => [l.id, l.nom]));
+    const tous = d.contacts || [];
+    const filtres = crmFiltrer(tous);
+    const pages = Math.max(1, Math.ceil(filtres.length / CRM_PAGE));
+    if (_crm.page >= pages) _crm.page = pages - 1;
+    const page = filtres.slice(_crm.page * CRM_PAGE, (_crm.page + 1) * CRM_PAGE);
+    const membres = tous.filter((c) => c.compte === 'membre').length;
+    const desinscrits = tous.filter((c) => c.bloque).length;
+    const puce = (id, nom, n) => `<button type="button" class="crm-liste" data-crm-liste="${id}" aria-pressed="${String(_crm.liste) === String(id)}"><span>${txt(nom)}</span><b class="chiffre">${n == null ? '' : nb(n)}</b></button>`;
+    z.innerHTML = `
+      <div class="bo-kpis">
+        ${kpi('fa-address-book', 'Contacts Brevo', nb(d.total), `${nb(listes.length)} listes`)}
+        ${kpi('fa-user-check', 'Membres', nb(membres), 'avec un compte dans le journal')}
+        ${kpi('fa-user-plus', 'Hors membres', nb(tous.length - membres - tous.filter((c) => c.compte === 'coach').length), 'prospects, inscrits, candidats')}
+        ${kpi('fa-user-slash', 'Désinscrits', nb(desinscrits), 'ne reçoivent plus de campagne')}
+      </div>
+      ${d.tronque ? `<p class="bo-erreur">Brevo compte ${nb(d.total)} contacts : seuls les ${nb(tous.length)} premiers sont affichés.</p>` : ''}
+      ${crmFiche(nomsListes)}
+      <div class="bo-carte">
+        <div class="crm-listes" role="group" aria-label="Listes Brevo">${puce('toutes', 'Tous les contacts', tous.length)}${listes.map((l) => puce(l.id, l.nom, l.contacts)).join('')}</div>
+        <div class="crm-filtres">
+          <input type="search" class="am-recherche" placeholder="Rechercher un nom, une adresse, un téléphone…" data-crm-q value="${txt(_crm.q)}" aria-label="Rechercher un contact">
+          <select class="bo-select" data-crm-statut aria-label="Filtrer par statut">
+            <option value="" ${_crm.statut === '' ? 'selected' : ''}>Tous les statuts</option>
+            <option value="membre" ${_crm.statut === 'membre' ? 'selected' : ''}>Membres</option>
+            <option value="hors" ${_crm.statut === 'hors' ? 'selected' : ''}>Hors membres</option>
+            <option value="desinscrit" ${_crm.statut === 'desinscrit' ? 'selected' : ''}>Désinscrits</option>
+          </select>
+          <span class="crm-compte chiffre">${nb(filtres.length)} contact${filtres.length > 1 ? 's' : ''}</span>
+        </div>
+        ${page.length ? `<div class="bo-enveloppe"><table class="bo-table crm-table"><thead><tr><th>Contact</th><th>Téléphone</th><th>Listes</th><th>Ajouté le</th><th>Compte</th><th></th></tr></thead><tbody>
+          ${page.map((c) => `<tr data-crm-fiche="${c.id}" class="${_crm.fiche === c.id ? 'crm-actif' : ''}" tabindex="0">
+            <td><b>${txt(`${c.prenom} ${c.nom}`.trim() || '(sans nom)')}</b><small>${txt(c.email)}</small></td>
+            <td class="chiffre">${txt(telFr(c.telephone))}</td>
+            <td>${c.listes.slice(0, 2).map((id) => `<span class="bo-pill">${txt(nomsListes.get(id) || `Liste ${id}`)}</span>`).join(' ')}${c.listes.length > 2 ? ` <span class="bo-pill" title="${txt(c.listes.slice(2).map((id) => nomsListes.get(id) || id).join(', '))}">+${c.listes.length - 2}</span>` : ''}</td>
+            <td>${txt(dateFr(c.cree_le))}</td>
+            <td>${c.bloque ? '<span class="bo-pill bo-pill--non">Désinscrit</span>' : c.compte === 'membre' ? '<span class="bo-pill bo-pill--ok">Membre</span>' : c.compte === 'coach' ? '<span class="bo-pill">Coach</span>' : ''}</td>
+            <td>${c.compte ? `<a class="bo-oeil" href="#/academie/membres?fiche=${encodeURIComponent(c.email)}" title="Fiche membre" data-crm-stop>&#128065;</a>` : ''}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="bo-vide">Aucun contact ne correspond.</p>'}
+        ${pages > 1 ? `<div class="crm-pages"><button type="button" class="bo-btn bo-btn--fantome" data-crm-page="-1" ${_crm.page === 0 ? 'disabled' : ''}>Précédent</button><span class="chiffre">${_crm.page + 1} / ${pages}</span><button type="button" class="bo-btn bo-btn--fantome" data-crm-page="1" ${_crm.page >= pages - 1 ? 'disabled' : ''}>Suivant</button></div>` : ''}
+        <p class="bo-source">Lu dans Brevo, en lecture seule. Pour ajouter, retirer ou désinscrire un contact, c'est dans Brevo (bouton « Ouvrir dans Brevo » de la fiche). Recharger la page relit Brevo.</p>
+      </div>`;
   };
+  async function crmOuvrir(id) {
+    _crm.fiche = id; _crm.ficheDonnees = null;
+    await CHARGEURS.crm();
+    try { _crm.ficheDonnees = await lire(`crm:contact:${id}`, () => BO('crm', { sous_action: 'contact', id: String(id) })); }
+    catch (e) { _crm.fiche = null; dire(e.message, 'error'); }
+    if (_ecranCourant === 'crm') { await CHARGEURS.crm(); const f = document.querySelector('.crm-fiche'); if (f && f.scrollIntoView) f.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+  }
+  document.addEventListener('click', (e) => {
+    if (_ecranCourant !== 'crm') return;
+    const t = e.target;
+    if (t.closest('[data-crm-stop]')) return;
+    const l = t.closest('[data-crm-liste]'); if (l) { _crm.liste = l.dataset.crmListe; _crm.page = 0; CHARGEURS.crm(); return; }
+    const pg = t.closest('[data-crm-page]'); if (pg) { _crm.page += Number(pg.dataset.crmPage); CHARGEURS.crm(); return; }
+    if (t.closest('[data-crm-fermer]')) { _crm.fiche = null; _crm.ficheDonnees = null; CHARGEURS.crm(); return; }
+    const r = t.closest('[data-crm-fiche]'); if (r) crmOuvrir(Number(r.dataset.crmFiche));
+  });
+  document.addEventListener('keydown', (e) => {
+    if (_ecranCourant !== 'crm' || (e.key !== 'Enter' && e.key !== ' ')) return;
+    const r = e.target.closest && e.target.closest('tr[data-crm-fiche]'); if (!r) return;
+    e.preventDefault(); crmOuvrir(Number(r.dataset.crmFiche));
+  });
+  document.addEventListener('input', (e) => {
+    if (_ecranCourant !== 'crm') return;
+    const t = e.target;
+    if (t.matches('[data-crm-q]')) { _crm.q = t.value; _crm.page = 0; clearTimeout(t._m); t._m = setTimeout(() => { const pos = t.selectionStart; CHARGEURS.crm().then(() => { const n = document.querySelector('[data-crm-q]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }, 200); }
+  });
+  document.addEventListener('change', (e) => {
+    if (_ecranCourant !== 'crm') return;
+    if (e.target.matches('[data-crm-statut]')) { _crm.statut = e.target.value; _crm.page = 0; CHARGEURS.crm(); }
+  });
   CHARGEURS['ventes/affiliation'] = async () => {
     $('boAffiliation').innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2><b>0</b> Affilié</h2><button type="button" class="bo-btn bo-btn--or" disabled title="Plus tard"><i class="fas fa-plus"></i> Créer un affilié</button></div>
       ${avenir([['Un lien par membre', 'Un membre qui parle de vous reçoit un lien personnel vers le questionnaire.'], ['La trace', 'Chaque candidature venue de ce lien lui est attribuée, et vous en êtes notifiés.'], ['Les retombées', 'Par affilié : candidatures, inscrits, ventes.']])}<p class="bo-source">Jamais utilisé sur LearnyBox ; à faire quand vous le déciderez.</p></div>`;
