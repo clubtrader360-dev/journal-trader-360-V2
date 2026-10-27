@@ -266,3 +266,32 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .of-coche { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; color: var(--text-muted); cursor: pointer; overflow-wrap: anywhere; }
 .of-coche input { accent-color: var(--gold); }
 .bo-ecran[data-ecran="ventes/offres"] { --cm-or: var(--gold); --cm-or-2: var(--gold-2); --cm-or-ligne: var(--gold-line); --cm-or-voile: var(--gold-wash); }
+
+/* ── CRM : la recopie de Brevo (27/10/2026) ─────────────────────────────── */
+.crm-listes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.crm-liste { display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: 600 12.5px var(--f-ui); cursor: pointer; transition: border-color .3s cubic-bezier(.16,1,.3,1), color .3s cubic-bezier(.16,1,.3,1), background .3s cubic-bezier(.16,1,.3,1); }
+.crm-liste b { font-family: var(--f-mono); font-feature-settings: 'tnum' 1; color: var(--text-soft); font-weight: 600; }
+.crm-liste:hover { border-color: var(--gold-line); color: var(--text); }
+.crm-liste[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: var(--gold-wash); }
+.crm-liste[aria-pressed="true"] b { color: var(--gold); }
+.crm-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.crm-filtres .am-recherche { flex: 1 1 260px; }
+.crm-compte { margin-left: auto; color: var(--text-soft); font-size: 13px; }
+.chiffre { font-family: var(--f-mono); font-feature-settings: 'tnum' 1; }
+.crm-table tbody tr { cursor: pointer; }
+.crm-table tbody tr:hover, .crm-table tbody tr.crm-actif { background: var(--gold-wash); }
+.crm-table tbody tr:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.crm-table td small { display: block; color: var(--text-soft); font-size: 12px; margin-top: 2px; }
+.crm-table .bo-pill { margin: 2px 0; }
+.crm-pages { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 14px; color: var(--text-muted); }
+.crm-fiche { border-color: var(--gold-line); }
+.crm-fiche__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.crm-fiche__grille { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 900px) { .crm-fiche__grille { grid-template-columns: 1fr; } }
+.crm-dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; font-size: 13.5px; }
+.crm-dl dt { color: var(--text-soft); }
+.crm-dl dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.crm-activite { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.crm-activite div { border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+.crm-activite b { display: block; font-size: 22px; color: var(--gold); }
+.crm-activite span { font-size: 12px; color: var(--text-soft); }
