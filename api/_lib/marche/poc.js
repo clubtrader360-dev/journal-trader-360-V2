@@ -29,7 +29,14 @@ export function minutesSeance(barres) {
     if (!(b.hhmm >= 930 && b.hhmm < 1600)) continue;
     vues.set(b.hhmm, b);
   }
-  return [...vues.values()].sort((a, b) => a.hhmm - b.hhmm);
+  const triees = [...vues.values()].sort((a, b) => a.hhmm - b.hhmm);
+  // Une « minute » au volume cent fois supérieur à la médiane n'en est pas une : c'est
+  // le récapitulatif de journée que CNBC place en fin de réponse. Mesuré le 29/10 :
+  // médiane 2 254, plus forte minute réelle 44 072 (la clôture), récapitulatif 307 244
+  // à 8h38 et bien plus en fin de journée.
+  const vols = triees.map((b) => b.volume || 0).sort((a, b) => a - b);
+  const mediane = vols[Math.floor(vols.length / 2)] || 0;
+  return mediane ? triees.filter((b) => !(b.volume > mediane * 100)) : triees;
 }
 
 /**

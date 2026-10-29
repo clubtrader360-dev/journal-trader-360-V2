@@ -36,6 +36,8 @@ dire(calculerPoc(egal).poc === 7710 && calculerPoc([...egal].reverse()).poc === 
 const avecNuit = [{ hhmm: 400, haut: 7700.25, bas: 7700, cloture: 7700, volume: 1e9 }, ...seance(), { hhmm: 1630, haut: 7700.25, bas: 7700, cloture: 7700, volume: 1e9 }];
 dire(pocControle(avecNuit, { reglement: 7783.25 }).valeur === 7771.25, 'minutes de nuit et d après 16 h ignorées');
 
+const avecRecap = seance(); avecRecap.splice(200, 1, { hhmm: avecRecap[200].hhmm, haut: 7700.25, bas: 7700, cloture: 7700, volume: 5e7 });
+dire(minutesSeance(avecRecap).length === 389 && calculerPoc(minutesSeance(avecRecap)).poc === 7771.25, 'récapitulatif de journée (volume aberrant) écarté');
 const ctl = { reglement: 7783.25, hautJour: 7819.5, basJour: 7742.75 };
 let p = pocControle(seance(), ctl);
 dire(p.valeur === 7771.25 && p.minutes === 390, 'séance complète et cohérente : POC publié', p);

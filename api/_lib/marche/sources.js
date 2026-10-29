@@ -423,33 +423,41 @@ export async function vixQuoteCboe(dateIso) {
 // ── ES, BARRES D'UNE MINUTE DE LA SÉANCE RÉGULIÈRE, source CNBC ───────────────────
 //
 // Pour le POC (29/10/2026, voir poc.js). Même fournisseur que le règlement daté, donc
-// même contrat nommé. Les heures sont demandées et rendues à l'heure de New York
-// (fuseau EST5EDT dans l'adresse), ce qui évite toute conversion de notre côté.
-// ⚠️ SOURCE NON ENCORE ÉPROUVÉE DEPUIS LE RUNNER au moment où elle est écrite : la
-// vérification de collecte (verif-marche.yml) le dira à la première poussée, et un
-// échec ne produit qu'un POC en n/d avec son motif, jamais une valeur.
-// Plusieurs symboles sont essayés dans l'ordre : le contrat nommé d'abord. Un symbole
-// continu ne passe que si les contrôles de poc.js le rattachent au même contrat
-// (dernière minute contre règlement, haut et bas contre la barre du jour).
+// même contrat nommé. C'est la requête du graphique de cnbc.com (GraphQL
+// « getQuoteChartData », plage « 1D ») : elle rend les barres d'UNE MINUTE des deux
+// dernières journées, avec leur volume, horodatées à l'heure de New York.
+//
+// Mesuré le 29/10/2026 sur ESZ26, séance du 28 : 390 minutes de 9h30 à 15h59, aucune
+// sans volume, dernière minute à 7 785 pour un règlement de 7 783,25, POC 7 772,50.
+//
+// ⚠️ L'ancienne adresse ts-api.cnbc.com/harmonize rend 404 depuis le runner comme depuis
+// un navigateur (vérification du 29/10, run 101) : ne pas y revenir.
+// ⚠️ La requête est « persistée » : CNBC l'identifie par une empreinte. Si CNBC change
+// son graphique, l'empreinte peut cesser d'être reconnue. Ce n'est pas silencieux :
+// l'erreur remonte, le POC part en n/d avec son motif et l'alerte n/d prévient Nadir.
+// ⚠️ La DERNIÈRE barre de la réponse est un récapitulatif de la journée en cours (volume
+// cumulé), pas une minute. Elle est écartée par sa date ou par son heure (hors 9h30-16h)
+// dans presque tous les cas ; poc.js écarte en plus toute minute au volume aberrant.
+const EMPREINTE_GRAPHIQUE_CNBC = '9e1670c29a10707c417a1efd327d4b2b1d456b77f1426e7e84fb7d399416bb6b';
+
 export async function esMinutesCnbc(contratCnbc, seanceIso) {
   const jour = seanceIso.replace(/-/g, '');
-  const erreurs = [];
-  for (const symbole of [contratCnbc, '@SP.1']) {
-    const url = `https://ts-api.cnbc.com/harmonize/symbol/${encodeURIComponent(symbole)}/1M/${jour}093000/${jour}160000/adjusted/EST5EDT.json`;
-    try {
-      const txt = await obtenir(url);
-      let j;
-      try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
-      const barres = j?.barData?.priceBars;
-      if (!Array.isArray(barres) || !barres.length) throw new Error(`aucune barre (clés : ${Object.keys(j || {}).join(', ') || 'aucune'})`);
-      const nb = (v) => { const x = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(x) ? x : null; };
-      const lues = barres.map((b) => {
-        const t = String(b.tradeTime || '');
-        return { date: t.slice(0, 8), hhmm: Number(t.slice(8, 12)), haut: nb(b.high), bas: nb(b.low), cloture: nb(b.close ?? b.last), volume: nb(b.volume) };
-      }).filter((b) => b.date === jour && b.haut !== null && b.bas !== null && b.cloture !== null);
-      if (!lues.length) throw new Error(`${barres.length} barres reçues, aucune datée du ${seanceIso} (première : ${barres[0]?.tradeTime})`);
-      return { symbole, barres: lues, source: `CNBC (ts-api.cnbc.com, ${symbole}, barres 1 min)` };
-    } catch (e) { erreurs.push(`${symbole} : ${e.message}`); }
-  }
-  throw new Error(erreurs.join(' ; '));
+  const url = 'https://webql-redesign.cnbcfm.com/graphql?operationName=getQuoteChartData'
+    + `&variables=${encodeURIComponent(JSON.stringify({ symbol: contratCnbc, timeRange: '1D' }))}`
+    + `&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: EMPREINTE_GRAPHIQUE_CNBC } }))}`;
+  const txt = await obtenir(url);
+  let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+  if (j?.errors?.length) throw new Error(`GraphQL : ${j.errors.map((e) => e.message).join(' ; ').slice(0, 160)}`);
+  const cd = j?.data?.chartData;
+  if (cd?.symbol && cd.symbol !== contratCnbc) throw new Error(`CNBC rend ${cd.symbol}, ${contratCnbc} demandé`);
+  const barres = cd?.priceBars;
+  if (!Array.isArray(barres) || !barres.length) throw new Error('aucune barre dans la réponse');
+  const nb = (v) => { const x = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(x) ? x : null; };
+  const lues = barres.map((b) => {
+    const t = String(b.tradeTime || '');
+    return { date: t.slice(0, 8), hhmm: Number(t.slice(8, 12)), haut: nb(b.high), bas: nb(b.low), cloture: nb(b.close), volume: nb(b.volume) };
+  }).filter((b) => b.date === jour && b.haut !== null && b.bas !== null && b.cloture !== null);
+  if (!lues.length) throw new Error(`${barres.length} barres reçues, aucune datée du ${seanceIso} (première : ${barres[0]?.tradeTime})`);
+  return { symbole: contratCnbc, barres: lues, source: `CNBC (webql-redesign.cnbcfm.com, ${contratCnbc}, barres 1 min)` };
 }
