@@ -14,6 +14,7 @@
 //  - sinon                → envoi à tous les élèves éligibles (production)
 // ========================================
 
+import { ajouterPivots } from '../_lib/pivots.js';
 import { createClient } from '@supabase/supabase-js';
 import { getBriefRecipients } from '../_lib/tableur-recipients.js';
 import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_NAME } from '../_lib/brevo-client.js';
@@ -210,6 +211,7 @@ export function checkHtmlWeight(html, label) {
 // une valeur de style est donc laissé intact.
 // Le trait d'union ordinaire (U+002D) n'est JAMAIS visé : il est légitime dans
 // « Nasdaq-100 », « au-dessus », « sur-performance ».
+export { ajouterPivots };
 export function stripLongDashes(html) {
   if (!html) return { html: html, count: 0 };
   let count = 0;
@@ -519,6 +521,18 @@ export default async function handler(req, res) {
     console.log('[DAILY-BRIEF] ✂️ aucun tiret long à corriger');
   }
   brief_html = _dash.html;
+
+  // Points pivots ES (29/10/2026) : relevés par le modèle sur Investing dans un commentaire
+  // machine, CONTRÔLÉS ici (cohérence des sept niveaux, amplitude, règlement dans la barre),
+  // et le commentaire est toujours retiré. ⚠️ La MÊME étape
+  // est rejouée par le workflow pour l'archive du site (daily-brief.yml, reconstruction du
+  // courriel) : les deux chemins doivent rester alignés.
+  const _piv = ajouterPivots(brief_html);
+  brief_html = _piv.html;
+  if (_piv.pivots) console.log(`[DAILY-BRIEF] 🎯 Pivots ES : P ${_piv.pivots.P} (barre déduite H ${_piv.pivots.haut} · B ${_piv.pivots.bas} · C ${_piv.pivots.cloture}, ${_piv.pivots.page || 'page non dite'})`);
+  else console.warn(`[DAILY-BRIEF] ⚠️ Pivots ES NON ajoutés : ${_piv.motif}`);
+  if (_piv.pivotsCfd) console.log(`[DAILY-BRIEF] 🎯 Pivots CFD : P ${_piv.pivotsCfd.P} (Cboe H ${_piv.pivotsCfd.haut} · B ${_piv.pivotsCfd.bas} · C ${_piv.pivotsCfd.cloture})`);
+  else console.warn(`[DAILY-BRIEF] ⚠️ Pivots CFD NON ajoutés : ${_piv.motifCfd}`);
 
   // Audit retiré du mail, conservé pour le diagnostic (réponse de l'endpoint + logs).
   // ---- Culture de marché : on trace, et on vérifie la concordance ----

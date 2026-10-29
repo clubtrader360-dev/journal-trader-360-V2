@@ -419,3 +419,37 @@ export async function vixQuoteCboe(dateIso) {
   return { cloture, haut: nombre(d.high), bas: nombre(d.low), date,
            source: 'Cboe (cadran différé _VIX, last_trade_time vérifié)' };
 }
+
+// ── ES, BARRES D'UNE MINUTE DE LA SÉANCE RÉGULIÈRE, source CNBC ───────────────────
+//
+// Pour le POC (29/10/2026, voir poc.js). Même fournisseur que le règlement daté, donc
+// même contrat nommé. Les heures sont demandées et rendues à l'heure de New York
+// (fuseau EST5EDT dans l'adresse), ce qui évite toute conversion de notre côté.
+// ⚠️ SOURCE NON ENCORE ÉPROUVÉE DEPUIS LE RUNNER au moment où elle est écrite : la
+// vérification de collecte (verif-marche.yml) le dira à la première poussée, et un
+// échec ne produit qu'un POC en n/d avec son motif, jamais une valeur.
+// Plusieurs symboles sont essayés dans l'ordre : le contrat nommé d'abord. Un symbole
+// continu ne passe que si les contrôles de poc.js le rattachent au même contrat
+// (dernière minute contre règlement, haut et bas contre la barre du jour).
+export async function esMinutesCnbc(contratCnbc, seanceIso) {
+  const jour = seanceIso.replace(/-/g, '');
+  const erreurs = [];
+  for (const symbole of [contratCnbc, '@SP.1']) {
+    const url = `https://ts-api.cnbc.com/harmonize/symbol/${encodeURIComponent(symbole)}/1M/${jour}093000/${jour}160000/adjusted/EST5EDT.json`;
+    try {
+      const txt = await obtenir(url);
+      let j;
+      try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+      const barres = j?.barData?.priceBars;
+      if (!Array.isArray(barres) || !barres.length) throw new Error(`aucune barre (clés : ${Object.keys(j || {}).join(', ') || 'aucune'})`);
+      const nb = (v) => { const x = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(x) ? x : null; };
+      const lues = barres.map((b) => {
+        const t = String(b.tradeTime || '');
+        return { date: t.slice(0, 8), hhmm: Number(t.slice(8, 12)), haut: nb(b.high), bas: nb(b.low), cloture: nb(b.close ?? b.last), volume: nb(b.volume) };
+      }).filter((b) => b.date === jour && b.haut !== null && b.bas !== null && b.cloture !== null);
+      if (!lues.length) throw new Error(`${barres.length} barres reçues, aucune datée du ${seanceIso} (première : ${barres[0]?.tradeTime})`);
+      return { symbole, barres: lues, source: `CNBC (ts-api.cnbc.com, ${symbole}, barres 1 min)` };
+    } catch (e) { erreurs.push(`${symbole} : ${e.message}`); }
+  }
+  throw new Error(erreurs.join(' ; '));
+}

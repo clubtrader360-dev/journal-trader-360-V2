@@ -64,6 +64,18 @@ if (commande === 'collecte') {
   const d = arg || aujourdhui();
   const r = await collecterMarche(d, { historique: await historiqueDe(d, arg2), dossier: arg2, dossierSemaines: semainesDe(arg2) });
   await deposer(r);
+  // Pivots du CFD (29/10/2026) : le haut, le bas et la clôture du S&P 500 comptant,
+  // datés et contrôlés par la collecte, passent au workflow qui les accroche au brief.
+  // Rien n'est écrit si l'une des trois valeurs est en n/d : les pivots CFD partent
+  // alors en n/d, avec le motif « commentaire absent ».
+  if (process.env.SORTIE_CFD) {
+    const { commentaireCfd } = await import('../api/_lib/pivots.js');
+    const [h, b, c] = ['haut', 'bas', 'cloture'].map((k) => r.spx?.[k]);
+    if ([h, b, c].every((v) => v && !v.nd && typeof v.valeur === 'number')) {
+      (await import('node:fs')).writeFileSync(process.env.SORTIE_CFD,
+        commentaireCfd({ date: r.seanceVisee, haut: h.valeur, bas: b.valeur, cloture: c.valeur }) + '\n');
+    }
+  }
   console.log(versPrompt(r));
 }
 
