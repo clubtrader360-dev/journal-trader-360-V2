@@ -160,7 +160,7 @@ jobs:
           fi
           INSTANTANES=/tmp/donnees/seances
 
-          MARCHE=$(SORTIE_SEANCES=/tmp/seances-nouvelles node outils/marche.mjs collecte "$DATE_ISO" "$INSTANTANES" 2>/tmp/marche_err.log)
+          MARCHE=$(SORTIE_SEANCES=/tmp/seances-nouvelles SORTIE_CFD=/tmp/pivots-cfd.txt node outils/marche.mjs collecte "$DATE_ISO" "$INSTANTANES" 2>/tmp/marche_err.log)
           if [ -z "$MARCHE" ]; then
             echo "::error::La collecte de marché n'a rien produit. $(cat /tmp/marche_err.log)"
             exit 1
@@ -256,6 +256,15 @@ jobs:
             echo "::error::Marqueur 'brief-marche' absent après extraction. Rien n'est envoyé."; exit 1
           fi
           # 2c. Ne doit pas COMMENCER par du texte méta (1re ligne non vide, casse ignorée).
+          # Pivots du CFD : le commentaire machine écrit par la collecte (Cboe, code seul)
+          # est accroché au brief. Le modèle ne le voit ni ne le touche ; l'endpoint le lit,
+          # calcule les pivots et le retire.
+          if [ -s /tmp/pivots-cfd.txt ]; then
+            cat /tmp/pivots-cfd.txt >> /tmp/brief.html
+            echo "📌 Données des pivots CFD accrochées : $(cat /tmp/pivots-cfd.txt)"
+          else
+            echo "::warning::Pivots CFD : haut, bas ou clôture du S&P 500 indisponible, colonne CFD en n/d."
+          fi
           FIRST=$(grep -m1 -v '^[[:space:]]*$' /tmp/brief.html || true)
           if echo "$FIRST" | grep -qiE '^[[:space:]]*(le brief|voici|j.ai|points cl|sauvegard|le fichier)'; then
             echo "::error::Le HTML commence par un méta-commentaire : $FIRST — Rien n'est envoyé."; exit 1
@@ -274,8 +283,20 @@ jobs:
           # images. Ce relevé coûte quelques lignes de log et répond aux deux.
           compter() { grep -o "$1" /tmp/brief.html 2>/dev/null | wc -l | tr -d ' '; }
           echo "📐 Structure du brief :"
-          echo "   tableau SPX (en-tête ES/CFD) ......... $(compter '>ES<')/$(compter '>CFD<')"
-          echo "   lignes du tableau (HAUT SEM.) ........ $(compter 'HAUT SEM\.')"
+          echo "   titre S&P 500 : zones à surveiller ... $(compter 'S&amp;P 500 : zones\|S&P 500 : zones')"
+          echo "   tableau (en-tête ES/CFD) ............. $(compter '>ES<')/$(compter '>CFD<')"
+          echo "   lignes CLÔTURE / POC ................. $(compter '>CLÔTURE<')/$(compter '>POC<') (attendu 1/1)"
+          echo "   lignes haut/bas (retirées le 29/10) .. $(compter 'HAUT SÉANCE\|BAS SÉANCE\|HAUT SEM\.\|BAS SEM\.') (attendu 0)"
+          # Pivots ES : le contrôle est celui de l'endpoint, rejoué ici pour que le log du
+          # run dise s'ils partiront et, sinon, pourquoi. Un refus ne bloque rien.
+          PIVOTS=$(node -e "
+            Promise.all([import('./api/_lib/pivots.js'), import('node:fs')]).then(([m, fs]) => {
+              const r = m.ajouterPivots(fs.readFileSync('/tmp/brief.html', 'utf8'));
+              console.log('ES ' + (r.pivots ? 'pivot ' + r.pivots.P : 'NON : ' + r.motif) + ' | CFD ' + (r.pivotsCfd ? 'pivot ' + r.pivotsCfd.P : 'NON : ' + r.motifCfd));
+            }).catch((e) => console.log('NON vérifiables : ' + e.message));
+          " 2>&1 | tail -1)
+          echo "   points pivots ES ..................... $PIVOTS"
+          case "$PIVOTS" in *NON*) echo "::warning::Points pivots incomplets : $PIVOTS";; esac
           echo "   niveaux psychologiques ............... $(compter 'Niveaux psychologiques')"
           echo "   encart culture ....................... $(compter 'Culture de march')"
           echo "   schéma référencé ..................... $(grep -o 'assets/culture/[a-z0-9-]*\.png' /tmp/brief.html | sort -u | tr '\n' ' ')"
@@ -609,7 +630,7 @@ jobs:
               # qu'au premier envoi réel, sur la page publiée.
               #
               # On rejoue donc la chaîne de l'endpoint, avec SES fonctions et dans
-              # SON ordre : stripLongDashes, puis stripAuditComment, puis
+              # SON ordre : stripLongDashes, puis ajouterPivots, puis stripAuditComment, puis
               # wrapBriefHtml. Pas de réimplémentation : une deuxième version du
               # gabarit finirait par diverger de celle qui part aux élèves.
               # `firstName: null` rend « Bonjour, » plutôt qu'un prénom ; la routine
@@ -619,6 +640,7 @@ jobs:
                   .then(([m, fs]) => {
                     let h = fs.readFileSync('/tmp/brief.html', 'utf8');
                     h = m.stripLongDashes(h).html;
+                    h = m.ajouterPivots(h).html;
                     h = m.stripAuditComment(h).html;
                     fs.writeFileSync('/tmp/courriel.html', m.wrapBriefHtml({
                       firstName: null,

@@ -10,7 +10,8 @@
 // rien céder sur l'exigence : un écart supérieur à un tick reste un n/d.
 // ========================================================================
 import { spxCboe, vixCboe, esTradingView, esCnbc, codeCnbc, contratFrontMonth,
-         seanceCboe, semaineCboe, esBarresTradingView, rangSeanceReglee, vixQuoteCboe } from './sources.js';
+         seanceCboe, semaineCboe, esBarresTradingView, rangSeanceReglee, vixQuoteCboe, esMinutesCnbc } from './sources.js';
+import { pocControle } from './poc.js';
 import { seancesDeposees, semaineDeposee } from './instantanes.js';
 import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre, FERIES_US } from './validation.js';
 import { concilier, TOLERANCE_ES } from './croisement.js';
@@ -82,7 +83,7 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
 
   if (motifsContrat.length) {
     noter(motifsContrat);
-    for (const k of ['cloture', 'haut', 'bas', 'hautSemaine', 'basSemaine']) r.es[k] = nd(motifsContrat[0]);
+    for (const k of ['cloture', 'haut', 'bas', 'hautSemaine', 'basSemaine', 'poc']) r.es[k] = nd(motifsContrat[0]);
   } else {
     // Les chemins sont rangés du plus autoritaire au moins autoritaire. Le règlement
     // daté vient en tête : c'est le seul qui porte SA PROPRE date, au lieu de laisser
@@ -166,6 +167,20 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
       r.es.haut = nd(motifBarre); r.es.bas = nd(motifBarre);
     }
 
+    // ── POC de la séance régulière (29/10/2026, voir poc.js) ───────────────────
+    // Calculé sur les minutes CNBC du contrat nommé, et rattaché à la séance par le
+    // règlement conciliée et la barre journalière vérifiée : sans règlement, pas de POC.
+    if (typeof r.es.cloture?.valeur !== 'number') r.es.poc = nd('POC : clôture ES non publiée, séance non vérifiable');
+    else {
+      const mn = await essai(() => esMinutesCnbc(codeCnbc(front.contrat), seance));
+      if (mn.err) r.es.poc = nd(`POC : minutes indisponibles (${mn.err})`);
+      else {
+        const p = pocControle(mn.ok.barres, { reglement: r.es.cloture.valeur, hautJour: barre?.haut, basJour: barre?.bas });
+        if (p.motif) r.es.poc = nd(p.motif);
+        else { r.es.poc = val(p.valeur, { minutes: p.minutes }); r.sources.esPoc = mn.ok.source; }
+      }
+    }
+
     // Les séances à DÉPOSER : celle-ci, et les barres antérieures quand elles sont
     // lisibles. Datées en remontant les jours ouvrés depuis la séance visée.
     r.es.aDeposer = [];
@@ -232,18 +247,17 @@ export function versPrompt(r) {
     'Tu les REPRENDS TELLES QUELLES. Aucun recalcul, aucun arrondi, aucune substitution',
     'depuis ta mémoire ou depuis une page web. Une valeur marquée n/d se publie « n/d »',
     'dans le tableau ; tu ne la remplaces jamais par une valeur trouvée ailleurs.',
+    // Hauts et bas de séance et de semaine RETIRÉS du brief le 29/10/2026 (Nadir : ils
+    // ne concordaient pas avec ceux qu'il lit). Ils restent COLLECTÉS : la barre de séance
+    // vérifie la clôture et alimente le dépôt des séances. Ils ne sont plus TRANSMIS au
+    // modèle, sinon le contrôle « reprise des chiffres » du workflow les chercherait dans
+    // un brief qui ne les publie plus, et l'alerte n/d préviendrait pour des valeurs
+    // que personne ne lit.
     'ES :',
     ligne('clôture', r.es.cloture),
-    ligne('haut de séance', r.es.haut),
-    ligne('bas de séance', r.es.bas),
-    ligne('haut de semaine', r.es.hautSemaine),
-    ligne('bas de semaine', r.es.basSemaine),
+    ligne('POC séance régulière', r.es.poc),
     'CFD SPX500 (indice comptant) :',
     ligne('clôture', r.spx.cloture),
-    ligne('haut de séance', r.spx.haut),
-    ligne('bas de séance', r.spx.bas),
-    ligne('haut de semaine', r.spx.hautSemaine),
-    ligne('bas de semaine', r.spx.basSemaine),
     'VIX :',
     ligne('clôture', r.vix.cloture),
     `Chemins croisés pour la clôture ES : ${(r.chemins.esCloture || ['aucun']).join(' · ')}`,
