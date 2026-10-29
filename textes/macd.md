@@ -1,12 +1,13 @@
 ---
 slug: macd
 nom: MACD
-publie_le: 2026-10-09
+publie_le: 2026-10-29
 source: brief quotidien, archive automatique
 schema: assets/culture/macd.png
 ---
 
-Le MACD mesure l'écart entre deux moyennes mobiles exponentielles du prix, le plus souvent calculées sur 12 et 26 périodes.
-Cet écart se trace sous forme de courbe, accompagnée d'une ligne de signal (une moyenne mobile du MACD lui-même, en général sur 9 périodes) et d'un histogramme qui représente la différence entre les deux.
-Les traders qui le consultent y observent la convergence et la divergence des deux moyennes mobiles sous-jacentes pour jauger la dynamique d'une tendance.
-Le croisement entre la ligne MACD et sa ligne de signal, ainsi que les variations visibles sur l'histogramme, font partie des éléments couramment commentés quand on parle de l'essoufflement ou de l'accélération d'un mouvement de prix.
+Le MACD mesure l'écart entre deux moyennes mobiles exponentielles de périodes différentes, le plus souvent 12 et 26 périodes.
+Cet écart forme la ligne MACD, à laquelle s'ajoute une ligne de signal, elle-même une moyenne mobile du MACD calculée en général sur 9 périodes.
+Les traders observent les croisements entre la ligne MACD et la ligne de signal, ainsi que l'écart entre les deux représenté sous forme d'histogramme.
+Cette convergence ou divergence entre les deux moyennes mobiles renseigne sur l'accélération ou le ralentissement d'une tendance déjà identifiée.
+On retrouve cet indicateur sur la quasi-totalité des plateformes de graphiques, avec des réglages par défaut proches de ceux d'origine.
