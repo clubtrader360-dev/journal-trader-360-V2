@@ -3763,6 +3763,23 @@
   });
 
   function aller(id) {
+    /**
+     * LA PAGE « LIVE » (29/10) : rendue par assets/formation-live.js, qui remplace
+     * le contenu de #formation. ⚠️ `_vueCourante` passe à « live » : un clic sur
+     * une autre section rerend alors l'accueil, comme depuis un module, et la
+     * salle s'arrête d'elle-même (elle ne trouve plus sa page).
+     */
+    if (id === 'live') {
+      if (!window.FormationLive) return;
+      arreterAnimations();
+      // Le lecteur d'une leçon écrit sa position avant de partir.
+      Promise.resolve(fermerLecteur()).catch(() => null);
+      _vueCourante = { nom: 'live' };
+      window.FormationLive.ouvrir();
+      majNav('live');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      return;
+    }
     if (_vueCourante.nom !== 'accueil') {
       // ⚠️ Depuis un module, « Les modules » ramene a SA carte, pas au haut
       // de la grille : l eleve revient d ou il etait.
@@ -3880,6 +3897,8 @@
       // existent en base.
       await chargerToutesLesNotes();
       rendreAccueil('accueil');
+      // Le point « en direct » du bouton Live, relu toutes les minutes.
+      if (window.FormationLive) window.FormationLive.demarrerVeille();
     },
     aller,
     ouvrirModule(numero) {
@@ -3906,7 +3925,7 @@
      * de recharger la page, sinon la position serait perdue dans le
      * rechargement, sans erreur. Les autres appelants l ignorent.
      */
-    quitter() { arreterAnimations(); return fermerLecteur(); },
+    quitter() { arreterAnimations(); if (window.FormationLive) window.FormationLive.fermer(); return fermerLecteur(); },
     /**
      * ── ⛔ LA FENETRE DE BIENVENUE, EXPOSEE A L APPELANT ───────────────────
      *

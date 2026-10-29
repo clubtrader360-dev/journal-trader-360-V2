@@ -1,0 +1,140 @@
+/* ============================================================================
+   LES LIVES MEMBRES, DANS L ESPACE FORMATION (29/10/2026)
+   ============================================================================
+   Tout est prefixe par #formationApp, comme assets/formation.css : un element
+   hors de cette portee s afficherait sans style. Les couleurs viennent des
+   variables de l espace (--gold, --surface, --ink...), donc les deux themes
+   suivent sans une ligne de plus.
+   ⛔ Le vert et le rouge ne servent a rien ici : le point « en direct » est OR.
+   ⛔ Les blocs qui apparaissent et disparaissent le font par la classe `on`,
+   jamais par l attribut `hidden` (une regle d auteur sur display l emporte).
+   ========================================================================== */
+
+/* ── Le bouton « Live » de la barre, et son point quand c est en direct ───── */
+#formationApp .nav [data-go="live"]{position:relative}
+#formationApp .nav [data-go="live"].nav-live--direct::after{
+  content:"";position:absolute;top:6px;right:4px;width:7px;height:7px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 0 0 var(--gold-glow);animation:live-pouls 1.6s cubic-bezier(0.16,1,0.3,1) infinite}
+/* L entree mobile, a droite de la barre : visible seulement quand la barre des sections disparait. */
+#formationApp .formation-live-mobile{display:none;position:relative}
+#formationApp .formation-live-mobile.nav-live--direct{border-color:var(--gold-line);color:var(--gold)}
+#formationApp .formation-live-mobile.nav-live--direct::after{content:"";position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--gold);animation:live-pouls 1.6s cubic-bezier(0.16,1,0.3,1) infinite}
+@media (max-width:900px){#formationApp .formation-live-mobile{display:inline-flex}}
+@keyframes live-pouls{0%{box-shadow:0 0 0 0 var(--gold-glow)}70%{box-shadow:0 0 0 7px rgba(232,184,75,0)}100%{box-shadow:0 0 0 0 rgba(232,184,75,0)}}
+
+/* ── La page ─────────────────────────────────────────────────────────────── */
+#formationApp .live{padding:40px 0 20px;animation:live-entre .5s cubic-bezier(0.16,1,0.3,1) both}
+#formationApp .live__charge{color:var(--ink-soft)}
+#formationApp .live__titre{font-size:clamp(26px,3.4vw,38px);font-weight:800;letter-spacing:-.025em;line-height:1.08;margin:10px 0 18px;text-wrap:balance}
+#formationApp .live__texte{color:var(--ink-soft);max-width:58ch;margin:0 0 14px;line-height:1.6}
+#formationApp .live__quand{color:var(--ink);font-size:17px;margin:0 0 6px;text-transform:capitalize}
+#formationApp .live__compte{font-family:var(--f-mono);font-feature-settings:'tnum' 1;color:var(--gold);font-size:20px;margin:6px 0 18px}
+#formationApp .live__sous{margin:30px 0 10px;font-size:12.5px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+#formationApp .live__prochains{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-width:640px}
+#formationApp .live__prochains li{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 18px;border:1px solid var(--line);border-radius:14px;background:rgba(17,19,24,.6)}
+#formationApp[data-theme="clair"] .live__prochains li{background:rgba(255,255,255,.8)}
+#formationApp .live__prochains span{color:var(--ink-soft);text-transform:capitalize}
+#formationApp .mono{font-family:var(--f-mono);font-feature-settings:'tnum' 1}
+@keyframes live-entre{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── La salle : vidéo + chat ─────────────────────────────────────────────── */
+#formationApp .live__sur{display:flex;align-items:center;gap:8px}
+#formationApp .live__point{width:8px;height:8px;border-radius:50%;background:var(--gold);animation:live-pouls 1.6s cubic-bezier(0.16,1,0.3,1) infinite}
+#formationApp .live__scene{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:stretch}
+#formationApp .live__cadre{position:relative;aspect-ratio:16/9;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#07080b;container-type:inline-size}
+#formationApp .live__cadre iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#formationApp .live__cadre-vide{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:24px;text-align:center;color:#a6a6a1}
+#formationApp .live__bas{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+#formationApp .live__plein{padding:9px 16px;font-size:14px}
+#formationApp .live__risque{color:var(--ink-mute);font-size:12px;margin:10px 0 0}
+
+/* La question choisie par la regie, posee en bas de la video. */
+#formationApp .live__bandeau{position:absolute;left:16px;right:16px;bottom:16px;z-index:2;display:none;padding:12px 16px;border-radius:14px;
+  background:rgba(10,10,13,.88);border:1px solid var(--gold-line);color:#f7f6f3}
+#formationApp .live__bandeau.on{display:block;animation:live-entre .4s cubic-bezier(0.16,1,0.3,1) both}
+#formationApp .live__bandeau small{color:var(--gold);font-weight:700;font-size:12px}
+#formationApp .live__bandeau p{margin:2px 0 0;font-size:15px}
+
+/* L ecran de fin, pose sur la video. Regle sur la largeur DU CADRE. */
+#formationApp .live__fin{position:absolute;inset:0;z-index:4;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;
+  background:radial-gradient(ellipse at 50% 40%,color-mix(in srgb,var(--gold) 12%,#111318) 0%,#050506 75%);color:#f7f6f3}
+#formationApp .live__fin.on{display:flex;animation:live-entre .6s cubic-bezier(0.16,1,0.3,1) both}
+#formationApp .live__fin-sur{margin:0;color:var(--gold);text-transform:uppercase;letter-spacing:.2em;font-size:12px;font-weight:700}
+#formationApp .live__fin-titre{margin:0;font-size:clamp(1.4rem,3vw,2.1rem);line-height:1.15}
+#formationApp .live__fin-texte{margin:0;max-width:46ch;color:#a6a6a1}
+@container (max-width:560px){
+  #formationApp .live__fin{gap:6px;padding:12px}
+  #formationApp .live__fin-texte{display:none}
+  #formationApp .live__fin-titre{font-size:1.1rem}
+  #formationApp .live__fin-bouton{padding:10px 20px;font-size:14px}
+}
+
+/* ── Le chat ─────────────────────────────────────────────────────────────── */
+#formationApp .live__chat{display:flex;flex-direction:column;min-height:520px;max-height:720px;background:rgba(17,19,24,.86);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+#formationApp[data-theme="clair"] .live__chat{background:rgba(255,255,255,.9)}
+#formationApp .live__chat-tete{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+#formationApp .live__chat-tete h3{margin:0;font-size:16px}
+#formationApp .live__chat-etat{color:var(--ink-mute);font-size:13px}
+#formationApp .live__liste{flex:1;min-height:0;overflow-y:auto;list-style:none;margin:0;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+#formationApp .live__msg{border-left:2px solid var(--line);padding:2px 0 2px 10px}
+#formationApp .live__msg--coach{border-left-color:var(--gold)}
+#formationApp .live__auteur{display:flex;gap:8px;align-items:baseline}
+#formationApp .live__auteur b{font-size:13px;color:var(--ink)}
+#formationApp .live__msg--coach .live__auteur b{color:var(--gold)}
+#formationApp .live__auteur span{font-size:11.5px;color:var(--ink-mute)}
+#formationApp .live__msg p{margin:3px 0 0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+#formationApp .live__msg a,#formationApp .live__epingle a{color:var(--gold-2)}
+#formationApp .live__vide{color:var(--ink-mute);font-size:13.5px}
+#formationApp .live__epingle,#formationApp .live__sondage,#formationApp .live__parole,#formationApp .live__ma-camera{display:none}
+#formationApp .live__epingle.on{display:block;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--gold-wash)}
+#formationApp .live__epingle-titre{font-size:11.5px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.12em}
+#formationApp .live__epingle p{margin:4px 0 0;font-size:14px}
+
+#formationApp .live__sondage.on{display:block;padding:12px 16px;border-bottom:1px solid var(--line)}
+#formationApp .live__sondage-titre{font-size:11.5px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.12em}
+#formationApp .live__sondage-q{margin:4px 0 8px;font-weight:600}
+#formationApp .live__choix{position:relative;display:flex;justify-content:space-between;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);
+  border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;cursor:pointer;overflow:hidden;margin:4px 0;transition:border-color .2s cubic-bezier(0.16,1,0.3,1)}
+#formationApp .live__choix:hover:not(:disabled){border-color:var(--gold-line)}
+#formationApp .live__choix:disabled{cursor:default}
+#formationApp .live__choix i{position:absolute;left:0;top:0;bottom:0;background:var(--gold-wash);transition:width .6s cubic-bezier(0.16,1,0.3,1)}
+#formationApp .live__choix span,#formationApp .live__choix em{position:relative;font-style:normal}
+#formationApp .live__choix--moi{border-color:var(--gold-line)}
+#formationApp .live__sondage-total{font-size:12px;color:var(--ink-mute)}
+
+#formationApp .live__parole.on{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;border-top:1px solid var(--line);font-size:13.5px}
+#formationApp .live__parole--scene{background:var(--gold-wash)}
+#formationApp .live__parole-titre{width:100%;color:var(--gold)}
+#formationApp .live__discret{color:var(--ink-mute);font-size:12.5px}
+#formationApp .btn.live__petit{padding:8px 16px;font-size:13.5px}
+
+/* « Ta caméra » : un conteneur fixe, jamais deplace (une iframe deplacee se recharge). */
+#formationApp .live__ma-camera.on{display:block;padding:10px 16px;border-top:1px solid var(--line)}
+#formationApp .live__ma-camera-titre{display:block;color:var(--gold);font-weight:700;font-size:12px;margin-bottom:6px}
+#formationApp .live__ma-camera-cadre{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#07080b;border:1px solid var(--gold-line)}
+#formationApp .live__ma-camera-cadre video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#formationApp .live__ma-camera-cadre iframe{position:absolute;left:0;bottom:0;width:2px;height:2px;border:0;opacity:0;pointer-events:none}
+
+#formationApp .live__form{border-top:1px solid var(--line);padding:12px 16px;display:grid;gap:8px}
+#formationApp .live__form textarea{width:100%;resize:none;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--ink);font:inherit;font-size:14px;transition:border-color .2s cubic-bezier(0.16,1,0.3,1)}
+#formationApp .live__form textarea:focus{outline:none;border-color:var(--gold)}
+#formationApp .live__form textarea:disabled{opacity:.55}
+#formationApp .live__form-bas{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#formationApp .live__aide{color:var(--ink-mute);font-size:12.5px}
+
+/* ── Plein ecran de la scene (video + chat) ──────────────────────────────── */
+#formationApp .live__scene:fullscreen,#formationApp .live__scene.immersif{background:var(--bg);padding:16px;grid-template-columns:minmax(0,1fr) 360px;align-items:center}
+#formationApp .live__scene.immersif{position:fixed;inset:0;z-index:100}
+#formationApp .live__scene:fullscreen .live__chat,#formationApp .live__scene.immersif .live__chat{height:calc(100vh - 32px);max-height:none}
+#formationApp .live__scene:fullscreen .live__risque,#formationApp .live__scene.immersif .live__risque{display:none}
+
+@media (max-width:960px){
+  #formationApp .live__scene,#formationApp .live__scene:fullscreen,#formationApp .live__scene.immersif{grid-template-columns:1fr}
+  #formationApp .live__chat{min-height:420px}
+  #formationApp .live__scene.immersif{overflow-y:auto}
+  #formationApp .live__scene.immersif .live__chat{height:auto;min-height:60vh}
+}
+@media (prefers-reduced-motion:reduce){
+  #formationApp .live,#formationApp .live__fin.on,#formationApp .live__bandeau.on{animation:none}
+  #formationApp .live__point,#formationApp .nav-live--direct::after{animation:none}
+}

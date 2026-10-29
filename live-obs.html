@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<title>Live membres · source OBS</title>
+<!--
+  LES DEUX SOURCES OBS DES LIVES MEMBRES (29/10/2026).
+  /live-obs.html?p=colonne&k=<cle>  les caméras des intervenants, empilées en colonne
+                                     (co-animateur, puis chaque membre invité qui a
+                                     cliqué « Rejoindre »). Source 480 × 1080.
+  /live-obs.html?p=chat&k=<cle>     les 8 derniers messages du chat, pour la scène
+                                     « Enregistrement » seulement (le replay garde le
+                                     chat, le direct n'en a pas deux). Source 600 × 1080.
+  Page TRANSPARENTE, aucun texte à l'antenne. Sans session : OBS n'a pas de compte. La
+  seule fonction appelée, `live_obs`, exige la clé et ne rend que des prénoms et des
+  flux vidéo. Mauvaise clé ou aucun live en cours : la page reste vide.
+  Elle suit toute seule le live du jour (publié, non terminé, à moins de 3 h).
+  ⛔ Une tuile déjà affichée n'est JAMAIS rechargée : une iframe VDO.Ninja rechargée
+  coupe l'image quelques secondes à l'antenne.
+-->
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; font-family: Inter, -apple-system, "Segoe UI", Helvetica, sans-serif; }
+  #col { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+  .tuile { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: transparent; }
+  .tuile iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+  #liste { position: fixed; left: 0; right: 0; bottom: 24px; display: flex; flex-direction: column; gap: 12px; padding: 0 24px; }
+  .m { background: rgba(10, 10, 13, .82); border: 1px solid rgba(232, 184, 75, .25); border-radius: 16px; padding: 12px 18px; color: #F7F6F3; animation: entre .5s cubic-bezier(0.16, 1, 0.3, 1); }
+  .m.coach { border-left: 4px solid #E8B84B; }
+  .m b { display: block; color: #E8B84B; font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+  .m p { margin: 0; font-size: 24px; line-height: 1.35; overflow-wrap: anywhere; }
+  @keyframes entre { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+<script src="/supabase-config.js"></script>
+</head>
+<body>
+<div id="col"></div>
+<div id="liste"></div>
+<script>
+(function () {
+  'use strict';
+  const q = new URLSearchParams(location.search);
+  const quoi = q.get('p') === 'chat' ? 'chat' : 'colonne';
+  const cle = q.get('k') || '';
+  const col = document.getElementById('col');
+  const liste = document.getElementById('liste');
+  const vdo = (p) => 'https://vdo.ninja/?' + p.map(([k, v]) => (v === undefined ? k : k + '=' + encodeURIComponent(v))).join('&');
+
+  async function lire() {
+    const c = window.supabaseClient;
+    if (!c || !cle) return null;
+    const { data, error } = await c.rpc('live_obs', { p_cle: cle, p_quoi: quoi });
+    return error ? null : data;
+  }
+
+  // ── La colonne des caméras ──
+  function poser(d) {
+    const tuiles = d && d.live && Array.isArray(d.tuiles) ? d.tuiles.map((t) => ({
+      cle: t.id + '|' + t.flux,
+      src: vdo([['room', d.room], ['password', d.password], ['view', t.flux], ['solo'], ['cleanoutput'], ['transparent']]),
+    })) : [];
+    const voulus = tuiles.map((t) => t.cle);
+    for (const e of [...col.children]) if (!voulus.includes(e.dataset.cle)) e.remove();
+    tuiles.forEach((t, k) => {
+      let e = [...col.children].find((x) => x.dataset.cle === t.cle);
+      if (!e) {
+        e = document.createElement('div'); e.className = 'tuile'; e.dataset.cle = t.cle;
+        const f = document.createElement('iframe'); f.src = t.src; f.allow = 'autoplay; fullscreen'; e.append(f);
+      }
+      if (col.children[k] !== e) col.insertBefore(e, col.children[k] || null);
+    });
+  }
+
+  // ── Le chat du replay ──
+  let sig = '';
+  function rendreChat(d) {
+    const m = d && d.live && Array.isArray(d.messages) ? d.messages : [];
+    const s = JSON.stringify(m.map((x) => x.id)); if (s === sig) return; sig = s;
+    liste.replaceChildren(...m.map((x) => {
+      const e = document.createElement('div'); e.className = 'm' + (x.coach ? ' coach' : '');
+      const b = document.createElement('b'); b.textContent = x.auteur;
+      const p = document.createElement('p'); p.textContent = x.texte;
+      e.append(b, p); return e;
+    }));
+  }
+
+  async function tirer() {
+    try { const d = await lire(); if (quoi === 'chat') rendreChat(d); else poser(d); }
+    catch (e) { /* le passage suivant réessaie */ }
+  }
+  tirer();
+  setInterval(tirer, quoi === 'chat' ? 2500 : 3000);
+})();
+</script>
+</body>
+</html>
