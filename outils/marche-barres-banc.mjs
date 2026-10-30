@@ -87,4 +87,17 @@ S.vixHistoManque = false; S.vixQuoteDate = '2026-10-23T16:15:01';
 r = await lancer({});
 dire(r.vix.cloture.valeur === 23, 'témoin : historique complet, cadran inutile (19 + 4 = 23)', r.vix.cloture);
 
+console.log('— VIX : variation calculée par le code (30/10/2026)');
+dire(r.vix.variation.valeur === 1 && r.vix.variationPct.valeur === 4.55 && r.vix.variation.veille === '2026-10-22', 'variation = 23 − 22 = +1,00 (+4,55 %), veille datée du 22/10', [r.vix.variation, r.vix.variationPct]);
+const { versPrompt } = await import('../api/_lib/marche/collecte.js');
+const bloc = versPrompt(r);
+dire(/variation \(points\) : \+1,00/.test(bloc) && /variation \(%\) : \+4,55/.test(bloc), 'le bloc transmis au modèle porte la variation signée', bloc.split('\n').filter((l) => /variation/.test(l)));
+S.vixHistoManque = true;
+r = await lancer({});
+dire(r.vix.variation.valeur === -2.55 && /−2,55/.test(versPrompt(r)), 'cadran différé (19,45) contre la veille (22) : −2,55, signe moins', r.vix.variation);
+S.vixHistoManque = false;
+console.log('— ES : barre des pivots (30/10/2026)');
+r = await lancer({});
+dire(r.es.barrePivots && r.es.barrePivots.cloture === r.es.cloture.valeur && r.es.barrePivots.haut === r.es.haut.valeur && !/pivots ES/.test(versPrompt(r)), 'barre vérifiée : haut, bas, règlement transmis aux pivots ; aucune ligne n/d', r.es.barrePivots);
+
 console.log(ko ? `\n⛔ ${ko} défaut(s)` : '\nbanc vert'); process.exitCode = ko ? 1 : 0;

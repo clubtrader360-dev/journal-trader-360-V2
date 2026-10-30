@@ -261,9 +261,9 @@ jobs:
           # calcule les pivots et le retire.
           if [ -s /tmp/pivots-cfd.txt ]; then
             cat /tmp/pivots-cfd.txt >> /tmp/brief.html
-            echo "📌 Données des pivots CFD accrochées : $(cat /tmp/pivots-cfd.txt)"
+            echo "📌 Données des pivots (ES et CFD, calculés par le code) accrochées : $(cat /tmp/pivots-cfd.txt)"
           else
-            echo "::warning::Pivots CFD : haut, bas ou clôture du S&P 500 indisponible, colonne CFD en n/d."
+            echo "::warning::Pivots : ni la barre de séance ES ni le S&P 500 Cboe ne sont disponibles, pivots en n/d."
           fi
           FIRST=$(grep -m1 -v '^[[:space:]]*$' /tmp/brief.html || true)
           if echo "$FIRST" | grep -qiE '^[[:space:]]*(le brief|voici|j.ai|points cl|sauvegard|le fichier)'; then

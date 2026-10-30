@@ -221,9 +221,9 @@ Publier un événement absent de Forex Factory ET Investing pour aujourd'hui. De
 
 ## DONNÉES À RÉCUPÉRER
 - SPX cash : clôture, variation, 2–4 niveaux psychologiques.
-- ES Futures (front-month) : clôture, variation, pré-marché, points pivots classiques relevés sur Investing (voir « POINTS PIVOTS ES »).
+- ES Futures (front-month) : clôture, variation, pré-marché. Les points pivots sont CALCULÉS par le code (voir « POINTS PIVOTS ES ») : tu ne les cherches pas.
 - ⛔ Plus aucun haut ni bas de séance ou de semaine dans le brief (retirés le 29/10/2026).
-- VIX : niveau + variation 24h + lecture courte.
+- VIX : niveau + variation, tous deux FOURNIS par le code (bloc « DONNÉES DE MARCHÉ FOURNIES », lignes « variation (points) » et « variation (%) »), repris tels quels avec leur signe, + lecture courte. ⛔ Tu ne cherches pas la variation du VIX ailleurs.
 - Agenda éco : via Forex Factory + Investing (méthode ci-dessus).
 - Actu éco : via Zonebourse, 2–3 articles récents → synthèse 3 paragraphes.
 
@@ -275,12 +275,11 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
    démo »* sous le tableau, qui se rapporte à la colonne CFD.
    Toute donnée non vérifiée → « n/d (raison) », dans sa cellule.
    Le gabarit A reste en service pour le VIX, le C pour l'agenda.
-   **Juste après le tableau**, écris le commentaire machine `<!-- PIVOTS-ES … -->`
-   (section « POINTS PIVOTS ES » plus bas). Tu ne construis PAS le tableau des pivots :
-   le code insère lui-même cinq lignes (Résistance 2, Résistance 1, Pivot, Support 1,
-   Support 2), colonnes ES et CFD, DANS ton tableau, juste avant la ligne des niveaux psychologiques, après
-   avoir contrôlé tes sept valeurs. Ne laisse rien entre la ligne POC et la ligne des
-   niveaux psychologiques.
+   ⛔ **N'écris AUCUN commentaire `PIVOTS-ES`** et ne construis PAS le tableau des pivots :
+   le code calcule les pivots ES et CFD lui-même et insère cinq lignes (Résistance 2,
+   Résistance 1, Pivot, Support 1, Support 2), colonnes ES et CFD, DANS ton tableau, juste
+   avant la ligne des niveaux psychologiques. Ne laisse rien entre la ligne POC et la ligne
+   des niveaux psychologiques.
 4. **📅 Agenda éco** : un **GABARIT C** par événement.
    ⛔ **PUBLIE TOUS LES ÉVÉNEMENTS RETENUS PAR LA MÉTHODE, SANS LIMITE DE NOMBRE.**
    Le coût de mise en forme n'est JAMAIS une raison d'en omettre un : un événement
@@ -288,7 +287,7 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
    cinq blocs. Ne « résume » pas, ne garde pas « les plus importants », ne fusionne pas
    deux événements dans un même bloc.
    S'il n'y a rien à publier, la phrase « Pas d'événement macro majeur prévu aujourd'hui. » en `<p>` simple, SANS gabarit.
-5. **⚡ Volatilité (VIX)** : un **GABARIT A** avec le niveau et la variation, puis la lecture courte en `<p>` **SOUS** le bloc — jamais à l'intérieur.
+5. **⚡ Volatilité (VIX)** : un **GABARIT A** avec le niveau et la variation FOURNIS (points et %), puis la lecture courte en `<p>` **SOUS** le bloc — jamais à l'intérieur.
 6. **📰 Actualité éco** : synthèse en **3 paragraphes** (~180 mots) — P1 bilan US d'hier, P2 réactions transversales (taux/devises/matières premières/géopolitique), P3 watch-list du jour + Asie/Europe + risques.
 7. **🧠 Ce qu'il faut retenir** : 2–3 puces de synthèse actionnable (sans plan de trade précis).
 8. **📚 Culture de marché** : la notion du jour, **injectée en tête de ce prompt**.
@@ -434,41 +433,13 @@ ordinaire.** `7 692,75` écrit avec une espace ordinaire se coupe sur deux ligne
 - La mention *« Pour les débutants en trading démo »* va SOUS le tableau, en navy gras,
   et se rapporte à la colonne CFD.
 
-### POINTS PIVOTS ES — relevé sur Investing, contrôlé par le code
+### POINTS PIVOTS ES — calculés par le code (révision du 30/10/2026)
 
-Les points pivots sont les seuls chiffres de marché que tu RELÈVES toi-même : Investing
-ne se lit pas depuis du code. Le code ne te croit pas sur parole, il vérifie.
-
-**Page imposée** : `https://www.investing.com/indices/us-spx-500-futures-technical`,
-tableau « Pivot Points », ligne **Classic**, échelle **Daily** (journalière). Ne prends
-ni la ligne Fibonacci, ni Camarilla, ni Woodie's, ni DeMark's, ni une autre échelle
-(5 min, 15 min, Hourly, Weekly…). Si la page n'affiche pas l'échelle journalière, ou si
-tu ne peux pas la charger, c'est `n/d`.
-
-Recopie les sept valeurs **telles qu'affichées**, sans recalcul ni arrondi, dans UN
-commentaire HTML placé juste après le tableau du gabarit E, sur une seule ligne :
-
-```
-<!-- PIVOTS-ES page=https://www.investing.com/indices/us-spx-500-futures-technical echelle=journaliere r3=<R3> r2=<R2> r1=<R1> p=<Pivot> s1=<S1> s2=<S2> s3=<S3> -->
-```
-
-Chaque `<…>` est remplacé par le nombre lu sur la page, point ou virgule décimale
-indifférents (ex. `r1=7800.58`). Aucun exemple chiffré n'est donné ici à dessein : un
-jeu de valeurs d'hier recopié serait cohérent, donc accepté, et faux.
-
-Ou, si tu n'as pas pu les relever avec certitude :
-
-```
-<!-- PIVOTS-ES n/d (raison) -->
-```
-
-Ce que fait le code, pour que tu saches pourquoi l'exactitude compte : sept pivots
-classiques se déduisent de trois nombres (haut, bas, clôture de la veille). Le code
-retrouve ces trois nombres à partir de P, R1 et S1, recalcule R2, S2, R3 et S3, et
-REFUSE le tableau au moindre écart, à la moindre ligne d'une autre méthode, à une
-amplitude qui n'est pas celle d'une séance, ou si la clôture ES publiée ne tombe pas
-dans la barre déduite. Un chiffre inventé ou mal lu ne passe pas : il fait seulement
-disparaître le tableau du jour. Mieux vaut `n/d`.
+Tu ne relèves PLUS les points pivots sur Investing, et tu n'écris AUCUN commentaire
+`PIVOTS-ES`. Le code les calcule sur la séance ES de la veille (haut, bas et règlement :
+exactement les valeurs qu'utilise Investing, vérifié au centime le 30/10) et les insère
+dans le tableau. Ne va pas sur la page technique d'Investing : elle ne s'affiche en
+journalier qu'après un clic, et ce détour faisait dépasser le temps de génération.
 
 ### GABARIT F — culture de marché
 
