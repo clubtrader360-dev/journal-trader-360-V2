@@ -6,8 +6,7 @@ source: brief quotidien, archive automatique
 schema: assets/culture/moyenne-mobile.png
 ---
 
-La moyenne mobile lisse le prix sur une période donnée en calculant la moyenne des derniers cours de clôture, ce qui gomme une partie du bruit de marché d'une séance à l'autre.
-Deux versions coexistent : la moyenne mobile simple (SMA), où chaque clôture pèse autant que les autres, et la moyenne mobile exponentielle (EMA), qui accorde plus de poids aux cours les plus récents.
-Un trader s'en sert pour visualiser la tendance de fond sans se laisser distraire par les à-coups d'une seule bougie.
-Comparer une moyenne courte à une moyenne plus longue permet aussi de repérer les moments où le rythme du marché change de vitesse.
-C'est un outil que l'on retrouve sur la quasi-totalité des graphiques, quel que soit le style de trading.
+La moyenne mobile est un indicateur qui lisse le prix d'un actif en calculant sa valeur moyenne sur une période donnée.
+Elle filtre les variations de court terme pour faire apparaître la tendance sous-jacente.
+Un trader l'utilise pour visualiser la direction générale du marché, selon que le prix évolue au-dessus ou en dessous de la courbe.
+Il existe plusieurs façons de la calculer : la moyenne mobile simple donne un poids identique à chaque donnée, tandis que la moyenne mobile exponentielle accorde davantage de poids aux prix récents, ce qui la rend plus réactive.
