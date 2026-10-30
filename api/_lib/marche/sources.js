@@ -416,7 +416,7 @@ export async function vixQuoteCboe(dateIso) {
   if (date !== dateIso) throw new Error(`cadran daté du ${date || 'inconnu'}, séance ${dateIso} attendue`);
   const cloture = nombre(d.close);
   if (cloture === null) throw new Error('champ « close » absent ou non numérique');
-  return { cloture, haut: nombre(d.high), bas: nombre(d.low), date,
+  return { cloture, haut: nombre(d.high), bas: nombre(d.low), date, clotureVeille: nombre(d.prev_day_close),
            source: 'Cboe (cadran différé _VIX, last_trade_time vérifié)' };
 }
 

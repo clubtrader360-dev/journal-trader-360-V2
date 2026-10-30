@@ -58,9 +58,35 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
       r[bloc].basSemaine = val(w.ok.bas, { seances: w.ok.seances });
     }
   }
-  // Le VIX ne figure au brief que par sa clôture ; ses hauts et bas sont collectés
-  // parce qu'ils ne coûtent rien et qu'ils servent au contrôle de cohérence.
-  r.vix = { cloture: r.vix.cloture };
+  // Le VIX ne figure au brief que par sa clôture et sa VARIATION ; ses hauts et bas sont
+  // collectés parce qu'ils ne coûtent rien et qu'ils servent au contrôle de cohérence.
+  //
+  // ── VARIATION DU VIX (30/10/2026) ───────────────────────────────────────────
+  // Nadir : « ça fait plusieurs jours que le VIX est en n/d sur la variation ». Elle était
+  // laissée au modèle, qui ne la trouvait pas. Elle est désormais CALCULÉE : clôture de la
+  // séance visée moins clôture de la séance précédente, toutes deux datées par Cboe
+  // (historique). Repli : le champ prev_day_close du cadran différé, s'il est daté de la
+  // séance visée. Sans clôture du jour, pas de variation : elle part en n/d avec son motif.
+  const vixCloture = r.vix.cloture;
+  let vixVariation, vixVariationPct;
+  if (vixCloture?.nd) { vixVariation = nd(vixCloture.motif); vixVariationPct = nd(vixCloture.motif); }
+  else {
+    const veille = dernierJourOuvre(seance);
+    let prec = await essai(async () => (await seanceCboe('_VIX', veille)).cloture);
+    if (prec.err) {
+      const q = await essai(() => vixQuoteCboe(seance));
+      prec = q.ok && typeof q.ok.clotureVeille === 'number' ? { ok: q.ok.clotureVeille } : { err: `${prec.err} ; cadran différé : ${q.err || 'prev_day_close absent'}` };
+    }
+    if (prec.err || !(prec.ok > 0)) {
+      const m = `variation VIX : clôture du ${veille} indisponible (${prec.err || 'valeur nulle'})`;
+      noter(m); vixVariation = nd(m); vixVariationPct = nd(m);
+    } else {
+      const diff = Math.round((vixCloture.valeur - prec.ok) * 100) / 100;
+      vixVariation = val(diff, { veille, clotureVeille: prec.ok });
+      vixVariationPct = val(Math.round((diff / prec.ok) * 10000) / 100, { veille });
+    }
+  }
+  r.vix = { cloture: vixCloture, variation: vixVariation, variationPct: vixVariationPct };
 
   // ── ES : deux fournisseurs, trois chemins ───────────────────────────────────
   const cnbc = await essai(() => esCnbc(codeCnbc(front.contrat)));
@@ -156,6 +182,10 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
       }
     }
     if (barre) {
+      // Les pivots ES (30/10/2026) se calculent sur CETTE barre : haut et bas de la séance
+      // Globex, clôture = règlement concilié. Vérifié le 30/10 contre Investing.com au
+      // centime (H 7 773,75 · B 7 709,50 · règlement 7 754,25 → P 7 745,83, R1 7 782,17).
+      r.es.barrePivots = { haut: barre.haut, bas: barre.bas, cloture: r.es.cloture.valeur };
       r.sources.esHautBas = `${tvb.ok.source}, rang ${rang}`;
       r.es.haut = val(barre.haut, { source: 'TradingView barre journalière', rang });
       r.es.bas = val(barre.bas, { source: 'TradingView barre journalière', rang });
@@ -240,6 +270,7 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
 export function versPrompt(r) {
   const fr = (v, d = 2) => (v == null ? 'n/d' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d }));
   const ligne = (e, v) => `  ${e} : ${v?.nd ? `n/d (${v.motif})` : fr(v?.valeur)}`;
+  const ligneSignee = (e, v) => `  ${e} : ${!v || v.nd ? `n/d (${v?.motif || 'non collectée'})` : `${v.valeur > 0 ? '+' : v.valeur < 0 ? '−' : ''}${fr(Math.abs(v.valeur))}`}`;
   return [
     'DONNÉES DE MARCHÉ FOURNIES — collectées et validées par le code, hors du modèle.',
     `Séance de référence : ${r.seanceVisee}. Contrat ES : ${r.contratAttendu.contrat}`
@@ -256,10 +287,18 @@ export function versPrompt(r) {
     'ES :',
     ligne('clôture', r.es.cloture),
     ligne('POC séance régulière', r.es.poc),
+    // Pivots ES : calculés par le code et insérés par l'endpoint, jamais par le modèle.
+    // La ligne n'apparaît QUE s'ils sont impossibles, pour que le n/d soit compté et que
+    // l'alerte prévienne Nadir (une valeur publiée ici serait cherchée dans le brief).
+    ...(r.es.barrePivots ? [] : [`  pivots ES (à ne pas publier, calcul du code) : n/d (${r.es.haut?.nd ? r.es.haut.motif : r.es.cloture?.nd ? r.es.cloture.motif : 'barre de séance non vérifiée'})`]),
     'CFD SPX500 (indice comptant) :',
     ligne('clôture', r.spx.cloture),
     'VIX :',
     ligne('clôture', r.vix.cloture),
+    // La variation est CALCULÉE par le code (clôture du jour moins celle de la veille,
+    // Cboe) : le modèle la reprend telle quelle, signe compris.
+    ligneSignee('variation (points)', r.vix.variation),
+    ligneSignee('variation (%)', r.vix.variationPct),
     `Chemins croisés pour la clôture ES : ${(r.chemins.esCloture || ['aucun']).join(' · ')}`,
     `Sources : ${Object.entries(r.sources).map(([k, v]) => `${k} = ${v}`).join(' · ') || 'aucune'}`,
   ].join('\n');

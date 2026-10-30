@@ -2,6 +2,19 @@
  * POINTS PIVOTS DU BRIEF (Nadir et Manu, 29/10/2026) : un tableau sous la section
  * « S&P 500 : zones à surveiller », méthode classique, valeurs d'Investing.com.
  *
+ * ── ⛔ RÉVISION DU 30/10/2026 : LES PIVOTS ES SONT CALCULÉS PAR LE CODE ────────
+ * Le relevé par le modèle a rendu n/d dès le premier jour : la page technique d'Investing
+ * s'ouvre sur l'échelle horaire et ne passe au journalier que par un clic (JavaScript),
+ * qu'aucun robot ne fait. Nadir : « il n'y a plus de n/d, c'est fini ».
+ * Mesure du 30/10 dans un navigateur, page Investing en journalier : Classic S3 7 653,67 ·
+ * S2 7 681,58 · S1 7 717,92 · P 7 745,83 · R1 7 782,17 · R2 7 810,08 · R3 7 846,42. On en
+ * déduit H 7 773,75 · B 7 709,50 · C 7 754,25, et c'est EXACTEMENT notre barre de séance
+ * Globex (18h-17h New York, minutes CNBC : même haut, même bas) avec le RÈGLEMENT CME
+ * (7 754,25, celui publié en CLÔTURE). La mesure du 29/10 plus bas n'était donc pas la
+ * barre journalière d'Investing. Le code calcule désormais les pivots ES sur cette barre
+ * (commentaire PIVOTS-SEANCE-ES, écrit par la collecte) ; le commentaire PIVOTS-ES du
+ * modèle, s'il en écrit encore un, est retiré et ignoré.
+ *
  * D'OÙ VIENNENT LES CHIFFRES. Nadir veut les pivots d'Investing, au centime. Investing
  * les calcule sur SA barre de la veille (haut, bas, dernier cours de la journée Globex),
  * qui n'est ni notre barre TradingView ni le règlement CME publié en CLÔTURE. Mesuré le
@@ -130,9 +143,29 @@ function valeurCFD(html, libelle) {
 // La clôture doit être EXACTEMENT celle publiée dans la ligne CLÔTURE, colonne CFD :
 // même source, donc tout écart dit qu'on ne parle pas de la même séance.
 const MOTIF_CFD = /<!--\s*PIVOTS-CFD\b([\s\S]*?)-->[ \t]*\n?/i;
+// ES, calculés par le code (30/10/2026) : haut et bas de la barre de séance vérifiée,
+// clôture = règlement concilié. ⚠️ Nom distinct de PIVOTS-ES (le relevé du modèle) :
+// « PIVOTS-ES\b » reconnaîtrait aussi « PIVOTS-ES-… ».
+const MOTIF_ES_CODE = /<!--\s*PIVOTS-SEANCE-ES\b([\s\S]*?)-->[ \t]*\n?/i;
+export function commentaireEs({ date, contrat, haut, bas, cloture }) {
+  return `<!-- PIVOTS-SEANCE-ES date=${date} contrat=${contrat} haut=${haut} bas=${bas} cloture=${cloture} source=TradingView+CNBC -->`;
+}
 
 export function commentaireCfd({ date, haut, bas, cloture, source = 'Cboe' }) {
   return `<!-- PIVOTS-CFD date=${date} haut=${haut} bas=${bas} cloture=${cloture} source=${source} -->`;
+}
+
+/** Pivots ES calculés sur la barre de séance. Même contrôles que le CFD, contre la CLÔTURE ES du tableau. */
+function pivotsEsCode(corps, clotureTableau) {
+  if (corps == null) return { pv: null, motif: 'commentaire PIVOTS-SEANCE-ES absent (barre de séance ES non vérifiée)' };
+  const champ = (cle) => { const x = corps.match(new RegExp(`(?:^|\\s)${cle}=(\\S+)`, 'i')); return x ? nombre(x[1]) : null; };
+  const h = champ('haut'), b = champ('bas'), c = champ('cloture');
+  if ([h, b, c].some((x) => x == null)) return { pv: null, motif: 'PIVOTS-SEANCE-ES : haut, bas ou clôture illisible' };
+  if (!(h > b) || c > h || c < b) return { pv: null, motif: `PIVOTS-SEANCE-ES incohérents (haut ${h}, bas ${b}, clôture ${c})` };
+  if (h - b < BORNES.AMPLITUDE_MIN || h - b > BORNES.AMPLITUDE_MAX) return { pv: null, motif: `PIVOTS-SEANCE-ES : amplitude de ${arrondi(h - b)} points` };
+  if (clotureTableau == null) return { pv: null, motif: 'clôture ES du tableau absente ou en n/d : séance non vérifiable' };
+  if (Math.abs(clotureTableau - c) > 0.01) return { pv: null, motif: `clôture ES du tableau ${clotureTableau}, celle des pivots ${c} : pas la même séance` };
+  return { pv: { ...calculerPivots(h, b, c), haut: h, bas: b, cloture: c, page: 'calcul du code (barre de séance, règlement)' }, motif: null };
 }
 
 function pivotsCfd(corps, clotureTableau) {
@@ -161,10 +194,10 @@ export function lignesPivots(es, cfd) {
     ${cellule(cfd, k, fort, true)}
   </tr>`;
   return `
-  <!-- PIVOTS : ES relevés sur Investing.com, CFD calculés sur Cboe, contrôlés par api/_lib/pivots.js -->${ligne('Résistance 2', 'R2')}${ligne('Résistance 1', 'R1')}${ligne('Pivot', 'P', true)}${ligne('Support 1', 'S1')}${ligne('Support 2', 'S2')}`;
+  <!-- PIVOTS : ES et CFD calculés par le code, contrôlés par api/_lib/pivots.js -->${ligne('Résistance 2', 'R2')}${ligne('Résistance 1', 'R1')}${ligne('Pivot', 'P', true)}${ligne('Support 1', 'S1')}${ligne('Support 2', 'S2')}`;
 }
 
-const MENTION = '<p style="margin:0 0 10px; font-size:11px; color:#5a5040;">Pivots : méthode classique. ES : source Investing.com. CFD : calculés sur le haut, le bas et la clôture du S&amp;P 500 publiés par Cboe.</p>\n';
+const MENTION = '<p style="margin:0 0 10px; font-size:11px; color:#5a5040;">Pivots : méthode classique. ES : haut, bas et règlement de la séance (mêmes valeurs qu’Investing.com). CFD : haut, bas et clôture du S&amp;P 500 publiés par Cboe.</p>\n';
 
 /**
  * Retire les commentaires machine, contrôle les deux jeux de pivots, et insère les
@@ -175,9 +208,10 @@ export function ajouterPivots(html) {
   const src = String(html || '');
   const lu = lireCommentaire(src);
   const mCfd = src.match(MOTIF_CFD);
-  const sans = src.replace(MOTIF_COMMENTAIRE, '').replace(MOTIF_CFD, '');
+  const mEs = src.match(MOTIF_ES_CODE);
+  const sans = src.replace(MOTIF_ES_CODE, '').replace(MOTIF_COMMENTAIRE, '').replace(MOTIF_CFD, '');
   const rien = (motif, motifCfd = motif) => ({ html: sans, pivots: null, pivotsCfd: null, motif, motifCfd });
-  if (/PIVOTS : ES relevés sur Investing\.com/.test(sans)) return rien('déjà présents');
+  if (/PIVOTS : ES (relevés sur Investing\.com|et CFD calculés par le code)/.test(sans)) return rien('déjà présents');
   const titre = sans.search(/<h2[^>]*>[^<]*zones à surveiller/i);
   if (titre < 0) return rien('section « zones à surveiller » introuvable');
   const finTable = sans.indexOf('</table>', titre);
@@ -187,16 +221,11 @@ export function ajouterPivots(html) {
   // bruit. En n/d, elle existe : le contrôle concerné passe (ES) ou refuse (CFD).
   if (!/>\s*CLÔTURE\s*<\/td>/i.test(sans)) return rien('ligne « CLÔTURE » introuvable dans le tableau');
 
-  // ES : relevé du modèle, contrôlé.
-  let es = null, motif = null;
-  if (!lu) motif = 'commentaire PIVOTS-ES absent du brief';
-  else if (lu.nd) motif = `relevé en ${lu.nd}`;
-  else if (!lu.echelle || !/^journali/i.test(lu.echelle)) motif = `échelle « ${lu.echelle || 'non dite'} », journalière attendue`;
-  else {
-    const ctl = controlerPivots(lu.valeurs, valeurES(sans, 'CLÔTURE'));
-    if (ctl.ok) es = { ...lu.valeurs, haut: ctl.haut, bas: ctl.bas, cloture: ctl.cloture, page: lu.page };
-    else motif = ctl.motif;
-  }
+  // ES : calcul du code sur la barre de séance (30/10). Le relevé du modèle (`lu`) n'est
+  // plus utilisé : il est seulement retiré du HTML plus haut.
+  void lu;
+  const e = pivotsEsCode(mEs ? mEs[1] : null, valeurES(sans, 'CLÔTURE'));
+  const es = e.pv, motif = e.motif;
   // CFD : calcul du code, contrôlé contre la clôture publiée.
   const c = pivotsCfd(mCfd ? mCfd[1] : null, valeurCFD(sans, 'CLÔTURE'));
 

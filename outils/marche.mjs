@@ -69,12 +69,20 @@ if (commande === 'collecte') {
   // Rien n'est écrit si l'une des trois valeurs est en n/d : les pivots CFD partent
   // alors en n/d, avec le motif « commentaire absent ».
   if (process.env.SORTIE_CFD) {
-    const { commentaireCfd } = await import('../api/_lib/pivots.js');
+    const { commentaireCfd, commentaireEs } = await import('../api/_lib/pivots.js');
+    const lignes = [];
     const [h, b, c] = ['haut', 'bas', 'cloture'].map((k) => r.spx?.[k]);
     if ([h, b, c].every((v) => v && !v.nd && typeof v.valeur === 'number')) {
-      (await import('node:fs')).writeFileSync(process.env.SORTIE_CFD,
-        commentaireCfd({ date: r.seanceVisee, haut: h.valeur, bas: b.valeur, cloture: c.valeur }) + '\n');
+      lignes.push(commentaireCfd({ date: r.seanceVisee, haut: h.valeur, bas: b.valeur, cloture: c.valeur }));
     }
+    // Pivots ES (30/10/2026) : calculés par le code sur la barre de séance vérifiée, plus
+    // relevés par le modèle sur Investing (illisible pour un robot : n/d trois jours de suite).
+    // Même fichier que le CFD : le workflow l'accroche tel quel au brief.
+    const pe = r.es?.barrePivots;
+    if (pe && [pe.haut, pe.bas, pe.cloture].every((x) => typeof x === 'number')) {
+      lignes.push(commentaireEs({ date: r.seanceVisee, contrat: r.contratAttendu.contrat, haut: pe.haut, bas: pe.bas, cloture: pe.cloture }));
+    }
+    if (lignes.length) (await import('node:fs')).writeFileSync(process.env.SORTIE_CFD, lignes.join('\n') + '\n');
   }
   console.log(versPrompt(r));
 }
