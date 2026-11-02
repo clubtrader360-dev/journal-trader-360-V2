@@ -28,6 +28,8 @@
 //                                              X-Webhook-Secret pour un lancement à la main.
 //   - ?action=nouveaux-membres[&depuis=…]    → LECTURE SEULE : comptes élèves créés depuis une
 //                                              date (GET ou POST, X-Webhook-Secret). Aucune écriture.
+//   - ?action=statuts-membres                → LECTURE SEULE : statut de chaque compte pour la note du
+//                                              tableur (GET ou POST, X-Webhook-Secret). Aucune écriture.
 // ========================================
 
 import crypto from 'crypto';
@@ -164,6 +166,14 @@ export default async function handler(req, res) {
         return res.status(401).json({ ok: false, error: 'unauthorized' });
       }
       return await handleNouveauxMembres(req, res);
+    }
+
+    // 0quater. Statut de chaque compte pour la note col E, EN LECTURE SEULE (GET ou POST + X-Webhook-Secret).
+    if (action === 'statuts-membres') {
+      if (!secretOk(req.headers['x-webhook-secret'], process.env.SUPABASE_WEBHOOK_SECRET)) {
+        return res.status(401).json({ ok: false, error: 'unauthorized' });
+      }
+      return await handleStatutsMembres(res);
     }
 
     // 0bis. XP et dernière connexion formation (pg_cron Supabase toutes les heures, GET + Bearer
@@ -601,6 +611,41 @@ async function handleFormationXp(res) {
   });
 }
 
+
+// ========================================
+// ?action=statuts-membres — statut de chaque compte, qui fixe le plafond du levier Journal de la note
+// du tableur (décision Manu 02/11/2026). LECTURE SEULE : rien n'est écrit, ni en base ni dans le tableur.
+//   - payouts   : au moins 1 ligne dans public.payouts
+//   - finance   : au moins 1 compte type 'funded' avec active = true
+//   - challenge : au moins 1 compte type 'challenge' avec active = true
+//   - demo      : tout le reste, y compris un profil sans aucun compte
+// ========================================
+async function lireTout(construire) {
+  const lignes = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await construire().range(from, from + 999);
+    if (error) throw error;
+    lignes.push(...(data || []));
+    if (!data || data.length < 1000) return lignes;
+  }
+}
+
+async function handleStatutsMembres(res) {
+  const sb = getServiceClient();
+  const [comptes, payouts, actifs] = await Promise.all([
+    lireTout(() => sb.from('users').select('uuid, email').order('id', { ascending: true })),
+    lireTout(() => sb.from('payouts').select('user_id').order('id', { ascending: true })),
+    lireTout(() => sb.from('accounts').select('user_id, type').eq('active', true).in('type', ['funded', 'challenge']).order('id', { ascending: true })),
+  ]);
+  const avecPayout = new Set(payouts.map((p) => p.user_id));
+  const finances = new Set(actifs.filter((a) => a.type === 'funded').map((a) => a.user_id));
+  const challenges = new Set(actifs.filter((a) => a.type === 'challenge').map((a) => a.user_id));
+  const statuts = comptes.map((c) => ({
+    email: String(c.email || '').replace(/\s+/g, '').toLowerCase(),
+    statut: avecPayout.has(c.uuid) ? 'payouts' : finances.has(c.uuid) ? 'finance' : challenges.has(c.uuid) ? 'challenge' : 'demo',
+  }));
+  return res.status(200).json({ ok: true, genere_le: new Date().toISOString(), total: statuts.length, statuts });
+}
 
 // ========================================
 // ?action=nouveaux-membres — comptes élèves (public.users, role 'student') créés depuis une date,
