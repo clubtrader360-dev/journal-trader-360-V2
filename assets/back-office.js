@@ -94,11 +94,16 @@
   /* ══ Le routeur ════════════════════════════════════════════════════════════ */
   const FILS = {
     'accueil': 'Accueil', 'academie/formations': 'Académie · Formations', 'academie/membres': 'Académie · Membres',
-    'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes', 'academie/mails': 'Académie · Mails aux membres',
+    'academie/evaluations': 'Académie · Évaluations', 'academie/diplomes': 'Académie · Diplômes', 'academie/mails': 'Académie · Mails aux membres', 'academie/lives': 'Académie · Lives membres',
     'marketing/tunnels': 'Marketing · Tunnels de vente', 'marketing/emails': 'Marketing · Emails marketing', 'marketing/webinaires': 'Marketing · Webinaires live',
     'crm': 'CRM', 'ventes/offres': 'Ventes · Offres', 'ventes/commandes': 'Ventes · Commandes & factures', 'ventes/comptabilite': 'Ventes · Comptabilité', 'ventes/affiliation': 'Ventes · Affiliation',
   };
   const CHARGEURS = {};
+  // Les lives membres (29/10) : la liste, ou la régie d'un live (#/academie/lives?id=N).
+  CHARGEURS['academie/lives'] = async (params) => {
+    if (!window.LivesRegie) throw new Error('module des lives non chargé');
+    await window.LivesRegie.charger(params, $('boLives'));
+  };
   let _ecranCourant = null;
 
   function lireHash() {

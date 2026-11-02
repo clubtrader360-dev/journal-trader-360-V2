@@ -2309,6 +2309,7 @@
 <script src="/assets/formation-examen.js"></script>
 <script src="/assets/formation-diplome.js"></script>
 <script src="/supabase-formation.js"></script>
+<script src="/assets/formation-live.js"></script>
 <script src="/supabase-tradovate.js"></script>
 <!-- prompt-ia.js chargé UNIQUEMENT pour les élèves (voir supabase-auth.js) -->
 
@@ -3215,6 +3216,7 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
     <!-- Espace formation. ⛔ Aucune valeur de couleur propre : il ne nomme que les
          jetons du journal, pour suivre les modes clair et sombre sans les redire. -->
     <link rel="stylesheet" href="/assets/formation.css">
+    <link rel="stylesheet" href="/assets/formation-live.css">
     <!-- Le journal au style de l espace membre (14/10) : une peau, chargee en DERNIER,
          qui ne touche ni a la structure ni a l interieur des cartes. -->
     <link rel="stylesheet" href="/assets/journal-or.css">
@@ -4155,8 +4157,14 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
             <button type="button" data-go="modules">Les modules</button>
             <button type="button" data-go="notes">Mes notes</button>
             <button type="button" data-go="badges">Mes badges</button>
+            <!-- Les lives membres (29/10) : la salle, le chat, la prise de parole.
+                 Un point or s allume quand un live est en direct. -->
+            <button type="button" data-go="live">Live</button>
           </nav>
           <div class="top-right">
+            <!-- Sur telephone la barre des sections est masquee (formation.css, 900 px) :
+                 le Live garde son entree ici, sinon un membre sur mobile ne le trouve pas. -->
+            <button type="button" class="btn btn-ghost formation-retour formation-live-mobile" data-go="live">Live</button>
             <div class="xp-chip" title="Experience accumulee">
               <span class="xpt mono" id="chipXp">0 XP</span><span class="lvl" id="chipLvl">Decouvrir</span>
             </div>
