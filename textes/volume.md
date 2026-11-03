@@ -1,12 +1,12 @@
 ---
 slug: volume
 nom: Volume
-publie_le: 2026-10-14
+publie_le: 2026-11-03
 source: brief quotidien, archive automatique
 schema: assets/culture/volume.png
 ---
 
-Le volume mesure le nombre de contrats ou d'actions échangés sur une période donnée, par exemple une bougie d'un graphique.
-C'est un indicateur de l'activité réelle derrière un mouvement de prix, indépendant de sa direction.
-Un trader l'observe pour évaluer la participation derrière une variation de cours : un mouvement accompagné d'un volume élevé traduit un engagement plus large des acteurs du marché qu'un mouvement sur un volume faible.
-Il sert aussi à repérer les moments où l'intérêt pour un actif s'intensifie ou s'essouffle, en comparant le volume d'une séance à sa moyenne récente.
+Le volume mesure le nombre de contrats échangés sur une période donnée, qu'il s'agisse d'une minute ou d'une séance entière.
+Il ne dit rien sur la direction du marché : il renseigne uniquement sur l'intensité de l'activité à un instant ou à un niveau de prix donné.
+Un trader s'en sert pour jauger la participation derrière un mouvement : une hausse ou une baisse accompagnée d'un volume élevé traduit une implication large des acteurs, tandis qu'un mouvement sur un volume faible reflète une participation plus restreinte.
+Il permet aussi de repérer les zones de prix où l'intérêt s'est concentré au fil des séances.
