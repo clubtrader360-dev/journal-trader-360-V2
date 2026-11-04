@@ -1,13 +1,12 @@
 ---
 slug: gap
 nom: Gap
-publie_le: 2026-09-25
+publie_le: 2026-11-04
 source: brief quotidien, archive automatique
 schema: assets/culture/gap.png
 ---
 
-Un gap est un écart de prix entre la clôture d'une séance et l'ouverture de la suivante, visible comme un trou sur le graphique où aucun échange n'a eu lieu.
-Il apparaît quand une information (résultat, actualité macro, fermeture du week-end) fait bouger le cours pendant que le marché était fermé.
-Les traders l'observent pour repérer les moments où le marché a été surpris par une information hors séance.
-Certains gaps se comblent rapidement quand le prix revient dans la zone laissée vide, d'autres marquent au contraire le début d'un mouvement qui se poursuit.
-On distingue en général le gap d'ouverture, qui se forme chaque jour entre deux séances, du gap plus rare qui suit un événement marquant.
+Un gap est l'écart de prix entre la clôture d'une séance et l'ouverture de la suivante, quand aucune transaction n'a eu lieu entre les deux niveaux.
+Il apparaît typiquement lorsqu'une information nouvelle modifie la perception du marché pendant que les cotations sont interrompues.
+Un trader qui l'observe regarde si cet écart se comble au fil de la séance ou s'il persiste, ce qui donne une indication sur la force du mouvement en cours.
+Il distingue le gap d'ouverture, visible chaque matin entre la clôture d'un indice et sa réouverture, du gap plus rare qui se forme en cours de journée sur un graphique intraday.
