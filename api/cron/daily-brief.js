@@ -20,6 +20,7 @@ import { getBriefRecipients } from '../_lib/tableur-recipients.js';
 import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_NAME } from '../_lib/brevo-client.js';
 import { formatDateLongFr, capitaliser } from '../_lib/date-fr.js';
 import { notionDuJour } from '../_lib/culture-marche.js';
+import { blocPartenaires } from '../_lib/partenaires.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -335,7 +336,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
         <tr><td style="background:${PALETTE.bgAccent}; border:1px solid ${PALETTE.navy}; border-radius:10px; padding:18px 20px; text-align:center;">
           <p style="margin:0 0 14px; color:${PALETTE.textSecondary}; font-size:13px; line-height:1.6;">
-            Si tu veux en savoir plus, réponds au questionnaire de positionnement — tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.
+            Si tu veux en savoir plus, réponds au questionnaire de positionnement : tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.
           </p>
           <!-- CTA UNIQUE. Le questionnaire mène déjà, en aval, à la présentation puis au
                lien Calendly : proposer la vidéo ici ouvrirait une seconde porte vers un
@@ -354,6 +355,10 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
              style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Partager le questionnaire →</a>
         </td></tr>
       </table>`}
+
+      <!-- Codes partenaires (Nadir, 07/11/2026) : IDENTIQUES pour les membres et les
+           prospects, après l'action principale pour ne pas lui voler la place. -->
+      ${blocPartenaires()}
 
       <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
         Trader 360 · brief du ${dateLongFr}<br>
