@@ -962,7 +962,8 @@
         // ⛔ L INTRODUCTION et LE BONUS rapportent zero. ⚠️ Le bonus reste
         // visible : zero XP ne veut pas dire cache.
         if (m.introduction || m.bonus) return 0;
-        return partsXp(m.lecons.length)[i];
+        // ⛔ Un chapitre bonus (`bonus: true`) vaut 0 et ne prend pas de part (07/11).
+        return D().partsAlignees(m, partsXp)[i];
       }
     }
     return 0;
@@ -1249,8 +1250,8 @@
    * l arbitrage « souple » du 14/10 refuse. Voir `_lb`.
    */
   const quizOuvert = (m) => niveauAcquis(D().niveauDuModule(m.cle))
-    || m.lecons.filter((l) => !l.quiz).every((l) => estVue(l.id));
-  const videosRestantes = (m) => m.lecons.filter((l) => !l.quiz && !estVue(l.id)).length;
+    || m.lecons.filter((l) => !l.quiz && !l.bonus).every((l) => estVue(l.id));
+  const videosRestantes = (m) => m.lecons.filter((l) => !l.quiz && !l.bonus && !estVue(l.id)).length;
   /**
    * ── ⛔ L INTRODUCTION NE COMPTE PAS DANS LE PARCOURS ──────────────────────
    *
@@ -1266,10 +1267,12 @@
    * n a pas de badge. ⚠️ Elle ne comptait que dans ce total-ci, et c est ce
    * genre d exception oubliee qui fait des chiffres faux sans erreur.
    */
-  const chapitresParcours = () => mods().filter((m) => !estIntro(m)).flatMap((m) => m.lecons);
+  // ⛔ Les chapitres bonus (`bonus: true`) se lisent mais n entrent dans aucun compte (07/11).
+  const comptes = (m) => m.lecons.filter((l) => !l.bonus);
+  const chapitresParcours = () => mods().filter((m) => !estIntro(m)).flatMap((m) => comptes(m));
   const totalChap = () => chapitresParcours().length;
-  const faitesDe = (m) => m.lecons.filter((l) => estVue(l.id)).length;
-  const pctDe = (m) => (m.lecons.length ? Math.round((faitesDe(m) / m.lecons.length) * 100) : 0);
+  const faitesDe = (m) => comptes(m).filter((l) => estVue(l.id)).length;
+  const pctDe = (m) => (comptes(m).length ? Math.round((faitesDe(m) / comptes(m).length) * 100) : 0);
   // ⛔ La règle vit dans formation-donnees.js (moduleTermine), lue aussi par le serveur et le back-office.
   const moduleFini = (m) => D().moduleTermine(m, estVue, quizReussi);
   const estCert = (m) => !!m.certification;
@@ -1373,7 +1376,7 @@
      */
     let x = 0;
     mods().forEach((m) => {
-      const parts = partsXp(m.lecons.length);
+      const parts = D().partsAlignees(m, partsXp);
       m.lecons.forEach((l, i) => { if (estVue(l.id) && !m.introduction && !m.bonus) x += parts[i]; });
     });
     mods().forEach((m) => {
@@ -1415,7 +1418,7 @@
    */
   function xpDuModule(m) {
     if (m.introduction || m.bonus || !m.lecons.length) return { gagne: 0, max: 0 };
-    const parts = partsXp(m.lecons.length);
+    const parts = D().partsAlignees(m, partsXp);
     let gagne = 0;
     m.lecons.forEach((l, i) => { if (estVue(l.id)) gagne += parts[i]; });
     const prime = estCert(m) ? XP_CERT : XP_MOD;
@@ -1791,7 +1794,7 @@
           ? cond.manquantes.map((x) => txt(x.texte)).join('<br>')
           : verrouQuiz ? `Réussis le quiz du module ${txt(e.precedent.numero)} à 80 % ou plus`
           : verrou ? `Termine les modules 01 à ${txt(M[M.length - 2].numero)}`
-            : vide ? 'Aucun chapitre' : `${d} / ${m.lecons.length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
+            : vide ? 'Aucun chapitre' : `${d} / ${comptes(m).length} chapitres`}</span><span class="mono">${inerte ? '' : `${pp} %`}</span></div>
         <div class="bar thin ${fini ? 'done' : ''}"><i data-w="${pp}" data-rail-module="${txt(m.cle)}"></i></div>
       </div>
       <!-- ⚠️ L ANCRE D OU LE BADGE EMERGE, et c est pour cela qu elle est
@@ -2405,11 +2408,12 @@
       const r = ch.quiz ? _quiz[m.cle] : null;
       const sous = ch.quiz
         ? (dn ? `Réussi · ${r.score} / ${r.total} · +${xpDe(ch.id)} XP`
-          : verrou ? `Après les ${m.lecons.length - 1} chapitres · +${xpDe(ch.id)} XP`
+          : verrou ? `Après les ${comptes(m).length - 1} chapitres · +${xpDe(ch.id)} XP`
             : (r ? `Dernier essai ${r.score} / ${r.total} · +${xpDe(ch.id)} XP` : `${ch.questions} questions · +${xpDe(ch.id)} XP`))
+        : ch.bonus ? (dn ? 'Bonus · vu' : 'Bonus · hors XP')
         : (dn ? `Terminé · +${xpDe(ch.id)} XP` : `+${xpDe(ch.id)} XP`);
       return `${g}<button type="button" class="chap ${dn ? 'done' : ''} ${ch.quiz ? 'chap--quiz' : ''} ${verrou ? 'chap--verrou' : ''}" data-chap="${k}" ${k === ci ? 'aria-current="true"' : ''}>
-        <span class="dot">${dn ? I.check : verrou ? I.lock : ch.quiz ? '?' : String(k + 1).padStart(2, '0')}</span>
+        <span class="dot">${dn ? I.check : verrou ? I.lock : ch.quiz ? '?' : ch.bonus ? 'B' : String(comptes(m).indexOf(ch) + 1).padStart(2, '0')}</span>
         <span><span class="t">${txt(ch.titre)}</span><br><span class="s">${sous}</span></span></button>`;
     }).join('');
 
@@ -2460,11 +2464,11 @@
              Nadir du 14/10 : on lit de quoi parle le chapitre, puis on
              regarde. Le bouton « Marquer comme terminé » reste avec le titre. -->
         <div class="lesson-head">
-          <div><div class="eyebrow">Chapitre ${ci + 1} sur ${m.lecons.length}</div><h2>${txt(c.titre)}</h2></div>
+          <div><div class="eyebrow">${c.bonus ? `Bonus du module ${txt(m.numero)} · hors XP` : `Chapitre ${comptes(m).indexOf(c) + 1} sur ${comptes(m).length}`}</div><h2>${txt(c.titre)}</h2></div>
           <div class="lesson-actions">
             ${fini
               ? `<button type="button" class="btn btn-ghost" data-undo>${I.check} Terminé · annuler</button>`
-              : `<button type="button" class="btn btn-gold ${pretAValider(c.id) ? '' : 'btn--attend'}" data-complete ${pretAValider(c.id) ? '' : 'disabled'}>${I.check} Marquer comme terminé <span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span></button>`}
+              : `<button type="button" class="btn btn-gold ${pretAValider(c.id) ? '' : 'btn--attend'}" data-complete ${pretAValider(c.id) ? '' : 'disabled'}>${I.check} Marquer comme terminé ${c.bonus ? '' : `<span class="mono" style="opacity:.75">+${xpDe(c.id)} XP</span>`}</button>`}
           </div>
         </div>
         <!-- ⚠️ Pourquoi le bouton attend : dit en clair, avec le compte. -->
@@ -2497,7 +2501,7 @@
     app().innerHTML = `
     <div class="crumbs"><button type="button" data-go="modules">Les modules</button><span>/</span><span>Module ${txt(m.numero)}</span></div>
     <section class="mhead">
-      <div><div class="eyebrow">Module ${txt(m.numero)} · ${m.lecons.length} chapitres</div><h1>${txt(m.titre)}</h1>${m.description ? `<p>${txt(m.description)}</p>` : ''}</div>
+      <div><div class="eyebrow">Module ${txt(m.numero)} · ${comptes(m).length} chapitres</div><h1>${txt(m.titre)}</h1>${m.description ? `<p>${txt(m.description)}</p>` : ''}</div>
       <!--
         ⚠️ L ANCRE D OU LE BADGE EMERGERA, DANS CETTE VUE-CI. ⛔ On termine un
         chapitre depuis la page du module, pas depuis la grille : la carte du
@@ -2506,7 +2510,7 @@
         ⚠️ Meme attribut que sur la carte, « data-ancre-badge » : la scene cherche
         « l ancre de ce module », elle ne sait pas sur quel ecran elle est.
       -->
-      <div class="mprog"><div class="head"><span>${d} / ${m.lecons.length} terminés</span><b class="mono" style="color:var(--ink)">${pp} %</b></div><div class="bar ${pp === 100 ? 'done' : ''}"><i data-w="${pp}"></i></div>
+      <div class="mprog"><div class="head"><span>${d} / ${comptes(m).length} terminés</span><b class="mono" style="color:var(--ink)">${pp} %</b></div><div class="bar ${pp === 100 ? 'done' : ''}"><i data-w="${pp}"></i></div>
         <span class="mod__ancre" data-ancre-badge="${txt(m.cle)}" aria-hidden="true"></span></div>
     </section>
     <!-- ⚠️ LA NAVIGATION ENTRE MODULES, EN TETE. Retour de Nadir du 14/10 :
@@ -2621,7 +2625,7 @@
       corps = `
         <div class="quiz__verrou">
           <span class="cond__cadenas" aria-hidden="true">${I.lock}</span>
-          <h3>Le quiz s’ouvre après les ${m.lecons.length - 1} chapitres.</h3>
+          <h3>Le quiz s’ouvre après les ${comptes(m).length - 1} chapitres.</h3>
           <p>Il t’en reste <b>${reste}</b> à terminer. Les ${c.questions} questions portent sur ce que les vidéos disent : regarde-les d’abord.</p>
           ${prochainCi >= 0 ? `<button type="button" class="btn btn-gold" data-open="${mi},${prochainCi}">Reprendre « ${txt(m.lecons[prochainCi].titre)} » ${I.arrow}</button>` : ''}
         </div>`;
@@ -2641,7 +2645,7 @@
     }
     return `
       <div class="lesson-head">
-        <div><div class="eyebrow">${c.examen ? 'Certification Trader 360' : `Chapitre ${ci + 1} sur ${m.lecons.length} · Quiz`}</div><h2>${txt(c.titre)}</h2></div>
+        <div><div class="eyebrow">${c.examen ? 'Certification Trader 360' : `Chapitre ${comptes(m).indexOf(c) + 1} sur ${comptes(m).length} · Quiz`}</div><h2>${txt(c.titre)}</h2></div>
       </div>
       <div class="card quiz" id="quizZone" data-module="${txt(m.cle)}">${corps}</div>`;
   }
@@ -3389,7 +3393,7 @@
         setTimeout(() => rail.parentElement.classList.remove('gagne'), 700);
       }
       const texteRail = document.querySelector('#formationApp .mprog .head span');
-      if (texteRail) texteRail.textContent = `${faitesDe(m)} / ${m.lecons.length} terminés`;
+      if (texteRail) texteRail.textContent = `${faitesDe(m)} / ${comptes(m).length} terminés`;
       await pause(SCENE.rail);
 
       /* ── 4. SI UN PALIER EST FRANCHI, LE PALIER S ALLUME ──────────────

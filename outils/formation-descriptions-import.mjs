@@ -123,7 +123,14 @@ function lireDepot() {
   // voyait pas, et le module entier disparaissait de l appariement sans erreur.
   for (const b of SRC.matchAll(/'(\d\d(?:bis)?)'\s*:\s*\[([\s\S]*?)\n\s*\]/g)) {
     out[b[1]] = [...b[2].matchAll(/\{\s*id:\s*'([^']*)',\s*titre:\s*"((?:[^"\\]|\\.)*)"/g)]
-      .map((m) => ({ id: m[1], titre: m[2].replace(/\\"/g, '"') }));
+      .map((m) => ({ id: m[1], titre: m[2].replace(/\\"/g, '"') }))
+      // ⛔ Les chapitres `bonus: true` n existent pas dans LearnyBox (bonus 7.2 APEX,
+      // 07/11) : ils portent leur description eux-memes et restent hors appariement.
+      .filter((c) => {
+        const i = b[2].indexOf(`id: '${c.id}'`);
+        const j = b[2].indexOf('{ id:', i + 1);
+        return !/bonus:\s*true/.test(b[2].slice(i, j < 0 ? undefined : j));
+      });
   }
   return out;
 }

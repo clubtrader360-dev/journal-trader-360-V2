@@ -17,7 +17,7 @@
 //   - un chapitre vidéo compte quand `formation_progression.vue` est vrai, un quiz quand il
 //     existe une ligne `reussi` dans `formation_quiz_resultats` pour sa clé de module ;
 //   - +250 par module terminé, 1000 à la place pour le module de certification ;
-//   - l'Introduction et le module bonus rapportent zéro.
+//   - l'Introduction, le module bonus et les chapitres `bonus: true` rapportent zéro.
 // ========================================
 
 import { readFileSync } from 'fs';
@@ -80,7 +80,8 @@ export function xpTotal(vues, quizReussis) {
   const mods = modulesFormation();
   let x = 0;
   mods.forEach((m) => {
-    const parts = partsXp(m.lecons.length);
+    // ⛔ Un chapitre bonus (`bonus: true`) vaut 0 et ne prend pas de part, comme à l'écran (07/11).
+    const parts = _D.partsAlignees(m, partsXp);
     m.lecons.forEach((l, i) => { if (estVue(l.id) && !m.introduction && !m.bonus) x += parts[i]; });
   });
   mods.forEach((m) => {
@@ -103,7 +104,7 @@ export function xpDetail(vues, quizReussis) {
   let total = 0;
   for (const m of modulesFormation()) {
     const compte = !m.introduction && !m.bonus;
-    const parts = partsXp(m.lecons.length);
+    const parts = _D.partsAlignees(m, partsXp);
     let xp = 0;
     m.lecons.forEach((l, i) => { if (compte && estVue(l.id)) xp += parts[i]; });
     const fini = _D.moduleTermine(m, estVue, (cle) => quizReussis.has(cle));

@@ -44,5 +44,5 @@ dire(F.budgetChapitre()===2400 && F.budgetChapitre()<=F.BUDGET_CHAPITRE_MAX,'bud
 dire(F.tempsLecture('abcdefghij')===2000,'tempsLecture 10 car = 2000');
 // temoin : la composition ne touche pas la donnee
 dire(window.FormationDonnees.MODULES.find(m=>m.cle==='01').lecons.length===7,'TEMOIN : FormationDonnees reste a 7 chapitres (donnee intacte)');
-dire(window.FormationDonnees.total()===64,'TEMOIN : total() reste 64',window.FormationDonnees.total());
+dire(window.FormationDonnees.total()===65,'TEMOIN : total() reste 65 (bonus 7.2 APEX ajoute le 07/11)',window.FormationDonnees.total());
 const b=F.badges(); dire(b.length===14,'14 badges',b.length);
