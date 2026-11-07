@@ -252,6 +252,20 @@
       video: null, description: null, provisoire: true, minutes: 4 },
     { id: 'm07-l2', titre: "Analyser les règles spécifiques et éviter les pièges de chaque prop firm",
       video: null, description: null, provisoire: true, minutes: 16 },
+    /**
+     * ⛔ BONUS 7.2 (demande de Nadir du 07/11/2026) : APEX, règles et affiliation.
+     * Il complète le 7.2, il est donc rangé juste après lui. Vidéo Vimeo 1240988486,
+     * dossier Formation ; son identifiant vit dans `formation_videos`, pas ici.
+     * ⛔ Le drapeau bonus = ZÉRO XP et HORS PROGRESSION : il ne prend pas de part des
+     * 100 XP du module, il ne compte ni dans « x / y chapitres », ni pour ouvrir le
+     * quiz, ni pour terminer le module. Un élève qui avait fini le module 7 le reste.
+     * ⛔ `m07-l13` NE CHANGE JAMAIS (clé de la progression en base).
+     */
+    { id: 'm07-l13', titre: "Bonus : APEX, règles et affiliation",
+      video: null, provisoire: true, minutes: 10, bonus: true,
+      // ⚠️ Description posée ICI et non dans CONTENU_CHAPITRES : ce bloc-là est
+      // engendré depuis LearnyBox, où ce bonus n'existe pas. [À VALIDER par Nadir]
+      description: "Ce bonus complète le chapitre sur les règles des prop firms : il détaille celles d'APEX et explique comment passer par notre lien d'affiliation." },
     { id: 'm07-l3', titre: "Installer et configurer la plateforme de la prop firm choisie",
       video: null, description: null, provisoire: true, minutes: 4 },
     { id: 'm07-l4', titre: "Installer TopstepX",
@@ -662,10 +676,26 @@ const CONTENU_CHAPITRES = {
      * `formation-certification.js` se chargent après ce fichier).
      */
     aUnQuiz: (m) => aUnQuiz(m),
+    /**
+     * ⛔ LES CHAPITRES QUI COMPTENT : tous sauf les bonus. Un chapitre `bonus: true`
+     * se voit et se lit, mais ne rapporte rien et n entre dans aucun compte.
+     * ⚠️ Tous les compteurs (XP, « x / y », quiz, fin de module) passent par ici.
+     */
+    compte: (l) => !!l && !l.bonus,
+    /**
+     * Les parts d XP alignees sur `m.lecons` : un bonus vaut 0 et ne prend pas de
+     * part, les autres se partagent les 100 XP (`partsXp` est passe par l appelant).
+     */
+    partsAlignees: (m, partsXp) => {
+      const p = partsXp(m.lecons.filter((l) => !l.bonus).length);
+      let k = 0;
+      return m.lecons.map((l) => (l.bonus ? 0 : p[k++]));
+    },
     moduleTermine: (m, vue, quizReussi) => {
       if (!m || !Array.isArray(m.lecons)) return false;
       if (aUnQuiz(m)) return !!quizReussi(m.cle);
-      const chapitres = m.lecons.filter((l) => !l.quiz);
+      // ⛔ Un chapitre bonus (`bonus: true`) ne conditionne jamais la fin du module.
+      const chapitres = m.lecons.filter((l) => !l.quiz && !l.bonus);
       return chapitres.length > 0 && chapitres.every((l) => vue(l.id));
     },
   };

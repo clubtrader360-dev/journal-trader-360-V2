@@ -245,7 +245,7 @@
     const vus = new Set(lecons || []);
     const quiz = new Set(quizReussis || []);
     // ⛔ La règle « module terminé » unique (formation-donnees.js) : un quiz réussi suffit.
-    const modules = M.filter((m) => !m.introduction && m.lecons.length).map((m) => ({ m, n: m.lecons.filter((l) => vus.has(l.id)).length, t: m.lecons.length, fini: FD.moduleTermine(m, (id) => vus.has(id), (cle) => quiz.has(cle)) }));
+    const modules = M.filter((m) => !m.introduction && m.lecons.length).map((m) => ({ m, n: m.lecons.filter((l) => !l.bonus && vus.has(l.id)).length, t: m.lecons.filter((l) => !l.bonus).length, fini: FD.moduleTermine(m, (id) => vus.has(id), (cle) => quiz.has(cle)) }));
     const finis = modules.filter((x) => x.fini);
     const cert = finis.some((x) => x.m.cle === '10');
     return { modules, finis, cert, vus: vus.size };
