@@ -1,12 +1,12 @@
 ---
 slug: pullback
 nom: Pullback
-publie_le: 2026-10-22
+publie_le: 2026-11-11
 source: brief quotidien, archive automatique
 schema: assets/culture/pullback.png
 ---
 
-Un pullback est un repli de courte durée qui ramène le prix à contre-courant de la tendance principale avant qu'elle ne reprenne sa direction.
-Il se distingue d'un retournement par son caractère temporaire et sa faible amplitude comparée au mouvement de fond.
-Un trader l'observe pour voir comment le prix se comporte face à une zone déjà identifiée, sans présumer de la suite.
-C'est aussi un moment où la tendance digère ses propres gains, ce qui alimente souvent les discussions sur l'endroit où ce repli pourrait s'arrêter.
+Le pullback est un repli de prix temporaire qui se produit dans le sens contraire de la tendance principale, après une impulsion directionnelle.
+Il ramène le cours vers une zone déjà franchie (ancien support, ancienne résistance ou moyenne mobile), avant un retour possible du mouvement initial.
+Les traders s'en servent pour resituer un repli dans le cadre plus large d'une tendance déjà identifiée, plutôt que de l'interpréter isolément comme un retournement.
+On le retrouve aussi bien sur les actions que sur les indices ou les devises.
