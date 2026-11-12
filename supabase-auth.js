@@ -333,6 +333,12 @@
             let userUuid = data?.user?.id;
 
             if (error) {
+                // 12/11/2026 : mot de passe refusé par la protection anti-fuites de Supabase
+                // (code weak_password). Message en français au lieu de l'anglais brut (cas Quentin).
+                if (error.code === 'weak_password' || /weak|easy to guess|pwned|leaked/i.test(error.message || '')) {
+                    alert('Ce mot de passe est trop courant ou a déjà circulé dans une fuite de données. Choisis-en un autre, que tu n\'utilises nulle part ailleurs.');
+                    return;
+                }
                 // Ignorer l'erreur "Database error saving new user" car on crée l'utilisateur manuellement après
                 if (error.message.includes('Database error saving new user') || error.message.includes('User already registered')) {
                     console.warn('[WARN] Erreur Supabase Auth ignorée (on crée l\'utilisateur manuellement):', error.message);
