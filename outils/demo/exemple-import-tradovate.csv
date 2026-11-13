@@ -1,0 +1,4 @@
+symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,qty,buyPrice,sellPrice,pnl,boughtTimestamp,soldTimestamp,duration
+MESZ6,-2,0,0.25,900001,900002,2,7318.25,7327.50,$92.50,11/06/2026 15:34:12,11/06/2026 15:51:40,17min 28sec
+MESZ6,-2,0,0.25,900004,900003,2,7323.75,7329.00,$52.50,11/06/2026 16:12:05,11/06/2026 16:02:31,9min 34sec
+MESZ6,-2,0,0.25,900005,900006,2,7331.50,7327.00,$(45.00),11/06/2026 16:40:22,11/06/2026 16:47:10,6min 48sec
