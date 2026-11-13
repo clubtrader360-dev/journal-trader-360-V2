@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Démo du journal · Trader 360</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050506; color: #c9c4b8;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .chargement { height: 100%; display: grid; place-items: center; }
+</style>
+</head>
+<body>
+<div class="chargement">Préparation de la démo…</div>
+<script>
+/**
+ * DÉMO DU JOURNAL, AVEC DES DONNÉES FICTIVES.
+ *
+ * ── ⛔ CETTE PAGE NE CONTIENT PAS DE COPIE DU JOURNAL ────────────────────────
+ * Elle charge le VRAI journal (`/`, celui qui est en ligne), remplace une seule
+ * balise, celle de la bibliothèque Supabase, par le faux client de
+ * `/assets/demo-supabase.js`, puis l'affiche. Une copie figée d'`index.html`
+ * aurait divergé du journal à la première modification, sans que rien ne le
+ * signale. Ici, la démo montre toujours le journal du jour.
+ *
+ * ⚠️ Si la balise Supabase change de forme dans `index.html`, le remplacement
+ * échoue : la page le DIT et s'arrête, au lieu d'afficher le vrai journal.
+ *
+ * ── LE STOCKAGE DU NAVIGATEUR EST ISOLÉ ───────────────────────────────────────
+ * La démo tourne sur le domaine du journal. Sans précaution, ses préférences
+ * (comptes cochés, disposition, thème) s'écriraient dans le localStorage du
+ * VRAI journal, et un coach qui tourne une démo retrouverait ensuite son propre
+ * journal filtré sur des comptes fictifs. Les deux stockages sont donc remplacés
+ * par une mémoire propre à l'onglet, vidée au rechargement.
+ *
+ * Profils : ?profil=alex (défaut), ?profil=sam, ?profil=lea.
+ * Visite guidée pour la vidéo : ?visite=1 (voir assets/demo-visite.js).
+ */
+(() => {
+  'use strict';
+
+  function memoire() {
+    const m = new Map();
+    return {
+      get length() { return m.size; },
+      key: (i) => [...m.keys()][i] ?? null,
+      getItem: (k) => (m.has(String(k)) ? m.get(String(k)) : null),
+      setItem: (k, v) => { m.set(String(k), String(v)); },
+      removeItem: (k) => { m.delete(String(k)); },
+      clear: () => m.clear(),
+    };
+  }
+  const local = memoire(), session = memoire();
+  // Les deux droits sont ouverts dans la démo : sans ce repère, le journal
+  // afficherait l'écran de choix « journal ou formation » au lieu d'entrer.
+  local.setItem('t360.dernierEspace', 'journal');
+  // ⚠️ Le journal lit parfois `Object.keys(localStorage)` : on expose aussi les clés.
+  const proxy = (s) => new Proxy(s, { ownKeys: () => [...Array(s.length).keys()].map((i) => s.key(i)),
+    getOwnPropertyDescriptor: (_, k) => ({ enumerable: true, configurable: true, value: s.getItem(k) }),
+    get: (t, k) => (k in t ? t[k] : t.getItem(k)) });
+  Object.defineProperty(window, 'localStorage', { value: proxy(local), configurable: true });
+  Object.defineProperty(window, 'sessionStorage', { value: proxy(session), configurable: true });
+
+  const BALISE = /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js[^>]*><\/script>/;
+
+  function stop(message) {
+    document.querySelector('.chargement').textContent = message;
+    console.error('[DÉMO] ⛔', message);
+  }
+
+  async function lancer() {
+    let html;
+    try {
+      html = await (await fetch('/?demo=' + Date.now(), { cache: 'no-store' })).text();
+    } catch (e) { return stop('Le journal ne se charge pas. Vérifie la connexion, puis recharge.'); }
+    if (!BALISE.test(html)) return stop('Démo indisponible : la balise Supabase du journal a changé. Rien n\'est affiché, pour ne jamais ouvrir le vrai journal ici.');
+    html = html.replace(BALISE, () => '<script src="/assets/demo-supabase.js?v=2"><\/script><script src="/assets/demo-bandeau.js?v=2" defer><\/script>'
+      // La visite guidée (vidéo) ne se charge que si l'adresse la demande.
+      + (new URLSearchParams(location.search).has('visite') ? '<script src="/assets/demo-visite.js?v=1" defer><\/script>' : ''));
+    document.open();
+    document.write(html);
+    document.close();
+    // ⚠️ Le journal ouvre la session au `DOMContentLoaded`. Réécrit ainsi, le
+    // document ne le relance pas : sans ce filet, on resterait sur l'écran de
+    // connexion. Mesuré le 07/11/2026.
+    // ⛔ PAS d'écouteur `load` posé avant `document.open()` : l'ouverture efface
+    // les écouteurs de la fenêtre. Un minuteur, lui, survit.
+    const ouvert = () => ['mainApp', 'formationApp'].some((id) => {
+      const el = document.getElementById(id);
+      return el && getComputedStyle(el).display !== 'none';
+    });
+    const filet = async (essai) => {
+      if (ouvert()) return;
+      if (document.readyState !== 'complete' || !window.restoreSession) {
+        if (essai < 60) setTimeout(() => filet(essai + 1), 250);
+        return;
+      }
+      try { await window.restoreSession(); } catch (e) { console.warn('[DÉMO]', e); }
+      try { if (window.Acces && window.Acces.orienter) await window.Acces.orienter(); } catch (e) { console.warn('[DÉMO]', e); }
+    };
+    setTimeout(() => filet(0), 1500);
+  }
+  lancer();
+})();
+</script>
+</body>
+</html>
