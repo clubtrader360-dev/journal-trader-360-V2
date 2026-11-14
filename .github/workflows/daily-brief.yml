@@ -71,7 +71,7 @@ jobs:
           # essai manuel l'après-midi reste daté du jour même. Correctif du 25/10/2026,
           # jour même du passage à l'heure d'hiver.
           DATE_ISO=$(TZ=Europe/Paris date -d '+8 hours' +%Y-%m-%d)
-          DOW=$(TZ=Europe/Paris date -d '+8 hours' +%u)   # 1=Lun … 7=Dim (rotation encart Ambassadeur)
+          DOW=$(TZ=Europe/Paris date -d '+8 hours' +%u)   # 1=Lun … 7=Dim
 
           # Date longue formatée par api/_lib/date-fr.js, la MÊME fonction que celle
           # qu'utilise l'endpoint. Elle n'est pas recopiée ici : une deuxième

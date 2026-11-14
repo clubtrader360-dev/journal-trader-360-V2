@@ -20,7 +20,7 @@ import { getBriefRecipients } from '../_lib/tableur-recipients.js';
 import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_NAME } from '../_lib/brevo-client.js';
 import { formatDateLongFr, capitaliser } from '../_lib/date-fr.js';
 import { notionDuJour } from '../_lib/culture-marche.js';
-import { blocPartenaires } from '../_lib/partenaires.js';
+import { insererPartenaires } from '../_lib/partenaires.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -303,7 +303,7 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
       ${hairline}
 
       <div class="brief-body" style="color:${PALETTE.textPrimary}; font-size:14px; line-height:1.65;">
-        ${briefHtml}
+        ${insererPartenaires(briefHtml).html}
       </div>
 
       ${hairline}
@@ -355,10 +355,6 @@ export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'mem
              style="display:inline-block; background:${PALETTE.bgCard}; color:${PALETTE.gold}; border:1px solid ${PALETTE.goldBright}; padding:10px 22px; border-radius:8px; text-decoration:none; font-weight:600; font-size:13px; letter-spacing:0.03em;">Partager le questionnaire →</a>
         </td></tr>
       </table>`}
-
-      <!-- Codes partenaires (Nadir, 07/11/2026) : IDENTIQUES pour les membres et les
-           prospects, après l'action principale pour ne pas lui voler la place. -->
-      ${blocPartenaires()}
 
       <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid rgba(212,175,55,0.30); color:${PALETTE.textMuted}; font-size:11px;">
         Trader 360 · brief du ${dateLongFr}<br>
@@ -538,6 +534,11 @@ export default async function handler(req, res) {
   else console.warn(`[DAILY-BRIEF] ⚠️ Pivots ES NON ajoutés : ${_piv.motif}`);
   if (_piv.pivotsCfd) console.log(`[DAILY-BRIEF] 🎯 Pivots CFD : P ${_piv.pivotsCfd.P} (Cboe H ${_piv.pivotsCfd.haut} · B ${_piv.pivotsCfd.bas} · C ${_piv.pivotsCfd.cloture})`);
   else console.warn(`[DAILY-BRIEF] ⚠️ Pivots CFD NON ajoutés : ${_piv.motifCfd}`);
+
+  // Codes partenaires (14/11/2026) : posés par wrapBriefHtml À LA PLACE de l'ancien
+  // « mot de la communauté », juste avant la checklist. On trace ici où ils tombent :
+  // « fin-du-corps » veut dire que la checklist n'a pas été trouvée dans le corps.
+  console.log(`[DAILY-BRIEF] 🤝 Codes partenaires : ${insererPartenaires(brief_html).place}`);
 
   // Audit retiré du mail, conservé pour le diagnostic (réponse de l'endpoint + logs).
   // ---- Culture de marché : on trace, et on vérifie la concordance ----
