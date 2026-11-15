@@ -235,21 +235,6 @@ Nasdaq, Dow Jones, US10Y, DXY, Nikkei, Hang Seng, CAC40, DAX, BTC, ETH, EUR/USD.
 ## 🧠 MINDSET DU JOUR (généré frais à chaque run)
 Rédige un mindset **court (2–3 phrases max)**, ton pédagogique mais pas moralisateur. Varie le thème chaque jour parmi : discipline, gestion émotionnelle, gestion du risque, patience, journaling, mental de coach. **Aucune citation attribuée à une personne réelle** (risque d'hallucination) — formule en ta propre voix Trader 360.
 
-## 💼 ENCART AMBASSADEUR (rotation Lun→Ven)
-
-⛔ **TITRE IMPOSÉ, NON NÉGOCIABLE.** L'intitulé vu par le lecteur est EXACTEMENT :
-
-    Le mot de la communauté
-
-Recopie-le au caractère près. Aucun synonyme, aucune reformulation, aucun ajout, aucun
-retrait. Ni « Le mot de l'ambassadeur », ni « Le mot du coach », ni « La voix de la
-communauté ». Le mot « ambassadeur » désigne la MÉCANIQUE INTERNE (rotation des
-variants, ligne d'audit) et ne doit JAMAIS apparaître dans le titre affiché.
-
-Génère **1 variant** adapté au jour de la semaine fourni (1=Lun … 5=Ven), **1 paragraphe court**, ton Trader 360. Varie le thème selon le jour parmi : témoignage communauté, success story anonymisée, encouragement formation, valorisation Discord, célébration des progrès. Rien de nominatif réel, rien d'inventé de précis (pas de chiffres de résultats faux).
-
----
-
 ## FORMAT DE SORTIE — HTML PUR (STRICT)
 
 Tu réponds **UNIQUEMENT avec du HTML**, **sans Markdown**, **sans balises de code** (pas de ```html ni ```), **sans aucun texte avant ou après**. La sortie **commence** par la div d'ouverture portant `class="brief-marche"` (un `style="…"` inline y est autorisé) et **finit exactement** par `</div>`.
@@ -297,8 +282,8 @@ Palette « Bourse à l'Aube » (clair) — utilise ces styles inline (compatibil
    **n'écris pas cette section du tout**. Elle saute sans explication : une rubrique
    absente ne se remarque pas, une définition fausse envoyée à soixante-seize traders,
    si.
-9. **💼 Le mot de la communauté** : `<div>` fond or doux (`background:#fdf3d6`) bordure navy (`border:1px solid #000B25`), le variant du jour. **Titre exact : « Le mot de la communauté »** (cf. section ENCART AMBASSADEUR).
-10. **✅ Checklist pré-séance** : liste `<ul>` de 7 rappels (capital risqué défini, état émotionnel, agenda lu, plan Discord lu, taille de position, stop placé, journal ouvert). **Rappels, pas de cases interactives.**
+9. **✅ Checklist pré-séance** : liste `<ul>` de 7 rappels (capital risqué défini, état émotionnel, agenda lu, plan Discord lu, taille de position, stop placé, journal ouvert). **Rappels, pas de cases interactives.**
+   ⛔ **Plus de « mot de la communauté »** (retiré le 14/11/2026) : n'écris AUCUN encart entre la culture de marché et la checklist. Le code y place lui-même les codes partenaires, juste avant le titre de la checklist ; ce titre doit donc contenir le mot « Checklist ».
    ⚠️ C'est la **DERNIÈRE** section du brief : le lecteur termine sur une action concrète, juste avant le bouton « Ouvrir mon journal » ajouté ensuite par l'endpoint. Ne la place nulle part ailleurs.
 
 ---
@@ -552,7 +537,6 @@ VIX : <valeur> ✓/n-d
 Agenda éco : liste EXHAUSTIVE des candidats. Pour CHACUN : nom, heure, impact, et son sort — RETENU (sources croisées) ou REJETÉ (raison précise). Aucun candidat ne doit être passé sous silence : un événement absent de cette liste est une omission, pas un rejet.
 Mindset : thème du jour
 Culture de marché : <nom de la notion> | rang <n>/20 | publiée / SAUTÉE (raison)
-Encart ambassadeur : variant jour <n>
 Données 'n/d' : <liste ou "aucune">
 -->
 ```
