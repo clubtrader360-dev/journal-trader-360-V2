@@ -208,6 +208,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bo-tun-champ input, .bo-tun-champ textarea, .bo-tun-champ select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-size: 14px; resize: vertical; transition: border-color .2s cubic-bezier(0.16, 1, 0.3, 1); }
 .bo-tun-champ input:focus, .bo-tun-champ textarea:focus, .bo-tun-champ select:focus { outline: none; border-color: var(--gold-line); }
 .bo-tun-champ small { color: var(--text-muted); font-size: 12px; }
+/* La case à cocher d'un champ de tunnel (16/11/2026) : pas le rembourrage des champs texte. */
+.bo-tun-case { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 500; }
+.bo-tun-champ .bo-tun-case input[type="checkbox"] { width: 18px; height: 18px; padding: 0; accent-color: var(--gold); }
 .bo-oblig { color: var(--gold); font-weight: 700; }
 .bo-tun-non { color: var(--text-soft); }
 .bo-web-lien { color: var(--text-soft); }

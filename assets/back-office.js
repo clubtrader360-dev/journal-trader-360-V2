@@ -347,8 +347,13 @@
      * connaît pas. Le 21/10, l'ancien code a rendu « Photo » en case de texte, et le
      * site a refusé l'enregistrement sans que rien n'explique pourquoi.
      */
-    const GENRES = ['texte', 'long', 'liste', 'date', 'url', 'nombre', 'image'];
+    const GENRES = ['texte', 'long', 'liste', 'date', 'url', 'nombre', 'image', 'case'];
     if (!GENRES.includes(c.genre)) return `<div class="bo-tun-champ"><span>${txt(c.libelle)}</span><p class="bo-tun-manque">Ce champ demande une version plus récente du back-office : recharge la page (Cmd + Maj + R).</p></div>`;
+    // LA CASE À COCHER (16/11/2026, question « Tu trades déjà ? ») : enregistrée en booléen, jamais en texte.
+    if (c.genre === 'case') {
+      return `<label class="bo-tun-champ" for="${id}"><span>${txt(c.libelle)}${ob}</span>
+        <span class="bo-tun-case"><input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="case" type="checkbox" ${v === true ? 'checked' : ''}> Activée</span>${aide}</label>`;
+    }
     if (c.genre === 'long' || c.genre === 'liste') entree = `<textarea id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" rows="${c.genre === 'liste' ? 5 : 3}">${txt(val)}</textarea>`;
     else if (c.genre === 'date') entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="date" type="text" placeholder="AAAA-MM-JJTHH:MM" value="${txt(val)}">`;
     else entree = `<input id="${id}" data-tun-champ="${txt(c.cle)}" data-genre="${c.genre}" type="${c.genre === 'nombre' ? 'number' : 'text'}" value="${txt(val)}">`;
@@ -371,6 +376,10 @@
         try { _tun.listes = await lire('tunnels:listes', () => TUN('listes_brevo')); } catch (e) { _tun.listes = []; dire(`Listes Brevo illisibles : ${e.message}`, 'error'); }
       }
       const m = modeles.find((x) => x.type === t.type);
+      // Les affiliés, pour la carte « Liens traqués » (16/11/2026). ⛔ Une lecture en échec n'empêche pas l'éditeur.
+      if (t.id && t.statut === 'publie' && m.formulaire && !_tun.affilies) {
+        try { _tun.affilies = ((await lire('affiliation', () => BO('affiliation', { sous_action: 'lister' }))) || {}).affilies || []; } catch (e) { _tun.affilies = []; dire(`Affiliés illisibles : ${e.message}`, 'error'); }
+      }
       const st = LIB_STATUT[t.statut || 'brouillon'];
       const manq = t.manquants || [];
       z.innerHTML = `<div class="bo-carte"><div class="bo-carte__tete"><h2>${txt(LIB_TYPE[t.type])} <span class="bo-pill bo-pill--${st[1]}">${st[0]}</span></h2>
@@ -395,7 +404,7 @@
             <small>Les inscrits y entrent automatiquement. Les listes du brief (17 et 18) ne sont pas proposées. <button type="button" class="bo-lien" data-tun-creer-liste>Créer une liste pour ce tunnel</button></small></label>` : ''}
           ${m.champs.map((c) => champHtml(c, (t.contenu || {})[c.cle])).join('')}
         </div></div>
-        ${t.id && m.formulaire ? `<div class="bo-carte"><div class="bo-carte__tete"><h2>Inscrits <small>${_tun.inscrits ? _tun.inscrits.length : '…'}</small></h2>${t.type === 'webinaire' ? boutonReplay(t, _tun.inscrits) : ''}</div>${t.type === 'webinaire' ? suiviWebinaire(t) : ''}${tableInscrits(_tun.inscrits, t.type)}</div>` : ''}`;
+        ${t.id && m.formulaire ? `<div class="bo-carte"><div class="bo-carte__tete"><h2>Inscrits <small>${_tun.inscrits ? _tun.inscrits.length : '…'}</small></h2>${t.type === 'webinaire' ? boutonReplay(t, _tun.inscrits) : ''}</div>${t.type === 'webinaire' ? suiviWebinaire(t) : ''}${tableInscrits(_tun.inscrits, t.type, t)}</div>` : ''}`;
       if (t.id && m.formulaire && !_tun.inscrits) {
         try { _tun.inscrits = await TUN('inscrits', { id: t.id }); } catch (e) { _tun.inscrits = []; dire(`Inscrits illisibles : ${e.message}`, 'error'); }
         if (_tun.vue === 'edition' && _tun.brouillon && _tun.brouillon.id === t.id) vueTunnels();
@@ -422,30 +431,48 @@
   const sourceDe = (nom) => String(nom || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const lienTraque = (t, source) => `${lienPublic(t)}?utm_source=${encodeURIComponent(source)}&utm_medium=partenaire&utm_campaign=${encodeURIComponent(t.slug)}`;
+  /**
+   * LE LIEN D'UN AFFILIÉ (16/11/2026, webinaire du 29/11 avec Quentin) : `ref=CODE` en plus
+   * des utm. Le site relit le code (affilié ACTIF), le range dans l'inscrit (utm.ref), et
+   * l'attribution suit jusqu'à la candidature : lien « Candidater » personnel de la salle
+   * et du replay, puis filet par e-mail dans le questionnaire (90 jours). C'est la
+   * candidature attribuée qui ouvre la commission, dans Ventes · Affiliation.
+   */
+  const lienAffilieTunnel = (t, code) => `${lienPublic(t)}?ref=${encodeURIComponent(code)}&utm_source=${encodeURIComponent(code)}&utm_medium=affilie&utm_campaign=${encodeURIComponent(t.slug)}`;
+  const affilieParCode = (code) => (_tun.affilies || []).find((a) => a.code === String(code || '').toLowerCase()) || null;
   function liensTraques(t, inscrits) {
     const parSource = new Map();
     (inscrits || []).forEach((i) => { const s = (i.utm && i.utm.utm_source) || 'direct'; parSource.set(s, (parSource.get(s) || 0) + 1); });
     const lignes = [...parSource.entries()].sort((a, b2) => b2[1] - a[1]);
+    const actifs = (_tun.affilies || []).filter((a) => a.actif);
+    const nomSource = (s) => { const a = affilieParCode(s); return a ? `${txt(a.nom)} <span class="bo-pill bo-pill--ok" title="Affilié ${txt(a.code)} : commission sur les adhésions venues de ce lien">Affilié</span>${a.actif ? '' : ' <span class="bo-pill">désactivé</span>'}` : txt(s === 'direct' ? 'Lien direct, sans source' : s); };
     return `<div class="bo-carte"><div class="bo-carte__tete"><h2>Liens traqués</h2></div>
-      <p class="bo-source">Un lien par partenaire ou par canal : chaque inscrit garde le nom de la source par laquelle il est arrivé.</p>
-      <div class="bo-tun-lien"><input data-tun-source type="text" maxlength="40" placeholder="Nom de la source, par exemple quentin" style="min-width:260px">
+      <p class="bo-source">Un lien par partenaire ou par canal : chaque inscrit garde le nom de la source par laquelle il est arrivé. Pour un partenaire payé à la commission, choisis-le dans « Affilié » : l'inscrit lui reste attribué jusqu'à sa candidature.</p>
+      <div class="bo-tun-lien"><label>Affilié (commission) <select data-tun-affilie class="bo-select"><option value="">Aucun, source libre</option>
+          ${actifs.map((a) => `<option value="${txt(a.code)}">${txt(a.nom)} (${txt(a.code)})</option>`).join('')}</select></label>
+        <input data-tun-source type="text" maxlength="40" placeholder="Ou nom de la source, par exemple story" style="min-width:260px">
         <button type="button" class="bo-btn bo-btn--or" data-tun-traquer>Créer le lien</button></div>
+      ${_tun.affilies && !actifs.length ? '<p class="bo-source">Aucun affilié actif : crée-le d\'abord dans Ventes · Affiliation (« Affilié extérieur »).</p>' : ''}
       <p class="bo-tun-lien" data-tun-lien-traque hidden></p>
       ${inscrits ? (lignes.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Source</th><th class="num">Inscrits</th><th></th></tr></thead><tbody>
-        ${lignes.map(([s, n]) => `<tr><td><b>${txt(s === 'direct' ? 'Lien direct, sans source' : s)}</b></td><td class="num">${n}</td><td>${s === 'direct' ? '' : `<button type="button" class="bo-lien" data-tun-copier="${txt(lienTraque(t, s))}">Copier son lien</button>`}</td></tr>`).join('')}
+        ${lignes.map(([s, n]) => `<tr><td><b>${nomSource(s)}</b></td><td class="num">${n}</td><td>${s === 'direct' ? '' : `<button type="button" class="bo-lien" data-tun-copier="${txt(affilieParCode(s) ? lienAffilieTunnel(t, affilieParCode(s).code) : lienTraque(t, s))}">Copier son lien</button>`}</td></tr>`).join('')}
       </tbody></table></div>` : '<p class="bo-vide">Aucun inscrit pour l instant.</p>') : '<p class="bo-vide">Chargement…</p>'}</div>`;
   }
-  function tableInscrits(l, type) {
+  function tableInscrits(l, type, t) {
     if (!l) return '<p class="bo-vide">Chargement…</p>';
     if (!l.length) return '<p class="bo-vide">Aucun inscrit pour l instant.</p>';
+    // 16/11/2026 : l'affilié de l'inscrit (utm.ref) et la question « Tu trades déjà ? ».
+    // La colonne reste visible si des réponses existent, même après avoir décoché la question.
+    const avecTrade = !!(t && t.contenu && t.contenu.question_trade === true) || l.some((i) => i.champs && i.champs.trade_deja);
+    const affilie = (i) => { const c = i.utm && i.utm.ref; if (!c) return '<span class="bo-tun-non">non</span>'; const a = affilieParCode(c); return a ? `<span title="${txt(c)}">${txt(a.nom)}</span>` : txt(c); };
     // Le suivi du webinaire (25/10) : rappels, présence au direct, replay, candidature qui en vient.
     const w = type === 'webinaire';
     const oui = (v, titre) => (v ? `<span class="bo-pill bo-pill--ok" title="${txt(titre || dateFr(v))}">oui</span>` : '<span class="bo-tun-non">non</span>');
     const rappel = (i) => (i.rappel_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.rappel_erreur)}">non parti</span>`
       : [i.rappel_veille_le && 'veille', i.rappel_heure_le && 'heure'].filter(Boolean).join(' + ') || '<span class="bo-tun-non">pas encore</span>');
     const replay = (i) => (i.replay_vu_le ? oui(i.replay_vu_le, `vu le ${dateFr(i.replay_vu_le)}`).replace('>oui<', '>vu<') : i.replay_envoye_le ? 'envoyé' : '<span class="bo-tun-non">non</span>');
-    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Source</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th>${w ? '<th>Rappels</th><th>Présent</th><th>Replay</th><th>Candidature</th>' : ''}<th>Inscrit le</th></tr></thead><tbody>
-      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt((i.utm && i.utm.utm_source) || 'direct')}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td>${w ? `<td>${rappel(i)}</td><td>${oui(i.present_le)}</td><td>${replay(i)}</td><td>${i.a_candidate ? '<span class="bo-pill bo-pill--ok">oui</span>' : '<span class="bo-tun-non">non</span>'}</td>` : ''}<td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
+    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Source</th><th>Affilié</th>${avecTrade ? '<th>Trade déjà ?</th>' : ''}<th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th>${w ? '<th>Rappels</th><th>Présent</th><th>Replay</th><th>Candidature</th>' : ''}<th>Inscrit le</th></tr></thead><tbody>
+      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt((i.utm && i.utm.utm_source) || 'direct')}</td><td>${affilie(i)}</td>${avecTrade ? `<td>${txt((i.champs && i.champs.trade_deja) || '')}</td>` : ''}<td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td>${w ? `<td>${rappel(i)}</td><td>${oui(i.present_le)}</td><td>${replay(i)}</td><td>${i.a_candidate ? '<span class="bo-pill bo-pill--ok">oui</span>' : '<span class="bo-tun-non">non</span>'}</td>` : ''}<td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
     </tbody></table></div>`;
   }
   /** Un brouillon tiré de l'exemple d'un modèle, à la première adresse libre. Partagé par Tunnels et Webinaires. */
@@ -463,7 +490,8 @@
     const contenu = { ...(t.contenu || {}) };
     document.querySelectorAll('[data-tun-champ]').forEach((el) => {
       const v = el.value;
-      contenu[el.dataset.tunChamp] = el.dataset.genre === 'liste' ? v.split('\n').map((x) => x.trim()).filter(Boolean)
+      contenu[el.dataset.tunChamp] = el.dataset.genre === 'case' ? el.checked
+        : el.dataset.genre === 'liste' ? v.split('\n').map((x) => x.trim()).filter(Boolean)
         : el.dataset.genre === 'nombre' ? (v === '' ? null : Number(v)) : v.trim();
     });
     const liste = document.querySelector('[data-tun-liste]');
@@ -559,12 +587,14 @@
       if (b.matches('[data-tun-retour]')) { _tun = { vue: 'liste' }; _cache.delete('tunnels:liste'); return vueTunnels(); }
       if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
       if (b.matches('[data-tun-traquer]')) {
-        const source = sourceDe(document.querySelector('[data-tun-source]')?.value);
-        if (!source) return dire('Donne un nom à la source, par exemple quentin.', 'error');
-        const lien = lienTraque(_tun.brouillon, source);
+        // Un affilié choisi l'emporte sur la source libre : son lien porte ref=CODE (commission).
+        const aff = affilieParCode(document.querySelector('[data-tun-affilie]')?.value);
+        const source = aff ? aff.code : sourceDe(document.querySelector('[data-tun-source]')?.value);
+        if (!source) return dire('Choisis un affilié, ou donne un nom à la source, par exemple story.', 'error');
+        const lien = aff ? lienAffilieTunnel(_tun.brouillon, aff.code) : lienTraque(_tun.brouillon, source);
         const z2 = document.querySelector('[data-tun-lien-traque]');
         z2.hidden = false;
-        z2.innerHTML = `Lien pour <b>${txt(source)}</b> : <a href="${txt(lien)}" target="_blank" rel="noopener">${txt(lien)}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lien)}">Copier</button>`;
+        z2.innerHTML = `Lien pour <b>${txt(aff ? `${aff.nom}, affilié` : source)}</b> : <a href="${txt(lien)}" target="_blank" rel="noopener">${txt(lien)}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lien)}">Copier</button>`;
         try { await navigator.clipboard.writeText(lien); dire('Lien traqué créé et copié.'); } catch (e2) { dire('Lien traqué créé : copie-le avec le bouton.'); }
         return;
       }
