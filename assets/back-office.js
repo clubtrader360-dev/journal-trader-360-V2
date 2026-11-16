@@ -432,7 +432,9 @@
    */
   const sourceDe = (nom) => String(nom || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  const lienTraque = (t, source) => `${lienPublic(t)}?utm_source=${encodeURIComponent(source)}&utm_medium=partenaire&utm_campaign=${encodeURIComponent(t.slug)}`;
+  // ⚠️ Forme COURTE (16/11/2026) : trader360.fr/t/<page>?s=instagram. La page lit `s` comme
+  // utm_source (src/pages/t/[slug].astro du site). L'ancienne forme utm_… reste comprise.
+  const lienTraque = (t, source) => `${lienPublic(t)}?s=${encodeURIComponent(source)}`;
   /**
    * LE LIEN D'UN AFFILIÉ (16/11/2026, webinaire du 29/11 avec Quentin) : `ref=CODE` en plus
    * des utm. Le site relit le code (affilié ACTIF), le range dans l'inscrit (utm.ref), et
