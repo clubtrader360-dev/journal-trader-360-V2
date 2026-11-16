@@ -1,12 +1,13 @@
 ---
 slug: liquidite
 nom: Liquidité
-publie_le: 2026-10-27
+publie_le: 2026-11-16
 source: brief quotidien, archive automatique
 schema: assets/culture/liquidite.png
 ---
 
-La liquidité désigne les zones de prix où se concentrent de nombreux ordres en attente, souvent situées juste sous un creux récent ou juste au-dessus d'un sommet récent.
-Ces amas d'ordres (stops, prises de profit, nouvelles positions) forment des poches que le prix peut chercher à atteindre avant de changer de direction.
-Un trader qui observe le marché repère ces zones pour mieux comprendre pourquoi un prix accélère parfois brièvement au-delà d'un niveau avant de repartir en sens inverse.
-Cette lecture aide à décrypter des mouvements qui semblent irrationnels à première vue, en se rappelant que le marché reste avant tout un lieu d'échange d'ordres.
+La liquidité désigne les zones où se concentrent de nombreux ordres en attente, pas encore exécutés.
+Elle se forme typiquement sous un creux récent, où s'accumulent des ordres de vente, ou au-dessus d'un sommet récent, où s'accumulent des ordres d'achat.
+Un trader l'observe pour comprendre où le prix pourrait être attiré avant de poursuivre son mouvement, ces zones agissant parfois comme un aimant à court terme.
+Elle permet aussi de lire le comportement des gros acteurs, qui ont besoin de volume en face de leurs ordres pour les exécuter sans trop déplacer le prix.
+On la retrouve commentée dans de nombreuses analyses, sous des noms comme « pool de liquidité » ou « liquidity grab ».
