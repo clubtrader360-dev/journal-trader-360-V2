@@ -20,7 +20,7 @@
 // droite et insécable, tient à toutes les largeurs.
 // ========================================================================
 
-export const REMISES_RELEVEES_LE = '7 novembre 2026';
+export const REMISES_RELEVEES_LE = '15 novembre 2026';
 
 // Relevés le 07/11/2026 : Apex (Discord, annonce du 05/10 ; -90 % au bandeau du site),
 // Topstep (code de parrainage de Manu du 09/10 ; -15 % sur le 1er challenge, Nadir),
