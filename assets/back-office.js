@@ -467,6 +467,10 @@
   }
   function liensTraques(t, inscrits) {
     const parSource = new Map();
+    // ⚠️ Les liens CRÉÉS sont gardés dans le tunnel (contenu.liens_suivis, 16/11/2026) : ils
+    // restent listés, à 0 inscrit, avant la première inscription. Avant, un lien créé
+    // disparaissait au rechargement : seules les sources ayant déjà un inscrit s'affichaient.
+    ((t.contenu || {}).liens_suivis || []).forEach((s) => { if (s) parSource.set(s, 0); });
     (inscrits || []).forEach((i) => { const s = (i.utm && i.utm.utm_source) || 'direct'; parSource.set(s, (parSource.get(s) || 0) + 1); });
     const lignes = [...parSource.entries()].sort((a, b2) => b2[1] - a[1]);
     const actifs = (_tun.affilies || []).filter((a) => a.actif);
@@ -624,6 +628,20 @@
         z2.hidden = false;
         z2.innerHTML = `Lien pour <b>${txt(aff ? `${aff.nom}, affilié` : source)}</b> : <a href="${txt(lien)}" target="_blank" rel="noopener">${txt(lien.replace('https://', ''))}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lien)}">Copier</button>`;
         try { await navigator.clipboard.writeText(lien); dire('Lien traqué créé et copié.'); } catch (e2) { dire('Lien traqué créé : copie-le avec le bouton.'); }
+        /**
+         * ⚠️ ON GARDE LE LIEN dans le tunnel, pour qu'il reste listé (Nadir, 16/11 : « le lien
+         * disparaît »). On enregistre la version DÉJÀ ENREGISTRÉE du tunnel plus ce lien, jamais
+         * le formulaire en cours : une saisie pas encore validée ne part pas en douce.
+         */
+        const t0 = _tun.brouillon;
+        const deja = (t0.contenu && t0.contenu.liens_suivis) || [];
+        if (t0.id && !deja.includes(source)) {
+          try {
+            const contenu = { ...(t0.contenu || {}), liens_suivis: [...deja, source] };
+            const r = await TUN('enregistrer', { id: t0.id, type: t0.type, titre: t0.titre, slug: t0.slug, contenu, brevo_liste: t0.brevo_liste });
+            _tun.brouillon = { ..._tun.brouillon, contenu: { ...(_tun.brouillon.contenu || {}), liens_suivis: (r.contenu && r.contenu.liens_suivis) || contenu.liens_suivis } };
+          } catch (e3) { dire(`Lien créé, mais pas gardé dans la liste : ${e3.message}. Copie-le maintenant.`, 'error'); }
+        }
         return;
       }
       if (b.matches('[data-tun-creer]')) {
