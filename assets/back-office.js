@@ -375,13 +375,10 @@
       if (!_tun.listes) {
         try { _tun.listes = await lire('tunnels:listes', () => TUN('listes_brevo')); } catch (e) { _tun.listes = []; dire(`Listes Brevo illisibles : ${e.message}`, 'error'); }
       }
-      // Les affiliés, pour le lien d'inscription suivi d'un webinaire (même registre que Ventes · Affiliation).
-      if (t.type === 'webinaire' && !_tun.affilies) {
-        try { _tun.affilies = (await lire('affiliation', () => BO('affiliation', { sous_action: 'lister' }))).affilies || []; } catch (e) { _tun.affilies = []; dire(`Affiliés illisibles : ${e.message}`, 'error'); }
-      }
       const m = modeles.find((x) => x.type === t.type);
       // Les affiliés, pour la carte « Liens traqués » (16/11/2026). ⛔ Une lecture en échec n'empêche pas l'éditeur.
-      if (t.id && t.statut === 'publie' && m.formulaire && !_tun.affilies) {
+      // ⚠️ Chargés aussi en BROUILLON : la carte s'affiche avant publication, pour préparer les liens à l'avance.
+      if (t.id && m.formulaire && !_tun.affilies) {
         try { _tun.affilies = ((await lire('affiliation', () => BO('affiliation', { sous_action: 'lister' }))) || {}).affilies || []; } catch (e) { _tun.affilies = []; dire(`Affiliés illisibles : ${e.message}`, 'error'); }
       }
       const st = LIB_STATUT[t.statut || 'brouillon'];
@@ -396,7 +393,7 @@
           ${t.id && t.statut !== 'publie' ? `<button type="button" class="bo-btn bo-btn--fantome bo-btn--danger" data-tun-supprimer title="Supprime la page et sa photo. Impossible si elle a des inscrits.">Supprimer</button>` : ''}</div></div>
         ${manq.length ? `<p class="bo-tun-manque">Avant publication : ${txt(manq.join(' · '))}</p>` : ''}
         ${t.statut === 'publie' ? `<p class="bo-tun-lien">En ligne : <a href="${txt(lienPublic(t))}" target="_blank" rel="noopener">${txt(lienPublic(t))}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienPublic(t))}">Copier le lien</button></p>` : ''}
-        ${t.id && t.statut === 'publie' && m.formulaire ? liensTraques(t, _tun.inscrits) : ''}
+        ${t.id && m.formulaire ? liensTraques(t, _tun.inscrits) : ''}
         <div class="bo-tun-grille">
           <label class="bo-tun-champ"><span>Titre <b class="bo-oblig">*</b></span><input data-tun-titre type="text" value="${txt(t.titre)}"></label>
           <label class="bo-tun-champ"><span>Adresse de la page <b class="bo-oblig">*</b></span><input data-tun-slug type="text" value="${txt(t.slug)}"><small>trader360.fr/t/<b data-tun-slug-vu>${txt(t.slug)}</b>/</small></label>
@@ -444,6 +441,23 @@
    */
   const lienAffilieTunnel = (t, code) => `${lienPublic(t)}?ref=${encodeURIComponent(code)}&utm_source=${encodeURIComponent(code)}&utm_medium=affilie&utm_campaign=${encodeURIComponent(t.slug)}`;
   const affilieParCode = (code) => (_tun.affilies || []).find((a) => a.code === String(code || '').toLowerCase()) || null;
+  /**
+   * RECHERCHE PAR PRÉNOM (Nadir, 16/11/2026 : « si un jour on a 500 membres »). Le champ
+   * propose les affiliés au fil de la frappe (datalist native). La saisie se résout ainsi :
+   * libellé exact choisi dans la liste, sinon code exact, sinon UN SEUL affilié dont le nom
+   * contient le texte (« quentin » ne suffit pas s'il y a deux Quentin : on le dit).
+   */
+  const libAffilie = (a) => `${a.nom} · ${a.type === 'membre' ? 'membre' : 'extérieur'} · ${a.code}`;
+  function affilieDepuisSaisie(v) {
+    const s = sansAccent(v).trim();
+    if (!s) return { a: null };
+    const actifs = (_tun.affilies || []).filter((a) => a.actif);
+    const exact = actifs.find((a) => sansAccent(libAffilie(a)) === s || a.code === s);
+    if (exact) return { a: exact };
+    const proches = actifs.filter((a) => sansAccent(a.nom).includes(s));
+    if (proches.length === 1) return { a: proches[0] };
+    return { a: null, erreur: proches.length ? `${proches.length} affiliés correspondent à « ${v} » : choisis-le dans la liste proposée.` : `Aucun affilié actif ne correspond à « ${v} ».` };
+  }
   function liensTraques(t, inscrits) {
     const parSource = new Map();
     (inscrits || []).forEach((i) => { const s = (i.utm && i.utm.utm_source) || 'direct'; parSource.set(s, (parSource.get(s) || 0) + 1); });
@@ -452,8 +466,9 @@
     const nomSource = (s) => { const a = affilieParCode(s); return a ? `${txt(a.nom)} <span class="bo-pill bo-pill--ok" title="Affilié ${txt(a.code)} : commission sur les adhésions venues de ce lien">Affilié</span>${a.actif ? '' : ' <span class="bo-pill">désactivé</span>'}` : txt(s === 'direct' ? 'Lien direct, sans source' : s); };
     return `<div class="bo-carte"><div class="bo-carte__tete"><h2>Liens traqués</h2></div>
       <p class="bo-source">Un lien par partenaire ou par canal : chaque inscrit garde le nom de la source par laquelle il est arrivé. Pour un partenaire payé à la commission, choisis-le dans « Affilié » : l'inscrit lui reste attribué jusqu'à sa candidature.</p>
-      <div class="bo-tun-lien"><label>Affilié (commission) <select data-tun-affilie class="bo-select"><option value="">Aucun, source libre</option>
-          ${actifs.map((a) => `<option value="${txt(a.code)}">${txt(a.nom)} (${txt(a.code)})</option>`).join('')}</select></label>
+      ${t.statut === 'publie' ? '' : '<p class="bo-tun-manque">Page pas encore publiée : tu peux préparer les liens, ils fonctionneront dès la publication.</p>'}
+      <div class="bo-tun-lien"><label>Affilié (commission) <input data-tun-affilie type="search" list="boTunAffilies" class="bo-select" placeholder="Tape un prénom, par exemple Quentin" autocomplete="off" style="min-width:300px">
+          <datalist id="boTunAffilies">${actifs.map((a) => `<option value="${txt(libAffilie(a))}"></option>`).join('')}</datalist></label>
         <input data-tun-source type="text" maxlength="40" placeholder="Ou nom de la source, par exemple story" style="min-width:260px">
         <button type="button" class="bo-btn bo-btn--or" data-tun-traquer>Créer le lien</button></div>
       ${_tun.affilies && !actifs.length ? '<p class="bo-source">Aucun affilié actif : crée-le d\'abord dans Ventes · Affiliation (« Affilié extérieur »).</p>' : ''}
@@ -592,7 +607,9 @@
       if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
       if (b.matches('[data-tun-traquer]')) {
         // Un affilié choisi l'emporte sur la source libre : son lien porte ref=CODE (commission).
-        const aff = affilieParCode(document.querySelector('[data-tun-affilie]')?.value);
+        const saisie = affilieDepuisSaisie(document.querySelector('[data-tun-affilie]')?.value);
+        if (saisie.erreur) return dire(saisie.erreur, 'error');
+        const aff = saisie.a;
         const source = aff ? aff.code : sourceDe(document.querySelector('[data-tun-source]')?.value);
         if (!source) return dire('Choisis un affilié, ou donne un nom à la source, par exemple story.', 'error');
         const lien = aff ? lienAffilieTunnel(_tun.brouillon, aff.code) : lienTraque(_tun.brouillon, source);
@@ -880,42 +897,8 @@
     return `<div class="bo-web-suivi"><span><b class="num">${l.length}</b> inscrits</span><span><b class="num">${n((i) => i.rappel_heure_le)}</b> rappelés</span><span><b class="num">${n((i) => i.present_le)}</b> présents</span><span><b class="num">${n((i) => i.replay_vu_le)}</b> replays vus</span><span><b class="num">${n((i) => i.a_candidate)}</b> candidatures</span></div>
       ${t.jeton_apercu ? `<p class="bo-tun-lien"><a class="bo-btn bo-btn--or" href="${txt(lienSalleCoach(t))}" target="_blank" rel="noopener">Ouvrir la régie du live</a> <small>À ouvrir à côté d’OBS : afficher le CTA à l’écran, mettre une question à l’écran, lancer un sondage, répondre au chat. Ce lien est une clé : ne le partage pas.</small></p>` : ''}
       ${t.statut === 'publie' ? `<p class="bo-tun-lien">Lien « candidater » à coller pendant le live : <b>${txt(lienCandidatureLive(t).replace('https://', ''))}</b> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienCandidatureLive(t))}">Copier</button></p>` : ''}
-      ${t.slug ? lienAffilieWebinaire(t) : ''}
       <p class="bo-source">Lien du direct : ${String(c.lien_direct || '').trim() ? 'posé' : '<b>à poser au plus tard une heure avant</b> (sans lui, le rappel « dans une heure » ne part pas et vous êtes prévenus par mail)'}. Lien du replay : ${String(c.lien_replay || '').trim() ? 'posé' : 'à poser après le direct'}. « Présent » : a ouvert son lien personnel pendant le direct ; quelqu'un qui rejoint par un lien partagé n'est pas compté.</p>`;
   }
-  /**
-   * LE LIEN D'INSCRIPTION D'UN AFFILIÉ (Nadir, 16/11/2026 : « dans les paramètres du
-   * webinaire, je ne vois pas de lien affilié »). On choisit l'affilié (Quentin…) et on
-   * copie l'adresse de CETTE page suivie de `?ref=<code>`. Le site garde le code à
-   * l'inscription, puis jusqu'à la candidature : l'affilié est crédité dans Ventes ·
-   * Affiliation. ⛔ Rien n'est créé ici : un nouvel affilié se crée dans Ventes · Affiliation.
-   * La liste vient du même registre (cache `affiliation`), affiliés désactivés exclus.
-   */
-  function lienAffilieWebinaire(t) {
-    const liste = _tun.affilies;
-    if (!liste) return '<p class="bo-tun-lien">Lien d’un affilié : chargement des affiliés…</p>';
-    const actifs = liste.filter((a) => a.actif && a.code).sort((a, b) => (a.type === b.type ? 0 : a.type === 'externe' ? -1 : 1) || String(a.nom).localeCompare(String(b.nom), 'fr'));
-    if (!actifs.length) return '<p class="bo-tun-lien">Lien d’un affilié : aucun affilié actif. Crée-le dans <a href="#/ventes/affiliation">Ventes · Affiliation</a>.</p>';
-    // ⚠️ L'adresse vient du slug ENREGISTRÉ (t.slug), pas du champ en cours de saisie : c'est celle qui existe en ligne.
-    return `<div class="bo-tun-lien bo-web-aff" data-web-aff-base="${txt(lienPublic(t))}"><label>Lien d’inscription d’un affilié :
-        <select class="bo-select" data-web-aff aria-label="Affilié"><option value="">Choisir l’affilié…</option>
-          ${actifs.map((a) => `<option value="${txt(a.code)}">${txt(a.nom)} (${a.type === 'membre' ? 'membre' : 'extérieur'}, ${txt(a.code)})</option>`).join('')}
-        </select></label>
-      <b data-web-aff-vu></b> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="" data-web-aff-copier style="display:none !important">Copier</button>
-      <br><small>À envoyer à l’affilié : ses inscrits, puis leurs candidatures, lui sont attribués dans Ventes · Affiliation.${t.statut === 'publie' ? '' : ' Le lien fonctionne une fois la page publiée.'} Il manque quelqu’un ? <a href="#/ventes/affiliation">Créer l’affilié</a>.</small></div>`;
-  }
-  // Mise à jour sur place, sans re-rendre l'éditeur : ce qui est tapé et pas encore enregistré ne bouge pas.
-  document.addEventListener('change', (e) => {
-    if (!e.target.matches('[data-web-aff]')) return;
-    const boite = e.target.closest('[data-web-aff-base]');
-    const code = e.target.value;
-    const lien = code ? `${boite.dataset.webAffBase}?ref=${encodeURIComponent(code)}` : '';
-    boite.querySelector('[data-web-aff-vu]').textContent = lien.replace('https://', '');
-    const btn = boite.querySelector('[data-web-aff-copier]');
-    btn.dataset.tunCopier = lien;
-    // ⛔ Pas l'attribut `hidden` : une classe d'auteur le bat (règle du dépôt). Masquer passe par !important.
-    if (lien) btn.style.removeProperty('display'); else btn.style.setProperty('display', 'none', 'important');
-  });
   function boutonReplay(t, l) {
     const pose = !!String((t.contenu || {}).lien_replay || '').trim();
     const reste = (l || []).filter((i) => !i.replay_envoye_le).length;
@@ -1314,7 +1297,7 @@
         ${vus.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Affilié</th><th>Lien</th><th class="num">Clics</th><th class="num">Candidatures</th><th class="num">Ventes</th><th class="num">Montant</th><th class="num">Commission due</th><th>État</th></tr></thead><tbody>
           ${vus.map((a) => `<tr class="${a.actif ? '' : 'aff-inactif'}">
             <td><b>${txt(a.nom)}</b> <span class="bo-pill ${a.type === 'membre' ? 'bo-pill--ok' : ''}">${a.type === 'membre' ? 'Membre' : 'Extérieur'}</span><small class="aff-sous">${txt(a.email || '')}${a.note ? ` · ${txt(a.note)}` : ''}</small></td>
-            <td><button type="button" class="aff-lien" data-aff-copier="${txt(a.lien)}" title="Copier le lien"><span class="chiffre">${txt(a.code)}</span> <i class="fas fa-copy"></i></button></td>
+            <td><button type="button" class="aff-lien" data-aff-copier="${txt(a.lien)}" title="Copier le lien"><span class="chiffre">${txt(a.code)}</span> <i class="fas fa-copy"></i></button> <button type="button" class="bo-lien" data-aff-code="${a.id}" data-code="${txt(a.code)}" data-nom="${txt(a.nom)}" title="Choisir un code plus lisible, par exemple quentin">Modifier</button></td>
             <td class="num chiffre">${nb(a.clics)}</td><td class="num chiffre">${nb(a.candidatures)}</td><td class="num chiffre">${nb(a.ventes)}</td><td class="num chiffre">${a.montant ? eur(a.montant) : ''}</td><td class="num chiffre">${a.commission_due ? `<b>${eur(a.commission_due)}</b>` : ''}${a.commission_attente ? `<small class="aff-sous">${eur(a.commission_attente)} en attente</small>` : ''}</td>
             <td><button type="button" class="bo-btn bo-btn--fantome" data-aff-actif="${a.id}" data-valeur="${a.actif ? '0' : '1'}">${a.actif ? 'Désactiver' : 'Réactiver'}</button></td></tr>`).join('')}
         </tbody></table></div>` : `<p class="bo-vide">${tous.length ? 'Aucun affilié ne correspond.' : 'Aucun lien pour l instant. « Liens des membres » en crée un pour chaque membre ; « Affilié extérieur » pour une personne hors club.'}</p>`}
@@ -1333,6 +1316,25 @@
         b.disabled = true;
         const r = await AFF('generer_membres');
         _cache.delete('affiliation'); dire(`${r.crees} lien(s) créé(s) sur ${r.total} membre(s).`);
+        return CHARGEURS['ventes/affiliation']();
+      }
+      /**
+       * CHANGER LE CODE DU LIEN (Nadir, 16/11/2026). Le site valide le format et l'unicité,
+       * et réécrit au nouveau code les inscrits de webinaire déjà venus par ce lien.
+       * ⛔ L'ancien lien cesse de compter : on le dit avant, en clair.
+       */
+      if (b.matches('[data-aff-code]')) {
+        const ancien = b.dataset.code;
+        const saisi = window.prompt(`Nouveau code du lien de ${b.dataset.nom} (actuellement « ${ancien} »).\n\nMinuscules, chiffres et tirets, 3 à 40 caractères. Par exemple : quentin, quentin-trading.\n\n⚠️ L'ANCIEN LIEN (…?ref=${ancien}) NE COMPTERA PLUS : renvoie-lui le nouveau. Ses inscrits et candidatures déjà enregistrés lui restent attribués.`, ancien);
+        if (saisi == null) return;
+        const code = sansAccent(saisi).trim().replace(/\s+/g, '-');
+        if (code === ancien) return dire('Code inchangé.');
+        if (!/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/.test(code)) return dire('Code refusé : 3 à 40 caractères, minuscules, chiffres et tirets, sans tiret au début ni à la fin.', 'error');
+        b.disabled = true;
+        const r = await AFF('modifier', { id: Number(b.dataset.affCode), code });
+        _cache.delete('affiliation');
+        if (typeof _tun !== 'undefined') _tun.affilies = null;
+        dire(`Nouveau lien de ${b.dataset.nom} : ${r.lien}${r.inscrits_reecrits ? ` (${r.inscrits_reecrits} inscrit(s) de webinaire suivent le nouveau code)` : ''}. Pense à le lui renvoyer.`);
         return CHARGEURS['ventes/affiliation']();
       }
       if (b.matches('[data-aff-actif]')) {
