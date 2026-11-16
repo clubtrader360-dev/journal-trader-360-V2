@@ -375,6 +375,10 @@
       if (!_tun.listes) {
         try { _tun.listes = await lire('tunnels:listes', () => TUN('listes_brevo')); } catch (e) { _tun.listes = []; dire(`Listes Brevo illisibles : ${e.message}`, 'error'); }
       }
+      // Les affiliés, pour le lien d'inscription suivi d'un webinaire (même registre que Ventes · Affiliation).
+      if (t.type === 'webinaire' && !_tun.affilies) {
+        try { _tun.affilies = (await lire('affiliation', () => BO('affiliation', { sous_action: 'lister' }))).affilies || []; } catch (e) { _tun.affilies = []; dire(`Affiliés illisibles : ${e.message}`, 'error'); }
+      }
       const m = modeles.find((x) => x.type === t.type);
       // Les affiliés, pour la carte « Liens traqués » (16/11/2026). ⛔ Une lecture en échec n'empêche pas l'éditeur.
       if (t.id && t.statut === 'publie' && m.formulaire && !_tun.affilies) {
@@ -876,8 +880,42 @@
     return `<div class="bo-web-suivi"><span><b class="num">${l.length}</b> inscrits</span><span><b class="num">${n((i) => i.rappel_heure_le)}</b> rappelés</span><span><b class="num">${n((i) => i.present_le)}</b> présents</span><span><b class="num">${n((i) => i.replay_vu_le)}</b> replays vus</span><span><b class="num">${n((i) => i.a_candidate)}</b> candidatures</span></div>
       ${t.jeton_apercu ? `<p class="bo-tun-lien"><a class="bo-btn bo-btn--or" href="${txt(lienSalleCoach(t))}" target="_blank" rel="noopener">Ouvrir la régie du live</a> <small>À ouvrir à côté d’OBS : afficher le CTA à l’écran, mettre une question à l’écran, lancer un sondage, répondre au chat. Ce lien est une clé : ne le partage pas.</small></p>` : ''}
       ${t.statut === 'publie' ? `<p class="bo-tun-lien">Lien « candidater » à coller pendant le live : <b>${txt(lienCandidatureLive(t).replace('https://', ''))}</b> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienCandidatureLive(t))}">Copier</button></p>` : ''}
+      ${t.slug ? lienAffilieWebinaire(t) : ''}
       <p class="bo-source">Lien du direct : ${String(c.lien_direct || '').trim() ? 'posé' : '<b>à poser au plus tard une heure avant</b> (sans lui, le rappel « dans une heure » ne part pas et vous êtes prévenus par mail)'}. Lien du replay : ${String(c.lien_replay || '').trim() ? 'posé' : 'à poser après le direct'}. « Présent » : a ouvert son lien personnel pendant le direct ; quelqu'un qui rejoint par un lien partagé n'est pas compté.</p>`;
   }
+  /**
+   * LE LIEN D'INSCRIPTION D'UN AFFILIÉ (Nadir, 16/11/2026 : « dans les paramètres du
+   * webinaire, je ne vois pas de lien affilié »). On choisit l'affilié (Quentin…) et on
+   * copie l'adresse de CETTE page suivie de `?ref=<code>`. Le site garde le code à
+   * l'inscription, puis jusqu'à la candidature : l'affilié est crédité dans Ventes ·
+   * Affiliation. ⛔ Rien n'est créé ici : un nouvel affilié se crée dans Ventes · Affiliation.
+   * La liste vient du même registre (cache `affiliation`), affiliés désactivés exclus.
+   */
+  function lienAffilieWebinaire(t) {
+    const liste = _tun.affilies;
+    if (!liste) return '<p class="bo-tun-lien">Lien d’un affilié : chargement des affiliés…</p>';
+    const actifs = liste.filter((a) => a.actif && a.code).sort((a, b) => (a.type === b.type ? 0 : a.type === 'externe' ? -1 : 1) || String(a.nom).localeCompare(String(b.nom), 'fr'));
+    if (!actifs.length) return '<p class="bo-tun-lien">Lien d’un affilié : aucun affilié actif. Crée-le dans <a href="#/ventes/affiliation">Ventes · Affiliation</a>.</p>';
+    // ⚠️ L'adresse vient du slug ENREGISTRÉ (t.slug), pas du champ en cours de saisie : c'est celle qui existe en ligne.
+    return `<div class="bo-tun-lien bo-web-aff" data-web-aff-base="${txt(lienPublic(t))}"><label>Lien d’inscription d’un affilié :
+        <select class="bo-select" data-web-aff aria-label="Affilié"><option value="">Choisir l’affilié…</option>
+          ${actifs.map((a) => `<option value="${txt(a.code)}">${txt(a.nom)} (${a.type === 'membre' ? 'membre' : 'extérieur'}, ${txt(a.code)})</option>`).join('')}
+        </select></label>
+      <b data-web-aff-vu></b> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="" data-web-aff-copier style="display:none !important">Copier</button>
+      <br><small>À envoyer à l’affilié : ses inscrits, puis leurs candidatures, lui sont attribués dans Ventes · Affiliation.${t.statut === 'publie' ? '' : ' Le lien fonctionne une fois la page publiée.'} Il manque quelqu’un ? <a href="#/ventes/affiliation">Créer l’affilié</a>.</small></div>`;
+  }
+  // Mise à jour sur place, sans re-rendre l'éditeur : ce qui est tapé et pas encore enregistré ne bouge pas.
+  document.addEventListener('change', (e) => {
+    if (!e.target.matches('[data-web-aff]')) return;
+    const boite = e.target.closest('[data-web-aff-base]');
+    const code = e.target.value;
+    const lien = code ? `${boite.dataset.webAffBase}?ref=${encodeURIComponent(code)}` : '';
+    boite.querySelector('[data-web-aff-vu]').textContent = lien.replace('https://', '');
+    const btn = boite.querySelector('[data-web-aff-copier]');
+    btn.dataset.tunCopier = lien;
+    // ⛔ Pas l'attribut `hidden` : une classe d'auteur le bat (règle du dépôt). Masquer passe par !important.
+    if (lien) btn.style.removeProperty('display'); else btn.style.setProperty('display', 'none', 'important');
+  });
   function boutonReplay(t, l) {
     const pose = !!String((t.contenu || {}).lien_replay || '').trim();
     const reste = (l || []).filter((i) => !i.replay_envoye_le).length;
