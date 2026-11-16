@@ -383,6 +383,7 @@
           ${t.id && t.statut !== 'publie' ? `<button type="button" class="bo-btn bo-btn--fantome bo-btn--danger" data-tun-supprimer title="Supprime la page et sa photo. Impossible si elle a des inscrits.">Supprimer</button>` : ''}</div></div>
         ${manq.length ? `<p class="bo-tun-manque">Avant publication : ${txt(manq.join(' · '))}</p>` : ''}
         ${t.statut === 'publie' ? `<p class="bo-tun-lien">En ligne : <a href="${txt(lienPublic(t))}" target="_blank" rel="noopener">${txt(lienPublic(t))}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lienPublic(t))}">Copier le lien</button></p>` : ''}
+        ${t.id && t.statut === 'publie' && m.formulaire ? liensTraques(t, _tun.inscrits) : ''}
         <div class="bo-tun-grille">
           <label class="bo-tun-champ"><span>Titre <b class="bo-oblig">*</b></span><input data-tun-titre type="text" value="${txt(t.titre)}"></label>
           <label class="bo-tun-champ"><span>Adresse de la page <b class="bo-oblig">*</b></span><input data-tun-slug type="text" value="${txt(t.slug)}"><small>trader360.fr/t/<b data-tun-slug-vu>${txt(t.slug)}</b>/</small></label>
@@ -408,6 +409,32 @@
       </tbody></table></div>` : `<p class="bo-vide">Aucun tunnel pour l'instant. « Créer un tunnel » propose quatre modèles avec un exemple prêt à adapter.</p>`}
       <p class="bo-source">Pages publiées sur trader360.fr/t/, inscrits enregistrés dans la base du site et versés dans la liste Brevo choisie. Après chaque page ou inscription, la suite est toujours le questionnaire : l'offre est envoyée en personne après l'appel, depuis Ventes · Offres.</p></div>`;
   }
+  /**
+   * LES LIENS TRAQUÉS (Nadir, 16/11/2026) : un lien d'inscription par partenaire ou par
+   * canal (Quentin, une story, un mail), pour savoir d'où vient chaque inscrit.
+   * ⛔ Rien de nouveau en base : la page d'inscription enregistre DÉJÀ les paramètres
+   *    utm_* de son adresse sur l'inscrit (tunnel_inscrits.utm, depuis le 20/10). Le lien
+   *    porte utm_source=<nom>, et l'inscrit garde ce nom. Le décompte se lit sur les
+   *    inscrits eux-mêmes : une seule vérité, rien à tenir à jour à côté.
+   * ⚠️ Le nom est normalisé (minuscules, sans accents ni espaces) : « Quentin » et
+   *    « quentin » sont la même source, sinon le décompte se couperait en deux.
+   */
+  const sourceDe = (nom) => String(nom || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  const lienTraque = (t, source) => `${lienPublic(t)}?utm_source=${encodeURIComponent(source)}&utm_medium=partenaire&utm_campaign=${encodeURIComponent(t.slug)}`;
+  function liensTraques(t, inscrits) {
+    const parSource = new Map();
+    (inscrits || []).forEach((i) => { const s = (i.utm && i.utm.utm_source) || 'direct'; parSource.set(s, (parSource.get(s) || 0) + 1); });
+    const lignes = [...parSource.entries()].sort((a, b2) => b2[1] - a[1]);
+    return `<div class="bo-carte"><div class="bo-carte__tete"><h2>Liens traqués</h2></div>
+      <p class="bo-source">Un lien par partenaire ou par canal : chaque inscrit garde le nom de la source par laquelle il est arrivé.</p>
+      <div class="bo-tun-lien"><input data-tun-source type="text" maxlength="40" placeholder="Nom de la source, par exemple quentin" style="min-width:260px">
+        <button type="button" class="bo-btn bo-btn--or" data-tun-traquer>Créer le lien</button></div>
+      <p class="bo-tun-lien" data-tun-lien-traque hidden></p>
+      ${inscrits ? (lignes.length ? `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Source</th><th class="num">Inscrits</th><th></th></tr></thead><tbody>
+        ${lignes.map(([s, n]) => `<tr><td><b>${txt(s === 'direct' ? 'Lien direct, sans source' : s)}</b></td><td class="num">${n}</td><td>${s === 'direct' ? '' : `<button type="button" class="bo-lien" data-tun-copier="${txt(lienTraque(t, s))}">Copier son lien</button>`}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="bo-vide">Aucun inscrit pour l instant.</p>') : '<p class="bo-vide">Chargement…</p>'}</div>`;
+  }
   function tableInscrits(l, type) {
     if (!l) return '<p class="bo-vide">Chargement…</p>';
     if (!l.length) return '<p class="bo-vide">Aucun inscrit pour l instant.</p>';
@@ -417,8 +444,8 @@
     const rappel = (i) => (i.rappel_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.rappel_erreur)}">non parti</span>`
       : [i.rappel_veille_le && 'veille', i.rappel_heure_le && 'heure'].filter(Boolean).join(' + ') || '<span class="bo-tun-non">pas encore</span>');
     const replay = (i) => (i.replay_vu_le ? oui(i.replay_vu_le, `vu le ${dateFr(i.replay_vu_le)}`).replace('>oui<', '>vu<') : i.replay_envoye_le ? 'envoyé' : '<span class="bo-tun-non">non</span>');
-    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th>${w ? '<th>Rappels</th><th>Présent</th><th>Replay</th><th>Candidature</th>' : ''}<th>Inscrit le</th></tr></thead><tbody>
-      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td>${w ? `<td>${rappel(i)}</td><td>${oui(i.present_le)}</td><td>${replay(i)}</td><td>${i.a_candidate ? '<span class="bo-pill bo-pill--ok">oui</span>' : '<span class="bo-tun-non">non</span>'}</td>` : ''}<td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
+    return `<div class="bo-enveloppe"><table class="bo-table"><thead><tr><th>Prénom</th><th>Email</th><th>Source</th><th>Téléphone</th><th>Offres</th><th>Brevo</th><th>Mail de confirmation</th>${w ? '<th>Rappels</th><th>Présent</th><th>Replay</th><th>Candidature</th>' : ''}<th>Inscrit le</th></tr></thead><tbody>
+      ${l.map((i) => `<tr><td>${txt(i.prenom)}</td><td>${txt(i.email)}</td><td>${txt((i.utm && i.utm.utm_source) || 'direct')}</td><td>${txt(i.telephone || '')}</td><td>${i.consentement_offres ? 'oui' : 'non'}</td><td>${i.brevo_synchronise ? 'oui' : 'non'}</td><td>${i.mail_confirmation_envoye ? 'envoyé' : (i.mail_confirmation_erreur ? `<span class="bo-pill bo-pill--attend" title="${txt(i.mail_confirmation_erreur)}">non parti</span>` : 'non')}</td>${w ? `<td>${rappel(i)}</td><td>${oui(i.present_le)}</td><td>${replay(i)}</td><td>${i.a_candidate ? '<span class="bo-pill bo-pill--ok">oui</span>' : '<span class="bo-tun-non">non</span>'}</td>` : ''}<td>${txt(dateFr(i.created_at))}</td></tr>`).join('')}
     </tbody></table></div>`;
   }
   /** Un brouillon tiré de l'exemple d'un modèle, à la première adresse libre. Partagé par Tunnels et Webinaires. */
@@ -494,7 +521,7 @@
     if (e.target.matches('[data-tun-slug]')) { const vu = document.querySelector('[data-tun-slug-vu]'); if (vu) vu.textContent = slugDe(e.target.value); }
   });
   document.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier],[data-tun-photo-retirer],[data-tun-creer-liste],[data-tun-supprimer]');
+    const b = e.target.closest('[data-tun-nouveau],[data-tun-retour],[data-tun-creer],[data-tun-ouvrir],[data-tun-enregistrer],[data-tun-statut],[data-tun-copier],[data-tun-traquer],[data-tun-photo-retirer],[data-tun-creer-liste],[data-tun-supprimer]');
     if (!b) return;
     try {
       if (b.matches('[data-tun-supprimer]')) {
@@ -531,6 +558,16 @@
       if (b.matches('[data-tun-nouveau]')) { _tun = { vue: 'choix' }; return vueTunnels(); }
       if (b.matches('[data-tun-retour]')) { _tun = { vue: 'liste' }; _cache.delete('tunnels:liste'); return vueTunnels(); }
       if (b.matches('[data-tun-copier]')) { await navigator.clipboard.writeText(b.dataset.tunCopier); return dire('Lien copié.'); }
+      if (b.matches('[data-tun-traquer]')) {
+        const source = sourceDe(document.querySelector('[data-tun-source]')?.value);
+        if (!source) return dire('Donne un nom à la source, par exemple quentin.', 'error');
+        const lien = lienTraque(_tun.brouillon, source);
+        const z2 = document.querySelector('[data-tun-lien-traque]');
+        z2.hidden = false;
+        z2.innerHTML = `Lien pour <b>${txt(source)}</b> : <a href="${txt(lien)}" target="_blank" rel="noopener">${txt(lien)}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lien)}">Copier</button>`;
+        try { await navigator.clipboard.writeText(lien); dire('Lien traqué créé et copié.'); } catch (e2) { dire('Lien traqué créé : copie-le avec le bouton.'); }
+        return;
+      }
       if (b.matches('[data-tun-creer]')) {
         _tun = { vue: 'edition', brouillon: await brouillonDepuisModele(b.dataset.tunCreer), inscrits: null };
         return vueTunnels();
