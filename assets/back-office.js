@@ -318,7 +318,8 @@
   const LIB_TYPE = { webinaire: 'Webinaire', presentiel: 'Présentiel', vente: 'Page de vente', lead: 'Ressource offerte' };
   const LIB_STATUT = { brouillon: ['Brouillon', 'attend'], publie: ['Publié', 'ok'], archive: ['Archivé', ''] };
   let _tun = { vue: 'liste', id: null, type: null, brouillon: null, inscrits: null };
-  const lienPublic = (t) => `${SITE_PUBLIC}/t/${t.slug}/`;
+  // Le lien à partager, en version courte (16/11/2026) : trader360.fr redirige vers www en gardant le chemin et le ?ref.
+  const lienPublic = (t) => `https://trader360.fr/t/${t.slug}`;
   // Le lien « candidater » du live (/t/<slug>/candidater/) : le site redirige vers le questionnaire marqué utm_campaign=<slug>.
   const lienCandidatureLive = (t) => `${SITE_PUBLIC}/t/${t.slug}/candidater/`;
   // LA RÉGIE DU LIVE (25/10) : CTA à l'écran, question à l'écran, sondage, chat modéré,
@@ -439,7 +440,13 @@
    * et du replay, puis filet par e-mail dans le questionnaire (90 jours). C'est la
    * candidature attribuée qui ouvre la commission, dans Ventes · Affiliation.
    */
-  const lienAffilieTunnel = (t, code) => `${lienPublic(t)}?ref=${encodeURIComponent(code)}&utm_source=${encodeURIComponent(code)}&utm_medium=affilie&utm_campaign=${encodeURIComponent(t.slug)}`;
+  /**
+   * ⚠️ LIEN COURT (Nadir, 16/11/2026 : « trop long, pas beau ») : trader360.fr/t/<page>?ref=<code>.
+   * Les utm ne servent à rien ici : le site pose lui-même utm_source = code quand ref est
+   * valide (tunnel-inscription.ts). Mesuré le même jour : sans « www » ni barre finale, le
+   * site redirige vers www.trader360.fr/t/<page>?ref=… en GARDANT le code.
+   */
+  const lienAffilieTunnel = (t, code) => `https://trader360.fr/t/${t.slug}?ref=${encodeURIComponent(code)}`;
   const affilieParCode = (code) => (_tun.affilies || []).find((a) => a.code === String(code || '').toLowerCase()) || null;
   /**
    * RECHERCHE PAR PRÉNOM (Nadir, 16/11/2026 : « si un jour on a 500 membres »). Le champ
@@ -615,7 +622,7 @@
         const lien = aff ? lienAffilieTunnel(_tun.brouillon, aff.code) : lienTraque(_tun.brouillon, source);
         const z2 = document.querySelector('[data-tun-lien-traque]');
         z2.hidden = false;
-        z2.innerHTML = `Lien pour <b>${txt(aff ? `${aff.nom}, affilié` : source)}</b> : <a href="${txt(lien)}" target="_blank" rel="noopener">${txt(lien)}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lien)}">Copier</button>`;
+        z2.innerHTML = `Lien pour <b>${txt(aff ? `${aff.nom}, affilié` : source)}</b> : <a href="${txt(lien)}" target="_blank" rel="noopener">${txt(lien.replace('https://', ''))}</a> <button type="button" class="bo-btn bo-btn--fantome" data-tun-copier="${txt(lien)}">Copier</button>`;
         try { await navigator.clipboard.writeText(lien); dire('Lien traqué créé et copié.'); } catch (e2) { dire('Lien traqué créé : copie-le avec le bouton.'); }
         return;
       }
