@@ -2,9 +2,14 @@ name: Weekly Trader 360 Report
 
 on:
   schedule:
-    # Dimanche 17h UTC = 18h Paris en hiver (CET), du 25/10/2026 au 28/03/2027.
-    # ⚠️ À repasser à '0 16 * * 0' fin mars 2027 (heure d'été), sinon les mails partiront à 19h Paris.
-    - cron: '0 17 * * 0'
+    # Dimanche matin (Nadir, 15/11/2026 : « dès 8 h le dimanche », pour que les élèves
+    # le lisent dans la journée au lieu de le recevoir vers 22 h).
+    # 07:07 UTC = 8 h 07 à Paris en hiver, 9 h 07 en été : pas de changement à faire en
+    # mars, une heure plus tard reste dans la matinée.
+    # Minute non ronde : les crons GitHub à minute ronde subissent les plus gros retards.
+    # Les bornes de la semaine (lundi → dimanche) restent justes : getWeekBounds() voit
+    # un dimanche, quelle que soit l'heure.
+    - cron: '7 7 * * 0'
   workflow_dispatch:
     # Déclenchement manuel depuis l'UI GitHub Actions (test + force-send hors cadence).
     inputs:
