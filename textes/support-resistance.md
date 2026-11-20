@@ -1,13 +1,12 @@
 ---
 slug: support-resistance
 nom: Support et résistance
-publie_le: 2026-09-21
+publie_le: 2026-11-20
 source: brief quotidien, archive automatique
 schema: assets/culture/support-resistance.png
 ---
 
-Un support est un niveau de prix où la baisse a été freinée à plusieurs reprises, la demande y redevenant supérieure à l'offre.
-Une résistance est son miroir : un niveau où la hausse a buté plusieurs fois, l'offre y dépassant la demande.
-Les traders repèrent ces niveaux en observant les zones où le prix a déjà rebondi ou buté sur les graphiques passés, souvent marquées par plusieurs mèches ou clôtures proches les unes des autres.
-Ils s'en servent pour situer le marché dans son contexte plus large, et pour comprendre pourquoi certains niveaux reviennent régulièrement dans les commentaires ou les vidéos d'analyse.
-Une résistance franchie peut ensuite devenir un support, et inversement.
+Un support est un niveau de prix où les acheteurs sont historiquement revenus en nombre, freinant ou inversant une baisse.
+Une résistance en est le miroir à la hausse : un niveau où les vendeurs ont déjà repris le dessus à plusieurs reprises.
+Un trader repère ces zones en observant les endroits où le prix a déjà réagi plusieurs fois, pas une seule : plus les réactions sont nombreuses et nettes, plus la zone est jugée significative.
+Ces niveaux servent de repères pour lire la structure du marché et comprendre pourquoi un mouvement ralentit ou accélère à un endroit précis du graphique.
