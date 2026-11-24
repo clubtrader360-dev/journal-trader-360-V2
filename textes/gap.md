@@ -6,8 +6,7 @@ source: brief quotidien, archive automatique
 schema: assets/culture/gap.png
 ---
 
-Un gap est une discontinuité de prix entre la clôture d'une séance et l'ouverture de la suivante : aucune transaction n'a eu lieu entre les deux niveaux, ce qui laisse un vide visible sur le graphique.
-Il apparaît lorsque le prix d'ouverture se situe nettement au-dessus ou en dessous de la clôture précédente, souvent sous l'effet d'une information parue pendant la fermeture du marché.
-Les traders observent la manière dont la séance démarre par rapport à ce vide : le prix peut poursuivre dans le sens du gap, ou au contraire entamer un retour vers l'ancienne clôture, ce qu'on appelle le comblement du gap.
-On catalogue aussi le gap selon son contexte et sa taille, pour distinguer une simple rotation technique d'une ouverture réellement décalée par de nouvelles informations.
-C'est un repère de lecture parmi d'autres pour comprendre comment une séance s'articule avec la précédente.
+Un gap est un écart de prix qui apparaît sur un graphique lorsque le cours d'ouverture d'une séance diffère nettement du cours de clôture de la séance précédente, sans qu'aucun échange n'ait eu lieu entre les deux niveaux.
+Il se matérialise visuellement par un vide, une zone sans bougie, entre les deux prix.
+Un trader observe l'ampleur de ce décalage pour mesurer la réaction du marché à une information parue pendant la fermeture des cotations.
+Il distingue aussi plusieurs types de gaps selon le moment où ils surviennent dans un mouvement, ce qui l'aide à replacer la séance en cours dans le déroulé plus large du marché.
