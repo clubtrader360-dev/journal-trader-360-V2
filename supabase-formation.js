@@ -1608,6 +1608,7 @@
 
   /* ══ ICONES ET MEDAILLES, reprises telles quelles de la maquette ══════════ */
   const I = {
+    dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
     play: '<svg viewBox="0 0 24 24" fill="#120e07"><path d="M7 4.5v15l13-7.5z"/></svg>',
@@ -2474,6 +2475,7 @@
         <!-- ⚠️ Pourquoi le bouton attend : dit en clair, avec le compte. -->
         <p class="lesson-aide" data-complete-aide ${fini || pretAValider(c.id) ? 'hidden' : ''}>${fini || pretAValider(c.id) ? '' : `Regarde la vidéo pour valider : ${duree(Math.min(secondesVues(c.id), secondesRequises(c.id)))} sur ${duree(secondesRequises(c.id))}.`}</p>
         ${c.description ? `<p class="lesson-desc">${txt(c.description)}</p>` : ''}
+        ${c.fichier && c.fichier.url ? `<p class="lesson-fichier"><a class="btn btn-ghost" href="${txt(c.fichier.url)}" target="_blank" rel="noopener" download>${I.dl} ${txt(c.fichier.libelle || 'Télécharger')}</a></p>` : ''}
         ${(c.notes || []).map((n) => `<p class="lesson-note"><b>Note</b><span>${txt(n)}</span></p>`).join('')}
         <!-- ⚠️ L EMPLACEMENT DE LA MAQUETTE, et le lecteur le remplace au
              clic : voir poserLecteur. -->
