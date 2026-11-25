@@ -67,6 +67,10 @@
 
 # ── La base de connaissance de la formation ──
 *.pdf
+# ⚠️ Exception (25/11/2026) : la checklist avant séance du Bonus méthode (module 5) est
+# un document destiné aux élèves, servi depuis assets/formation/. Sans cette ligne, le
+# bouton « Télécharger » du chapitre m05-l12 tombait sur une 404.
+!assets/formation/*.pdf
 
 # ── ⛔ LE CONTENU DE LA FORMATION ──
 #
