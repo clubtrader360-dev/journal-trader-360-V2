@@ -232,6 +232,21 @@
       video: null, description: null, provisoire: true, minutes: 17 },
     { id: 'm05-l11', titre: "Se focaliser sur le processus plutôt que sur les résultats",
       video: null, description: null, provisoire: true, minutes: 6 },
+    /**
+     * ⛔ BONUS MÉTHODE (Manu, 25/11/2026) : la méthode Trader 360 en 11 minutes et la
+     * checklist avant séance. Dernier chapitre du module 5, même règle que le bonus
+     * APEX du module 7 : le drapeau bonus = ZÉRO XP, hors progression, ne conditionne
+     * ni le quiz ni la fin du module. Un élève qui avait fini le module 5 le reste.
+     * Vidéo dans `formation_videos` (dossier Vimeo Formation) ; PDF dans le dépôt.
+     * ⚠️ Ne jamais écrire ici le drapeau sous sa forme exacte (deux-points compris) :
+     * l import des descriptions le cherche par expression régulière entre deux
+     * chapitres, et le chapitre PRÉCÉDENT (m05-l11) perdait sa description.
+     * ⛔ `m05-l12` NE CHANGE JAMAIS (clé de la progression en base).
+     */
+    { id: 'm05-l12', titre: "Bonus : la méthode Trader 360 et ta checklist avant séance",
+      video: null, provisoire: true, minutes: 11, bonus: true,
+      description: "Toute la méthode Trader 360 reprise étape par étape, en 11 minutes. Télécharge ta checklist avant séance, imprime-la et passe-la avant chaque séance.",
+      fichier: { url: '/assets/formation/checklist-avant-seance-trader360.pdf', libelle: 'Télécharger ta checklist avant séance (PDF)' } },
   ],
   '06': [
     { id: 'm06-l0', titre: "Renforcer ta psychologie de trader",
