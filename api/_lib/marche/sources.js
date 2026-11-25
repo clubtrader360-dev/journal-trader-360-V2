@@ -461,3 +461,38 @@ export async function esMinutesCnbc(contratCnbc, seanceIso) {
   if (!lues.length) throw new Error(`${barres.length} barres reçues, aucune datée du ${seanceIso} (première : ${barres[0]?.tradeTime})`);
   return { symbole: contratCnbc, barres: lues, source: `CNBC (webql-redesign.cnbcfm.com, ${contratCnbc}, barres 1 min)` };
 }
+
+// ── SPX et VIX, SECOND FOURNISSEUR : CNBC, séance DATÉE (25/11/2026) ──────────────
+//
+// Pourquoi : depuis le brief du 20/11, cdn.cboe.com répond HTTP 403 au runner GitHub
+// sur toutes ses adresses (historique, cadran SPX, cadran VIX). Résultat : la colonne
+// CFD et le VIX partent en n/d chaque matin. Cboe reste la source de premier rang ;
+// CNBC ne sert QUE si Cboe échoue. Même hôte que le règlement ES (quote.cnbc.com),
+// déjà éprouvé depuis le runner.
+//
+// ⚠️ LA DATE EST VÉRIFIÉE, pas supposée : `last_time` (heure de New York) doit porter la
+// séance visée. À 17h43 New York (heure du brief) l'indice comptant est clos depuis
+// 16h00 : last/high/low/open décrivent la séance terminée. Une cotation d'un autre jour
+// lève une erreur, donc un n/d avec motif, jamais un chiffre d'une autre séance.
+const SYMBOLES_CNBC = { _SPX: '.SPX', _VIX: '.VIX' };
+
+export async function seanceCnbc(symbole, seanceIso) {
+  const code = SYMBOLES_CNBC[symbole];
+  if (!code) throw new Error(`symbole « ${symbole} » sans équivalent CNBC`);
+  const txt = await obtenir('https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol'
+    + `?symbols=${encodeURIComponent(code)}&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json&events=1`);
+  let j;
+  try { j = JSON.parse(txt); } catch { throw new Error('JSON illisible'); }
+  const q = j?.FormattedQuoteResult?.FormattedQuote?.[0];
+  if (!q) throw new Error('cotation absente de la réponse');
+  if (q.code !== 0) throw new Error(`symbole « ${code} » refusé par CNBC (code ${q.code})`);
+  const nb = (v) => { const x = Number(String(v ?? '').replace(/[ ,%  ]/g, '')); return Number.isFinite(x) ? x : null; };
+  const brut = String(q.last_time || q.last_time_msec || '');
+  const t = /^\d{12,}$/.test(brut) ? new Date(Number(brut)) : new Date(brut);
+  if (Number.isNaN(t.getTime())) throw new Error(`horodatage illisible (« ${brut || 'absent'} »)`);
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+  if (date !== seanceIso) throw new Error(`cotation CNBC datée du ${date}, séance ${seanceIso} attendue`);
+  const v = { ouverture: nb(q.open), haut: nb(q.high), bas: nb(q.low), cloture: nb(q.last), clotureVeille: nb(q.previous_day_closing) };
+  for (const k of ['haut', 'bas', 'cloture']) if (v[k] === null) throw new Error(`champ « ${k} » absent ou non numérique`);
+  return { ...v, date, source: `CNBC (quote.cnbc.com, ${code}, last_time vérifié)` };
+}

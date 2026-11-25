@@ -20,26 +20,31 @@
 // droite et insécable, tient à toutes les largeurs.
 // ========================================================================
 
-export const REMISES_RELEVEES_LE = '15 novembre 2026';
+export const REMISES_RELEVEES_LE = '25 novembre 2026';
 
 // Relevés le 07/11/2026 : Apex (Discord, annonce du 05/10 ; -90 % au bandeau du site),
 // Topstep (code de parrainage de Manu du 09/10 ; -15 % sur le 1er challenge, Nadir),
 // Earn2Trade (annonce du 16/09 ; -50 %, mail affiliés du 31/10 et bandeau du site).
 // Ajoutés le 14/11/2026 sur consigne écrite de Nadir : Tradeify et Phidias, code TRADER360.
+// Refonte du 25/11/2026 (Manu) : Apex et Tradeify EN HAUT et en gros (`principal`), les
+// autres codes en dessous, une ligne courte chacun, sans saut de ligne ; Apex à -80 % (Manu,
+// 24/11) ; Phidias résumé en « -50 à -80 % selon le programme » ; Lucid Trading et Take
+// Profit Trader retirés (on les ajoutera quand on aura leurs codes) ; phrase « commission »
+// retirée (interdite par Manu le 10/10) ; ligne cadeau jusqu'au 15/12 inclus, puis masquée seule.
 // ⚠️ Plusieurs réductions par partenaire : `offres` est une LISTE, une ligne par offre.
 export const PARTENAIRES = [
-  { nom: 'Apex Trader Funding', code: 'TRADER360', url: 'https://apextraderfunding.com/',
-    offres: [{ remise: '-90 %', portee: 'évaluations' }] },
+  // EN HAUT (Manu, 25/11/2026) : les deux partenaires principaux.
+  { nom: 'Apex Trader Funding', code: 'TRADER360', url: 'https://apextraderfunding.com/', principal: true,
+    offres: [{ remise: '-80 %', portee: 'évaluations' }] },
+  { nom: 'Tradeify', code: 'TRADER360', url: 'https://tradeify.co/', principal: true,
+    offres: [{ remise: '-40 %', portee: 'Growth' }, { remise: '-30 %', portee: 'Select et Lightning Funded' }] },
+  // EN DESSOUS : les autres codes, une ligne courte chacun.
   { nom: 'Topstep', code: 'TS-7EMRN3KBRPXYC', url: 'https://www.topstep.com/',
     offres: [{ remise: '-15 %', portee: '1er challenge' }] },
   { nom: 'Earn2Trade', code: 'T360', url: 'https://www.earn2trade.com/',
     offres: [{ remise: '-50 %', portee: 'évaluations' }] },
-  { nom: 'Tradeify', code: 'TRADER360', url: 'https://tradeify.co/',
-    offres: [{ remise: '-40 %', portee: 'Growth' }, { remise: '-30 %', portee: 'Select et Lightning Funded' }] },
   { nom: 'Phidias', code: 'TRADER360', url: 'https://phidiaspropfirm.com/',
-    offres: [{ remise: '-80 %', portee: 'comptes à paiement unique' }, { remise: '-60 %', portee: 'challenges mensuels Fundamental et Premium' }, { remise: '-50 %', portee: 'challenge ETL' }] },
-  { nom: 'Lucid Trading', code: null },
-  { nom: 'Take Profit Trader', code: null },
+    offres: [{ remise: '-50 à -80 %', portee: 'selon le programme' }] },
 ];
 
 const P = {
@@ -54,17 +59,22 @@ const FILET = 'border-top:1px solid rgba(212,175,55,0.25);';
 // à droite et insécable, les réductions s'empilent à gauche (voir plus haut).
 export function blocPartenaires() {
   const actifs = PARTENAIRES.filter((p) => p.code);
-  const aVenir = PARTENAIRES.filter((p) => !p.code).map((p) => p.nom);
-  const lignes = actifs.map((p) => `
+  const ligne = (p, grand) => `
           <tr>
-            <td valign="top" style="padding:8px 0; ${FILET} font-size:13px; line-height:1.35;">
+            <td valign="top" style="padding:${grand ? '4px 0' : '2px 0'}; font-size:${grand ? '14px' : '12px'}; line-height:1.35;">
               <a href="${p.url}" style="color:${P.textPrimary}; text-decoration:none; font-weight:700;">${p.nom}</a>
-              ${p.offres.map((o) => `<br><span style="font-family:${MONO}; font-weight:700; color:${P.gold};">${o.remise}</span> <span style="color:${P.textSecondary}; font-size:12px;">${o.portee}</span>`).join('')}
+              ${grand
+                ? p.offres.map((o) => `<br><span style="font-family:${MONO}; font-weight:700; color:${P.gold};">${o.remise}</span> <span style="color:${P.textSecondary}; font-size:12px;">${o.portee}</span>`).join('')
+                : p.offres.map((o) => `<span style="color:${P.textSecondary}; font-size:11px;"> (<span style="font-family:${MONO}; font-weight:700; color:${P.gold};">${o.remise}</span> ${o.portee})</span>`).join('')}
             </td>
-            <td align="right" valign="top" style="padding:8px 0 8px 8px; ${FILET} text-align:right; white-space:nowrap;">
-              <span style="display:inline-block; font-family:${MONO}; font-size:12px; font-weight:700; color:${P.navy}; border:1px dashed ${P.goldBright}; border-radius:6px; padding:5px 8px; white-space:nowrap;">${p.code}</span>
+            <td align="right" valign="top" style="padding:${grand ? '4px 0 4px 8px' : '2px 0 2px 8px'}; text-align:right; white-space:nowrap;">
+              <span style="display:inline-block; font-family:${MONO}; font-size:${grand ? '13px' : '11px'}; font-weight:700; color:${P.navy}; border:1px dashed ${P.goldBright}; border-radius:6px; padding:${grand ? '6px 9px' : '1px 6px'}; white-space:nowrap;">${p.code}</span>
             </td>
-          </tr>`).join('');
+          </tr>`;
+  const principaux = actifs.filter((p) => p.principal).map((p) => ligne(p, true)).join('');
+  const autres = actifs.filter((p) => !p.principal).map((p) => ligne(p, false)).join('');
+  const lignes = `${principaux}
+          <tr><td colspan="2" style="padding:12px 0 4px; border-bottom:1px solid rgba(212,175,55,0.25); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:${P.textMuted}; font-weight:700;">Autres codes</td></tr>${autres}`;
   return `
       <!-- CODES PARTENAIRES : à la place de l'ancien « mot de la communauté », avant la checklist. -->
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0;">
@@ -79,11 +89,11 @@ export function blocPartenaires() {
           <p style="margin:8px 0 0; font-size:12px; line-height:1.5; color:${P.textSecondary};">
             Le code se saisit sur la page de paiement, avant de valider. Avant de t'inscrire, lis bien leurs règles sur leur site.
           </p>
-          <p style="margin:6px 0 0; font-size:11px; line-height:1.5; color:${P.textMuted};">
-            ${aVenir.length ? `Bientôt : ${aVenir.join(', ')}.<br>` : ''}Chaque semaine, une évaluation offerte au membre le plus impliqué.
+          <p style="margin:10px 0 0; font-size:13px; line-height:1.5; color:${P.textPrimary}; font-weight:600;">
+            ${new Date() <= new Date('2026-12-15T23:59:59+01:00') ? "🎁&nbsp; Chaque semaine jusqu'au 15 décembre, une évaluation offerte au membre le plus impliqué." : ''}
           </p>
           <p style="margin:6px 0 0; font-size:10px; line-height:1.5; color:${P.textMuted};">
-            Réductions relevées le ${REMISES_RELEVEES_LE}, selon les promotions de chaque partenaire. Trader 360 peut percevoir une commission ou un avantage, sans surcoût pour toi. Une évaluation n'est pas un compte financé. Trader 360 ne peut être tenu responsable des règles, décisions, paiements ni changements de conditions des prop firms. Vérifie toujours leurs conditions avant de t'inscrire.
+            Réductions relevées le ${REMISES_RELEVEES_LE}, selon les promotions de chaque partenaire. Une évaluation n'est pas un compte financé. Trader 360 ne peut être tenu responsable des règles, décisions, paiements ni changements de conditions des prop firms. Vérifie toujours leurs conditions avant de t'inscrire.
           </p>
         </td></tr>
       </table>`;

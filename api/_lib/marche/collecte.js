@@ -10,7 +10,7 @@
 // rien céder sur l'exigence : un écart supérieur à un tick reste un n/d.
 // ========================================================================
 import { spxCboe, vixCboe, esTradingView, esCnbc, codeCnbc, contratFrontMonth,
-         seanceCboe, semaineCboe, esBarresTradingView, rangSeanceReglee, vixQuoteCboe, esMinutesCnbc } from './sources.js';
+         seanceCboe, semaineCboe, esBarresTradingView, rangSeanceReglee, vixQuoteCboe, esMinutesCnbc, seanceCnbc } from './sources.js';
 import { pocControle } from './poc.js';
 import { seancesDeposees, semaineDeposee } from './instantanes.js';
 import { controlerOhlc, controlerDate, controlerBasis, controlerContrat, dernierJourOuvre, FERIES_US } from './validation.js';
@@ -40,6 +40,12 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
       const q = await essai(() => vixQuoteCboe(seance));
       if (q.ok) s = { ok: { ...q.ok, ouverture: null, haut: q.ok.haut ?? q.ok.cloture, bas: q.ok.bas ?? q.ok.cloture } };
       else s = { err: `${s.err} ; cadran différé : ${q.err}` };
+    }
+    // Second fournisseur (25/11/2026) : Cboe répond 403 au runner depuis le 20/11.
+    if (s.err) {
+      const c = await essai(() => seanceCnbc(symbole, seance));
+      if (c.ok) s = c;
+      else s = { err: `${s.err} ; CNBC : ${c.err}` };
     }
     if (s.err) {
       const motif = `source ${bloc.toUpperCase()} indisponible (${s.err})`;
@@ -76,6 +82,10 @@ export async function collecterMarche(dateBrief, { historique = null, dossier = 
     if (prec.err) {
       const q = await essai(() => vixQuoteCboe(seance));
       prec = q.ok && typeof q.ok.clotureVeille === 'number' ? { ok: q.ok.clotureVeille } : { err: `${prec.err} ; cadran différé : ${q.err || 'prev_day_close absent'}` };
+    }
+    if (prec.err) {
+      const c = await essai(() => seanceCnbc('_VIX', seance));
+      prec = c.ok && typeof c.ok.clotureVeille === 'number' ? { ok: c.ok.clotureVeille } : { err: `${prec.err} ; CNBC : ${c.err || 'previous_day_closing absent'}` };
     }
     if (prec.err || !(prec.ok > 0)) {
       const m = `variation VIX : clôture du ${veille} indisponible (${prec.err || 'valeur nulle'})`;
