@@ -488,9 +488,16 @@ export async function seanceCnbc(symbole, seanceIso) {
   if (q.code !== 0) throw new Error(`symbole « ${code} » refusé par CNBC (code ${q.code})`);
   const nb = (v) => { const x = Number(String(v ?? '').replace(/[ ,%  ]/g, '')); return Number.isFinite(x) ? x : null; };
   const brut = String(q.last_time || q.last_time_msec || '');
-  const t = /^\d{12,}$/.test(brut) ? new Date(Number(brut)) : new Date(brut);
-  if (Number.isNaN(t.getTime())) throw new Error(`horodatage illisible (« ${brut || 'absent'} »)`);
-  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+  // ⚠️ Pour .SPX, CNBC donne une DATE SEULE (« 2026-11-24 »), sans heure. new Date() la lit
+  // comme minuit UTC, soit la VEILLE à New York : la séance était rejetée à tort (relevé
+  // sur le runner le 25/11). Une date seule se prend telle quelle.
+  let date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(brut)) date = brut;
+  else {
+    const t = /^\d{12,}$/.test(brut) ? new Date(Number(brut)) : new Date(brut);
+    if (Number.isNaN(t.getTime())) throw new Error(`horodatage illisible (« ${brut || 'absent'} »)`);
+    date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+  }
   if (date !== seanceIso) throw new Error(`cotation CNBC datée du ${date}, séance ${seanceIso} attendue`);
   const v = { ouverture: nb(q.open), haut: nb(q.high), bas: nb(q.low), cloture: nb(q.last), clotureVeille: nb(q.previous_day_closing) };
   for (const k of ['haut', 'bas', 'cloture']) if (v[k] === null) throw new Error(`champ « ${k} » absent ou non numérique`);
