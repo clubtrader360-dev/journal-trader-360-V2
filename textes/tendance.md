@@ -1,12 +1,12 @@
 ---
 slug: tendance
 nom: Tendance
-publie_le: 2026-11-05
+publie_le: 2026-11-25
 source: brief quotidien, archive automatique
 schema: assets/culture/tendance.png
 ---
 
-La tendance décrit la direction générale suivie par un marché sur une période donnée : haussière, baissière, ou latérale.
-Elle se lit dans la succession des sommets et des creux formés par le prix.
-Un trader observe si les sommets et les creux sont de plus en plus hauts (tendance haussière) ou de plus en plus bas (tendance baissière) pour situer le contexte général d'un actif.
-C'est une lecture transversale, utile aussi bien sur un graphique journalier que sur une unité de temps plus courte.
+Une tendance se lit dans l'enchaînement des sommets et des creux sur un graphique : une tendance haussière forme des sommets et des creux de plus en plus hauts, une tendance baissière des sommets et des creux de plus en plus bas.
+Quand cette progression s'interrompt, la structure de la tendance est remise en question.
+Un trader s'en sert pour situer dans quel sens le marché évolue avant de s'y intéresser, et pour repérer les premiers signes d'essoufflement d'un mouvement.
+C'est aussi un repère commun : quand on parle d'une tendance « intacte » ou « cassée » dans une vidéo ou sur un forum, c'est à cet enchaînement de sommets et de creux que l'on fait référence.
