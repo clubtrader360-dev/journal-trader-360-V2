@@ -190,10 +190,10 @@ jobs:
           set +e +o pipefail
           set -u
           { echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
-          # Le webhook d'alerte n'est utilisé qu'en production : un aperçu ou un essai qui
-          # échoue se lit dans le run, sans réveiller le salon, sauf test_alertes=oui
-          # (alertes marquées 🧪 TEST par alerterDiscord).
-          [ "$ALERTES" = "1" ] || DISCORD_ALERTE_URL=""
+          # Discord : UNE ligne par run, postée par « Notify Discord » (ou « Alerte plantage »).
+          # Le cycle ne poste plus rien : ses alertes détaillées (valeurs, sources, motifs)
+          # restent dans le journal du run (Manu, 26/11/2026).
+          DISCORD_ALERTE_URL=""
           BRIEF_ALERTE_TEST=0; [ "$MODE" = "production" ] || BRIEF_ALERTE_TEST=1
           export DISCORD_ALERTE_URL BRIEF_ALERTE_TEST
           maintenant() { date +%s; }
@@ -631,6 +631,10 @@ jobs:
           echo "✅ Archivage complet : $FAIT"
 
 
+      # ══ DISCORD : UNE LIGNE PAR RUN (Manu, 26/11/2026) ══════════════════════════════
+      # Seulement l'information, en une ligne, lien du run à la fin. Pas d'embed, pas de
+      # sources, pas de motifs : le détail reste dans le run. Mention de Manu dès qu'il y
+      # a un problème ; tout vert, une ligne sans mention.
       - name: Notify Discord
         id: notify
         if: always() && steps.garde.outputs.go == '1' && steps.garde.outputs.alertes == '1' && steps.cycle.outputs.relance != '1'
@@ -638,39 +642,27 @@ jobs:
           MODE: ${{ steps.garde.outputs.mode }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
           POST_OUTCOME: ${{ steps.post.outcome }}
-          DATE_LONG_FR: ${{ steps.cycle.outputs.date_long_fr }}
-          DEST: ${{ steps.post.outputs.dest }}
+          DATE_ISO: ${{ steps.garde.outputs.date_iso }}
           ARCHIVE_OUTCOME: ${{ steps.archive.outcome }}
-          ARCHIVE_FAIT: ${{ steps.archive.outputs.fait }}
-          ARCHIVE_ECHECS: ${{ steps.archive.outputs.echecs }}
           ND: ${{ steps.cycle.outputs.nd }}
           SECOURS: ${{ steps.cycle.outputs.secours }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -n "$DISCORD_WEBHOOK" ] || exit 0
-          # Données de marché : dire EXACTEMENT ce qui est parti (n/d, brief de secours).
-          if [ -n "${ND:-}" ]; then DONNEES="🟠 parti(es) en n/d : $ND"; else DONNEES="✅ toutes les valeurs confirmées par deux sources"; fi
-          [ "${SECOURS:-0}" = "1" ] && DONNEES="$DONNEES · 🟠 brief « données seules » (prose refusée ou absente à l'échéance)"
-          DONNEES=$(echo "$DONNEES" | cut -c1-1000)
-          # Mention de Manu dès qu'il y a un problème : brief NON envoyé, n/d, brief
-          # « données seules », archivage en échec. Tout vert : aucune mention.
-          CONTENU=""
-          if [ "$POST_OUTCOME" != "success" ] || [ -n "${ND:-}" ] || [ "${SECOURS:-0}" = "1" ] || [ "$ARCHIVE_OUTCOME" = "failure" ]; then
-            CONTENU="<@710969599948095581>"
-          fi
-          [ "$MODE" = "production" ] || CONTENU="${CONTENU:+$CONTENU }🧪 TEST ($MODE, aucune liste)"
-          if [ "$POST_OUTCOME" = "success" ]; then
-            if [ "$ARCHIVE_OUTCOME" = "success" ]; then ARCH="✅ ${ARCHIVE_FAIT:-déposé}"; COLOR=13938487
-            elif [ "$ARCHIVE_OUTCOME" = "skipped" ]; then ARCH="⏭️ non lancé (mode $MODE)"; COLOR=13938487
-            else ARCH="❌ ${ARCHIVE_ECHECS:-archivage non fait}"; COLOR=15680580; fi
-            { [ -n "${ND:-}" ] || [ "${SECOURS:-0}" = "1" ]; } && COLOR=16753920
-            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_LONG_FR" --arg dest "${DEST:-?}" --arg arch "$(echo "$ARCH" | cut -c1-500)" --arg url "$RUN_URL" --arg donnees "$DONNEES" --arg contenu "$CONTENU" \
-              '{content:(if $contenu == "" then null else $contenu end),allowed_mentions:{users:["710969599948095581"]},embeds:[{title:"📊 Brief v22 envoyé",color:$c,fields:[{name:"Date",value:$date,inline:true},{name:"Destinataires",value:$dest,inline:true},{name:"Données de marché",value:$donnees,inline:false},{name:"Archive",value:$arch,inline:false},{name:"Run",value:("[Voir le run](\($url))"),inline:false}],timestamp:(now|todate)}]}')
-          else
-            PAYLOAD=$(jq -n --arg date "$DATE_LONG_FR" --arg url "$RUN_URL" --arg contenu "$CONTENU" \
-              '{content:(if $contenu == "" then null else $contenu end),allowed_mentions:{users:["710969599948095581"]},embeds:[{title:"❌ Brief v22 NON envoyé",color:15680580,description:("Brief du \($date). [Voir le run](\($url))"),timestamp:(now|todate)}]}')
-          fi
-          echo "$PAYLOAD" | jq -c '{content, titre: .embeds[0].title, champs: [.embeds[0].fields[]? | {(.name): .value}]}'
+          JJMM="${DATE_ISO:8:2}/${DATE_ISO:5:2}"
+          RUN="[run](<$RUN_URL>)"
+          M="<@710969599948095581>"
+          # Noms courts des valeurs en n/d : « VIX (séance du …) ; POC ES (séance du …) » → « VIX, POC ES ».
+          ND_COURT=$(printf '%s' "${ND:-}" | sed -E 's/ \(séance du [^)]*\)//g; s/ES [A-Z0-9]+, clôture, haut et bas/ES/g; s/S&P 500 comptant \(CFD\), clôture, haut et bas/CFD/g; s/ ; /, /g')
+          if [ "$POST_OUTCOME" != "success" ]; then LIGNE="$M ❌ Brief du $JJMM NON envoyé. $RUN"
+          elif [ "${SECOURS:-0}" = "1" ] && [ -n "$ND_COURT" ]; then LIGNE="$M 🟠 Brief du $JJMM parti en version données seules, avec n/d sur $ND_COURT. $RUN"
+          elif [ "${SECOURS:-0}" = "1" ]; then LIGNE="$M 🟠 Brief du $JJMM parti en version données seules. $RUN"
+          elif [ -n "$ND_COURT" ]; then LIGNE="$M 🟠 Brief du $JJMM parti avec n/d sur $ND_COURT. $RUN"
+          elif [ "$ARCHIVE_OUTCOME" = "failure" ]; then LIGNE="$M 🟠 Brief du $JJMM envoyé, mais l'archivage a échoué. $RUN"
+          else LIGNE="✅ Brief du $JJMM envoyé (membres et prospects)."; fi
+          [ "$MODE" = "production" ] || LIGNE="🧪 TEST ($MODE) · $LIGNE"
+          echo "$LIGNE"
+          PAYLOAD=$(jq -n --arg t "$LIGNE" '{content:$t,allowed_mentions:{users:["710969599948095581"]}}')
           curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" || true
 
       # Filet : un plantage AVANT l'étape Notify (ou qui l'empêche de poster) mentionne Manu.
@@ -684,9 +676,10 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -n "$DISCORD_WEBHOOK" ] || exit 0
-          TEST=""; [ "$MODE" = "production" ] || TEST=" 🧪 TEST ($MODE)"
-          PAYLOAD=$(jq -n --arg t "<@710969599948095581>$TEST ❌ Le run du brief a planté. $RUN_URL" '{content:$t,allowed_mentions:{users:["710969599948095581"]}}')
-          echo "$PAYLOAD" | jq -r .content
+          LIGNE="<@710969599948095581> ❌ Le run du brief a planté. [run](<$RUN_URL>)"
+          [ "$MODE" = "production" ] || LIGNE="🧪 TEST ($MODE) · $LIGNE"
+          echo "$LIGNE"
+          PAYLOAD=$(jq -n --arg t "$LIGNE" '{content:$t,allowed_mentions:{users:["710969599948095581"]}}')
           curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" || true
 
       - name: Summary
