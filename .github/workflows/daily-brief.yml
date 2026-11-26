@@ -677,7 +677,7 @@ jobs:
       - name: Alerte plantage
         if: >-
           failure() && steps.notify.outcome != 'success' &&
-          (github.event_name == 'schedule' || steps.garde.outputs.alertes == '1' || github.event.inputs.test_alertes == 'oui')
+          (github.event_name == 'schedule' || github.event.inputs.mode == 'production' || steps.garde.outputs.alertes == '1' || github.event.inputs.test_alertes == 'oui')
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
           MODE: ${{ steps.garde.outputs.mode || github.event.inputs.mode || 'production' }}
