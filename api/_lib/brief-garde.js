@@ -176,5 +176,12 @@ export function controlerProse(p) {
   else p.actualite.forEach((a, i) => { if (!nonVide(a?.titre) || !nonVide(a?.texte)) m.push(`actualité ${i + 1} : sujet ou texte absent`); });
   if (!Array.isArray(p.retenir) || !p.retenir.length || !p.retenir.every(nonVide)) m.push('« Ce qu\'il faut retenir » absent');
   if (!p.culture || !nonVide(p.culture.titre) || !nonVide(p.culture.definition) || !nonVide(p.culture.usage)) m.push('culture de marché incomplète');
+  // Preuve de recherche : sans adresses consultées, la prose a été écrite de mémoire
+  // (mesuré le 26/11/2026 : décision de la Fed inventée un jour de Thanksgiving).
+  const url = (u) => typeof u === 'string' && /^https?:\/\/[^\s]+\.[a-z]{2,}/i.test(u);
+  const ag = Array.isArray(p.sources?.agenda) ? p.sources.agenda.filter(url) : [];
+  const ac = Array.isArray(p.sources?.actualite) ? p.sources.actualite.filter(url) : [];
+  if (!ag.some((u) => /forexfactory\.com/i.test(u)) || !ag.some((u) => /investing\.com/i.test(u))) m.push('sources de l\'agenda absentes (Forex Factory ET Investing.com exigés) : prose écrite sans recherche ?');
+  if (ac.length < 3) m.push(`sources de l'actualité insuffisantes (${ac.length} adresse(s), 3 exigées) : prose écrite sans recherche ?`);
   return m;
 }

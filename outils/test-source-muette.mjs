@@ -61,6 +61,8 @@ const PROSE = {
     { titre: 'Ce matin et à surveiller', texte: 'L\'Asie a rebondi. La liquidité réduite de la séance de Thanksgiving appelle à la prudence.' },
   ],
   retenir: ['Marché américain fermé aujourd\'hui.', 'VIX en nette hausse.', 'Inflation PCE en hausse.'],
+  sources: { agenda: ['https://www.forexfactory.com/calendar?day=nov26.2026', 'https://www.investing.com/economic-calendar/'],
+    actualite: ['https://www.zonebourse.com/a', 'https://www.reuters.com/b', 'https://www.boursorama.com/c'] },
   culture: { titre: 'Le range', definition: 'Un range est une phase où le prix oscille entre un support et une résistance.', usage: 'Un trader s\'en sert pour cartographier les bornes du marché.' },
 };
 
@@ -113,6 +115,20 @@ await cas('4. Actualité : chiffre écrit à la main → pas d\'envoi, l\'alerte
   const { envois, alertes } = await cycle({ prose });
   assert.equal(envois.length, 0);
   assert.ok(alertes[0] && alertes[0].includes('7 190,00 points'), `écart non nommé : ${alertes[0]}`);
+});
+await cas('6. Prose écrite sans recherche (aucune source) → pas d\'envoi', async () => {
+  const prose = structuredClone(PROSE);
+  delete prose.sources;
+  const { envois, alertes } = await cycle({ prose });
+  assert.equal(envois.length, 0);
+  assert.ok(alertes[0] && alertes[0].includes('sans recherche'), `absence de sources non signalée : ${alertes[0]}`);
+});
+await cas('7. Jour férié connu du code mais absent de la prose → pas d\'envoi', async () => {
+  const prose = structuredClone(PROSE);
+  prose.ferie = null;
+  const { envois, alertes } = await cycle({ prose });
+  assert.equal(envois.length, 0);
+  assert.ok(alertes[0] && alertes[0].includes('jour férié non signalé'), `férié non signalé : ${alertes[0]}`);
 });
 await cas('5. Rédaction : deux-points → pas d\'envoi, l\'alerte cite la phrase', async () => {
   const prose = structuredClone(PROSE);

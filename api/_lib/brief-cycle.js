@@ -16,6 +16,7 @@ import { collecterZones } from './marche/zones.js';
 import { rendreCorps, rendreCourriel, sujetV22, nombreFr, valeurHier, variationHier, ICONES_SITE } from './brief-v22.js';
 import { controlerCompletude, controlerNiveauxPsy, controlerProse, controlerRedaction, controlerEtRemplacer, tableJetons } from './brief-garde.js';
 import { formatDateLongFr } from './date-fr.js';
+import { estSeance } from './marche/calendriers.js';
 
 /** Collecte complète. `options.hier` / `options.zones` : injection pour les tests. */
 export async function collecterTout(dateBrief, { maintenant = new Date(), listeHier, sourcesZones } = {}) {
@@ -59,12 +60,21 @@ export async function alerterDiscord(url, texte, { fetchImpl = fetch } = {}) {
   return { ok: r.ok, statut: r.status };
 }
 
+/** Places (États-Unis, Allemagne, France) fermées le jour du brief, un jour de semaine. */
+export function placesFermees(dateIso) {
+  const j = new Date(`${dateIso}T12:00:00Z`).getUTCDay();
+  if (j === 0 || j === 6) return [];
+  return [['US', 'États-Unis'], ['DE', 'Allemagne (Xetra)'], ['FR', 'France (Euronext)']]
+    .filter(([p]) => !estSeance(p, dateIso)).map(([, n]) => n);
+}
+
 /** Le bloc de données donné au modèle : valeurs formatées comme dans le mail, et jetons. */
 export function versPromptV22(d) {
   const { hier, zones } = d;
   const L = (cle, k, nom) => `  ${nom} (séance du ${hier[cle].seance}) : clôture ${valeurHier(cle, hier[cle]).replace(/&nbsp;/g, ' ')}, variation ${variationHier(cle, hier[cle])} · jetons {${k}_CLOTURE} {${k}_VAR} {${k}_VAR_ABS}`;
   const f = (v) => nombreFr(v, 2).replace(/&nbsp;/g, ' ');
   return [
+    `Places fermées aujourd'hui (calendriers du code) : ${placesFermees(d.dateBrief).join(', ') || 'aucune'}.`,
     'DONNÉES DE MARCHÉ FOURNIES (collectées par le code, chacune confirmée par deux sources indépendantes).',
     'Tu ne les recopies jamais en chiffres : tu écris leurs jetons (voir « LES CHIFFRES DU BLOC »).',
     L('spx', 'SPX', 'S&P 500'), L('nasdaq', 'NASDAQ', 'Nasdaq Composite'), L('dax', 'DAX', 'DAX'),
@@ -92,6 +102,8 @@ export function lireProse(brut) {
 export function assembler(d, prose, { urlSchema, notion = null, icones = ICONES_SITE } = {}) {
   const motifs = [...d.controle, ...controlerProse(prose)];
   if (motifs.length) return { ok: false, motifs };
+  const fermees = placesFermees(d.dateBrief);
+  if (fermees.length && !prose.ferie) motifs.push(`jour férié non signalé : ${fermees.join(', ')} fermé(s) aujourd'hui selon les calendriers du code`);
   motifs.push(...controlerNiveauxPsy(prose.niveaux_psy, d.zones.es.cloture));
   if (notion && !String(prose.culture.titre).toLowerCase().includes(String(notion.nom).toLowerCase().split(' ')[0].slice(0, 5))) {
     motifs.push(`culture : « ${prose.culture.titre} » ne correspond pas à la notion du jour (${notion.nom})`);

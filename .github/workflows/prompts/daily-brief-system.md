@@ -19,12 +19,32 @@ texte avant ou après. Exactement ces clés :
   "agenda": [ { "heure": "14:30", "impact": 3, "pays": "US", "theme": "PIB du troisième trimestre" } ],
   "actualite": [ { "titre": "Wall Street hier", "texte": "…" }, { "titre": "…", "texte": "…" }, { "titre": "Ce matin et à surveiller", "texte": "…" } ],
   "retenir": ["point 1", "point 2", "point 3"],
-  "culture": { "titre": "Le range", "definition": "…", "usage": "…" }
+  "culture": { "titre": "Le range", "definition": "…", "usage": "…" },
+  "sources": { "agenda": ["https://www.forexfactory.com/calendar?day=…", "https://www.investing.com/economic-calendar/"], "actualite": ["adresse 1", "adresse 2", "adresse 3"] }
 }
 ```
 
 Le code refuse le brief (il ne part pas, une alerte part) si une clé manque, si un texte
 est vide, ou si une règle ci-dessous n'est pas tenue. Ce refus est sans exception.
+
+## ⛔ RECHERCHE WEB OBLIGATOIRE, AVANT D'ÉCRIRE UNE SEULE LIGNE
+
+Tu as WebSearch et WebFetch. Tu t'en sers AVANT de rédiger, à chaque brief :
+1. **Agenda** : ouvre le calendrier du JOUR sur Forex Factory ET sur Investing.com, et
+   ne retiens que ce qui figure sur les deux.
+2. **Actualité** : lis au moins trois articles publiés depuis la clôture de la veille
+   (Zonebourse, Reuters, Les Échos, Boursorama, CNBC), dont un sur la nuit en Asie et
+   l'ouverture européenne de ce matin.
+3. Tout fait que tu écris (réunion de banque centrale, publication, résultat, chiffre
+   d'un autre marché, direction du Dow Jones…) doit avoir été LU dans ces pages
+   aujourd'hui. ⛔ Rien de mémoire : un brief de la veille ou de l'an dernier ne
+   ressemble pas à celui d'aujourd'hui, et une décision de la Fed inventée est la faute
+   la plus grave possible dans ce brief.
+4. Le champ `sources` liste les adresses EXACTES consultées : au moins une page Forex
+   Factory et une page Investing.com pour l'agenda (même si l'agenda est vide), au
+   moins trois articles pour l'actualité. Le code refuse le brief sans elles.
+5. Les places fermées AUJOURD'HUI sont données plus haut par le code (« Places fermées
+   aujourd'hui »). Si une place y figure, `ferie` est obligatoire et l'intro le dit.
 
 ## ⛔ RÈGLES DE RÉDACTION (contrôlées automatiquement sur le mail final)
 
