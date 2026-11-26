@@ -117,3 +117,35 @@ export function insererPartenaires(briefHtml) {
   if (m) return { html: briefHtml.slice(0, m.index) + bloc + briefHtml.slice(m.index), place: 'avant-checklist' };
   return { html: briefHtml + bloc, place: 'fin-du-corps' };
 }
+
+// ========================================================================
+// BRIEF V22 (Manu, 26/11/2026) : fond bleu très clair, titre bleu nuit, styles COPIÉS
+// de brief_reference_v22.html. ⛔ Ne pas retoucher sans relancer outils/test-brief-v22.mjs
+// (comparaison octet par octet avec la référence). Posé par rendreCourriel, pas par
+// insererPartenaires : le corps v22 n'a plus de titre « checklist » à chercher.
+// ========================================================================
+export function blocPartenairesV22({ maintenant = new Date() } = {}) {
+  const actifs = PARTENAIRES.filter((p) => p.code);
+  const M = "'JetBrains Mono',ui-monospace,monospace";
+  const principal = (p) => `<tr><td valign="top" style="padding:4px 0; font-size:14px; line-height:1.35;"><b>${p.nom}</b>`
+    + p.offres.map((o) => `<br><span style="font-family:${M}; font-weight:700; color:#ac862b;">${o.remise}</span> <span style="color:#5a5040; font-size:12px;">${o.portee}</span>`).join('')
+    + `</td><td align="right" valign="top" style="padding:4px 0 4px 8px;"><span style="display:inline-block; font-family:${M}; font-size:13px; font-weight:700; color:#000B25; border:1px dashed #d4af37; border-radius:6px; padding:6px 9px; white-space:nowrap;">${p.code}</span></td></tr>`;
+  const autre = (p) => `<tr><td style="padding:2px 0; font-size:12px;"><b>${p.nom}</b>`
+    + p.offres.map((o) => ` <span style="color:#5a5040; font-size:11px;">(<span style="font-family:${M}; font-weight:700; color:#ac862b;">${o.remise}</span> ${o.portee})</span>`).join('')
+    + `</td><td align="right" style="padding:2px 0 2px 8px;"><span style="display:inline-block; font-family:${M}; font-size:11px; font-weight:700; color:#000B25; border:1px dashed #d4af37; border-radius:6px; padding:1px 6px; white-space:nowrap;">${p.code}</span></td></tr>`;
+  const cadeau = maintenant <= new Date('2026-12-15T23:59:59+01:00')
+    ? '<p style="margin:10px 0 0; font-size:13px; line-height:1.5; font-weight:600;">🎁&nbsp; Chaque semaine jusqu\'au 15 décembre, une évaluation offerte au membre le plus impliqué.</p>'
+    : '';
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td style="background:#eef3f9; border:1px solid rgba(0,11,37,0.18); border-radius:10px; padding:18px 20px;">'
+    + '<div style="color:#000B25; font-size:15px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">🤝 Nos codes partenaires</div>'
+    + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
+    + '<tr><td style="padding:0 0 6px; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Prop firm et réduction</td><td align="right" style="padding:0 0 6px; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Code</td></tr>'
+    + actifs.filter((p) => p.principal).map(principal).join('')
+    + '<tr><td colspan="2" style="padding:12px 0 4px; border-bottom:1px solid rgba(212,175,55,0.25); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Autres codes</td></tr>'
+    + actifs.filter((p) => !p.principal).map(autre).join('')
+    + '</table>'
+    + '<p style="margin:8px 0 0; font-size:12px; line-height:1.5; color:#5a5040;">Le code se saisit sur la page de paiement, avant de valider. Avant de t\'inscrire, lis bien leurs règles sur leur site.</p>'
+    + cadeau
+    + `<p style="margin:6px 0 0; font-size:10px; line-height:1.5; color:#7a6b50;">Réductions relevées le ${REMISES_RELEVEES_LE}, selon les promotions de chaque partenaire. Une évaluation n'est pas un compte financé. Trader 360 ne peut être tenu responsable des règles, décisions, paiements ni changements de conditions des prop firms. Vérifie toujours leurs conditions avant de t'inscrire.</p>`
+    + '</td></tr></table>';
+}
