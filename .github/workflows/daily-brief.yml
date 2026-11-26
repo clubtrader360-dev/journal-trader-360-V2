@@ -46,9 +46,15 @@ on:
         description: 'Relance automatique : alerte de collecte déjà partie (ne pas remplir)'
         required: false
         default: '0'
+      echeance_test:
+        description: 'Aperçu ou essai seulement : « maintenant » simule l échéance de 6h45 (une collecte, une génération, n/d ou secours)'
+        required: false
+        default: 'non'
+        type: choice
+        options: [non, maintenant]
 
 # contents: write → archive (branche donnees-culture) et marqueur d'envoi (étiquette).
-# actions: write → relance du workflow par lui-même au-delà de 5 heures.
+# actions: write → conservé (les entrées « tentative » restent acceptées).
 permissions:
   contents: write
   actions: write
@@ -113,14 +119,21 @@ jobs:
           { echo "go=1"; echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
           echo "📅 Brief du $DATE_LONG_FR · mode $MODE"
 
+      # ⛔ AUCUNE ÉTAPE AVANT L'ENVOI NE PEUT PLUS ARRÊTER LE BRIEF (Manu, 26/11/2026 21h).
+      # Tests et installation du CLI : en échec, le run continue (le cycle passe au brief
+      # « données seules » si le modèle manque) et l'alerte Discord le dit.
       - name: Tests du brief v22 (référence et source muette)
+        id: tests
         if: steps.garde.outputs.go == '1'
+        continue-on-error: true
         run: |
+          npm ci --no-audit --no-fund --silent || echo "::warning::npm ci a échoué"
           node outils/test-brief-v22.mjs
           node outils/test-source-muette.mjs
 
       - name: Install Claude Code CLI
         if: steps.garde.outputs.go == '1'
+        continue-on-error: true
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Cycle (collecte, relances, génération, contrôles)
@@ -130,108 +143,152 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           DISCORD_ALERTE_URL: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
-          GH_TOKEN: ${{ github.token }}
           MODE: ${{ steps.garde.outputs.mode }}
           DATE_ISO: ${{ steps.garde.outputs.date_iso }}
           DATE_LONG_FR: ${{ steps.garde.outputs.date_long_fr }}
-          IN_TEST: ${{ github.event.inputs.test_email }}
           TENTATIVE: ${{ github.event.inputs.tentative || '1' }}
           ALERTE_COLLECTE: ${{ github.event.inputs.alerte_envoyee || '0' }}
+          ECHEANCE_TEST: ${{ github.event.inputs.echeance_test || 'non' }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          # ⚠️ GitHub lance bash avec -e et pipefail : la collecte rend 3 quand une valeur
-          # manque, ce qui couperait l'étape au lieu de relancer. Codes gérés à la main.
+          # ══ LE BRIEF N'EST JAMAIS BLOQUÉ (Manu, 26/11/2026 21h) ══════════════════════
+          # Effort maximal inchangé : collecte relancée toutes les 10 minutes, sources
+          # ordonnées, deux sources concordantes par valeur. Mais l'heure fait foi :
+          #   05h05  génération (si les données sont complètes)
+          #   06h05  COUPURE de la collecte : ce qui manque part en « n/d » (alerte nominative)
+          #   06h40  fin des générations : prose toujours refusée → brief « données seules »
+          #   05h43 au plus tôt, 06h45 au plus tard : ENVOI
+          # Un run parti en retard (cron GitHub) fait UNE collecte et UNE génération, puis part.
+          # ⚠️ GitHub lance bash avec -e et pipefail : codes gérés à la main.
           set +e +o pipefail
           set -u
           { echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
-          [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || { echo "::error::CLAUDE_CODE_OAUTH_TOKEN manquant"; exit 1; }
           # Le webhook d'alerte n'est utilisé qu'en production : un aperçu ou un essai qui
           # échoue se lit dans le run, sans réveiller le salon.
           [ "$MODE" = "production" ] || DISCORD_ALERTE_URL=""
           export DISCORD_ALERTE_URL
-          LIMITE=$(( $(date +%s) + 300 * 60 ))
+          maintenant() { date +%s; }
+          paris() { TZ=Europe/Paris date -d "$DATE_ISO $1" +%s; }
+          hm() { TZ=Europe/Paris date -d "@$1" +%H:%M; }
+          if [ "$MODE" = "production" ]; then
+            COUPURE=$(paris 06:05); FIN_GEN=$(paris 06:40)
+          else
+            T0=$(maintenant); COUPURE=$(( T0 + 15 * 60 )); FIN_GEN=$(( T0 + 40 * 60 ))
+            [ "$ECHEANCE_TEST" = "maintenant" ] && { COUPURE=$T0; FIN_GEN=$T0; echo "🧪 échéance simulée : maintenant"; }
+          fi
+          echo "⏱️ coupure de la collecte $(hm $COUPURE) · fin des générations $(hm $FIN_GEN) · envoi au plus tard 06:45 (Paris)"
           ALERTE_CONTROLE=0
-
-          relancer() {
-            echo "⏳ 5 heures écoulées sans brief complet : le workflow se relance (tentative $TENTATIVE)."
-            gh workflow run daily-brief.yml --ref "$GITHUB_REF_NAME" -f mode="$MODE" -f date="$DATE_ISO" \
-              -f test_email="${IN_TEST:-}" -f tentative="$TENTATIVE" -f alerte_envoyee="$ALERTE_COLLECTE"
-            echo "relance=1" >> "$GITHUB_OUTPUT"
-            exit 0
-          }
-          dormir() { [ $(( $(date +%s) + 600 )) -lt "$LIMITE" ] || relancer; echo "😴 nouvelle tentative dans 10 minutes"; sleep 600; TENTATIVE=$((TENTATIVE + 1)); }
+          if [ "$TESTS_OUTCOME" != "success" ] && [ "$MODE" = "production" ]; then
+            echo "les tests du brief v22 ont échoué avant le cycle (le brief part quand même, voir le run)" > /tmp/motifs-tests.txt
+            node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs-tests.txt "$RUN_URL" || true
+          fi
           attendre() { # attendre HH:MM (heure de Paris, le jour du brief)
-            local cible; cible=$(TZ=Europe/Paris date -d "$DATE_ISO $1" +%s)
-            local reste=$(( cible - $(date +%s) ))
+            local reste=$(( $(paris "$1") - $(maintenant) ))
             if [ "$reste" -gt 0 ]; then echo "⏰ attente jusqu'à $1 Paris ($((reste / 60)) min)"; sleep "$reste"; fi
           }
 
-          # ── 1. COLLECTE, jusqu'à ce que TOUT soit là ───────────────────────────────
+          # ── 1. COLLECTE : relancée toutes les 10 minutes jusqu'à la coupure ──────────
+          rm -f /tmp/donnees-derniere.json
           while true; do
             echo "═══ Collecte, tentative $TENTATIVE ═══"
             node outils/brief-v22.mjs collecte "$DATE_ISO" /tmp/donnees.json
             RC=$?
             [ "$RC" -eq 0 ] && break
-            if [ "$ALERTE_COLLECTE" = "0" ]; then
+            [ "$RC" -eq 3 ] && cp /tmp/donnees.json /tmp/donnees-derniere.json
+            if [ "$ALERTE_COLLECTE" = "0" ] && [ "$(maintenant)" -lt "$COUPURE" ]; then
               if [ "$RC" -eq 3 ]; then node outils/brief-v22.mjs alerte /tmp/donnees.json "$RUN_URL" "$TENTATIVE" || true
               else echo "collecte en erreur (code $RC), voir le run" > /tmp/motifs.txt
                    node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs.txt "$RUN_URL" || true; fi
               ALERTE_COLLECTE=1
             fi
-            dormir
+            [ "$(maintenant)" -ge "$COUPURE" ] && break
+            PAUSE=$(( COUPURE - $(maintenant) )); [ "$PAUSE" -gt 600 ] && PAUSE=600
+            echo "😴 nouvelle collecte dans $((PAUSE / 60)) min $((PAUSE % 60)) s"; sleep "$PAUSE"; TENTATIVE=$((TENTATIVE + 1))
           done
+          if [ "$RC" -ne 0 ]; then
+            # Coupure atteinte : ce qui manque part en « n/d », jamais inventé.
+            if [ "$RC" -ne 3 ]; then
+              if [ -s /tmp/donnees-derniere.json ]; then cp /tmp/donnees-derniere.json /tmp/donnees.json
+              else echo "::error::aucune collecte exploitable (code $RC) : rien à envoyer"; exit 1; fi
+            fi
+            echo "🟠 Coupure de la collecte : les valeurs manquantes partent en n/d"
+            node outils/brief-v22.mjs figer /tmp/donnees.json "$RUN_URL"
+          fi
           cp /tmp/donnees.json /tmp/donnees-retenues.json
+          echo "nd=$(node outils/brief-v22.mjs nd /tmp/donnees.json | cut -c1-900)" >> "$GITHUB_OUTPUT"
 
           # ── 2. GÉNÉRATION vers 5h05 en production, puis contrôles ─────────────────
           [ "$MODE" = "production" ] && attendre 05:05
           NOTION=$(node -e "import('./api/_lib/culture-marche.js').then(m=>{const n=m.notionDuJour('$DATE_ISO');process.stdout.write(n?('Notion de culture du jour : '+n.nom+'. Angle à traiter : '+n.angle+'.'):'')})")
           HORAIRES=$(node -e "import('./api/_lib/heure-marche.js').then(m=>process.stdout.write(m.contexteHoraire('$DATE_ISO')))")
-          while true; do
-            echo "═══ Génération, tentative $TENTATIVE ═══"
-            PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s).\n%s\n%s\n\n%s\n\n%s' "$DATE_LONG_FR" "$DATE_ISO" "$HORAIRES" "$NOTION" \
-              "$(node outils/brief-v22.mjs prompt /tmp/donnees.json)" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
-            # stream-json : on lit le texte final ET on compte les vraies recherches web.
-            # Mesuré le 26/11/2026 : une prose écrite en deux minutes, sans une seule
-            # recherche, annonçait une décision de la Fed un jour de Thanksgiving.
-            # Refus précédent : le modèle reçoit les motifs, pour corriger au lieu de recommencer à l'aveugle.
-            if [ -s /tmp/motifs.txt ] && [ "$ALERTE_CONTROLE" = "1" ]; then
-              PROMPT="$PROMPT"$'\n\n⛔ TA VERSION PRÉCÉDENTE A ÉTÉ REFUSÉE PAR LE CODE pour ces motifs. Corrige-les tous :\n'"$(cat /tmp/motifs.txt)"
-            fi
-            # Délai de garde : un modèle bloqué ne doit pas geler l'étape pendant des heures.
-            echo "$PROMPT" | timeout 1500 claude -p --output-format stream-json --verbose --dangerously-skip-permissions > /tmp/claude.jsonl 2>/tmp/claude_err.log
-            RC=$?
-            jq -r 'select(.type=="result") | .result // empty' /tmp/claude.jsonl > /tmp/sortie-modele.txt 2>/dev/null
-            WEB=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' /tmp/claude.jsonl 2>/dev/null | grep -cE '^(WebSearch|WebFetch)$')
-            echo "🔎 Recherches web du modèle : $WEB ($(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' /tmp/claude.jsonl 2>/dev/null | sort | uniq -c | tr '\n' ' '))"
-            if [ "$RC" -ne 0 ] || [ ! -s /tmp/sortie-modele.txt ]; then
-              tail -20 /tmp/claude_err.log
-              echo "Claude CLI a échoué (code $RC) : $(tail -3 /tmp/claude_err.log | tr '\n' ' ' | cut -c1-300)" > /tmp/motifs.txt
-            elif [ "${WEB:-0}" -lt 3 ]; then
-              echo "prose écrite sans recherche web ($WEB appel(s) WebSearch/WebFetch, 3 exigés)" > /tmp/motifs.txt
-              cat /tmp/motifs.txt
-            elif node outils/brief-v22.mjs assembler /tmp/donnees.json /tmp/sortie-modele.txt /tmp/brief.html /tmp/motifs.txt; then
-              break
-            fi
-            echo "--- sortie du modèle (début) ---"; head -c 3000 /tmp/sortie-modele.txt 2>/dev/null; echo
-            if [ "$ALERTE_CONTROLE" = "0" ]; then
-              node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs.txt "$RUN_URL" || true
-              ALERTE_CONTROLE=1
-            fi
-            # Contrôle refusé : nouvelle génération après 2 minutes, motifs joints au prompt.
-            [ $(( $(date +%s) + 120 )) -lt "$LIMITE" ] || relancer
-            echo "🔁 nouvelle génération dans 2 minutes, motifs du refus joints"; sleep 120; TENTATIVE=$((TENTATIVE + 1))
-          done
+          OK=0; ESSAIS_GEN=0
+          rm -f /tmp/motifs.txt
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || ! command -v claude >/dev/null; then
+            echo "modèle indisponible (CLI Claude absent ou CLAUDE_CODE_OAUTH_TOKEN manquant)" > /tmp/motifs.txt
+            echo "::error::$(cat /tmp/motifs.txt)"
+          else
+            while true; do
+              RESTE=$(( FIN_GEN - $(maintenant) ))
+              # Une génération au moins, même partie en retard ; ensuite, seulement s'il reste 3 min.
+              [ "$ESSAIS_GEN" -gt 0 ] && [ "$RESTE" -lt 180 ] && break
+              DELAI=1500; [ "$RESTE" -lt "$DELAI" ] && DELAI=$RESTE
+              [ "$ESSAIS_GEN" -eq 0 ] && [ "$DELAI" -lt 420 ] && DELAI=420
+              ESSAIS_GEN=$((ESSAIS_GEN + 1))
+              echo "═══ Génération, tentative $TENTATIVE (délai de garde $((DELAI / 60)) min) ═══"
+              PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s).\n%s\n%s\n\n%s\n\n%s' "$DATE_LONG_FR" "$DATE_ISO" "$HORAIRES" "$NOTION" \
+                "$(node outils/brief-v22.mjs prompt /tmp/donnees.json)" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
+              # stream-json : on lit le texte final ET on compte les vraies recherches web.
+              # Mesuré le 26/11/2026 : une prose écrite en deux minutes, sans une seule
+              # recherche, annonçait une décision de la Fed un jour de Thanksgiving.
+              # Refus précédent : le modèle reçoit les motifs, pour corriger au lieu de recommencer à l'aveugle.
+              if [ -s /tmp/motifs.txt ] && [ "$ALERTE_CONTROLE" = "1" ]; then
+                PROMPT="$PROMPT"$'\n\n⛔ TA VERSION PRÉCÉDENTE A ÉTÉ REFUSÉE PAR LE CODE pour ces motifs. Corrige-les tous :\n'"$(cat /tmp/motifs.txt)"
+              fi
+              echo "$PROMPT" | timeout "$DELAI" claude -p --output-format stream-json --verbose --dangerously-skip-permissions > /tmp/claude.jsonl 2>/tmp/claude_err.log
+              RC=$?
+              jq -r 'select(.type=="result") | .result // empty' /tmp/claude.jsonl > /tmp/sortie-modele.txt 2>/dev/null
+              WEB=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' /tmp/claude.jsonl 2>/dev/null | grep -cE '^(WebSearch|WebFetch)$')
+              echo "🔎 Recherches web du modèle : $WEB ($(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' /tmp/claude.jsonl 2>/dev/null | sort | uniq -c | tr '\n' ' '))"
+              if [ "$RC" -ne 0 ] || [ ! -s /tmp/sortie-modele.txt ]; then
+                tail -20 /tmp/claude_err.log
+                echo "Claude CLI a échoué (code $RC) : $(tail -3 /tmp/claude_err.log | tr '\n' ' ' | cut -c1-300)" > /tmp/motifs.txt
+              elif [ "${WEB:-0}" -lt 3 ]; then
+                echo "prose écrite sans recherche web ($WEB appel(s) WebSearch/WebFetch, 3 exigés)" > /tmp/motifs.txt
+                cat /tmp/motifs.txt
+              elif node outils/brief-v22.mjs assembler /tmp/donnees.json /tmp/sortie-modele.txt /tmp/brief.html /tmp/motifs.txt; then
+                OK=1; break
+              fi
+              echo "--- sortie du modèle (début) ---"; head -c 3000 /tmp/sortie-modele.txt 2>/dev/null; echo
+              if [ "$ALERTE_CONTROLE" = "0" ] && [ $(( $(maintenant) + 120 )) -lt "$FIN_GEN" ]; then
+                node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs.txt "$RUN_URL" || true
+                ALERTE_CONTROLE=1
+              fi
+              [ $(( $(maintenant) + 120 + 180 )) -ge "$FIN_GEN" ] && break
+              echo "🔁 nouvelle génération dans 2 minutes, motifs du refus joints"; sleep 120; TENTATIVE=$((TENTATIVE + 1))
+            done
+          fi
+          SECOURS=0
+          if [ "$OK" != "1" ]; then
+            # Prose absente ou toujours refusée : elle ne part JAMAIS. Brief « données seules ».
+            echo "🟠 Prose non validée à l'échéance : brief « données seules »"
+            node outils/brief-v22.mjs secours /tmp/donnees.json /tmp/brief.html /tmp/motifs.txt "$RUN_URL" \
+              || { echo "::error::brief de secours refusé par le contrôle"; exit 1; }
+            SECOURS=1
+          fi
+          echo "secours=$SECOURS" >> "$GITHUB_OUTPUT"
 
           # Aperçus (membres, prospects, archive) en artefact, pour relecture.
           mkdir -p /tmp/apercus
           for V in members prospects archive; do
-            node outils/brief-v22.mjs apercu /tmp/donnees.json /tmp/sortie-modele.txt "/tmp/apercus/brief-$DATE_ISO-$V.html" "$V" essai
+            node outils/brief-v22.mjs apercu-corps /tmp/donnees.json /tmp/brief.html "/tmp/apercus/brief-$DATE_ISO-$V.html" "$V" essai
           done
           node outils/brief-v22.mjs resume /tmp/donnees.json > /tmp/apercus/collecte-$DATE_ISO.txt
-          cp /tmp/sortie-modele.txt /tmp/donnees.json /tmp/brief.html /tmp/apercus/
+          cp /tmp/donnees.json /tmp/brief.html /tmp/apercus/
+          [ -s /tmp/sortie-modele.txt ] && cp /tmp/sortie-modele.txt /tmp/apercus/
           echo "pret=1" >> "$GITHUB_OUTPUT"
 
-          # ── 3. ENVOI à 5h43 en production ──────────────────────────────────────────
+          # ── 3. ENVOI : 5h43 au plus tôt ; les bornes ci-dessus le font partir avant 6h45 ──
           [ "$MODE" = "production" ] && attendre 05:43
           exit 0
 
@@ -315,6 +372,7 @@ jobs:
         env:
           DATE_ISO: ${{ steps.cycle.outputs.date_iso }}
           DATE_LONG_FR: ${{ steps.cycle.outputs.date_long_fr }}
+          SECOURS: ${{ steps.cycle.outputs.secours }}
           SITE_TOKEN: ${{ secrets.SITE_ARCHIVE_TOKEN }}
         run: |
           set -u
@@ -492,7 +550,9 @@ jobs:
           # Un fichier par NOTION, pas par date : c'est ce qui sert à écrire les
           # articles du site. L'archive des briefs, elle, est chronologique. Les deux
           # ne font donc pas double emploi.
-          if node outils/archiver-culture.mjs /tmp/brief.html /tmp/culture "$DATE_ISO"; then
+          if [ "${SECOURS:-0}" = "1" ]; then
+            note ok "culture: brief « données seules », aucune notion à archiver"
+          elif node outils/archiver-culture.mjs /tmp/brief.html /tmp/culture "$DATE_ISO"; then
             if [ -z "$(ls -A /tmp/culture 2>/dev/null)" ]; then
               note ok "culture: aucune notion ce jour"
             else
@@ -538,13 +598,20 @@ jobs:
           ARCHIVE_OUTCOME: ${{ steps.archive.outcome }}
           ARCHIVE_FAIT: ${{ steps.archive.outputs.fait }}
           ARCHIVE_ECHECS: ${{ steps.archive.outputs.echecs }}
+          ND: ${{ steps.cycle.outputs.nd }}
+          SECOURS: ${{ steps.cycle.outputs.secours }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -n "$DISCORD_WEBHOOK" ] || exit 0
+          # Données de marché : dire EXACTEMENT ce qui est parti (n/d, brief de secours).
+          if [ -n "${ND:-}" ]; then DONNEES="🟠 parti(es) en n/d : $ND"; else DONNEES="✅ toutes les valeurs confirmées par deux sources"; fi
+          [ "${SECOURS:-0}" = "1" ] && DONNEES="$DONNEES · 🟠 brief « données seules » (prose refusée ou absente à l'échéance)"
+          DONNEES=$(echo "$DONNEES" | cut -c1-1000)
           if [ "$POST_OUTCOME" = "success" ]; then
             if [ "$ARCHIVE_OUTCOME" = "success" ]; then ARCH="✅ ${ARCHIVE_FAIT:-déposé}"; COLOR=13938487; else ARCH="❌ ${ARCHIVE_ECHECS:-archivage non fait}"; COLOR=15680580; fi
-            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_LONG_FR" --arg dest "${DEST:-?}" --arg arch "$(echo "$ARCH" | cut -c1-500)" --arg url "$RUN_URL" \
-              '{embeds:[{title:"📊 Brief v22 envoyé",color:$c,fields:[{name:"Date",value:$date,inline:true},{name:"Destinataires",value:$dest,inline:true},{name:"Données de marché",value:"✅ toutes les valeurs confirmées par deux sources",inline:false},{name:"Archive",value:$arch,inline:false},{name:"Run",value:("[Voir le run](\($url))"),inline:false}],timestamp:(now|todate)}]}')
+            { [ -n "${ND:-}" ] || [ "${SECOURS:-0}" = "1" ]; } && COLOR=16753920
+            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_LONG_FR" --arg dest "${DEST:-?}" --arg arch "$(echo "$ARCH" | cut -c1-500)" --arg url "$RUN_URL" --arg donnees "$DONNEES" \
+              '{embeds:[{title:"📊 Brief v22 envoyé",color:$c,fields:[{name:"Date",value:$date,inline:true},{name:"Destinataires",value:$dest,inline:true},{name:"Données de marché",value:$donnees,inline:false},{name:"Archive",value:$arch,inline:false},{name:"Run",value:("[Voir le run](\($url))"),inline:false}],timestamp:(now|todate)}]}')
           else
             PAYLOAD=$(jq -n --arg date "$DATE_LONG_FR" --arg url "$RUN_URL" \
               '{embeds:[{title:"❌ Brief v22 NON envoyé",color:15680580,description:("Brief du \($date). [Voir le run](\($url))"),timestamp:(now|todate)}]}')

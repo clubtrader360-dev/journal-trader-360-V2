@@ -23,6 +23,7 @@ export const BRIEF_V22 = true;
 const MONO = "'JetBrains Mono',ui-monospace,monospace";
 const ROUGE = '#c62828';
 const VERT = '#067a4f';
+const GRIS = '#7a6b50';
 
 /** Échappe le texte de la prose du modèle (jamais de HTML venant du modèle). */
 export function esc(t) {
@@ -37,6 +38,19 @@ export function nombreFr(v, decimales = 2) {
   return `${v < 0 ? '-' : ''}${groupes}${dec ? `,${dec}` : ''}`;
 }
 const signe = (v, d) => `${v > 0 ? '+' : v < 0 ? '-' : ''}${nombreFr(Math.abs(v), d)}`;
+
+// ── « n/d » : SEULEMENT posé par le code, à l'échéance de 6h45 (Manu, 26/11/2026 21h) ──
+// Une valeur que les sources n'ont toujours pas rendue à l'échéance part en « n/d »,
+// jamais inventée. Le code l'écrit dans CE balisage, et seulement lui : la prose du
+// modèle est échappée (`esc`), elle ne peut donc pas le produire. Le contrôle final
+// (brief-garde.js, `controlerRedaction`) retire ce balisage avant de chercher un
+// « n/d » : un « n/d » nu, venu d'ailleurs, reste refusé.
+export const ND_HTML = '<span class="nd">n/d</span>';
+const estNombre = (x) => typeof x === 'number' && Number.isFinite(x);
+/** Nombre formaté, ou « n/d » balisé quand la valeur manque. */
+export const nombreOuNd = (v, d = 2) => (estNombre(v) ? nombreFr(v, d) : ND_HTML);
+/** Une ligne « hier » est-elle absente ? */
+export const hierNd = (v) => !v || v.nd || !estNombre(v.cloture) || !estNombre(v.variation);
 
 // ── Dates ─────────────────────────────────────────────────────────────────────────
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -111,25 +125,28 @@ const LIGNES_HIER = [
 
 /** Valeur affichée d'une ligne (formats de la référence). */
 export function valeurHier(cle, v) {
+  if (hierNd(v)) return ND_HTML;
   if (cle === 'oat') return `${nombreFr(v.cloture, 2)} %`;
   if (cle === 'btc') return `${nombreFr(Math.round(v.cloture), 0)} $`;
   return nombreFr(v.cloture, 2);
 }
 export function variationHier(cle, v) {
+  if (hierNd(v)) return ND_HTML;
   return cle === 'oat' ? `${signe(v.variation, 2)} pt` : `${signe(v.variation, 2)} %`;
 }
 
 function blocHier(hier) {
   const lignes = LIGNES_HIER.map((l, i) => {
     const v = hier[l.cle];
-    const hausse = v.variation >= 0;
-    const couleur = hausse ? VERT : ROUGE;
+    const nd = hierNd(v);
+    const hausse = !nd && v.variation >= 0;
+    const couleur = nd ? GRIS : hausse ? VERT : ROUGE;
     const pad = i === 0 ? 'padding:9px 0;' : 'padding:9px 0;border-top:1px solid #eee7d6;';
-    return `<tr><td width="6%" style="${pad} vertical-align:middle; color:${couleur}; font-size:13px; line-height:18px;">${hausse ? '▲' : '▼'}</td>`
+    return `<tr><td width="6%" style="${pad} vertical-align:middle; color:${couleur}; font-size:13px; line-height:18px;">${nd ? '·' : hausse ? '▲' : '▼'}</td>`
       + `<td width="7%" style="${pad} vertical-align:middle; line-height:18px;">${l.repere}</td>`
       + `<td width="31%" style="${pad} vertical-align:middle; font-size:14px; line-height:18px; font-weight:700; color:#000B25; white-space:nowrap;">${l.nom}</td>`
       + `<td width="29%" style="${pad} vertical-align:middle; font-family:${MONO}; font-size:14px; line-height:18px; font-weight:700; color:#1a1208;">${valeurHier(l.cle, v)}</td>`
-      + `<td width="27%" align="right" style="${pad} vertical-align:middle; text-align:right;"><span style="display:inline-block; background:${hausse ? '#d9f2dc' : '#f9d6d6'}; color:${couleur}; font-family:${MONO}; font-size:12px; line-height:16px; font-weight:700; border-radius:12px; padding:3px 10px;">${variationHier(l.cle, v)}</span></td></tr>`;
+      + `<td width="27%" align="right" style="${pad} vertical-align:middle; text-align:right;"><span style="display:inline-block; background:${nd ? '#ececec' : hausse ? '#d9f2dc' : '#f9d6d6'}; color:${couleur}; font-family:${MONO}; font-size:12px; line-height:16px; font-weight:700; border-radius:12px; padding:3px 10px;">${variationHier(l.cle, v)}</span></td></tr>`;
   }).join('');
   const seances = { US: hier.spx.seance, DE: hier.dax.seance, FR: hier.cac.seance };
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:16px 20px 12px;">'
@@ -160,12 +177,13 @@ function blocZones(z) {
       ? `<td style="padding:8px 6px 8px 10px; border-top:2px solid #ffffff;${fond} color:#000B25; font-size:10px; letter-spacing:0.10em; text-transform:uppercase; font-weight:700;">${l.libelle}</td>`
       : `<td style="padding:8px 6px 8px 10px; border-top:2px solid #ffffff; color:#5a5040; font-size:10px; letter-spacing:0.10em; text-transform:uppercase;">${l.libelle}</td>`;
     const couleur = l.fond ? '#000B25' : '#1a1208';
-    const cfd = l.cle === 'poc' ? '' : nombreFr(z.cfd[l.cle], 2);
+    // POC : colonne CFD VIDE par conception (le POC est celui du future ES).
+    const cfd = l.cle === 'poc' ? '' : nombreOuNd(z.cfd[l.cle], 2);
     return `<tr>${lib}`
-      + `<td align="center" style="padding:7px 4px; border-top:2px solid #ffffff;${fond} text-align:center; font-family:${MONO}; font-size:14px; font-weight:700; color:${couleur};">${nombreFr(z.es[l.cle], 2)}</td>`
+      + `<td align="center" style="padding:7px 4px; border-top:2px solid #ffffff;${fond} text-align:center; font-family:${MONO}; font-size:14px; font-weight:700; color:${couleur};">${nombreOuNd(z.es[l.cle], 2)}</td>`
       + `<td align="center" style="padding:8px 10px 8px 4px; border-top:2px solid #ffffff;${fond} text-align:center; font-family:${MONO}; font-size:14px; font-weight:700; color:${couleur};">${cfd}</td></tr>`;
   }).join('');
-  const psy = z.psy.map((n) => nombreFr(n, 0)).join(' · ');
+  const psy = Array.isArray(z.psy) && z.psy.length ? z.psy.map((n) => nombreFr(n, 0)).join(' · ') : ND_HTML;
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 20px;">'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
     + `<tr><td width="32%" style="color:#ac862b; font-size:15px; line-height:18px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; padding:0 0 10px; border-bottom:1px solid rgba(212,175,55,0.45); vertical-align:middle; white-space:nowrap;">${caseDrapeau('🇺🇸')}<span style="padding-left:8px;">S&amp;P 500</span></td>`
@@ -178,9 +196,9 @@ function blocZones(z) {
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 0;"><tr><td style="border-top:1px solid rgba(212,175,55,0.45); padding:14px 0 0;">'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;"><tr>'
     + `<td width="70%" style="color:#ac862b; font-size:15px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">⚡ VIX <span style="font-size:11px; letter-spacing:0.06em; font-weight:400; color:#7a6b50; text-transform:none;">clôture ${jjmm(z.vix.seance)}</span></td>`
-    + `<td width="30%" align="right" style="text-align:right; white-space:nowrap; font-family:${MONO}; font-size:22px; font-weight:700; color:#000B25;">${nombreFr(z.vix.cloture, 2)}</td>`
+    + `<td width="30%" align="right" style="text-align:right; white-space:nowrap; font-family:${MONO}; font-size:22px; font-weight:700; color:#000B25;">${nombreOuNd(z.vix.cloture, 2)}</td>`
     + '</tr></table>'
-    + `<p style="margin:8px 0 0; font-size:13px; line-height:1.6; color:#1a1208;">${esc(z.vixLecture)}</p>`
+    + (z.vixLecture ? `<p style="margin:8px 0 0; font-size:13px; line-height:1.6; color:#1a1208;">${esc(z.vixLecture)}</p>` : '')
     + '</td></tr></table>'
     + '<p style="margin:14px 0 0; font-size:11px; color:#7a6b50;">Sources Investing.com et Cboe.</p>'
     + '</td></tr></table>';
@@ -194,6 +212,13 @@ function blocAgenda(agenda, ferie) {
   const lignesFerie = ferie
     ? `<p style="margin:0 0 12px; font-size:14px; line-height:1.6; color:#1a1208;"><b>${esc(ferie.titre)}</b>${ferie.texte ? ` ${esc(ferie.texte)}` : ''}</p>`
     : '';
+  // Brief de secours (données seules) : l'agenda n'a pas été vérifié, on le DIT. Jamais
+  // « Pas d'événement macro aujourd'hui », qui serait une affirmation fausse.
+  if (agenda === null) {
+    return titre + lignesFerie
+      + '<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="background:#f4f4f6; border:1px solid #dcdce2; border-radius:8px; padding:8px 14px; font-size:13px; color:#5a5040;">Agenda indisponible ce matin. Consulte le calendrier économique avant l\'ouverture.</td></tr></table>'
+      + ESPACE;
+  }
   if (!agenda.length) {
     return titre + lignesFerie
       + '<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="background:#f4f4f6; border:1px solid #dcdce2; border-radius:8px; padding:8px 14px; font-size:13px; color:#5a5040;">Pas d\'événement macro aujourd\'hui.</td></tr></table>'
@@ -254,15 +279,17 @@ function blocCulture(c, urlSchema) {
  * `<div class="brief-marche">` ; `rendreCourriel` le déballe et l'entoure du reste.
  */
 export function rendreCorps({ hier, zones, prose, urlSchema }) {
+  // Les blocs de prose absents (brief de secours, « données seules ») ne sont pas rendus.
+  const psy = [].concat(prose.psychologie || []).filter(Boolean);
   return '<div class="brief-marche">'
     + `<p style="margin:0 0 10px; font-size:14px; line-height:1.6; color:#1a1208;">${esc(prose.intro)}</p>`
-    + blocPsychologie([].concat(prose.psychologie))
+    + (psy.length ? blocPsychologie(psy) : '')
     + blocHier(hier)
     + blocZones({ ...zones, vixLecture: prose.vix_lecture })
-    + blocAgenda(prose.agenda || [], prose.ferie || null)
-    + blocActualite(prose.actualite)
-    + blocRetenir(prose.retenir)
-    + blocCulture(prose.culture, urlSchema)
+    + blocAgenda(prose.agenda === null ? null : (prose.agenda || []), prose.ferie || null)
+    + (prose.actualite?.length ? blocActualite(prose.actualite) : '')
+    + (prose.retenir?.length ? blocRetenir(prose.retenir) : '')
+    + (prose.culture ? blocCulture(prose.culture, urlSchema) : '')
     + '</div>';
 }
 
