@@ -224,8 +224,16 @@ export function verifier(corps) {
 
   // Contrôles positifs : un document vide passerait toutes les interdictions.
   if (!/brief-marche/.test(corps)) echecs.push('le corps du brief a disparu du document');
-  const titres = (corps.match(/<h2\b/gi) || []).length;
-  if (titres < 3) echecs.push(`seulement ${titres} titre(s) de section, 3 attendus au minimum`);
+  // Brief v22 (26/11/2026) : plus de <h2>, des intitulés de rubrique rendus par le code.
+  // On exige alors les quatre rubriques chiffrées et rédigées, pas un nombre de titres.
+  if (/Sur les marchés hier/.test(corps)) {
+    for (const r of ['Sur les marchés hier', 'Zones à surveiller', 'Actualité éco', 'Ce qu\'il faut retenir']) {
+      if (!corps.includes(r)) echecs.push(`rubrique « ${r} » absente du brief v22`);
+    }
+  } else {
+    const titres = (corps.match(/<h2\b/gi) || []).length;
+    if (titres < 3) echecs.push(`seulement ${titres} titre(s) de section, 3 attendus au minimum`);
+  }
   const texte = corps.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   if (texte.length < 800) echecs.push(`corps trop court : ${texte.length} caractères de texte`);
   // La mise en page du courriel EST le livrable : son absence est une anomalie.

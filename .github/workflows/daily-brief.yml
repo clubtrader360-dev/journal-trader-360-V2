@@ -1,507 +1,263 @@
 name: Daily Brief Trader 360
 
+# ══ BRIEF V22 (Manu, 26/11/2026) ════════════════════════════════════════════════
+# Envoi du lundi au vendredi à 5h43 Paris, jamais le samedi ni le dimanche.
+#
+# ⚠️ POURQUOI LE JOB DÉMARRE À 3H13 ET N'ENVOIE QU'À 5H43. Les crons GitHub partent
+# souvent en retard (plusieurs heures mesurées sur les minutes rondes). Démarrer tôt
+# laisse la marge de collecter, de relancer si une valeur manque, puis d'attendre 5h43.
+# La génération est faite vers 5h05, pour que « Ce matin et à surveiller » soit frais.
+# Un run parti après 5h43 envoie dès que le brief est prêt et contrôlé.
+#
+# Deux crons, un par saison : 3h13 Paris = 2h13 UTC en hiver (CET), 1h13 UTC en été
+# (CEST). Le garde « saison » ne laisse passer que celui qui tombe à 3h13 Paris ce
+# jour-là. Jours 1-5 en UTC = lundi-vendredi à Paris à ces heures.
+#
+# ⛔ JAMAIS UNE VALEUR MANQUANTE (point 3 du cahier des charges v22).
+# Tant qu'une valeur manque, collecte relancée toutes les 10 minutes, sans limite : au
+# bout de 5 heures le run se relance lui-même (workflow_dispatch, droit actions:write).
+# Alerte Discord au PREMIER échec, en nommant chaque valeur et les sources essayées.
+# Même règle si la prose du modèle échoue à un contrôle (cohérence, deux-points, tirets).
 on:
   schedule:
-    # Cron 43 22 * * 0-4 :
-    # - Été CEST (UTC+2) : 22h43 UTC = 00h43 Paris (nuit dim→jeu), arrivée typique 1h-2h, worst case 5h
-    # - Hiver CET (UTC+1) : 22h43 UTC = 23h43 Paris (veille), arrivée typique 00h-1h, worst case 4h
-    # → Aucun ajustement nécessaire au passage d'heure. Toujours avant 6h Paris.
-    # Minute non-ronde (43) : évite la queue GitHub Actions des crons à minute ronde (lag jusqu'à 3-4h).
-    - cron: '43 22 * * 0-4'
+    - cron: '13 2 * * 1-5'   # hiver : 3h13 Paris
+    - cron: '13 1 * * 1-5'   # été : 3h13 Paris
   workflow_dispatch:
     inputs:
-      reason:
-        description: 'Raison du test manuel (log)'
-        required: false
-        default: 'Test manuel'
-      only_user_id:
-        description: 'UUID élève cible (test ciblé — vide = TOUS les éligibles)'
+      mode:
+        description: "apercu (aucun envoi, HTML en artefact) · essai (test_email seul) · production (liste des membres)"
+        required: true
+        default: 'apercu'
+        type: choice
+        options: [apercu, essai, production]
+      date:
+        description: 'Date du brief AAAA-MM-JJ (vide = aujourd hui à Paris)'
         required: false
         default: ''
       test_email:
-        description: 'Email de test : envoi UNIQUEMENT à cette adresse (prioritaire sur only_user_id, zéro élève touché)'
+        description: 'Mode essai : seule adresse destinataire'
         required: false
         default: ''
-      test_subject_suffix:
-        description: "Suffixe de sujet, pour sortir du fil Gmail d'un envoi précédent. Branche jetable uniquement."
+      tentative:
+        description: 'Relance automatique : numéro de tentative (ne pas remplir)'
         required: false
-        default: ''
+        default: '1'
+      alerte_envoyee:
+        description: 'Relance automatique : alerte de collecte déjà partie (ne pas remplir)'
+        required: false
+        default: '0'
 
-# L'archivage écrit sur la branche de données `donnees-culture` du dépôt, d'où ce
-# droit. Il reste minimal : rien d'autre dans ce workflow n'écrit dans le dépôt.
-# L'écriture dans le dépôt du SITE, elle, ne passe pas par ce jeton mais par
-# SITE_ARCHIVE_TOKEN : le GITHUB_TOKEN d'un run ne vaut que pour son propre dépôt.
+# contents: write → archive (branche donnees-culture) et marqueur d'envoi (étiquette).
+# actions: write → relance du workflow par lui-même au-delà de 5 heures.
 permissions:
   contents: write
+  actions: write
+
+concurrency:
+  group: daily-brief-${{ github.event.inputs.mode || 'production' }}
+  cancel-in-progress: false
 
 jobs:
-  generate-and-send-brief:
-    name: Génère le brief (Claude Code CLI) et l'envoie
+  brief:
+    name: Brief v22 (collecte, génération, contrôles, envoi à 5h43)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 345
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Garde saison, date et envoi déjà fait
+        id: garde
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          IN_MODE: ${{ github.event.inputs.mode }}
+          IN_DATE: ${{ github.event.inputs.date }}
+          IN_TEST: ${{ github.event.inputs.test_email }}
+        run: |
+          set -eu
+          if [ "$EVENT" = "schedule" ]; then
+            OFFSET=$(TZ=Europe/Paris date +%z)
+            if { [ "$OFFSET" = "+0100" ] && [ "$SCHEDULE" != "13 2 * * 1-5" ]; } \
+               || { [ "$OFFSET" = "+0200" ] && [ "$SCHEDULE" != "13 1 * * 1-5" ]; }; then
+              echo "⏭️ Cron « $SCHEDULE » hors saison (Paris $OFFSET) : l'autre cron fait le brief."
+              echo "go=0" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            MODE=production
+          else
+            MODE="$IN_MODE"
+          fi
+          DATE_ISO="${IN_DATE:-$(TZ=Europe/Paris date +%Y-%m-%d)}"
+          echo "$DATE_ISO" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || { echo "::error::date invalide « $DATE_ISO »"; exit 1; }
+          DOW=$(date -d "$DATE_ISO" +%u)
+          if [ "$MODE" = "production" ] && [ "$DOW" -gt 5 ]; then
+            echo "⏭️ $DATE_ISO est un week-end : aucun brief."; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ "$MODE" = "essai" ] && ! echo "$IN_TEST" | grep -qE '^[^@ ]+@[^@ ]+\.[a-z]{2,}$'; then
+            echo "::error::Mode essai sans test_email valide : rien ne part."; exit 1
+          fi
+          if [ "$MODE" = "production" ] && git ls-remote --exit-code --tags origin "refs/tags/brief-envoye-$DATE_ISO" >/dev/null 2>&1; then
+            echo "⏭️ Brief du $DATE_ISO déjà envoyé (étiquette brief-envoye-$DATE_ISO) : aucun doublon."
+            echo "go=0" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          DATE_LONG_FR=$(node -e "import('./api/_lib/date-fr.js').then(m=>process.stdout.write(m.formatDateLongFr('$DATE_ISO')))")
+          [ -n "$DATE_LONG_FR" ] || { echo "::error::formatage de la date impossible"; exit 1; }
+          { echo "go=1"; echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
+          echo "📅 Brief du $DATE_LONG_FR · mode $MODE"
+
+      - name: Tests du brief v22 (référence et source muette)
+        if: steps.garde.outputs.go == '1'
+        run: |
+          node outils/test-brief-v22.mjs
+          node outils/test-source-muette.mjs
+
       - name: Install Claude Code CLI
+        if: steps.garde.outputs.go == '1'
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Generate brief HTML via Claude
-        id: brief
-        timeout-minutes: 25   # sous le job (30) → le step rate proprement avant la coupe brutale GH
+      - name: Cycle (collecte, relances, génération, contrôles)
+        id: cycle
+        if: steps.garde.outputs.go == '1'
+        timeout-minutes: 335
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DISCORD_ALERTE_URL: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.garde.outputs.mode }}
+          DATE_ISO: ${{ steps.garde.outputs.date_iso }}
+          DATE_LONG_FR: ${{ steps.garde.outputs.date_long_fr }}
+          IN_TEST: ${{ github.event.inputs.test_email }}
+          TENTATIVE: ${{ github.event.inputs.tentative || '1' }}
+          ALERTE_COLLECTE: ${{ github.event.inputs.alerte_envoyee || '0' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
-            echo "::error::CLAUDE_CODE_OAUTH_TOKEN manquant dans les Secrets GitHub (à générer via 'claude setup-token', lié à l'abo Claude Max)."
-            exit 1
-          fi
+          # ⚠️ GitHub lance bash avec -e et pipefail : la collecte rend 3 quand une valeur
+          # manque, ce qui couperait l'étape au lieu de relancer. Codes gérés à la main.
+          set +e +o pipefail
+          set -u
+          { echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
+          [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || { echo "::error::CLAUDE_CODE_OAUTH_TOKEN manquant"; exit 1; }
+          # Le webhook d'alerte n'est utilisé qu'en production : un aperçu ou un essai qui
+          # échoue se lit dans le run, sans réveiller le salon.
+          [ "$MODE" = "production" ] || DISCORD_ALERTE_URL=""
+          export DISCORD_ALERTE_URL
+          LIMITE=$(( $(date +%s) + 300 * 60 ))
+          ALERTE_CONTROLE=0
 
-          # ⚠️ LA DATE DU BRIEF EST CELLE DU MATIN OÙ IL SERA LU, pas celle de l'instant
-          # où le runner démarre. Le cron 22h43 UTC tombe à 00h43 à Paris en été, mais à
-          # 23h43 en hiver : sans ce décalage, un run parti à l'heure en hiver datait le
-          # brief de la VEILLE (« dimanche 25 octobre » pour le brief du lundi). On ajoute
-          # huit heures : un départ entre 22h et 4h donne toujours le bon matin, et un
-          # essai manuel l'après-midi reste daté du jour même. Correctif du 25/10/2026,
-          # jour même du passage à l'heure d'hiver.
-          DATE_ISO=$(TZ=Europe/Paris date -d '+8 hours' +%Y-%m-%d)
-          DOW=$(TZ=Europe/Paris date -d '+8 hours' +%u)   # 1=Lun … 7=Dim
+          relancer() {
+            echo "⏳ 5 heures écoulées sans brief complet : le workflow se relance (tentative $TENTATIVE)."
+            gh workflow run daily-brief.yml --ref "$GITHUB_REF_NAME" -f mode="$MODE" -f date="$DATE_ISO" \
+              -f test_email="${IN_TEST:-}" -f tentative="$TENTATIVE" -f alerte_envoyee="$ALERTE_COLLECTE"
+            echo "relance=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          dormir() { [ $(( $(date +%s) + 600 )) -lt "$LIMITE" ] || relancer; echo "😴 nouvelle tentative dans 10 minutes"; sleep 600; TENTATIVE=$((TENTATIVE + 1)); }
+          attendre() { # attendre HH:MM (heure de Paris, le jour du brief)
+            local cible; cible=$(TZ=Europe/Paris date -d "$DATE_ISO $1" +%s)
+            local reste=$(( cible - $(date +%s) ))
+            if [ "$reste" -gt 0 ]; then echo "⏰ attente jusqu'à $1 Paris ($((reste / 60)) min)"; sleep "$reste"; fi
+          }
 
-          # Date longue formatée par api/_lib/date-fr.js, la MÊME fonction que celle
-          # qu'utilise l'endpoint. Elle n'est pas recopiée ici : une deuxième
-          # implémentation finirait par diverger de la première.
-          #
-          # L'ancienne ligne était :
-          #   LC_TIME=fr_FR.UTF-8 date +"%A %-d %B %Y" 2>/dev/null || TZ=... date ...
-          # Elle a produit « Thursday 3 September 2026 » pendant des jours. La locale
-          # fr_FR n'est pas installée sur le runner, mais `date` ne plante pas pour
-          # autant : il sort en anglais avec un code de retour 0, si bien que le repli
-          # `||` ne pouvait JAMAIS se déclencher. Pas de sortie non nulle, pas d'alerte.
-          # `set -e` ne pouvait rien voir non plus.
-          DATE_LONG_FR=$(node -e "
-            import('./api/_lib/date-fr.js')
-              .then(m => process.stdout.write(m.formatDateLongFr('$DATE_ISO')))
-              .catch(e => { console.error(e.message); process.exit(1); })
-          ")
-          # Ce garde-là, LUI, peut se déclencher : node sort en code 1 sur une erreur
-          # d'import ou une date invalide, et la variable est alors vide.
-          if [ -z "$DATE_LONG_FR" ]; then
-            echo "::error::Formatage de la date échoué pour $DATE_ISO (api/_lib/date-fr.js)."
-            exit 1
-          fi
-
-          if [ -n "${{ github.event.inputs.test_subject_suffix }}" ]; then
-            DATE_LONG_FR="$DATE_LONG_FR ${{ github.event.inputs.test_subject_suffix }}"
-          fi
-          echo "📅 Brief du $DATE_LONG_FR ($DATE_ISO) · jour $DOW"
-
-          # NOTION DE CULTURE DU JOUR. La rotation est calculée par api/_lib/culture-marche.js,
-          # la MÊME fonction que celle qu'utilise l'endpoint pour journaliser et vérifier.
-          # Elle n'est pas recopiée ici : deux implémentations de la rotation finiraient par
-          # diverger, et le brief publierait une définition du MACD sous un schéma de RSI.
-          # Une notion dont le schéma n'est pas encore dessiné rend une ligne « aucune » :
-          # la rubrique saute ce jour-là, elle ne part pas avec une image manquante.
-          CULTURE=$(node -e "
-            import('./api/_lib/culture-marche.js')
-              .then(m => {
-                const n = m.notionDuJour('$DATE_ISO');
-                process.stdout.write(n
-                  ? 'Notion de culture du jour : ' + n.nom + ' (rotation ' + n.rang + ', catalogue ' + n.rangCatalogue + '). Angle a traiter : ' + n.angle + '. Adresse du schema, a reprendre TELLE QUELLE : ' + n.urlSchema
-                  : 'Aucune notion de culture aujourd hui : ne produis pas la section 8.');
-              })
-              .catch(e => { console.error(e.message); process.exit(1); })
-          ")
-          if [ -z "$CULTURE" ]; then
-            echo "::error::Rotation culture échouée pour $DATE_ISO (api/_lib/culture-marche.js)."
-            exit 1
-          fi
-          echo "📚 $CULTURE"
-
-          # ═══ DONNÉES DE MARCHÉ COLLECTÉES PAR DU CODE ═══════════════════════════
-          #
-          # Jusqu'ici TOUS les chiffres du brief venaient du modèle, via WebSearch et
-          # WebFetch. Un modèle qui lit une page rend toujours une valeur plausible :
-          # mauvais champ, page modifiée, contrat qui vient de rouler, il ne plante pas,
-          # il produit un nombre crédible. Sur les dix derniers runs de production, la
-          # clôture ES est sortie en n/d cinq fois et fausse au moins deux fois — le
-          # 14/09 sur le contrat périmé ESU26, à soixante-huit points de la réalité.
-          #
-          # Le code, lui, échoue bruyamment. Une valeur qui rate un contrôle devient
-          # n/d avec son motif, et le motif part dans l'audit ET dans Discord.
-          #
-          # L'historique des instantanés est récupéré s'il existe : il porte le haut et
-          # le bas des séances réglées, que rien ne peut donner à l'heure du brief.
-          # Les instantanés sont EXTRAITS, pas seulement récupérés. La version
-          # précédente faisait un `git fetch` puis imprimait une ligne de log
-          # rassurante, et personne ne lisait les fichiers : `collecterMarche` accepte
-          # un paramètre `historique` qu'aucun appelant ne remplissait. Les hauts et
-          # bas d'ES seraient restés en n/d indéfiniment.
-          # ⚠️ 25/10/2026 : la branche ne porte plus de dossier `seances` depuis le 16/09 —
-          # le prélèvement de 17h05 n'a plus rien déposé (crons GitHub en retard de
-          # plusieurs heures, sortis en succès hors de leur fenêtre). `git archive … seances`
-          # échouait donc sur « This does not look like a tar archive ». On extrait la
-          # branche ENTIÈRE, et les dossiers existent toujours, même vides.
-          # Les hauts et bas de SÉANCE ne dépendent plus d'eux (barres TradingView par
-          # rang) ; ceux de SEMAINE se reconstruisent à partir des séances que CHAQUE
-          # brief dépose désormais (étape « Déposer les séances vérifiées »).
-          mkdir -p /tmp/donnees/seances /tmp/donnees/semaines
-          if git fetch origin donnees-marche --depth=1 2>/dev/null \
-             && git archive origin/donnees-marche 2>/dev/null | tar -x -C /tmp/donnees; then
-            echo "📈 Séances déposées : $(ls -1 /tmp/donnees/seances 2>/dev/null | wc -l | tr -d ' ') · semaines : $(ls -1 /tmp/donnees/semaines 2>/dev/null | wc -l | tr -d ' ')"
-            ls -1 /tmp/donnees/seances 2>/dev/null | tail -6 | sed 's/^/     /'
-          else
-            echo "📈 Branche donnees-marche illisible : semaine ES en n/d si une séance manque"
-          fi
-          INSTANTANES=/tmp/donnees/seances
-
-          MARCHE=$(SORTIE_SEANCES=/tmp/seances-nouvelles SORTIE_CFD=/tmp/pivots-cfd.txt node outils/marche.mjs collecte "$DATE_ISO" "$INSTANTANES" 2>/tmp/marche_err.log)
-          if [ -z "$MARCHE" ]; then
-            echo "::error::La collecte de marché n'a rien produit. $(cat /tmp/marche_err.log)"
-            exit 1
-          fi
-          echo "$MARCHE"
-
-          # Nombre de valeurs indisponibles, pour l'alerte Discord. Compté sur la
-          # sortie réellement injectée, pas sur une intention.
-          ND=$(echo "$MARCHE" | grep -c ' : n/d (' || true)
-          echo "marche_nd=$ND" >> "$GITHUB_OUTPUT"
-          {
-            echo 'marche_motifs<<FIN'
-            echo "$MARCHE" | grep ' : n/d (' | sed 's/^ *//' | head -12
-            echo 'FIN'
-          } >> "$GITHUB_OUTPUT"
-          if [ "$ND" -gt 0 ]; then
-            echo "::warning::$ND valeur(s) de marché indisponibles — elles partiront en n/d."
-          fi
-
-          # Les heures de Paris des rendez-vous américains, calculées pour CE matin
-          # (api/_lib/heure-marche.js). Europe et États-Unis ne changent pas d'heure le
-          # même jour : sans cette ligne, le brief annonçait 15h30 une semaine où
-          # Wall Street ouvre à 14h30 (25/10/2026).
-          HORAIRES=$(node -e "
-            import('./api/_lib/heure-marche.js')
-              .then(m => process.stdout.write(m.contexteHoraire('$DATE_ISO')))
-              .catch(e => { console.error(e.message); process.exit(1); })
-          ")
-          if [ -z "$HORAIRES" ]; then echo "::error::Calcul des horaires échoué pour $DATE_ISO."; exit 1; fi
-          echo "🕐 $HORAIRES"
-
-          # Contexte daté injecté en tête (évite que Claude devine la date).
-          PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s). Jour de semaine (1=Lun … 5=Ven) : %s.\n%s\n%s\n\n%s\n\n%s' \
-            "$DATE_LONG_FR" "$DATE_ISO" "$DOW" "$HORAIRES" "$CULTURE" "$MARCHE" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
-
-          echo "🤖 Claude Code CLI version : $(claude --version 2>&1 || echo 'inconnue')"
-          echo "📝 Prompt système : $(wc -l < .github/workflows/prompts/daily-brief-system.md) lignes, $(wc -c < .github/workflows/prompts/daily-brief-system.md) octets"
-
-          # Génération headless. --dangerously-skip-permissions : autorise WebSearch/WebFetch + Bash en CI.
-          # On capture stdout (brief_raw.html) ET stderr (claude_err.log) séparément, sans exit immédiat,
-          # pour TOUJOURS pouvoir afficher la vraie cause d'un échec (le 1er run a fail en silence).
-          set +e
-          echo "$PROMPT" | claude -p --output-format text --dangerously-skip-permissions \
-            > /tmp/brief_raw.html 2>/tmp/claude_err.log
-          EXIT_CODE=$?
-          set -e
-
-          # stderr affiché systématiquement (warnings utiles même en cas de succès).
-          echo "---START STDERR---"
-          cat /tmp/claude_err.log 2>/dev/null || true
-          echo "---END STDERR---"
-
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "::error::Claude CLI a échoué (exit code $EXIT_CODE)."
-            echo "---START STDOUT (100 premières lignes) ---"
-            head -100 /tmp/brief_raw.html 2>/dev/null || true
-            echo "---END STDOUT---"
-            echo "::error::Causes fréquentes : token invalide/incomplet · quota Claude Max épuisé (rate limit) · WebFetch/WebSearch refusés en CI · prompt trop long. Voir STDERR/STDOUT ci-dessus."
-            exit 1
-          fi
-
-          # === VALIDATION STRICTE ANTI-MÉTA-COMMENTAIRE (bug prod P1) ===
-          # 1. Extraction robuste : tout depuis la div wrapper 'brief-marche' jusqu'à la FIN.
-          #    Pardonne un préambule méta AVANT le vrai HTML (Claude a parfois bavardé) en le
-          #    coupant. On va jusqu'à EOF (pas au 1er </div>) car le brief contient des <div>
-          #    imbriqués (encarts) → s'arrêter au 1er </div> tronquait le brief.
-          #    Si le marqueur est absent → /tmp/brief.html vide → échec (pas de mail cassé).
-          #
-          #    Le motif tolère les ATTRIBUTS sur la balise wrapper. L'ancien motif exigeait
-          #    '<div class="brief-marche">' avec le '>' collé : le run du 2026-08-21 a produit
-          #    '<div class="brief-marche" style="font-family:Arial;…">' — brief parfaitement
-          #    valide, rejeté à tort, aucun mail envoyé. Le prompt réclame des styles inline
-          #    partout (compat email), donc un attribut sur le wrapper est une variation
-          #    normale du modèle, pas une anomalie. Couvre aussi class en quotes simples et
-          #    l'ordre inverse des attributs.
-          sed -n '/<div[^>]*brief-marche/,$p' /tmp/brief_raw.html > /tmp/brief.html
-
-          if [ ! -s /tmp/brief.html ]; then
-            echo "::error::Wrapper <div ... class=\"brief-marche\"> introuvable dans la sortie Claude. Rien n'est envoyé. Vérifier le STDOUT ci-dessous : soit Claude n'a produit que du méta-commentaire, soit il a renommé/omis le wrapper."
-            echo "---START STDOUT (100 lignes) ---"; head -100 /tmp/brief_raw.html 2>/dev/null || true; echo "---END STDOUT---"
-            exit 1
-          fi
-
-          SIZE=$(wc -c < /tmp/brief.html)
-          # 2a. Taille minimale plausible d'un vrai brief.
-          if [ "$SIZE" -lt 3000 ]; then
-            echo "::error::HTML extrait trop court ($SIZE octets < 3000) — probablement incomplet ou méta. Rien n'est envoyé."
-            echo "---START HTML---"; cat /tmp/brief.html; echo "---END HTML---"
-            exit 1
-          fi
-          # 2b. Double-check du marqueur (l'extraction le garantit, ceinture + bretelles).
-          if ! grep -q 'brief-marche' /tmp/brief.html; then
-            echo "::error::Marqueur 'brief-marche' absent après extraction. Rien n'est envoyé."; exit 1
-          fi
-          # 2c. Ne doit pas COMMENCER par du texte méta (1re ligne non vide, casse ignorée).
-          # Pivots du CFD : le commentaire machine écrit par la collecte (Cboe, code seul)
-          # est accroché au brief. Le modèle ne le voit ni ne le touche ; l'endpoint le lit,
-          # calcule les pivots et le retire.
-          if [ -s /tmp/pivots-cfd.txt ]; then
-            cat /tmp/pivots-cfd.txt >> /tmp/brief.html
-            echo "📌 Données des pivots (ES et CFD, calculés par le code) accrochées : $(cat /tmp/pivots-cfd.txt)"
-          else
-            echo "::warning::Pivots : ni la barre de séance ES ni le S&P 500 Cboe ne sont disponibles, pivots en n/d."
-          fi
-          FIRST=$(grep -m1 -v '^[[:space:]]*$' /tmp/brief.html || true)
-          if echo "$FIRST" | grep -qiE '^[[:space:]]*(le brief|voici|j.ai|points cl|sauvegard|le fichier)'; then
-            echo "::error::Le HTML commence par un méta-commentaire : $FIRST — Rien n'est envoyé."; exit 1
-          fi
-          # 2d. Doit commencer par une balise HTML valide.
-          if ! echo "$FIRST" | grep -qiE '^[[:space:]]*<(!doctype|html|div|article|section)'; then
-            echo "::error::Le HTML ne commence pas par une balise valide (<!DOCTYPE/<html/<div/<article/<section) : $FIRST — Rien n'est envoyé."; exit 1
-          fi
-
-          echo "✅ HTML validé ($SIZE octets)"
-
-          # === RELEVÉ DE STRUCTURE ===
-          # Le HTML produit n'était imprimé qu'en cas d'ÉCHEC. Sur un run réussi on ne
-          # voyait donc que sa taille : impossible de constater qu'une section attendue
-          # est là, et impossible de voir ce que lit quelqu'un dont le client masque les
-          # images. Ce relevé coûte quelques lignes de log et répond aux deux.
-          compter() { grep -o "$1" /tmp/brief.html 2>/dev/null | wc -l | tr -d ' '; }
-          echo "📐 Structure du brief :"
-          echo "   titre S&P 500 : zones à surveiller ... $(compter 'S&amp;P 500 : zones\|S&P 500 : zones')"
-          echo "   tableau (en-tête ES/CFD) ............. $(compter '>ES<')/$(compter '>CFD<')"
-          echo "   lignes CLÔTURE / POC ................. $(compter '>CLÔTURE<')/$(compter '>POC<') (attendu 1/1)"
-          echo "   lignes haut/bas (retirées le 29/10) .. $(compter 'HAUT SÉANCE\|BAS SÉANCE\|HAUT SEM\.\|BAS SEM\.') (attendu 0)"
-          # Pivots ES : le contrôle est celui de l'endpoint, rejoué ici pour que le log du
-          # run dise s'ils partiront et, sinon, pourquoi. Un refus ne bloque rien.
-          PIVOTS=$(node -e "
-            Promise.all([import('./api/_lib/pivots.js'), import('node:fs')]).then(([m, fs]) => {
-              const r = m.ajouterPivots(fs.readFileSync('/tmp/brief.html', 'utf8'));
-              console.log('ES ' + (r.pivots ? 'pivot ' + r.pivots.P : 'NON : ' + r.motif) + ' | CFD ' + (r.pivotsCfd ? 'pivot ' + r.pivotsCfd.P : 'NON : ' + r.motifCfd));
-            }).catch((e) => console.log('NON vérifiables : ' + e.message));
-          " 2>&1 | tail -1)
-          echo "   points pivots ES ..................... $PIVOTS"
-          case "$PIVOTS" in *NON*) echo "::warning::Points pivots incomplets : $PIVOTS";; esac
-          echo "   niveaux psychologiques ............... $(compter 'Niveaux psychologiques')"
-          echo "   encart culture ....................... $(compter 'Culture de march')"
-          echo "   schéma référencé ..................... $(grep -o 'assets/culture/[a-z0-9-]*\.png' /tmp/brief.html | sort -u | tr '\n' ' ')"
-          echo "   attribut alt du schéma ............... $(grep -o 'alt="Schéma[^"]*"' /tmp/brief.html | head -1)"
-          echo "   tirets longs restants ................ $(compter '[—–]')"
-          echo "   poids ................................ $SIZE octets ($(( SIZE * 100 / 92160 ))% de la garde des 90 Ko)"
-
-          # === LE MODÈLE A-T-IL REPRIS LES CHIFFRES TELS QUELS ? ===
-          # Le prompt le lui interdit ; cette vérification ne fait pas confiance au
-          # prompt. Trois durcissements successifs des instructions n'ont rien changé
-          # au problème, ce qui est la raison même de cette refonte : une consigne
-          # n'est pas un contrôle. Chaque valeur FOURNIE est cherchée dans le HTML
-          # produit, au format français, telle qu'elle a été transmise.
-          echo "🔢 Reprise des chiffres fournis :"
-          MANQUANTS=0
-          while IFS= read -r ligne; do
-            # Découpage sur le PREMIER deux-points, pas le dernier. Avec `.* : ` le
-            # motif est glouton : sur « haut de semaine : n/d (… clôtures : le fichier
-            # Cboe …) » il coupait au deux-points du MOTIF, la valeur devenait un bout
-            # de phrase, le test « commence par n/d » ne la reconnaissait plus, et la
-            # ligne repartait dans la comparaison. Elle y passait, parce que la
-            # réduction aux chiffres rendait une chaîne VIDE et que `grep -F ""` trouve
-            # toujours. Deux n/d comptés comme vérifiés : un faux ✅ est pire qu'une
-            # absence de contrôle, puisqu'il affirme.
-            libelle=$(echo "$ligne" | sed 's/^ *//; s/ *:.*//')
-            valeur=$(echo "$ligne" | sed 's/^[^:]*: *//')
-            case "$valeur" in n/d*) continue;; esac
-            # L'espace fine insécable des milliers peut être rendu par plusieurs
-            # caractères selon le modèle : la comparaison porte sur les chiffres seuls.
-            chiffres=$(echo "$valeur" | sed 's/[^0-9,]//g')
-            if [ -z "$chiffres" ]; then
-              echo "   ❌ $libelle — valeur « $valeur » sans chiffre, non vérifiable"
-              MANQUANTS=$((MANQUANTS + 1))
-            elif grep -qF "$chiffres" <(sed 's/[^0-9,]//g' /tmp/brief.html); then
-              echo "   ✅ $libelle = $valeur"
-            else
-              echo "   ❌ $libelle = $valeur — ABSENTE du brief"
-              MANQUANTS=$((MANQUANTS + 1))
+          # ── 1. COLLECTE, jusqu'à ce que TOUT soit là ───────────────────────────────
+          while true; do
+            echo "═══ Collecte, tentative $TENTATIVE ═══"
+            node outils/brief-v22.mjs collecte "$DATE_ISO" /tmp/donnees.json
+            RC=$?
+            [ "$RC" -eq 0 ] && break
+            if [ "$ALERTE_COLLECTE" = "0" ]; then
+              if [ "$RC" -eq 3 ]; then node outils/brief-v22.mjs alerte /tmp/donnees.json "$RUN_URL" "$TENTATIVE" || true
+              else echo "collecte en erreur (code $RC), voir le run" > /tmp/motifs.txt
+                   node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs.txt "$RUN_URL" || true; fi
+              ALERTE_COLLECTE=1
             fi
-          done < <(echo "$MARCHE" | grep -E '^  .+ : ')
-          echo "marche_manquants=$MANQUANTS" >> "$GITHUB_OUTPUT"
-          if [ "$MANQUANTS" -gt 0 ]; then
-            echo "::warning::$MANQUANTS valeur(s) fournie(s) n'apparaissent pas telles quelles dans le brief — le modèle les a modifiées ou omises."
-          fi
+            dormir
+          done
+          cp /tmp/donnees.json /tmp/donnees-retenues.json
 
-          echo "date_iso=$DATE_ISO" >> "$GITHUB_OUTPUT"
-          echo "date_long_fr=$DATE_LONG_FR" >> "$GITHUB_OUTPUT"
+          # ── 2. GÉNÉRATION vers 5h05 en production, puis contrôles ─────────────────
+          [ "$MODE" = "production" ] && attendre 05:05
+          NOTION=$(node -e "import('./api/_lib/culture-marche.js').then(m=>{const n=m.notionDuJour('$DATE_ISO');process.stdout.write(n?('Notion de culture du jour : '+n.nom+'. Angle à traiter : '+n.angle+'.'):'')})")
+          HORAIRES=$(node -e "import('./api/_lib/heure-marche.js').then(m=>process.stdout.write(m.contexteHoraire('$DATE_ISO')))")
+          while true; do
+            echo "═══ Génération, tentative $TENTATIVE ═══"
+            PROMPT="$(printf 'Date du jour (Europe/Paris) : %s (%s).\n%s\n%s\n\n%s\n\n%s' "$DATE_LONG_FR" "$DATE_ISO" "$HORAIRES" "$NOTION" \
+              "$(node outils/brief-v22.mjs prompt /tmp/donnees.json)" "$(cat .github/workflows/prompts/daily-brief-system.md)")"
+            echo "$PROMPT" | claude -p --output-format text --dangerously-skip-permissions > /tmp/sortie-modele.txt 2>/tmp/claude_err.log
+            RC=$?
+            if [ "$RC" -ne 0 ]; then
+              tail -20 /tmp/claude_err.log
+              echo "Claude CLI a échoué (code $RC) : $(tail -3 /tmp/claude_err.log | tr '\n' ' ' | cut -c1-300)" > /tmp/motifs.txt
+            elif node outils/brief-v22.mjs assembler /tmp/donnees.json /tmp/sortie-modele.txt /tmp/brief.html /tmp/motifs.txt; then
+              break
+            fi
+            echo "--- sortie du modèle (début) ---"; head -c 3000 /tmp/sortie-modele.txt 2>/dev/null; echo
+            if [ "$ALERTE_CONTROLE" = "0" ]; then
+              node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs.txt "$RUN_URL" || true
+              ALERTE_CONTROLE=1
+            fi
+            dormir
+          done
 
-      - name: Archiver le HTML produit
-        if: always()
+          # Aperçus (membres, prospects, archive) en artefact, pour relecture.
+          mkdir -p /tmp/apercus
+          for V in members prospects archive; do
+            node outils/brief-v22.mjs apercu /tmp/donnees.json /tmp/sortie-modele.txt "/tmp/apercus/brief-$DATE_ISO-$V.html" "$V" essai
+          done
+          node outils/brief-v22.mjs resume /tmp/donnees.json > /tmp/apercus/collecte-$DATE_ISO.txt
+          cp /tmp/sortie-modele.txt /tmp/donnees.json /tmp/brief.html /tmp/apercus/
+          echo "pret=1" >> "$GITHUB_OUTPUT"
+
+          # ── 3. ENVOI à 5h43 en production ──────────────────────────────────────────
+          [ "$MODE" = "production" ] && attendre 05:43
+          exit 0
+
+      - name: Artefacts (aperçus, collecte, sortie du modèle)
+        if: always() && steps.garde.outputs.go == '1'
         uses: actions/upload-artifact@v4
         with:
-          name: brief-html-${{ steps.brief.outputs.date_iso || github.run_id }}
-          path: /tmp/brief.html
-          retention-days: 14
-          if-no-files-found: warn
-
-      - name: Déposer les séances vérifiées
-        # Chaque brief dépose la séance d'ES qu'il vient de VÉRIFIER (barre TradingView
-        # dont la clôture concorde avec le règlement daté), et les barres antérieures
-        # lisibles. C'est ce qui reconstruit le haut et le bas de SEMAINE sans aucun
-        # rendez-vous horaire (25/10/2026). ⛔ Ne bloque jamais l'envoi du brief.
-        if: always() && steps.brief.outcome == 'success'
-        continue-on-error: true
-        run: |
-          N=$(ls -1 /tmp/seances-nouvelles 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$N" = "0" ]; then echo "Aucune séance vérifiée à déposer (voir les motifs n/d)."; exit 0; fi
-          git config user.name  "Instantané marché"
-          git config user.email "clubtrader360@gmail.com"
-          rm -rf /tmp/depot && git clone -q --depth=1 --branch donnees-marche \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" /tmp/depot
-          mkdir -p /tmp/depot/seances
-          cp /tmp/seances-nouvelles/*.json /tmp/depot/seances/
-          cd /tmp/depot && git add seances
-          if git diff --cached --quiet; then echo "Séances déjà déposées, identiques."; exit 0; fi
-          git -c user.name="Instantané marché" -c user.email="clubtrader360@gmail.com" commit -qm "séances vérifiées (brief du ${{ steps.brief.outputs.date_iso }})"
-          git push -q origin donnees-marche
-          echo "✅ $(git show --stat --format= HEAD | tail -1)"
+          name: brief-v22-${{ steps.garde.outputs.date_iso }}-${{ github.run_id }}
+          path: /tmp/apercus/
+          if-no-files-found: ignore
 
       - name: POST to daily-brief endpoint
         id: post
+        if: steps.cycle.outputs.pret == '1' && steps.cycle.outputs.mode != 'apercu'
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          ONLY_USER_ID: ${{ github.event.inputs.only_user_id }}
+          MODE: ${{ steps.cycle.outputs.mode }}
+          DATE_ISO: ${{ steps.cycle.outputs.date_iso }}
           TEST_EMAIL: ${{ github.event.inputs.test_email }}
-          REASON: ${{ github.event.inputs.reason || 'cron auto' }}
         run: |
-          if [ -z "$CRON_SECRET" ]; then
-            echo "::error::CRON_SECRET secret manquant côté GitHub."
-            exit 1
+          set -eu
+          [ -n "$CRON_SECRET" ] || { echo "::error::CRON_SECRET manquant"; exit 1; }
+          if [ "$MODE" = "production" ] && git ls-remote --exit-code --tags origin "refs/tags/brief-envoye-$DATE_ISO" >/dev/null 2>&1; then
+            echo "::error::Brief du $DATE_ISO déjà envoyé entre-temps : aucun doublon."; exit 1
           fi
-          DATE_ISO="${{ steps.brief.outputs.date_iso }}"
-
-          # Validation UUID si only_user_id fourni (anti-injection).
-          if [ -n "$ONLY_USER_ID" ] && ! echo "$ONLY_USER_ID" | grep -qiE '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'; then
-            echo "::error::only_user_id invalide (UUID attendu) : '$ONLY_USER_ID'"
-            exit 1
-          fi
-
-          # Construction du body JSON (jq gère l'échappement du HTML).
-          if [ -n "$TEST_EMAIL" ]; then
-            echo "🧪 Test email ciblé : $TEST_EMAIL (aucun élève réel touché)"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" \
-              '{date:$date, brief_html:$bh, test_emails:[$te]}')
-          elif [ -n "$ONLY_USER_ID" ]; then
-            echo "🎯 Test ciblé élève : $ONLY_USER_ID"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg uid "$ONLY_USER_ID" \
-              '{date:$date, brief_html:$bh, only_user_id:$uid}')
+          if [ "$MODE" = "essai" ]; then
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html --arg te "$TEST_EMAIL" '{date:$date, brief_html:$bh, test_emails:[$te]}')
           else
-            echo "🚀 Envoi à TOUS les éligibles (raison: $REASON)"
-            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html \
-              '{date:$date, brief_html:$bh}')
+            PAYLOAD=$(jq -n --arg date "$DATE_ISO" --rawfile bh /tmp/brief.html '{date:$date, brief_html:$bh}')
           fi
-
-          response=$(curl -sSL -w "\n---HTTP_STATUS:%{http_code}---" -X POST \
-            "https://www.journaltrader360.fr/api/cron/daily-brief" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            --max-time 180 \
-            --retry 2 --retry-delay 10)
-
+          response=$(curl -sSL -w "\n---HTTP_STATUS:%{http_code}---" -X POST "https://www.journaltrader360.fr/api/cron/daily-brief" \
+            -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d "$PAYLOAD" --max-time 180)
           body=$(echo "$response" | sed -e 's/---HTTP_STATUS:.*//')
-          status=$(echo "$response" | grep -oE 'HTTP_STATUS:[0-9]+' | cut -d: -f2)
-          echo "HTTP Status: $status"
-          echo "Response body:"; echo "$body"
-
-          if [ "$status" != "200" ]; then
-            echo "::error::Endpoint daily-brief a répondu $status (attendu 200). Body ci-dessus."
-            exit 1
+          status=$(echo "$response" | grep -oE 'HTTP_STATUS:[0-9]+' | cut -d: -f2 || true)
+          echo "HTTP $status"; echo "$body" | head -c 3000; echo
+          [ "$status" = "200" ] || { echo "::error::Endpoint daily-brief : $status"; exit 1; }
+          dest=$(echo "$body" | grep -oE '"(recipients|destinataires)":[0-9]+' | head -1 | cut -d: -f2 || true)
+          echo "dest=${dest:-?}" >> "$GITHUB_OUTPUT"
+          if [ "$MODE" = "production" ]; then
+            git tag "brief-envoye-$DATE_ISO" && git push -q origin "refs/tags/brief-envoye-$DATE_ISO" \
+              || echo "::warning::étiquette brief-envoye-$DATE_ISO non posée (le garde anti-doublon ne la verra pas)"
           fi
-
-          # Le repli est SORTI du pipeline, il n'y est plus en queue.
-          # `a | b | c || repli` teste le code de sortie de c seulement. Ici c'était
-          # `cut`, qui réussit sur une entrée vide en ne produisant rien : le repli ne
-          # se déclenchait jamais et la variable devenait une chaîne VIDE, pas « ? ».
-          # Conséquence mesurée sur une réponse inattendue : le log affichait
-          # « ✅  envoyé(s) ·  échec(s) », et Discord affichait « 0 / 0 » à cause du
-          # `${x:-0}` plus bas — soit une affirmation fausse et confiante là où la
-          # vérité est « on ne sait pas ».
-          sent=$(echo "$body" | grep -oE '"sent":[0-9]+' | head -1 | cut -d: -f2)
-          failed=$(echo "$body" | grep -oE '"failed":[0-9]+' | head -1 | cut -d: -f2)
-          dest=$(echo "$body" | grep -oE '"destinataires":[0-9]+' | head -1 | cut -d: -f2)
-
-          # ⚠️ REPLI POUR LE MODE BREVO. En campagne, la réponse ne porte NI « sent »
-          # NI « destinataires » : elle porte « recipients ». Les trois compteurs
-          # sortaient donc en « ? » alors que 88 personnes avaient reçu le brief, les
-          # 6 et 7 octobre. La notification disait « ? / ? » — honnête, puisqu'elle
-          # refuse d'affirmer un zéro faux, mais aveugle au mode réellement utilisé.
-          #
-          # ⛔ LE MOTIF RESTE `"sent":[0-9]+`, AVEC LES CHIFFRES. La réponse porte
-          # aussi `"sent":true`, un BOOLÉEN, pour la campagne prospects : un motif
-          # élargi à `"sent":\w+` rendrait « true » et l'afficherait comme un nombre
-          # d'envois. Vérifié sur le corps réel du 7 octobre.
-          #
-          # Le repli est SORTI du pipeline, comme les autres dans ce fichier : testé en
-          # queue, `a | b | c || repli` ne regarde que le code de sortie de `c`.
-          if [ -z "$sent" ]; then
-            sent=$(echo "$body" | grep -oE '"recipients":[0-9]+' | head -1 | cut -d: -f2)
-          fi
-          if [ -z "$dest" ]; then
-            dest=$(echo "$body" | grep -oE '"recipients":[0-9]+' | head -1 | cut -d: -f2)
-          fi
-
-          # Ce qui reste vide reste « ? » : en mode Brevo il n'y a pas de compteur
-          # d'échecs par destinataire, et « 0 échec » serait une affirmation qu'on ne
-          # peut pas soutenir.
-          sent=${sent:-?}
-          failed=${failed:-?}
-          dest=${dest:-?}
-          echo "✅ $sent envoyé(s) · $failed échec(s) · $dest destinataire(s)"
-
-          # Test arithmétique, et non textuel. L'ancienne condition était
-          # `[ "${failed:-0}" != "0" ] && [ -n "${failed}" ]` : elle marchait tant que
-          # `failed` était vide, mais devient FAUSSE dès que la valeur vaut « ? », car
-          # « ? » est différent de « 0 » et non vide. Corriger l'extraction sans
-          # corriger ce test aurait donc introduit un faux avertissement à chaque
-          # réponse inattendue. `-gt` échoue proprement sur du non-numérique, et la
-          # redirection d'erreur évite le message « integer expression expected ».
-          if [ "$failed" -gt 0 ] 2>/dev/null; then
-            echo "::warning::$failed mail(s) ont échoué côté Resend. Voir le JSON ci-dessus."
-          fi
-
-          # Expose les compteurs au step de notif Discord. Plus de `${x:-0}` : les
-          # variables sont désormais toujours renseignées, et surtout ce défaut-là
-          # transformait un « inconnu » en « 0 », ce qui est le contraire du but.
-          { echo "sent=$sent"; echo "failed=$failed"; echo "dest=$dest"; } >> "$GITHUB_OUTPUT"
-
-      - name: Prévenir Nadir si une valeur est en n/d
-        # Demande du 25/10/2026 : un niveau en n/d ne devrait pas arriver, et quand il
-        # arrive, le coach le sait par courriel, motif par motif. Ne bloque rien.
-        if: always() && steps.brief.outputs.marche_nd != '' && steps.brief.outputs.marche_nd != '0'
-        continue-on-error: true
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          ND: ${{ steps.brief.outputs.marche_nd }}
-          MOTIFS: ${{ steps.brief.outputs.marche_motifs }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          PAYLOAD=$(jq -n --arg date "${{ steps.brief.outputs.date_iso }}" --arg nd "$ND" --arg motifs "$MOTIFS" --arg run "$RUN_URL" \
-            '{alerte_marche:{date:$date, nd:($nd|tonumber), motifs:($motifs|split("\n")|map(select(length>0))), run:$run}}')
-          code=$(curl -sS -o /tmp/alerte.json -w '%{http_code}' -X POST "https://www.journaltrader360.fr/api/cron/daily-brief" \
-            -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d "$PAYLOAD" --max-time 60)
-          cat /tmp/alerte.json; echo
-          if [ "$code" != "200" ]; then echo "::warning::Alerte n/d NON envoyée (HTTP $code)"; exit 1; fi
 
       - name: Archiver le brief et la notion de culture
         id: archive
@@ -536,13 +292,13 @@ jobs:
         # publié son brief sur le site. Ces deux entrées n'existent que sur
         # workflow_dispatch ; sur le cron, `github.event.inputs` est nul, et `!null`
         # vaut vrai — la condition laisse donc passer les vrais envois.
+        # V22 : seul le mode « production » archive (ni essai, ni aperçu).
         if: >-
-          always() && steps.post.outcome == 'success'
-          && !github.event.inputs.test_email && !github.event.inputs.only_user_id
+          always() && steps.post.outcome == 'success' && steps.cycle.outputs.mode == 'production'
         continue-on-error: true
         env:
-          DATE_ISO: ${{ steps.brief.outputs.date_iso }}
-          DATE_LONG_FR: ${{ steps.brief.outputs.date_long_fr }}
+          DATE_ISO: ${{ steps.cycle.outputs.date_iso }}
+          DATE_LONG_FR: ${{ steps.cycle.outputs.date_long_fr }}
           SITE_TOKEN: ${{ secrets.SITE_ARCHIVE_TOKEN }}
         run: |
           set -u
@@ -646,6 +402,8 @@ jobs:
                       firstName: null,
                       dateLongFr: process.env.DATE_LONG_FR,
                       briefHtml: h,
+                      // V22 : variante « archive » (ni désinscription, ni pied réseaux).
+                      variant: 'archive',
                     }));
                   })
                   .catch((e) => { console.error(e.message); process.exit(1); });
@@ -753,99 +511,38 @@ jobs:
           fi
           echo "✅ Archivage complet : $FAIT"
 
+
       - name: Notify Discord
-        if: always()
+        if: always() && steps.garde.outputs.go == '1' && steps.cycle.outputs.mode == 'production' && steps.cycle.outputs.relance != '1'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
           POST_OUTCOME: ${{ steps.post.outcome }}
-          DATE_LONG_FR: ${{ steps.brief.outputs.date_long_fr }}
-          MARCHE_ND: ${{ steps.brief.outputs.marche_nd }}
-          MARCHE_MOTIFS: ${{ steps.brief.outputs.marche_motifs }}
-          MARCHE_MANQUANTS: ${{ steps.brief.outputs.marche_manquants }}
-          SENT: ${{ steps.post.outputs.sent }}
-          FAILED: ${{ steps.post.outputs.failed }}
+          DATE_LONG_FR: ${{ steps.cycle.outputs.date_long_fr }}
           DEST: ${{ steps.post.outputs.dest }}
           ARCHIVE_OUTCOME: ${{ steps.archive.outcome }}
           ARCHIVE_FAIT: ${{ steps.archive.outputs.fait }}
           ARCHIVE_ECHECS: ${{ steps.archive.outputs.echecs }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ -z "$DISCORD_WEBHOOK" ]; then
-            echo "::warning::DISCORD_CRON_WEBHOOK_URL absent — notif Discord ignorée."
-            exit 0
-          fi
-          DATE_DISP="${DATE_LONG_FR:-$(TZ=Europe/Paris date +%Y-%m-%d)}"
-          GOLD=13938487   # 0xd4af37
-          RED=15680580    # 0xef4444
-          FAILED_N=$(echo "${FAILED:-0}" | grep -oE '^[0-9]+$' || echo 0)
-          # Les données de marché indisponibles remontent DANS LA NOTIFICATION, et
-          # plus seulement dans un log. C'est le point 3 de la refonte : aujourd'hui,
-          # un chiffre absent ou faux partait sans que personne ne le sache avant qu'un
-          # élève le remarque. Un brief dont des valeurs manquent n'est pas un brief
-          # « envoyé » sans plus de commentaire — il est envoyé AVEC des trous, et la
-          # notification doit le dire en couleur.
-          ND_N=$(echo "${MARCHE_ND:-0}" | grep -oE '^[0-9]+$' || echo 0)
-          MANQ_N=$(echo "${MARCHE_MANQUANTS:-0}" | grep -oE '^[0-9]+$' || echo 0)
-          ORANGE=16750848   # 0xff9900
-          # ══ ÉTAT DE L'ARCHIVAGE ════════════════════════════════════════════
-          # ⚠️ ON LIT `outcome`, PAS `conclusion`. L'étape d'archivage porte
-          # `continue-on-error: true` pour ne jamais retenir un brief. GitHub met
-          # alors `conclusion` à `success` quoi qu'il arrive, et ne laisse la vérité
-          # que dans `outcome`. Une alerte branchée sur `conclusion` serait muette
-          # POUR TOUJOURS, sans jamais rien casser : exactement le motif de panne qui
-          # a laissé l'archivage de la culture inactif pendant cinq jours.
-          #
-          # Le cas « l'étape n'a pas tourné du tout » est traité à part. `outcome`
-          # vaut alors la chaîne vide (step sauté) : ce n'est ni un succès ni un
-          # échec, et le dire « ✅ » serait une affirmation fausse.
-          case "${ARCHIVE_OUTCOME:-}" in
-            success) ARCHIVE_TXT="✅ ${ARCHIVE_FAIT:-déposé}"; ARCHIVE_KO=0 ;;
-            failure) ARCHIVE_TXT="❌ ${ARCHIVE_ECHECS:-échec}"; ARCHIVE_KO=1 ;;
-            "")      ARCHIVE_TXT="⏭️ étape non exécutée (envoi non réussi) — rien n'est archivé"; ARCHIVE_KO=1 ;;
-            *)       ARCHIVE_TXT="❓ état inattendu : $ARCHIVE_OUTCOME"; ARCHIVE_KO=1 ;;
-          esac
-          ARCHIVE_TXT=$(echo "$ARCHIVE_TXT" | sed 's/ | $//' | cut -c1-500)
-
+          [ -n "$DISCORD_WEBHOOK" ] || exit 0
           if [ "$POST_OUTCOME" = "success" ]; then
-            if [ "$FAILED_N" -gt 0 ]; then COLOR=$RED
-            elif [ "$ARCHIVE_KO" -eq 1 ]; then COLOR=$RED
-            elif [ "$ND_N" -gt 0 ] || [ "$MANQ_N" -gt 0 ]; then COLOR=$ORANGE
-            else COLOR=$GOLD; fi
-            if [ "$ND_N" -gt 0 ]; then
-              MARCHE_TXT="⚠️ $ND_N valeur(s) en n/d :"$'\n'"$(echo "$MARCHE_MOTIFS" | head -6)"
-            else
-              MARCHE_TXT="✅ toutes les valeurs collectées et validées"
-            fi
-            if [ "$MANQ_N" -gt 0 ]; then
-              MARCHE_TXT="$MARCHE_TXT"$'\n'"❌ $MANQ_N chiffre(s) fourni(s) absents du brief — le modèle les a modifiés."
-            fi
-            TITRE="📊 Daily Brief envoyé"
-            [ "$ND_N" -gt 0 ] || [ "$MANQ_N" -gt 0 ] && TITRE="📊 Daily Brief envoyé — données incomplètes"
-            [ "$ARCHIVE_KO" -eq 1 ] && TITRE="📊 Daily Brief envoyé — ARCHIVAGE EN ÉCHEC"
-            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_DISP" --arg titre "$TITRE" \
-              --arg served "${SENT:-?} / ${DEST:-?}" --arg failed "${FAILED:-0}" --arg url "$RUN_URL" \
-              --arg marche "$(echo "$MARCHE_TXT" | cut -c1-900)" \
-              --arg archive "$ARCHIVE_TXT" \
-              '{embeds:[{title:$titre,color:$c,fields:[
-                {name:"Date",value:$date,inline:true},
-                {name:"Élèves servis",value:$served,inline:true},
-                {name:"Échecs",value:$failed,inline:true},
-                {name:"Données de marché",value:$marche,inline:false},
-                {name:"Archive",value:$archive,inline:false},
-                {name:"Run",value:("[Voir le run](\($url))"),inline:false}
-              ],timestamp:(now|todate)}]}')
+            if [ "$ARCHIVE_OUTCOME" = "success" ]; then ARCH="✅ ${ARCHIVE_FAIT:-déposé}"; COLOR=13938487; else ARCH="❌ ${ARCHIVE_ECHECS:-archivage non fait}"; COLOR=15680580; fi
+            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_LONG_FR" --arg dest "${DEST:-?}" --arg arch "$(echo "$ARCH" | cut -c1-500)" --arg url "$RUN_URL" \
+              '{embeds:[{title:"📊 Brief v22 envoyé",color:$c,fields:[{name:"Date",value:$date,inline:true},{name:"Destinataires",value:$dest,inline:true},{name:"Données de marché",value:"✅ toutes les valeurs confirmées par deux sources",inline:false},{name:"Archive",value:$arch,inline:false},{name:"Run",value:("[Voir le run](\($url))"),inline:false}],timestamp:(now|todate)}]}')
           else
-            PAYLOAD=$(jq -n --argjson c "$RED" --arg date "$DATE_DISP" --arg url "$RUN_URL" \
-              '{embeds:[{title:"❌ ÉCHEC envoi daily-brief",color:$c,description:("Brief du \($date) — échec du pipeline.\n[Voir le run](\($url))"),timestamp:(now|todate)}]}')
+            PAYLOAD=$(jq -n --arg date "$DATE_LONG_FR" --arg url "$RUN_URL" \
+              '{embeds:[{title:"❌ Brief v22 NON envoyé",color:15680580,description:("Brief du \($date). [Voir le run](\($url))"),timestamp:(now|todate)}]}')
           fi
-          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" \
-            && echo "✅ Notif Discord envoyée" || echo "::warning::Échec de la notif Discord (non bloquant)."
+          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" || true
 
       - name: Summary
         if: always()
         run: |
-          echo "## Daily Brief Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Trigger** : ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Date** : ${{ steps.brief.outputs.date_long_fr }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Status** : ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Run** : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Brief v22"
+            echo "- Mode : ${{ steps.cycle.outputs.mode || steps.garde.outputs.mode || 'aucun' }}"
+            echo "- Date : ${{ steps.garde.outputs.date_long_fr }}"
+            echo "- Envoi : ${{ steps.post.outcome || 'aucun' }}"
+            echo "- Statut : ${{ job.status }}"
+            [ -f /tmp/apercus/collecte-${{ steps.garde.outputs.date_iso }}.txt ] && { echo '```'; cat /tmp/apercus/collecte-${{ steps.garde.outputs.date_iso }}.txt; echo '```'; }
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -71,3 +71,13 @@ export function dateLocale(place, ms) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: PLACES[place].fuseau, year: 'numeric', month: '2-digit', day: '2-digit' })
     .format(new Date(ms));
 }
+
+/** La séance de la place STRICTEMENT postérieure à `dateIso` (jour de cotation d'une barre Globex). */
+export function seanceApres(place, dateIso) {
+  let t = Date.parse(`${dateIso}T00:00:00Z`);
+  for (let n = 0; n < 15; n++) {
+    t += jourMs;
+    if (estSeance(place, iso(t))) return iso(t);
+  }
+  throw new Error(`aucune séance ${place} trouvée après ${dateIso}`);
+}

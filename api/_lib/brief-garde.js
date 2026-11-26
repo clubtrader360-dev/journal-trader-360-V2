@@ -99,7 +99,7 @@ export function controlerEtRemplacer(texte, jetons, ou) {
       if (!INSTRUMENTS[j.instrument].test(phrase.replace(JETON, ' '))) motifs.push(`${ou} : {${nom}} dans une phrase qui ne nomme pas ${j.instrument} (« ${phrase.slice(0, 120)} »)`);
     }
     // Propositions : chiffre brut à côté d'un instrument du bloc, et sens du verbe.
-    for (const prop of phrase.split(/,|;|\s+et\s+|\s+tandis que\s+|\s+alors que\s+/)) {
+    for (const prop of phrase.split(/,(?!\d)|;|\s+et\s+|\s+tandis que\s+|\s+alors que\s+/)) {
       // ⚠️ Noms cherchés HORS jetons : « {SPX_VAR} » contient « SPX ».
       const sans = prop.replace(JETON, ' ');
       const nommes = Object.entries(INSTRUMENTS).filter(([, re]) => re.test(sans)).map(([k]) => k);

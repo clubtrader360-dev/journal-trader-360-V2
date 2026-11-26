@@ -21,6 +21,14 @@ import { syncList, createCampaign, sendCampaignNow, ensureList, PROSPECTS_LIST_N
 import { formatDateLongFr, capitaliser } from '../_lib/date-fr.js';
 import { notionDuJour } from '../_lib/culture-marche.js';
 import { insererPartenaires } from '../_lib/partenaires.js';
+import { rendreCourriel, ICONES_SITE, ICONES_ESSAI } from '../_lib/brief-v22.js';
+import { controlerRedaction } from '../_lib/brief-garde.js';
+
+/** Corps rendu par le code v22 (outils/brief-v22.mjs) : il porte ses rubriques fixes. */
+export const estBriefV22 = (html) => /<div class="brief-marche">/.test(html) && /Sur les marchés hier/.test(html);
+// Icônes des réseaux : PNG du site en production ; `icones: "essai"` dans la requête
+// (aperçu de branche uniquement) reprend celles de la référence, avant leur mise en ligne.
+let ICONES_DU_RUN = ICONES_SITE;
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://zgihbpgoorymomtsbxpz.supabase.co';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -235,8 +243,9 @@ export function stripLongDashes(html) {
 
 // La date reste en MINUSCULES ici : elle suit « Brief marché », donc elle est au
 // milieu du titre et non en tête. Une capitale y serait une capitale à l'anglaise.
+// Sujet v22 (Manu, 26/11/2026) : « 📊 Brief marché · vendredi 27 novembre 2026 ».
 export function emailSubject(dateLongFr) {
-  return `📊 Brief marché — ${dateLongFr}`;
+  return `📊 Brief marché · ${dateLongFr}`;
 }
 
 // ========================================================================
@@ -258,6 +267,12 @@ const PALETTE = {
 // deux cas — c'est tout l'intérêt : le prospect voit exactement ce que reçoit un membre.
 // Seul le bloc final diffère (CTA journal + encart).
 export function wrapBriefHtml({ firstName, dateLongFr, briefHtml, variant = 'members' }) {
+  // ⚠️ BRIEF V22 : l'enveloppe entière est rendue par api/_lib/brief-v22.js, identique à
+  // brief_reference_v22.html (test outils/test-brief-v22.mjs). Le gabarit ci-dessous ne
+  // sert plus qu'aux corps d'avant la v22 (vérification d'archives anciennes).
+  if (estBriefV22(briefHtml)) {
+    return rendreCourriel({ firstName, dateLongFr, corpsHtml: briefHtml, variant, icones: ICONES_DU_RUN });
+  }
   const isProspects = variant === 'prospects';
   const hi = firstName ? `Bonjour ${firstName},` : 'Bonjour,';
   const hairline = `<div style="height:1px; background:linear-gradient(to right, transparent, ${PALETTE.goldFrame} 50%, transparent); margin:24px 0;"></div>`;
@@ -486,6 +501,14 @@ export default async function handler(req, res) {
   if (!RESEND_API_KEY && !DRY_RUN) return res.status(500).json({ error: 'Missing RESEND_API_KEY' });
 
   let { date, brief_html, only_user_id, test_emails } = req.body || {};
+  ICONES_DU_RUN = req.body?.icones === 'essai' && process.env.VERCEL_ENV !== 'production' ? ICONES_ESSAI : ICONES_SITE;
+
+  // ⛔ UN APERÇU DE BRANCHE N'ENVOIE QU'À DES ADRESSES DE TEST. Sans ce verrou, un appel
+  // à l'aperçu sans `test_emails` partirait vers la liste des membres avec le code d'une
+  // branche non fusionnée. Refus, avant toute lecture de la base.
+  if (process.env.VERCEL_ENV !== 'production' && !(Array.isArray(test_emails) && test_emails.length)) {
+    return res.status(403).json({ error: 'Aperçu de branche : envoi refusé sans test_emails' });
+  }
   if (!date || !brief_html) {
     return res.status(400).json({ error: 'Champs requis : date (ISO AAAA-MM-JJ), brief_html' });
   }
@@ -528,7 +551,22 @@ export default async function handler(req, res) {
   // et le commentaire est toujours retiré. ⚠️ La MÊME étape
   // est rejouée par le workflow pour l'archive du site (daily-brief.yml, reconstruction du
   // courriel) : les deux chemins doivent rester alignés.
-  const _piv = ajouterPivots(brief_html);
+  // BRIEF V22 : le corps est rendu et contrôlé par le code (outils/brief-v22.mjs). Ici,
+  // DERNIER contrôle avant tout envoi, sur le courriel FINAL des deux variantes : aucun
+  // « n/d », aucun jeton non remplacé, aucun deux-points ni tiret long (sujet compris).
+  // Un échec rend 422 et rien ne part.
+  const v22 = estBriefV22(brief_html);
+  if (v22) {
+    const motifsV22 = [...new Set(['members', 'prospects'].flatMap((variant) => controlerRedaction(
+      wrapBriefHtml({ firstName: 'Trader', dateLongFr: date_long_fr, briefHtml: brief_html, variant }),
+      { sujet: emailSubject(date_long_fr) })))];
+    if (motifsV22.length) {
+      console.error(`[DAILY-BRIEF] ⛔ Brief v22 refusé : ${motifsV22.join(' | ')}`);
+      return res.status(422).json({ ok: false, error: 'brief v22 refusé par le contrôle final', motifs: motifsV22 });
+    }
+    console.log('[DAILY-BRIEF] ✅ Brief v22 : contrôle final passé (deux variantes, sujet compris)');
+  }
+  const _piv = v22 ? { html: brief_html, pivots: null, motif: 'v22 : pivots rendus par le code', motifCfd: 'v22' } : ajouterPivots(brief_html);
   brief_html = _piv.html;
   if (_piv.pivots) console.log(`[DAILY-BRIEF] 🎯 Pivots ES : P ${_piv.pivots.P} (barre déduite H ${_piv.pivots.haut} · B ${_piv.pivots.bas} · C ${_piv.pivots.cloture}, ${_piv.pivots.page || 'page non dite'})`);
   else console.warn(`[DAILY-BRIEF] ⚠️ Pivots ES NON ajoutés : ${_piv.motif}`);

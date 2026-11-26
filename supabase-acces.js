@@ -259,6 +259,38 @@
     try { v = localStorage.getItem(CLE_DERNIER); } catch { v = null; }
     return ESPACES.includes(v) ? v : null;
   }
+  /**
+   * ── ⚠️ LE LIEN DIRECT https://journaltrader360.fr/#parrainage (brief v22, 26/11/2026) ──
+   *
+   * Bouton « Mon lien » du brief marché. Connecte, l eleve arrive dans l espace
+   * Formation, sur la section « parrainage ». Non connecte, il se connecte, PUIS il y
+   * arrive : l ancre est retenue pour la session de navigateur, comme l espace voulu,
+   * et consommee a l entree dans la formation.
+   * ⛔ Le droit reste verifie par `orienter()` : le lien ne contourne rien.
+   * Le fragment est retire de l adresse, pour qu un rechargement ne ramene pas
+   * l eleve sur la section quand il navigue ailleurs.
+   */
+  const CLE_ANCRE = 't360.ancreFormation';
+  const ANCRES = ['parrainage'];
+  function lireAncreAdresse() {
+    const a = (window.location.hash || '').replace(/^#/, '');
+    if (!ANCRES.includes(a)) return false;
+    try { sessionStorage.setItem(CLE_ANCRE, a); } catch { /* rien */ }
+    vouloir('formation');
+    try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* rien */ }
+    return true;
+  }
+  function ancreVoulue() {
+    let a = null;
+    try { a = sessionStorage.getItem(CLE_ANCRE); sessionStorage.removeItem(CLE_ANCRE); } catch { a = null; }
+    return ANCRES.includes(a) ? a : null;
+  }
+  lireAncreAdresse();
+  // Le lien ouvert dans un onglet ou l eleve est DEJA connecte : on y va tout de suite.
+  window.addEventListener('hashchange', () => {
+    if (lireAncreAdresse() && _droits && _droits.formation) entrer(espaceVoulu() || 'formation');
+  });
+
   // ⚠️ Au chargement, si la derniere fois c etait la formation, on couvre tout
   // de suite : `restoreSession()` affichera le journal avant qu on ait les droits.
   attendre(espaceVouluSansConsommer() || dernierEspace());
@@ -286,7 +318,7 @@
       document.body.dataset.espace = 'formation';
       appliquer();
       nommerEleve();
-      if (window.Formation) window.Formation.ouvrir();
+      if (window.Formation) window.Formation.ouvrir(ancreVoulue() || 'accueil');
       else console.error('[ACCES] ⛔ supabase-formation.js non charge');
       return;
     }

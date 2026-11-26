@@ -3894,7 +3894,9 @@
      * appareil. Un rendu unique montrerait un etat perime sans qu aucune erreur
      * ne le signale.
      */
-    async ouvrir() {
+    // `ancre` : section de l accueil ou arriver (« parrainage » depuis le lien direct
+    // du brief, voir supabase-acces.js). Par defaut, le haut de l accueil.
+    async ouvrir(ancre = 'accueil') {
       poserBoutonTheme();
       poserBandeauVueCoach();
       await charger();
@@ -3902,7 +3904,7 @@
       // notes » y vit. ⛔ Sans cela elle serait vide alors que les notes
       // existent en base.
       await chargerToutesLesNotes();
-      rendreAccueil('accueil');
+      rendreAccueil(ancre);
       // Le point « en direct » du bouton Live, relu toutes les minutes.
       if (window.FormationLive) window.FormationLive.demarrerVeille();
     },
