@@ -16,10 +16,11 @@
 // attendue ne rend rien pour elle : elle ne peut pas glisser la séance d'avant.
 // Une séance du jour même n'est lue qu'une fois la place fermée (`seanceClose`).
 //
-// ── ⛔ JAMAIS UNE VALEUR MANQUANTE QUI PART ─────────────────────────────────────
+// ── ⛔ JAMAIS UNE VALEUR INVENTÉE ───────────────────────────────────────────────
 // Une valeur sans accord de deux sources sort avec `nd: true`, son motif et la liste
-// des sources essayées. Elle n'est JAMAIS publiée : le workflow relance la collecte
-// toutes les dix minutes et le brief attend (brief-cycle.js).
+// des sources essayées. Le workflow relance la collecte toutes les dix minutes ; à la
+// coupure (6h05, envoi au plus tard 6h45), elle part en « n/d » et l'alerte la nomme
+// (règle du 26/11/2026 21h, brief-cycle.js). Une seule source ne la publie jamais.
 //
 // Sources éprouvées DEPUIS LE RUNNER GITHUB le 26/11/2026 (outils/sonder-sources-v22.mjs) :
 // CNBC, TradingView, FT, API Nasdaq, Börse Frankfurt, Coinbase, Bitstamp, Kraken

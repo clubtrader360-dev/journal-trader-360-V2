@@ -2,7 +2,8 @@
 // « ZONES À SURVEILLER » DU BRIEF V22 : ES et CFD, calculés par le CODE.
 //
 // Même règle que « Sur les marchés hier » (hier.js) : sources ordonnées, publication à
-// l'accord de DEUX sources indépendantes sur la séance attendue, jamais de n/d qui part.
+// l'accord de DEUX sources indépendantes sur la séance attendue ; à défaut à la coupure,
+// « n/d » (jamais une valeur d'une seule source).
 //   ES  : haut, bas et règlement de la séance réglée du contrat front-month.
 //         CNBC (barres journalières du contrat) · Finviz (barres journalières ES) ·
 //         TradingView (barres du contrat, datées au jour de cotation Globex).

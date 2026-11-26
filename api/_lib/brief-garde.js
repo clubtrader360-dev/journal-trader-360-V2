@@ -1,9 +1,12 @@
 // ========================================================================
 // LE GARDE-FOU DU BRIEF V22 (Manu, 26/11/2026 : « jamais une valeur manquante »).
 //
-// Trois contrôles, et un brief qui en rate UN ne part pas :
+// Trois contrôles :
 //   1. COMPLÉTUDE : les six lignes « Sur les marchés hier », toutes les lignes ES et CFD,
-//      les niveaux psychologiques et le VIX sont des nombres. Aucun « n/d » ne passe.
+//      les niveaux psychologiques et le VIX sont des nombres. ⚠️ RÈGLE DU 26/11/2026 21h
+//      (Manu) : le brief n'est plus JAMAIS bloqué par une valeur. Avant l'échéance de
+//      6h45, une valeur manquante fait relancer la collecte ; À l'échéance, elle part en
+//      « n/d » (balisage du code, ND_HTML), jamais inventée, et l'alerte la nomme.
 //   2. COHÉRENCE : les chiffres de l'actualité sont ceux du bloc. Le modèle n'écrit
 //      JAMAIS un chiffre des sept valeurs du bloc : il écrit un JETON ({SPX_CLOTURE},
 //      {NASDAQ_VAR_ABS}…) que le code remplace par la valeur du bloc, formatée comme lui.
@@ -14,7 +17,7 @@
 //      demi-cadratin, texte visible, textes alternatifs, titre et sujet compris.
 // Chaque refus porte un motif en clair : c'est lui que l'alerte Discord envoie.
 // ========================================================================
-import { nombreFr, valeurHier, variationHier, DRAPEAUX } from './brief-v22.js';
+import { nombreFr, valeurHier, variationHier, hierNd, DRAPEAUX, ND_HTML } from './brief-v22.js';
 
 const estNombre = (x) => typeof x === 'number' && Number.isFinite(x);
 
@@ -65,15 +68,18 @@ const INSTRUMENTS = {
 /** Les jetons et leur valeur formatée, tirés du BLOC (mêmes chaînes que le bloc). */
 export function tableJetons({ hier, zones }) {
   const t = {};
+  // ⛔ Une valeur n/d n'a PAS de jeton : le modèle qui la citerait écrit un jeton inconnu
+  // (refusé), et un chiffre à la main reste refusé. C'est le garde « jamais inventée ».
   const ajout = (k, cle) => {
     const v = hier[cle];
+    if (hierNd(v)) return;
     t[`${k}_CLOTURE`] = { texte: valeurHier(cle, v).replace(/ ([%$])/, '&nbsp;$1'), instrument: k };
     t[`${k}_VAR`] = { texte: variationHier(cle, v).replace(/ (%|pt)$/, '&nbsp;$1'), instrument: k, signe: Math.sign(v.variation) };
     t[`${k}_VAR_ABS`] = { texte: variationHier(cle, { ...v, variation: Math.abs(v.variation) }).replace(/^\+/, '').replace(/ (%|pt)$/, '&nbsp;$1'), instrument: k, signe: Math.sign(v.variation), abs: true };
   };
   ajout('SPX', 'spx'); ajout('NASDAQ', 'nasdaq'); ajout('DAX', 'dax'); ajout('CAC', 'cac'); ajout('OAT', 'oat'); ajout('BTC', 'btc');
-  t.VIX_CLOTURE = { texte: nombreFr(zones.vix.cloture, 2), instrument: 'VIX' };
-  t.ES_CLOTURE = { texte: nombreFr(zones.es.cloture, 2), instrument: 'ES' };
+  if (estNombre(zones?.vix?.cloture)) t.VIX_CLOTURE = { texte: nombreFr(zones.vix.cloture, 2), instrument: 'VIX' };
+  if (estNombre(zones?.es?.cloture)) t.ES_CLOTURE = { texte: nombreFr(zones.es.cloture, 2), instrument: 'ES' };
   return t;
 }
 
@@ -141,7 +147,9 @@ export function textesVisibles(html) {
 
 export function controlerRedaction(html, { sujet = '' } = {}) {
   const m = [];
-  const textes = [...textesVisibles(html), sujet];
+  // Les « n/d » posés par le CODE à l'échéance (ND_HTML) sont admis ; tout autre
+  // « n/d », « NaN », « undefined » ou jeton non remplacé reste refusé.
+  const textes = [...textesVisibles(String(html).split(ND_HTML).join('')), sujet];
   for (const t of textes) {
     for (const ligne of t.split('\n')) {
       const l = ligne.trim();

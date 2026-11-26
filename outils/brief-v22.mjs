@@ -8,11 +8,16 @@
 //   assembler <donnees.json> <sortie-modele> <corps.html> [motifs.txt] → 0 · 4 refusé
 //   alerte-controle <date> <motifs.txt> [run]        → alerte Discord de contrôle
 //   apercu    <donnees.json> <sortie-modele> <courriel.html> [members|prospects|archive] [essai]
+//   ── Échéance de 6h45 (Manu, 26/11/2026 21h : le brief n'est plus jamais bloqué) ──
+//   figer     <donnees.json> [run]                   → marque l'échéance, alerte chaque n/d
+//   secours   <donnees.json> <corps.html> [motifs.txt] [run] → brief « données seules » + alerte
+//   apercu-corps <donnees.json> <corps.html> <courriel.html> [variant] [essai]
+//   nd        <donnees.json>                         → les n/d du brief, une ligne (Discord)
 //
 // Webhook : variable DISCORD_ALERTE_URL (absente → l'alerte est seulement journalisée).
 // ========================================================================
 import fs from 'node:fs';
-import { collecterTout, texteAlerteCollecte, texteAlerteControle, alerterDiscord, versPromptV22, lireProse, assembler } from '../api/_lib/brief-cycle.js';
+import { collecterTout, texteAlerteCollecte, texteAlerteControle, texteAlerteNd, texteAlerteSecours, alerterDiscord, versPromptV22, lireProse, assembler, assemblerSecours } from '../api/_lib/brief-cycle.js';
 import { rendreCourriel, ICONES_ESSAI, ICONES_SITE } from '../api/_lib/brief-v22.js';
 import { notionDuJour } from '../api/_lib/culture-marche.js';
 import { formatDateLongFr } from '../api/_lib/date-fr.js';
@@ -38,7 +43,7 @@ function resume(d) {
   if (typeof es.P === 'number') out.push(`  ES  : clôture ${es.cloture} · POC ${es.poc ?? 'MANQUANT'} · R2 ${es.R2} · R1 ${es.R1} · P ${es.P} · S1 ${es.S1} · S2 ${es.S2}`);
   if (typeof cfd.P === 'number') out.push(`  CFD : clôture ${cfd.cloture} · R2 ${cfd.R2} · R1 ${cfd.R1} · P ${cfd.P} · S1 ${cfd.S1} · S2 ${cfd.S2}`);
   if (d.detailZones.poc) out.push(`  POC : ${d.detailZones.poc.valeur ?? d.detailZones.poc.motif} (${d.detailZones.poc.minutes || 0} minutes, ${d.detailZones.poc.source || 'CNBC'})`);
-  out.push(d.complet ? '  → COMPLET' : `  → INCOMPLET : ${d.manquants.map((m) => m.valeur).join(' ; ')}`);
+  out.push(d.complet ? '  → COMPLET' : `  → INCOMPLET${d.echeance ? ' À L\'ÉCHÉANCE, partent en n/d' : ''} : ${d.manquants.map((m) => m.valeur).join(' ; ')}`);
   return out.join('\n');
 }
 
@@ -60,6 +65,38 @@ async function main() {
     const motifs = fs.readFileSync(a[1], 'utf8').split('\n').filter(Boolean);
     const r = await alerterDiscord(webhook, texteAlerteControle(a[0], motifs, { run: a[2] || null }));
     console.log(`alerte contrôle : ${JSON.stringify(r)}`);
+    return;
+  }
+  if (cmd === 'figer') {
+    const d = lire(a[0]);
+    d.echeance = true;
+    fs.writeFileSync(a[0], JSON.stringify(d, null, 1));
+    console.log(resume(d));
+    if (!d.complet) console.log(`alerte n/d : ${JSON.stringify(await alerterDiscord(webhook, texteAlerteNd(d, { run: a[1] || null })))}`);
+    return;
+  }
+  if (cmd === 'nd') {
+    const d = lire(a[0]);
+    process.stdout.write(d.complet ? '' : d.manquants.map((m) => m.valeur).join(' ; '));
+    return;
+  }
+  if (cmd === 'secours') {
+    const d = lire(a[0]);
+    d.echeance = true;
+    const motifs = a[2] && fs.existsSync(a[2]) ? fs.readFileSync(a[2], 'utf8').split('\n').filter(Boolean) : ['aucune prose du modèle'];
+    const r = assemblerSecours(d);
+    if (!r.ok) { console.error(`❌ Brief de secours refusé :\n${r.motifs.map((m) => `  • ${m}`).join('\n')}`); process.exit(4); }
+    fs.writeFileSync(a[1], r.corps);
+    console.log(`🟠 Brief « données seules » assemblé et contrôlé (${Buffer.byteLength(r.corps)} octets)`);
+    console.log(`alerte secours : ${JSON.stringify(await alerterDiscord(webhook, texteAlerteSecours(d.dateBrief, motifs, { run: a[3] || null })))}`);
+    return;
+  }
+  if (cmd === 'apercu-corps') {
+    const d = lire(a[0]);
+    const variant = a[3] || 'members';
+    fs.writeFileSync(a[2], rendreCourriel({ firstName: variant === 'members' ? 'Emmanuel' : null, dateLongFr: formatDateLongFr(d.dateBrief),
+      corpsHtml: fs.readFileSync(a[1], 'utf8'), variant, icones: a[4] === 'essai' ? ICONES_ESSAI : ICONES_SITE }));
+    console.log(`✅ Aperçu ${variant} : ${a[2]}`);
     return;
   }
   if (cmd === 'prompt') { process.stdout.write(versPromptV22(lire(a[0]))); return; }
@@ -90,7 +127,7 @@ async function main() {
     console.log(`✅ Aperçu ${variant} : ${a[2]}`);
     return;
   }
-  console.error('commande inconnue (collecte | resume | alerte | alerte-controle | prompt | assembler | apercu)');
+  console.error('commande inconnue (collecte | resume | alerte | alerte-controle | figer | nd | secours | apercu-corps | prompt | assembler | apercu)');
   process.exit(2);
 }
 main().catch((e) => { console.error(e.stack || e.message); process.exit(1); });
