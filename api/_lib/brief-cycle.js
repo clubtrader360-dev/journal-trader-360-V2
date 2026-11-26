@@ -82,13 +82,23 @@ export function texteAlerteSecours(dateBrief, motifs, { run = null } = {}) {
     ...motifs.map((m) => `• ${m}`), ...(run ? [run] : [])]);
 }
 
-/** Poste un message, ou une liste de messages (dans l'ordre). */
+/** Manu, mentionné en tête de CHAQUE alerte du brief pour qu'il reçoive une notification
+ *  (même mention que le rapport quotidien). Seul cet utilisateur peut être notifié. */
+export const MENTION_MANU = '<@710969599948095581>';
+const MENTIONS_PERMISES = { users: ['710969599948095581'] };
+
+/** Poste un message, ou une liste de messages (dans l'ordre). La mention est posée en
+ *  tête du PREMIER message seulement. `BRIEF_ALERTE_TEST=1` (essai du workflow) marque
+ *  l'alerte « 🧪 TEST ». */
 export async function alerterDiscord(url, texte, { fetchImpl = fetch } = {}) {
-  const msgs = [].concat(texte);
-  if (!url) { console.log(`[ALERTE sans webhook]\n${msgs.join('\n')}`); return { ok: false, motif: 'webhook absent' }; }
+  const test = process.env.BRIEF_ALERTE_TEST === '1' ? '🧪 TEST · ' : '';
+  const msgs = [].concat(texte).map((m, i) => (i === 0 ? `${MENTION_MANU} ${test}${m}` : m));
+  console.log(`[ALERTE Discord]\n${msgs.join('\n')}`);
+  if (!url) return { ok: false, motif: 'webhook absent' };
   const statuts = [];
   for (const m of msgs) {
-    const r = await fetchImpl(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: m }) });
+    const r = await fetchImpl(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: m, allowed_mentions: MENTIONS_PERMISES }) });
     statuts.push(r.status);
   }
   return { ok: statuts.every((x) => x >= 200 && x < 300), statuts };

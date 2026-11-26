@@ -52,6 +52,18 @@ on:
         default: 'non'
         type: choice
         options: [non, maintenant]
+      test_alertes:
+        description: 'Aperçu ou essai seulement : « oui » poste les alertes sur Discord (marquées 🧪 TEST, avec mention)'
+        required: false
+        default: 'non'
+        type: choice
+        options: [non, oui]
+      simuler:
+        description: 'Aperçu ou essai seulement : nd-secours = VIX en n/d + brief « données seules » ; plantage = run en échec avant Notify'
+        required: false
+        default: 'non'
+        type: choice
+        options: [non, nd-secours, plantage]
 
 # contents: write → archive (branche donnees-culture) et marqueur d'envoi (étiquette).
 # actions: write → conservé (les entrées « tentative » restent acceptées).
@@ -88,6 +100,8 @@ jobs:
           IN_MODE: ${{ github.event.inputs.mode }}
           IN_DATE: ${{ github.event.inputs.date }}
           IN_TEST: ${{ github.event.inputs.test_email }}
+          IN_ALERTES: ${{ github.event.inputs.test_alertes }}
+          IN_SIMULER: ${{ github.event.inputs.simuler }}
         run: |
           set -eu
           if [ "$EVENT" = "schedule" ]; then
@@ -116,6 +130,16 @@ jobs:
           fi
           DATE_LONG_FR=$(node -e "import('./api/_lib/date-fr.js').then(m=>process.stdout.write(m.formatDateLongFr('$DATE_ISO')))")
           [ -n "$DATE_LONG_FR" ] || { echo "::error::formatage de la date impossible"; exit 1; }
+          # Alertes Discord : toujours en production ; en aperçu ou essai, seulement sur demande
+          # (test_alertes=oui), marquées 🧪 TEST. Les simulations n'existent pas en production.
+          ALERTES=0; SIMULER=non
+          [ "$MODE" = "production" ] && ALERTES=1
+          if [ "$MODE" != "production" ]; then
+            [ "${IN_ALERTES:-non}" = "oui" ] && ALERTES=1
+            SIMULER="${IN_SIMULER:-non}"
+          fi
+          { echo "alertes=$ALERTES"; echo "simuler=$SIMULER"; } >> "$GITHUB_OUTPUT"
+          if [ "$SIMULER" = "plantage" ]; then echo "::error::🧪 simulation : plantage du run avant Notify"; exit 1; fi
           { echo "go=1"; echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
           echo "📅 Brief du $DATE_LONG_FR · mode $MODE"
 
@@ -150,6 +174,8 @@ jobs:
           ALERTE_COLLECTE: ${{ github.event.inputs.alerte_envoyee || '0' }}
           ECHEANCE_TEST: ${{ github.event.inputs.echeance_test || 'non' }}
           TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          ALERTES: ${{ steps.garde.outputs.alertes }}
+          SIMULER: ${{ steps.garde.outputs.simuler }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # ══ LE BRIEF N'EST JAMAIS BLOQUÉ (Manu, 26/11/2026 21h) ══════════════════════
@@ -165,9 +191,11 @@ jobs:
           set -u
           { echo "mode=$MODE"; echo "date_iso=$DATE_ISO"; echo "date_long_fr=$DATE_LONG_FR"; } >> "$GITHUB_OUTPUT"
           # Le webhook d'alerte n'est utilisé qu'en production : un aperçu ou un essai qui
-          # échoue se lit dans le run, sans réveiller le salon.
-          [ "$MODE" = "production" ] || DISCORD_ALERTE_URL=""
-          export DISCORD_ALERTE_URL
+          # échoue se lit dans le run, sans réveiller le salon, sauf test_alertes=oui
+          # (alertes marquées 🧪 TEST par alerterDiscord).
+          [ "$ALERTES" = "1" ] || DISCORD_ALERTE_URL=""
+          BRIEF_ALERTE_TEST=0; [ "$MODE" = "production" ] || BRIEF_ALERTE_TEST=1
+          export DISCORD_ALERTE_URL BRIEF_ALERTE_TEST
           maintenant() { date +%s; }
           paris() { TZ=Europe/Paris date -d "$DATE_ISO $1" +%s; }
           hm() { TZ=Europe/Paris date -d "@$1" +%H:%M; }
@@ -206,6 +234,19 @@ jobs:
             PAUSE=$(( COUPURE - $(maintenant) )); [ "$PAUSE" -gt 600 ] && PAUSE=600
             echo "😴 nouvelle collecte dans $((PAUSE / 60)) min $((PAUSE % 60)) s"; sleep "$PAUSE"; TENTATIVE=$((TENTATIVE + 1))
           done
+          if [ "$SIMULER" = "nd-secours" ] && [ "$RC" -eq 0 ]; then
+            # 🧪 Simulation (aperçu/essai) : le VIX devient introuvable, comme si ses sources étaient muettes.
+            node -e "
+              const fs = require('fs'); const d = JSON.parse(fs.readFileSync('/tmp/donnees.json', 'utf8'));
+              const v = d.hier.vix; const essais = (v.essais || []).map((e) => ({ nom: e.nom, statut: 'muette (🧪 simulation)' }));
+              const motif = 'VIX : 🧪 simulation, sources rendues muettes pour le test';
+              d.hier.vix = { cle: 'vix', nom: 'VIX', place: 'US', seance: v.seance, precedenteSeance: v.precedenteSeance, nd: true, motif, essais };
+              d.zones.vix.cloture = null; d.zones.motifs.vix = motif;
+              d.manquants.push({ valeur: 'VIX (séance du ' + v.seance + ')', motif, essais });
+              d.complet = false; d.controle.push('VIX manquant (simulation)');
+              fs.writeFileSync('/tmp/donnees.json', JSON.stringify(d, null, 1));"
+            echo "🧪 simulation : VIX introuvable"; RC=3
+          fi
           if [ "$RC" -ne 0 ]; then
             # Coupure atteinte : ce qui manque part en « n/d », jamais inventé.
             if [ "$RC" -ne 3 ]; then
@@ -224,7 +265,9 @@ jobs:
           HORAIRES=$(node -e "import('./api/_lib/heure-marche.js').then(m=>process.stdout.write(m.contexteHoraire('$DATE_ISO')))")
           OK=0; ESSAIS_GEN=0
           rm -f /tmp/motifs.txt
-          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || ! command -v claude >/dev/null; then
+          if [ "$SIMULER" = "nd-secours" ]; then
+            echo "🧪 simulation : prose déclarée refusée, pour tester le brief « données seules »" > /tmp/motifs.txt
+          elif [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || ! command -v claude >/dev/null; then
             echo "modèle indisponible (CLI Claude absent ou CLAUDE_CODE_OAUTH_TOKEN manquant)" > /tmp/motifs.txt
             echo "::error::$(cat /tmp/motifs.txt)"
           else
@@ -589,8 +632,10 @@ jobs:
 
 
       - name: Notify Discord
-        if: always() && steps.garde.outputs.go == '1' && steps.cycle.outputs.mode == 'production' && steps.cycle.outputs.relance != '1'
+        id: notify
+        if: always() && steps.garde.outputs.go == '1' && steps.garde.outputs.alertes == '1' && steps.cycle.outputs.relance != '1'
         env:
+          MODE: ${{ steps.garde.outputs.mode }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
           POST_OUTCOME: ${{ steps.post.outcome }}
           DATE_LONG_FR: ${{ steps.cycle.outputs.date_long_fr }}
@@ -607,15 +652,41 @@ jobs:
           if [ -n "${ND:-}" ]; then DONNEES="🟠 parti(es) en n/d : $ND"; else DONNEES="✅ toutes les valeurs confirmées par deux sources"; fi
           [ "${SECOURS:-0}" = "1" ] && DONNEES="$DONNEES · 🟠 brief « données seules » (prose refusée ou absente à l'échéance)"
           DONNEES=$(echo "$DONNEES" | cut -c1-1000)
-          if [ "$POST_OUTCOME" = "success" ]; then
-            if [ "$ARCHIVE_OUTCOME" = "success" ]; then ARCH="✅ ${ARCHIVE_FAIT:-déposé}"; COLOR=13938487; else ARCH="❌ ${ARCHIVE_ECHECS:-archivage non fait}"; COLOR=15680580; fi
-            { [ -n "${ND:-}" ] || [ "${SECOURS:-0}" = "1" ]; } && COLOR=16753920
-            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_LONG_FR" --arg dest "${DEST:-?}" --arg arch "$(echo "$ARCH" | cut -c1-500)" --arg url "$RUN_URL" --arg donnees "$DONNEES" \
-              '{embeds:[{title:"📊 Brief v22 envoyé",color:$c,fields:[{name:"Date",value:$date,inline:true},{name:"Destinataires",value:$dest,inline:true},{name:"Données de marché",value:$donnees,inline:false},{name:"Archive",value:$arch,inline:false},{name:"Run",value:("[Voir le run](\($url))"),inline:false}],timestamp:(now|todate)}]}')
-          else
-            PAYLOAD=$(jq -n --arg date "$DATE_LONG_FR" --arg url "$RUN_URL" \
-              '{embeds:[{title:"❌ Brief v22 NON envoyé",color:15680580,description:("Brief du \($date). [Voir le run](\($url))"),timestamp:(now|todate)}]}')
+          # Mention de Manu dès qu'il y a un problème : brief NON envoyé, n/d, brief
+          # « données seules », archivage en échec. Tout vert : aucune mention.
+          CONTENU=""
+          if [ "$POST_OUTCOME" != "success" ] || [ -n "${ND:-}" ] || [ "${SECOURS:-0}" = "1" ] || [ "$ARCHIVE_OUTCOME" = "failure" ]; then
+            CONTENU="<@710969599948095581>"
           fi
+          [ "$MODE" = "production" ] || CONTENU="${CONTENU:+$CONTENU }🧪 TEST ($MODE, aucune liste)"
+          if [ "$POST_OUTCOME" = "success" ]; then
+            if [ "$ARCHIVE_OUTCOME" = "success" ]; then ARCH="✅ ${ARCHIVE_FAIT:-déposé}"; COLOR=13938487
+            elif [ "$ARCHIVE_OUTCOME" = "skipped" ]; then ARCH="⏭️ non lancé (mode $MODE)"; COLOR=13938487
+            else ARCH="❌ ${ARCHIVE_ECHECS:-archivage non fait}"; COLOR=15680580; fi
+            { [ -n "${ND:-}" ] || [ "${SECOURS:-0}" = "1" ]; } && COLOR=16753920
+            PAYLOAD=$(jq -n --argjson c "$COLOR" --arg date "$DATE_LONG_FR" --arg dest "${DEST:-?}" --arg arch "$(echo "$ARCH" | cut -c1-500)" --arg url "$RUN_URL" --arg donnees "$DONNEES" --arg contenu "$CONTENU" \
+              '{content:(if $contenu == "" then null else $contenu end),allowed_mentions:{users:["710969599948095581"]},embeds:[{title:"📊 Brief v22 envoyé",color:$c,fields:[{name:"Date",value:$date,inline:true},{name:"Destinataires",value:$dest,inline:true},{name:"Données de marché",value:$donnees,inline:false},{name:"Archive",value:$arch,inline:false},{name:"Run",value:("[Voir le run](\($url))"),inline:false}],timestamp:(now|todate)}]}')
+          else
+            PAYLOAD=$(jq -n --arg date "$DATE_LONG_FR" --arg url "$RUN_URL" --arg contenu "$CONTENU" \
+              '{content:(if $contenu == "" then null else $contenu end),allowed_mentions:{users:["710969599948095581"]},embeds:[{title:"❌ Brief v22 NON envoyé",color:15680580,description:("Brief du \($date). [Voir le run](\($url))"),timestamp:(now|todate)}]}')
+          fi
+          echo "$PAYLOAD" | jq -c '{content, titre: .embeds[0].title, champs: [.embeds[0].fields[]? | {(.name): .value}]}'
+          curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" || true
+
+      # Filet : un plantage AVANT l'étape Notify (ou qui l'empêche de poster) mentionne Manu.
+      - name: Alerte plantage
+        if: >-
+          failure() && steps.notify.outcome != 'success' &&
+          (github.event_name == 'schedule' || steps.garde.outputs.alertes == '1' || github.event.inputs.test_alertes == 'oui')
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CRON_WEBHOOK_URL }}
+          MODE: ${{ steps.garde.outputs.mode || github.event.inputs.mode || 'production' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$DISCORD_WEBHOOK" ] || exit 0
+          TEST=""; [ "$MODE" = "production" ] || TEST=" 🧪 TEST ($MODE)"
+          PAYLOAD=$(jq -n --arg t "<@710969599948095581>$TEST ❌ Le run du brief a planté. $RUN_URL" '{content:$t,allowed_mentions:{users:["710969599948095581"]}}')
+          echo "$PAYLOAD" | jq -r .content
           curl -sS -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD" || true
 
       - name: Summary
