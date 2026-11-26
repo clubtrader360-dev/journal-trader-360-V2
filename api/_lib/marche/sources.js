@@ -39,7 +39,7 @@ const DELAI_MS = 20000;
  * module. Le message d'erreur sert à l'humain qui lira l'alerte Discord ; AUCUNE
  * logique de ce fichier ne branche sur son contenu.
  */
-async function obtenir(url, options = {}) {
+export async function obtenir(url, options = {}) {
   // Une reprise BORNÉE sur 429 et 5xx. Cboe limite le débit : le fichier historique
   // fait 1,7 Mo et dix appels rapprochés le font basculer en 429 pendant une bonne
   // minute. Ce n'est pas une panne de la source, c'est une politesse qu'on lui doit —
