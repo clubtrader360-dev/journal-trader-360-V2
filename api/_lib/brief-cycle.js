@@ -50,7 +50,7 @@ export function texteAlerteCollecte(d, { run = null, tentative = 1 } = {}) {
 }
 
 export function texteAlerteControle(dateBrief, motifs, { run = null } = {}) {
-  return [`⚠️ **Brief du ${dateBrief} : contrôle refusé**, le brief NE PART PAS. Nouvelle génération dans 10 minutes.`,
+  return [`⚠️ **Brief du ${dateBrief} : contrôle refusé**, le brief NE PART PAS. Nouvelle génération dans 2 minutes, motifs joints au modèle.`,
     ...motifs.slice(0, 15).map((m) => `• ${m}`), ...(run ? [run] : [])].join('\n').slice(0, 1900);
 }
 

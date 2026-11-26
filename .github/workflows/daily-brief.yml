@@ -193,7 +193,12 @@ jobs:
             # stream-json : on lit le texte final ET on compte les vraies recherches web.
             # Mesuré le 26/11/2026 : une prose écrite en deux minutes, sans une seule
             # recherche, annonçait une décision de la Fed un jour de Thanksgiving.
-            echo "$PROMPT" | claude -p --output-format stream-json --verbose --dangerously-skip-permissions > /tmp/claude.jsonl 2>/tmp/claude_err.log
+            # Refus précédent : le modèle reçoit les motifs, pour corriger au lieu de recommencer à l'aveugle.
+            if [ -s /tmp/motifs.txt ] && [ "$ALERTE_CONTROLE" = "1" ]; then
+              PROMPT="$PROMPT"$'\n\n⛔ TA VERSION PRÉCÉDENTE A ÉTÉ REFUSÉE PAR LE CODE pour ces motifs. Corrige-les tous :\n'"$(cat /tmp/motifs.txt)"
+            fi
+            # Délai de garde : un modèle bloqué ne doit pas geler l'étape pendant des heures.
+            echo "$PROMPT" | timeout 1500 claude -p --output-format stream-json --verbose --dangerously-skip-permissions > /tmp/claude.jsonl 2>/tmp/claude_err.log
             RC=$?
             jq -r 'select(.type=="result") | .result // empty' /tmp/claude.jsonl > /tmp/sortie-modele.txt 2>/dev/null
             WEB=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .name' /tmp/claude.jsonl 2>/dev/null | grep -cE '^(WebSearch|WebFetch)$')
@@ -212,7 +217,9 @@ jobs:
               node outils/brief-v22.mjs alerte-controle "$DATE_ISO" /tmp/motifs.txt "$RUN_URL" || true
               ALERTE_CONTROLE=1
             fi
-            dormir
+            # Contrôle refusé : nouvelle génération après 2 minutes, motifs joints au prompt.
+            [ $(( $(date +%s) + 120 )) -lt "$LIMITE" ] || relancer
+            echo "🔁 nouvelle génération dans 2 minutes, motifs du refus joints"; sleep 120; TENTATIVE=$((TENTATIVE + 1))
           done
 
           # Aperçus (membres, prospects, archive) en artefact, pour relecture.

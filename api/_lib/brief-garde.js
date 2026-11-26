@@ -79,7 +79,9 @@ export function tableJetons({ hier, zones }) {
 
 const BAISSE = /\b(c[èée]d|recul|perd|perdu|baiss|chut|repli|gliss|abandonn|l[âa]ch|termin\w* en baisse|d[ée]cro)/i;
 const HAUSSE = /\b(gagn|progress|mont|grimp|avanc|hausse|rebond|bondi|s'appr[ée]ci|termin\w* en hausse)/i;
-const QUALIF = /(plus de|près de|pres de|jusqu'à|jusqu’à|environ|presque|moins de|quelque|en séance|en cours de séance)\s*$/i;
+// Ampleurs en séance ET niveaux (« sous les 7 200 points », « au-dessus de 60 000 dollars ») :
+// ce ne sont ni des clôtures ni des variations, la concordance ne les concerne pas.
+const QUALIF = /(plus de|près de|pres de|jusqu'à|jusqu’à|environ|presque|moins de|quelque|en séance|en cours de séance|sous les|sous la barre des|au-dessus des?|au-dessus de la barre des|au-delà des?|seuil des|barre des|cap des|niveau des|zone des|vers les|résistance des|support des|des)\s*$/i;
 const NOMBRE = /(\d[\d\u00a0\u202f ]*(?:[.,]\d+)?)\s*(%|points?|pts?|pt\b|\$|dollars)/gi;
 const JETON = /\{([A-Z]+_(?:CLOTURE|VAR_ABS|VAR))\}/g;
 

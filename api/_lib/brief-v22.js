@@ -294,31 +294,42 @@ const RESEAUX = [
   ['facebook', 'https://www.facebook.com/clubtrader360', 'Facebook'],
 ];
 
+// PROSPECTS (Manu, 26/11/2026, référence outils/reference/brief_reference_prospects_v22.html,
+// test Brevo validé) : checklist sur fond doré clair avec bouton journal verrouillé, puis
+// encart bleu nuit « Tu veux en savoir plus ? » à la place du parrainage. Seul écart
+// admis avec la référence : le bouton porte les UTM prospects du questionnaire actuel.
 function blocChecklist(prospects) {
-  const bouton = prospects
-    ? '<div style="display:inline-block; margin-top:16px; background:rgba(212,175,55,0.18); color:#d4af37; border:1px solid rgba(212,175,55,0.55); padding:13px 30px; border-radius:10px; font-weight:700; letter-spacing:0.04em;">🔒 Réservé aux membres</div>'
-    : '<a href="https://journaltrader360.fr" style="display:inline-block; margin-top:16px; background:#d4af37; color:#000B25; padding:13px 30px; border-radius:10px; text-decoration:none; font-weight:700; letter-spacing:0.04em;">Ouvrir mon journal</a>';
+  if (prospects) {
+    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;"><tr><td align="center" style="background:#fbf3dc; border:1px solid #d4af37; border-radius:10px; padding:20px 22px; text-align:center;">'
+      + '<div style="color:#000B25; font-size:15px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">✅ Checklist pré-séance</div>'
+      + '<p style="margin:10px 0 0; font-size:15px; line-height:1.6; color:#000B25;">N\'oublie pas de remplir ta checklist pré-séance.<br>C\'est respecter la méthode Trader 360.</p>'
+      + '<p style="margin:10px 0 0; font-size:14px; line-height:1.6; color:#ac862b; font-weight:700;">Commence par ouvrir ton journal, avant ta plateforme.</p>'
+      + '<div style="margin-top:16px;"><span style="display:inline-block; border:1px solid rgba(0,11,37,0.25); color:#8a7d60; background:#fdf8ec; padding:12px 28px; border-radius:10px; font-weight:700; letter-spacing:0.04em;">🔒 Ouvrir mon journal</span></div>'
+      + '<div style="margin-top:8px; color:#8a7d60; font-size:12px; font-style:italic;">Réservé aux membres Trader 360</div>'
+      + '</td></tr></table>';
+  }
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;"><tr><td align="center" style="background:#000B25; border-radius:10px; padding:20px 22px; text-align:center;">'
     + '<div style="color:#d4af37; font-size:15px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">✅ Checklist pré-séance</div>'
     + '<p style="margin:10px 0 0; font-size:15px; line-height:1.6; color:#ffffff;">N\'oublie pas de remplir ta checklist pré-séance.<br>C\'est respecter la méthode Trader 360.</p>'
     + '<p style="margin:10px 0 0; font-size:14px; line-height:1.6; color:#d4af37; font-weight:700;">Commence par ouvrir ton journal, avant ta plateforme.</p>'
-    + bouton
+    + '<a href="https://journaltrader360.fr" style="display:inline-block; margin-top:16px; background:#d4af37; color:#000B25; padding:13px 30px; border-radius:10px; text-decoration:none; font-weight:700; letter-spacing:0.04em;">Ouvrir mon journal</a>'
     + '</td></tr></table>';
 }
 
-// PROSPECTS (Manu, 26/11/2026 : « variante actuelle transposée ») : l'encart parrainage
-// devient l'invitation au questionnaire, texte d'avant la v22 repris tel quel, sauf le
-// deux-points retiré (règle de rédaction v22). Aucun titre ajouté : l'ancien n'en avait pas.
 function blocParrainage(prospects) {
-  const [titre, texte, href, libelle] = prospects
-    ? [null, 'Si tu veux en savoir plus, réponds au questionnaire de positionnement. Tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.', URL_QUESTIONNAIRE_PROSPECTS, 'Répondre au questionnaire']
-    : ['🔗 Ton lien de parrainage', 'Tu connais quelqu\'un que le trading intéresse ? Partage-lui ton lien. Nous rémunérons la recommandation.', LIEN_PARRAINAGE, 'Mon lien'];
+  if (prospects) {
+    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 0;"><tr><td align="center" style="background:#000B25; border-radius:12px; padding:30px 26px; text-align:center;">'
+      + '<div style="color:#d4af37; font-size:26px; line-height:1.25; font-weight:800;">Tu veux en savoir plus ?</div>'
+      + '<p style="margin:14px 0 0; font-size:15px; line-height:1.6; color:#ffffff;">Réponds au questionnaire de positionnement.<br>Tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.</p>'
+      + `<a href="${URL_QUESTIONNAIRE_PROSPECTS}" style="display:inline-block; margin-top:22px; background:#d4af37; color:#000B25; padding:16px 38px; border-radius:10px; text-decoration:none; font-size:16px; font-weight:800; letter-spacing:0.04em;">Répondre au questionnaire</a>`
+      + '</td></tr></table>';
+  }
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:14px 0 0;"><tr><td style="background:#fbf3dc; border:1px solid #d4af37; border-left:4px solid #d4af37; border-radius:10px; padding:14px 18px;">'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td valign="middle" style="padding-right:12px;">'
-    + (titre ? `<div style="color:#000B25; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 4px;">${titre}</div>` : '')
-    + `<p style="margin:0; font-size:13px; line-height:1.5; color:#1a1208;">${texte}</p>`
+    + '<div style="color:#000B25; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 4px;">🔗 Ton lien de parrainage</div>'
+    + '<p style="margin:0; font-size:13px; line-height:1.5; color:#1a1208;">Tu connais quelqu\'un que le trading intéresse ? Partage-lui ton lien. Nous rémunérons la recommandation.</p>'
     + '</td><td valign="middle" align="right" style="white-space:nowrap;">'
-    + `<a href="${href}" style="display:inline-block; border:1px solid #000B25; color:#000B25; padding:8px 14px; border-radius:8px; text-decoration:none; font-size:12px; font-weight:700; letter-spacing:0.03em;">${libelle}</a>`
+    + `<a href="${LIEN_PARRAINAGE}" style="display:inline-block; border:1px solid #000B25; color:#000B25; padding:8px 14px; border-radius:8px; text-decoration:none; font-size:12px; font-weight:700; letter-spacing:0.03em;">Mon lien</a>`
     + '</td></tr></table></td></tr></table>';
 }
 

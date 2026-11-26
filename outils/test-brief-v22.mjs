@@ -9,7 +9,7 @@
 // Un écart affiche le premier octet divergent avec son contexte, et le test échoue.
 // ========================================================================
 import fs from 'node:fs';
-import { rendreCorps, rendreCourriel, ICONES_ESSAI, LIEN_PARRAINAGE } from '../api/_lib/brief-v22.js';
+import { rendreCorps, rendreCourriel, ICONES_ESSAI, LIEN_PARRAINAGE, URL_QUESTIONNAIRE_PROSPECTS } from '../api/_lib/brief-v22.js';
 
 const REF = new URL('./reference/brief_reference_v22.html', import.meta.url);
 // ⚠️ UN SEUL ÉCART ADMIS, exigé par le point 5 du cahier des charges : le bouton
@@ -62,13 +62,29 @@ const corps = rendreCorps({ hier, zones, urlSchema,
 const rendu = rendreCourriel({ firstName: 'Emmanuel', dateLongFr: 'jeudi 26 novembre 2026', corpsHtml: corps,
   icones: ICONES_ESSAI, enTete, titre: false });
 
-if (rendu === ref) {
-  console.log(`✅ Rendu identique à la référence, octet pour octet (${Buffer.byteLength(ref)} octets).`);
-  process.exit(0);
+function comparer(nom, rendu, ref) {
+  if (rendu === ref) {
+    console.log(`✅ ${nom} : rendu identique à la référence, octet pour octet (${Buffer.byteLength(ref)} octets).`);
+    return true;
+  }
+  let i = 0;
+  while (i < rendu.length && rendu[i] === ref[i]) i++;
+  console.error(`❌ ${nom} : écart au caractère ${i} (rendu ${rendu.length}, référence ${ref.length}).`);
+  console.error(`   référence : …${ref.slice(Math.max(0, i - 120), i + 160)}`);
+  console.error(`   rendu     : …${rendu.slice(Math.max(0, i - 120), i + 160)}`);
+  return false;
 }
-let i = 0;
-while (i < rendu.length && rendu[i] === ref[i]) i++;
-console.error(`❌ Écart au caractère ${i} (rendu ${rendu.length}, référence ${ref.length}).`);
-console.error(`   référence : …${ref.slice(Math.max(0, i - 120), i + 160)}`);
-console.error(`   rendu     : …${rendu.slice(Math.max(0, i - 120), i + 160)}`);
-process.exit(1);
+
+// ── PROSPECTS (référence validée par Manu le 26/11/2026, test Brevo reçu) ──────────────
+// Même contenu ; seul écart admis : le bouton « Répondre au questionnaire » porte les UTM
+// prospects du questionnaire actuel (Manu : « trader360.fr/candidater/ avec les UTM »).
+const refProBrut = fs.readFileSync(new URL('./reference/brief_reference_prospects_v22.html', import.meta.url), 'utf8');
+const Q_REF = '<a href="https://trader360.fr/candidater/" style="display:inline-block; margin-top:22px;';
+if (refProBrut.split(Q_REF).length !== 2) throw new Error('bouton du questionnaire introuvable (ou en double) dans la référence prospects');
+const refPro = refProBrut.replace(Q_REF, Q_REF.replace('https://trader360.fr/candidater/', URL_QUESTIONNAIRE_PROSPECTS));
+const renduPro = rendreCourriel({ firstName: 'Emmanuel', dateLongFr: 'jeudi 26 novembre 2026', corpsHtml: corps,
+  variant: 'prospects', icones: ICONES_ESSAI, enTete, titre: false });
+
+const okM = comparer('Membres', rendu, ref);
+const okP = comparer('Prospects', renduPro, refPro);
+process.exit(okM && okP ? 0 : 1);
