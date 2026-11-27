@@ -17,6 +17,7 @@
 // aurait fait (champ `production`).
 //
 // Env : CRON_SECRET, GITHUB_DISPATCH_TOKEN (Actions en écriture, ce dépôt seulement).
+// Sans GITHUB_DISPATCH_TOKEN, les deux endpoints sortent en 200 sans rien faire.
 // ========================================
 
 export const DEPOT = 'clubtrader360-dev/journal-trader-360-V2';
@@ -42,9 +43,11 @@ export function garde(req, res, { nom }) {
   const secret = process.env.CRON_SECRET;
   if (!secret) { res.status(500).json({ error: 'Missing CRON_SECRET' }); return 'stop'; }
   if (req.headers.authorization !== `Bearer ${secret}`) { res.status(401).json({ error: 'Unauthorized' }); return 'stop'; }
+  // Sans jeton (Manu, 27/11/2026 : déclenchement assuré par une tâche planifiée Claude),
+  // l'endpoint sort proprement : une ligne de log, réponse 200, aucune alerte.
   if (!process.env.GITHUB_DISPATCH_TOKEN) {
-    console.error(`[${nom}] GITHUB_DISPATCH_TOKEN manquant`);
-    res.status(500).json({ error: 'Missing GITHUB_DISPATCH_TOKEN' }); return 'stop';
+    console.log(`[${nom}] GITHUB_DISPATCH_TOKEN absent : rien à faire`);
+    res.status(200).json({ ignore: true, raison: 'GITHUB_DISPATCH_TOKEN absent' }); return 'stop';
   }
   return null;
 }
