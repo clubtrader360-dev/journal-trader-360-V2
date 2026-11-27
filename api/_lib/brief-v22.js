@@ -445,8 +445,9 @@ export function rendreCourriel({ firstName, dateLongFr, corpsHtml, variant = 'me
     `<tr><td style="padding:0; line-height:0; font-size:0;"><img src="${enTete}" width="660" alt="Trader 360 · Brief marché" style="display:block; width:100%; max-width:660px; height:auto; border:0; border-radius:14px 14px 0 0;"></td></tr>`,
     '<tr><td class="b-main" style="padding:32px 8px;">',
     `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:0 0 20px; text-align:center; color:#5a5040; font-style:italic; font-size:16px;">${capitaliser(dateLongFr)}</td></tr>`
-      // « Bonjour Trader, » en gras (font-weight, pas <strong> : la prose n'en a aucun).
-      + `<tr><td style="padding:0 0 ${ESPACES.paragraphe}px; font-size:16px; line-height:1.6; font-weight:700;">${archive ? 'Bonjour,' : hi}</td></tr></table>`
+      // « Bonjour Trader, » : même taille, graisse et police que le titre « La psychologie du
+      // jour » (19 px, 700, police du gabarit) ; font-weight, pas <strong> (la prose n'en a aucun).
+      + `<tr><td style="padding:0 0 ${ESPACES.paragraphe}px; font-family:${SANS}; font-size:19px; line-height:1.6; font-weight:700;">${archive ? 'Bonjour,' : hi}</td></tr></table>`
       + (archive ? '<div class="brief-marche">' : '')
       // Bloc → bloc : 40 px en padding (le corps porte déjà ses propres écarts).
       + pile([corps, blocPartenairesV22(), blocChecklist(prospects), archive ? '' : blocParrainage(prospects), archive ? '' : blocReseaux(icones)], ESPACES.bloc)
