@@ -18,6 +18,7 @@
 import { formatDateLongFr, capitaliser } from './date-fr.js';
 import { blocPartenairesV22 } from './partenaires.js';
 import { SANS, CHIFFRES } from './typo-brief.js';
+import { avecGras, paragraphesDe } from './brief-gras.js';
 
 export const BRIEF_V22 = true;
 
@@ -30,6 +31,8 @@ const GRIS = '#7a6b50';
 export function esc(t) {
   return String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
+/** Prose du modèle : tout échappé, puis seules les paires <strong> exactes restaurées. */
+export const proseHtml = (t) => avecGras(esc(t));
 
 /** 7182.78 → « 7&nbsp;182,78 ». Signe géré à part. */
 export function nombreFr(v, decimales = 2) {
@@ -106,7 +109,7 @@ const PASTILLE_BTC = '<span style="display:inline-block; width:18px; height:18px
 
 // ── Blocs ─────────────────────────────────────────────────────────────────────────
 const paragraphes = (liste, style) => liste.map((t, i) =>
-  `<p style="margin:0 0 ${i === liste.length - 1 ? '0px' : '10px'}; ${style}">${esc(t)}</p>`).join('');
+  `<p style="margin:0 0 ${i === liste.length - 1 ? '0px' : '10px'}; ${style}">${proseHtml(t)}</p>`).join('');
 
 function blocPsychologie(textes) {
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#f3e3ad; border:1px solid #d4af37; border-radius:10px; padding:18px 10px;">'
@@ -203,7 +206,7 @@ function blocZones(z) {
     + `<td width="70%" style="color:#ac862b; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">⚡ VIX <span style="font-size:13px; letter-spacing:0.04em; font-weight:400; color:#7a6b50; text-transform:none;">clôture ${jjmm(z.vix.seance)}</span></td>`
     + `<td width="30%" align="right" style="text-align:right; white-space:nowrap; ${CHIFFRES} font-size:24px; font-weight:700; color:#000B25;">${nombreOuNd(z.vix.cloture, 2)}</td>`
     + '</tr></table>'
-    + (z.vixLecture ? `<p style="margin:8px 0 0; font-size:16px; line-height:1.6; color:#1a1208;">${esc(z.vixLecture)}</p>` : '')
+    + paragraphesDe(z.vixLecture).map((t) => `<p style="margin:8px 0 0; font-size:16px; line-height:1.6; color:#1a1208;">${proseHtml(t)}</p>`).join('')
     + '</td></tr></table>'
     + '<p style="margin:14px 0 0; font-size:13px; line-height:1.5; color:#7a6b50;">Sources Investing.com et Cboe.</p>'
     + '</td></tr></table>';
@@ -244,14 +247,21 @@ function blocAgenda(agenda, ferie) {
 
 function blocActualite(items) {
   return pastilleTitre('📰 Actualité éco')
-    + items.map((it, i) => `<p style="margin:0 0 ${i === items.length - 1 ? '0px' : '10px'}; font-size:16px; line-height:1.6; color:#1a1208;"><b style="color:#000B25;">${esc(it.titre)}</b><br>${it.texteHtml ?? esc(it.texte)}</p>`).join('')
+    + items.map((it, i) => {
+      // texteHtml : déjà échappé (jetons remplacés), une chaîne ou une liste de paragraphes.
+      const paras = it.texteHtml !== undefined ? [].concat(it.texteHtml).map(avecGras) : paragraphesDe(it.texte).map(proseHtml);
+      return paras.map((h, k) => {
+        const dernier = i === items.length - 1 && k === paras.length - 1;
+        return `<p style="margin:0 0 ${dernier ? '0px' : '10px'}; font-size:16px; line-height:1.6; color:#1a1208;">${k === 0 ? `<b style="color:#000B25;">${esc(it.titre)}</b><br>` : ''}${h}</p>`;
+      }).join('');
+    }).join('')
     + ESPACE;
 }
 
 function blocRetenir(points) {
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#e7f0e4; border:1px solid rgba(0,11,37,0.15); border-radius:10px; padding:18px 10px;">'
     + '<div style="color:#000B25; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">🧠 Ce qu\'il faut retenir</div>'
-    + `<ul style="margin:0; padding-left:20px; font-size:16px; line-height:1.6;">${points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`
+    + `<ul style="margin:0; padding-left:20px; font-size:16px; line-height:1.6;">${points.map((p) => `<li>${proseHtml(p)}</li>`).join('')}</ul>`
     + '</td></tr></table>';
 }
 
@@ -272,8 +282,8 @@ function blocCulture(c, urlSchema) {
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 10px;">'
     + '<div style="color:#ac862b; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">📚 Culture de marché</div>'
     + `<div style="color:#000B25; font-size:18px; line-height:1.4; font-weight:700;">${esc(c.titre)}</div>`
-    + `<p style="margin:8px 0 0; font-size:16px; line-height:1.6;">${esc(c.definition)}</p>`
-    + `<p style="margin:10px 0 0; font-size:16px; line-height:1.6;">${esc(c.usage)}</p>`
+    + paragraphesDe(c.definition).map((t, k) => `<p style="margin:${k ? '10px' : '8px'} 0 0; font-size:16px; line-height:1.6;">${proseHtml(t)}</p>`).join('')
+    + paragraphesDe(c.usage).map((t) => `<p style="margin:10px 0 0; font-size:16px; line-height:1.6;">${proseHtml(t)}</p>`).join('')
     + `<img src="${urlSchema}" width="620" alt="${esc(altSchema(c.titre))}" style="display:block; width:100%; max-width:620px; height:auto; border:0; border-radius:8px; margin:14px 0 0;">`
     + '<p style="margin:12px 0 0; font-size:13px; line-height:1.5; color:#5a5040; font-style:italic;">Culture de marché, pour comprendre ce qu\'on croise ailleurs, dans une vidéo, sur un forum ou dans la bouche d\'un autre trader.</p>'
     + '</td></tr></table>';
@@ -285,9 +295,9 @@ function blocCulture(c, urlSchema) {
  */
 export function rendreCorps({ hier, zones, prose, urlSchema }) {
   // Les blocs de prose absents (brief de secours, « données seules ») ne sont pas rendus.
-  const psy = [].concat(prose.psychologie || []).filter(Boolean);
+  const psy = paragraphesDe(prose.psychologie || []);
   return '<div class="brief-marche">'
-    + `<p style="margin:0 0 10px; font-size:16px; line-height:1.6; color:#1a1208;">${esc(prose.intro)}</p>`
+    + paragraphesDe(prose.intro).map((t) => `<p style="margin:0 0 10px; font-size:16px; line-height:1.6; color:#1a1208;">${proseHtml(t)}</p>`).join('')
     + (psy.length ? blocPsychologie(psy) : '')
     + blocHier(hier)
     + blocZones({ ...zones, vixLecture: prose.vix_lecture })

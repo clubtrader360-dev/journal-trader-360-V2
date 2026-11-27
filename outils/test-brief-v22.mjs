@@ -85,6 +85,27 @@ const refPro = refProBrut.replace(Q_REF, Q_REF.replace('https://trader360.fr/can
 const renduPro = rendreCourriel({ firstName: 'Emmanuel', dateLongFr: 'jeudi 26 novembre 2026', corpsHtml: corps,
   variant: 'prospects', icones: ICONES_ESSAI, enTete, titre: false });
 
+// ── PROSE SURVOLABLE : liste d'autorisation du gras et normalisation (27/11/2026) ──────
+const { proseHtml } = await import('../api/_lib/brief-v22.js');
+const { normaliserGras, normaliserProse } = await import('../api/_lib/brief-gras.js');
+const verifs = [
+  ['gras simple', proseHtml('Le <strong>taux directeur</strong> bouge.'), 'Le <strong style="font-weight:700;">taux directeur</strong> bouge.'],
+  ['autre balise échappée', proseHtml('<b>x</b> <script>y</script>'), '&lt;b&gt;x&lt;/b&gt; &lt;script&gt;y&lt;/script&gt;'],
+  ['attribut refusé', proseHtml('<strong onclick="x">a b</strong>'), '&lt;strong onclick=&quot;x&quot;&gt;a b'],
+  ['orpheline retirée', proseHtml('a <strong>b c'), 'a b c'],
+  ['entrée « : » → « . »', normaliserGras('<strong>Le chiffre :</strong> 3 %.').texte, '<strong>Le chiffre.</strong> 3 %.'],
+  ['phrase entière en gras retirée', normaliserGras('<strong>Une phrase entière bien trop longue en gras ici.</strong>').texte, 'Une phrase entière bien trop longue en gras ici.'],
+  ['deux expressions → une', normaliserGras('A <strong>deux mots</strong> et <strong>trois mots ici</strong>.').texte, 'A <strong>deux mots</strong> et trois mots ici.'],
+  ['entrée + expression', normaliserGras('<strong>Bref.</strong> La <strong>prudence reste de mise</strong>.').texte, '<strong>Bref.</strong> La <strong>prudence reste de mise</strong>.'],
+];
+const plafond = normaliserProse({ intro: ['a <strong>b c</strong>', 'd <strong>e f</strong>', 'g <strong>h i</strong>', 'j <strong>k l</strong>'], psychologie: [], vix_lecture: [], actualite: [], retenir: [] });
+verifs.push(['plafond 3 sur 4', String(plafond.prose.intro.filter((t) => t.includes('<strong>')).length), '3']);
+let okG = true;
+for (const [nom, obtenu, attendu] of verifs) {
+  if (obtenu === attendu) console.log(`✅ Gras · ${nom}`);
+  else { okG = false; console.error(`❌ Gras · ${nom}\n   attendu : ${attendu}\n   obtenu  : ${obtenu}`); }
+}
+
 const okM = comparer('Membres', rendu, ref);
 const okP = comparer('Prospects', renduPro, refPro);
-process.exit(okM && okP ? 0 : 1);
+process.exit(okM && okP && okG ? 0 : 1);

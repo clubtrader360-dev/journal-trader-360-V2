@@ -158,6 +158,8 @@ export function controlerRedaction(html, { sujet = '' } = {}) {
       // Deux-points : seul admis entre deux chiffres (heure « 14:30 »).
       const sansHeures = l.replace(/\d:\d/g, '');
       if (sansHeures.includes(':')) m.push(`deux-points dans « ${l.slice(0, 100)} »`);
+      // Seul <strong> est rendu ; toute autre balise de la prose resterait affichée en clair.
+      if (/<\/?[a-z][a-z0-9]*(?:\s[^<>]*)?>/i.test(l)) m.push(`balise HTML affichée en clair dans « ${l.slice(0, 100)} »`);
       if (/\bn\/d\b|\bundefined\b|\bNaN\b|\bnull\b|\{[A-Z_]+\}|\{\{(?!\s*unsubscribe)/.test(l)) m.push(`valeur manquante ou jeton non remplacé dans « ${l.slice(0, 100)} »`);
     }
   }
