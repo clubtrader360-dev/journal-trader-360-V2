@@ -39,12 +39,12 @@ const actualite = tous(/<p[^>]*>(<b.*?)<\/p>/g, actuZone).map((p) => ({
 const retenir = tous(/<li>(.*?)<\/li>/g).map(dec);
 const cultZone = un(/Culture de marché<\/div>(.*?)<\/td>/);
 const culture = {
-  titre: dec(un(/font-size:17px; font-weight:700;">(.*?)<\/div>/, cultZone)),
+  titre: dec(un(/font-size:18px; line-height:1.4; font-weight:700;">(.*?)<\/div>/, cultZone)),
   definition: dec(un(/<p style="margin:8px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
   usage: dec(un(/<p style="margin:10px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
 };
-const urlSchema = un(/<img src="([^"]*)" width="600" alt="Schéma/);
-const enTete = un(/<img src="([^"]*)" width="600" alt="Trader 360/);
+const urlSchema = un(/<img src="([^"]*)" width="\d+" alt="Schéma/);
+const enTete = un(/<img src="([^"]*)" width="\d+" alt="Trader 360/);
 
 const s = (cloture, variation, seance = '2026-11-25') => ({ cloture, variation, seance });
 const hier = {
