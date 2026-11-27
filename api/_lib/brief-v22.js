@@ -18,7 +18,7 @@
 import { formatDateLongFr, capitaliser } from './date-fr.js';
 import { blocPartenairesV22 } from './partenaires.js';
 import { SANS, CHIFFRES } from './typo-brief.js';
-import { avecGras, paragraphesDe } from './brief-gras.js';
+import { paragraphesDe } from './brief-gras.js';
 
 export const BRIEF_V22 = true;
 
@@ -31,8 +31,8 @@ const GRIS = '#7a6b50';
 export function esc(t) {
   return String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
-/** Prose du modèle : tout échappé, puis seules les paires <strong> exactes restaurées. */
-export const proseHtml = (t) => avecGras(esc(t));
+/** Prose du modèle : tout échappé, aucune balise admise (aucun gras dans la prose). */
+export const proseHtml = (t) => esc(t);
 
 /** 7182.78 → « 7&nbsp;182,78 ». Signe géré à part. */
 export function nombreFr(v, decimales = 2) {
@@ -249,7 +249,7 @@ function blocActualite(items) {
   return pastilleTitre('📰 Actualité éco')
     + items.map((it, i) => {
       // texteHtml : déjà échappé (jetons remplacés), une chaîne ou une liste de paragraphes.
-      const paras = it.texteHtml !== undefined ? [].concat(it.texteHtml).map(avecGras) : paragraphesDe(it.texte).map(proseHtml);
+      const paras = it.texteHtml !== undefined ? [].concat(it.texteHtml) : paragraphesDe(it.texte).map(proseHtml);
       return paras.map((h, k) => {
         const dernier = i === items.length - 1 && k === paras.length - 1;
         return `<p style="margin:0 0 ${dernier ? '0px' : '10px'}; font-size:16px; line-height:1.6; color:#1a1208;">${k === 0 ? `<b style="color:#000B25;">${esc(it.titre)}</b><br>` : ''}${h}</p>`;

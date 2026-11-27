@@ -85,31 +85,19 @@ const refPro = refProBrut.replace(Q_REF, Q_REF.replace('https://trader360.fr/can
 const renduPro = rendreCourriel({ firstName: 'Emmanuel', dateLongFr: 'jeudi 26 novembre 2026', corpsHtml: corps,
   variant: 'prospects', icones: ICONES_ESSAI, enTete, titre: false });
 
-// ── PROSE SURVOLABLE : liste d'autorisation du gras et normalisation (27/11/2026) ──────
+// ── PROSE SURVOLABLE : paragraphes courts, AUCUN gras dans la prose (27/11/2026) ──────
 const { proseHtml } = await import('../api/_lib/brief-v22.js');
-const { normaliserGras, normaliserProse } = await import('../api/_lib/brief-gras.js');
+const { normaliserProse } = await import('../api/_lib/brief-gras.js');
+const { controlerSansGras } = await import('../api/_lib/brief-garde.js');
+const n = normaliserProse({ intro: ['<strong>Bref.</strong> a', 'b <strong>c d</strong> e\nf'], psychologie: 'g', vix_lecture: [], actualite: [{ titre: 't', texte: ['<STRONG class="x">h</STRONG> i'] }], retenir: ['j <strong>k</strong>'] });
 const verifs = [
-  ['gras simple', proseHtml('Le <strong>taux directeur</strong> bouge.'), 'Le <strong style="font-weight:700;">taux directeur</strong> bouge.'],
-  ['autre balise échappée', proseHtml('<b>x</b> <script>y</script>'), '&lt;b&gt;x&lt;/b&gt; &lt;script&gt;y&lt;/script&gt;'],
-  ['attribut refusé', proseHtml('<strong onclick="x">a b</strong>'), '&lt;strong onclick=&quot;x&quot;&gt;a b'],
-  ['orpheline retirée', proseHtml('a <strong>b c'), 'a b c'],
-  ['entrée « : » → « . »', normaliserGras('<strong>Le chiffre :</strong> 3 %.').texte, '<strong>Le chiffre.</strong> 3 %.'],
-  ['phrase entière en gras retirée', normaliserGras('<strong>Une phrase entière bien trop longue en gras ici.</strong>').texte, 'Une phrase entière bien trop longue en gras ici.'],
-  ['gras en milieu de phrase retiré', normaliserGras('A <strong>deux mots</strong> et <strong>trois mots ici</strong>.').texte, 'A deux mots et trois mots ici.'],
-  ['entrée gardée, expression retirée', normaliserGras('<strong>Bref.</strong> La <strong>prudence reste de mise</strong>.').texte, '<strong>Bref.</strong> La prudence reste de mise.'],
-  ['expression en tête sans point retirée', normaliserGras('<strong>Wall Street rouvre</strong> après la fête.').texte, 'Wall Street rouvre après la fête.'],
-  ['question d\'entrée gardée', normaliserGras('<strong>Pourquoi c\'est important ?</strong> Les taux montent.').texte, '<strong>Pourquoi c\'est important ?</strong> Les taux montent.'],
+  ['toute balise échappée au rendu', proseHtml('<strong>a</strong> <b>x</b> <script>y</script>'), '&lt;strong&gt;a&lt;/strong&gt; &lt;b&gt;x&lt;/b&gt; &lt;script&gt;y&lt;/script&gt;'],
+  ['gras retiré de la prose', JSON.stringify([n.prose.intro, n.prose.actualite[0].texte, n.prose.retenir]), JSON.stringify([['Bref. a', 'b c d e', 'f'], ['h i'], ['j k']])],
+  ['paragraphes d\'une chaîne', JSON.stringify(n.prose.psychologie), JSON.stringify(['g'])],
+  ['contrôle · sans gras admis', String(controlerSansGras('<p><b style="x">Titre</b><br>Texte.</p>').length), '0'],
+  ['contrôle · <strong> refusé', String(controlerSansGras('<p><strong style="font-weight:700;">Bref.</strong> x</p>').length), '1'],
+  ['contrôle · <strong> échappé refusé', String(controlerSansGras('<p>&lt;strong&gt;Bref.&lt;/strong&gt; x</p>').length), '1'],
 ];
-// Contrôle final : refuse tout <strong> rendu ailleurs qu'en début de paragraphe.
-const { controlerGrasEnTete } = await import('../api/_lib/brief-garde.js');
-const G = '<strong style="font-weight:700;">';
-verifs.push(
-  ['contrôle · entrée en tête admise', String(controlerGrasEnTete(`<p style="x">${G}Bref.</strong> Texte.</p><li>${G}À retenir.</strong> x</li><b style="c">Titre</b><br>${G}Le chiffre.</strong> y`).length), '0'],
-  ['contrôle · gras en milieu refusé', String(controlerGrasEnTete(`<p style="x">Le ${G}taux directeur.</strong> bouge.</p>`).length), '1'],
-  ['contrôle · entrée sans point refusée', String(controlerGrasEnTete(`<p style="x">${G}Wall Street</strong> rouvre.</p>`).length), '1'],
-);
-const plafond = normaliserProse({ intro: ['<strong>Bref.</strong> a', '<strong>Bref.</strong> b', '<strong>Bref.</strong> c', '<strong>Bref.</strong> d'], psychologie: [], vix_lecture: [], actualite: [], retenir: [] });
-verifs.push(['plafond 3 sur 4', String(plafond.prose.intro.filter((t) => t.includes('<strong>')).length), '3']);
 let okG = true;
 for (const [nom, obtenu, attendu] of verifs) {
   if (obtenu === attendu) console.log(`✅ Gras · ${nom}`);
