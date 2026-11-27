@@ -145,8 +145,18 @@ export function textesVisibles(html) {
   return [corps, ...attributs, titre || ''].map(dec);
 }
 
+/**
+ * Gras (27/11/2026, décision d'Emmanuel) : AUCUN gras dans la prose générée. Le gabarit
+ * n'emploie jamais <strong> (ses titres sont en <b> ou font-weight) : tout <strong>,
+ * rendu ou échappé, vient donc du modèle et est refusé.
+ */
+export function controlerSansGras(html) {
+  const n = (String(html).match(/<\s*\/?\s*strong\b|&lt;\s*\/?\s*strong\b/gi) || []).length;
+  return n ? [`gras dans la prose générée (${n} balise${n > 1 ? 's' : ''} strong)`] : [];
+}
+
 export function controlerRedaction(html, { sujet = '' } = {}) {
-  const m = [];
+  const m = [...controlerSansGras(html)];
   // Les « n/d » posés par le CODE à l'échéance (ND_HTML) sont admis ; tout autre
   // « n/d », « NaN », « undefined » ou jeton non remplacé reste refusé.
   const textes = [...textesVisibles(String(html).split(ND_HTML).join('')), sujet];
@@ -158,6 +168,8 @@ export function controlerRedaction(html, { sujet = '' } = {}) {
       // Deux-points : seul admis entre deux chiffres (heure « 14:30 »).
       const sansHeures = l.replace(/\d:\d/g, '');
       if (sansHeures.includes(':')) m.push(`deux-points dans « ${l.slice(0, 100)} »`);
+      // Seul <strong> est rendu ; toute autre balise de la prose resterait affichée en clair.
+      if (/<\/?[a-z][a-z0-9]*(?:\s[^<>]*)?>/i.test(l)) m.push(`balise HTML affichée en clair dans « ${l.slice(0, 100)} »`);
       if (/\bn\/d\b|\bundefined\b|\bNaN\b|\bnull\b|\{[A-Z_]+\}|\{\{(?!\s*unsubscribe)/.test(l)) m.push(`valeur manquante ou jeton non remplacé dans « ${l.slice(0, 100)} »`);
     }
   }
@@ -171,6 +183,8 @@ export function controlerProse(p) {
   const m = [];
   if (!p || typeof p !== 'object') return ['prose du modèle absente ou illisible'];
   if (!nonVide(p.intro)) m.push('intro absente');
+  // Un seul « Bonjour » : celui du gabarit. Toute salutation en tête de la prose est refusée.
+  else if (/^\s*(?:bonjour|bonsoir|salut|hello|coucou|hey)\b/i.test(p.intro)) m.push(`salutation en tête de l'intro « ${p.intro.slice(0, 40)} » (le gabarit dit déjà « Bonjour »)`);
   const psy = [].concat(p.psychologie || []);
   if (!psy.length || !psy.every(nonVide)) m.push('psychologie du jour absente');
   if (!nonVide(p.vix_lecture)) m.push('lecture du VIX absente');

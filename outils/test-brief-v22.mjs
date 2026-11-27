@@ -22,9 +22,10 @@ const dec = (t) => t.replace(/&amp;/g, '&').replace(/&nbsp;/g, '\u00a0');
 const un = (re, s = ref) => { const m = s.match(re); if (!m) throw new Error(`motif absent de la référence : ${re}`); return m[1]; };
 const tous = (re, s = ref) => [...s.matchAll(re)].map((m) => m[1]);
 
-const intro = dec(un(/Bonjour Emmanuel,<\/p><p[^>]*>(.*?)<\/p>/));
-const psy = dec(un(/La psychologie du jour<\/div><p[^>]*>(.*?)<\/p>/));
-const vixLecture = dec(un(/>28,29<\/td><\/tr><\/table><p[^>]*>(.*?)<\/p>/));
+// Espacements en cellules (27/11/2026) : chaque paragraphe est une cellule <td>.
+const intro = dec(un(/Bonjour Emmanuel,<\/td><\/tr><\/table>.*?<td style="padding:0 0 0px; font-size:16px; line-height:1.6; color:#1a1208;">(.*?)<\/td>/));
+const psy = dec(un(/La psychologie du jour<\/td><\/tr><\/table><table[^>]*><tr><td[^>]*>(.*?)<\/td>/));
+const vixLecture = dec(un(/>28,29<\/td><\/tr><\/table><table[^>]*><tr><td[^>]*><table[^>]*><tr><td[^>]*>(.*?)<\/td>/));
 const agendaZone = un(/(<table[^>]*border-collapse:separate;">.*?<\/table>)/);
 const agenda = tous(/<tr>(.*?)<\/tr>/g, agendaZone).map((tr) => ({
   heure: un(/white-space:nowrap;">(\d\d:\d\d)<\/td>/, tr),
@@ -32,16 +33,19 @@ const agenda = tous(/<tr>(.*?)<\/tr>/g, agendaZone).map((tr) => ({
   pays: 'US',
   theme: dec(un(/color:#1a1208;">([^<]*)<\/td>$/, tr)),
 }));
-const actuZone = un(/Actualité éco<\/span><\/div>(.*?)<div style="height:16px;">/);
-const actualite = tous(/<p[^>]*>(<b.*?)<\/p>/g, actuZone).map((p) => ({
-  titre: dec(un(/<b[^>]*>(.*?)<\/b>/, p)), texteHtml: un(/<br>(.*)$/, p),
-}));
-const retenir = tous(/<li>(.*?)<\/li>/g).map(dec);
-const cultZone = un(/Culture de marché<\/div>(.*?)<\/td>/);
+// Actualité : une cellule de titre (18 px gras) puis une cellule par paragraphe.
+const actuZone = un(/Actualité éco<\/span><\/td><\/tr><\/table>(.*?)<\/table>/);
+const actualite = actuZone.split(/(?=<tr><td style="padding:0 0 \d+px; color:#000B25; font-size:18px;)/).filter((b) => b.includes("font-size:18px;")).map((bloc) => {
+  const [titre, ...paras] = tous(/<td[^>]*>(.*?)<\/td>/g, bloc);
+  return { titre: dec(titre), texteHtml: paras };
+});
+const retenir = tous(/<td valign="top" style="padding:0 0 \d+px; font-size:16px; line-height:1.6; color:#1a1208;">(.*?)<\/td>/g).map(dec);
+const cultZone = un(/Culture de marché<\/td>(.*?)<img/);
+const cultParas = tous(/<td style="padding:0 0 \d+px; font-size:16px; line-height:1.6;">(.*?)<\/td>/g, cultZone);
 const culture = {
-  titre: dec(un(/font-size:18px; line-height:1.4; font-weight:700;">(.*?)<\/div>/, cultZone)),
-  definition: dec(un(/<p style="margin:8px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
-  usage: dec(un(/<p style="margin:10px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
+  titre: dec(un(/font-size:18px; line-height:1.4; font-weight:700;">(.*?)<\/span>/, cultZone)),
+  definition: dec(cultParas[0]),
+  usage: dec(cultParas[1]),
 };
 const urlSchema = un(/<img src="([^"]*)" width="\d+" alt="Schéma/);
 const enTete = un(/<img src="([^"]*)" width="\d+" alt="Trader 360/);
@@ -79,12 +83,40 @@ function comparer(nom, rendu, ref) {
 // Même contenu ; seul écart admis : le bouton « Répondre au questionnaire » porte les UTM
 // prospects du questionnaire actuel (Manu : « trader360.fr/candidater/ avec les UTM »).
 const refProBrut = fs.readFileSync(new URL('./reference/brief_reference_prospects_v22.html', import.meta.url), 'utf8');
-const Q_REF = '<a href="https://trader360.fr/candidater/" style="display:inline-block; margin-top:22px;';
+const Q_REF = '<a href="https://trader360.fr/candidater/" style="display:inline-block; background:#d4af37;';
 if (refProBrut.split(Q_REF).length !== 2) throw new Error('bouton du questionnaire introuvable (ou en double) dans la référence prospects');
 const refPro = refProBrut.replace(Q_REF, Q_REF.replace('https://trader360.fr/candidater/', URL_QUESTIONNAIRE_PROSPECTS));
 const renduPro = rendreCourriel({ firstName: 'Emmanuel', dateLongFr: 'jeudi 26 novembre 2026', corpsHtml: corps,
   variant: 'prospects', icones: ICONES_ESSAI, enTete, titre: false });
 
+// ── PROSE SURVOLABLE : paragraphes courts, AUCUN gras dans la prose (27/11/2026) ──────
+const { proseHtml } = await import('../api/_lib/brief-v22.js');
+const { normaliserProse } = await import('../api/_lib/brief-gras.js');
+const { controlerSansGras } = await import('../api/_lib/brief-garde.js');
+const n = normaliserProse({ intro: ['<strong>Bref.</strong> a', 'b <strong>c d</strong> e\nf'], psychologie: 'g', vix_lecture: [], actualite: [{ titre: 't', texte: ['<STRONG class="x">h</STRONG> i'] }], retenir: ['j <strong>k</strong>'] });
+const verifs = [
+  ['toute balise échappée au rendu', proseHtml('<strong>a</strong> <b>x</b> <script>y</script>'), '&lt;strong&gt;a&lt;/strong&gt; &lt;b&gt;x&lt;/b&gt; &lt;script&gt;y&lt;/script&gt;'],
+  ['gras retiré de la prose', JSON.stringify([n.prose.intro, n.prose.actualite[0].texte, n.prose.retenir]), JSON.stringify([['Bref. a', 'b c d e', 'f'], ['h i'], ['j k']])],
+  ['paragraphes d\'une chaîne', JSON.stringify(n.prose.psychologie), JSON.stringify(['g'])],
+  ['contrôle · sans gras admis', String(controlerSansGras('<p><b style="x">Titre</b><br>Texte.</p>').length), '0'],
+  ['contrôle · <strong> refusé', String(controlerSansGras('<p><strong style="font-weight:700;">Bref.</strong> x</p>').length), '1'],
+  ['contrôle · <strong> échappé refusé', String(controlerSansGras('<p>&lt;strong&gt;Bref.&lt;/strong&gt; x</p>').length), '1'],
+];
+// Un seul « Bonjour » : salutation d'ouverture retirée, et refusée si elle restait.
+const { sansSalutation } = await import('../api/_lib/brief-gras.js');
+const { controlerProse } = await import('../api/_lib/brief-garde.js');
+verifs.push(
+  ['salutation · « Bonjour à toi. » retiré', JSON.stringify(sansSalutation(['Bonjour à toi. Wall Street rouvre.']).intro), JSON.stringify(['Wall Street rouvre.'])],
+  ['salutation · « Bonjour, » retiré', JSON.stringify(sansSalutation(['Bonjour, la séance est courte.']).intro), JSON.stringify(['La séance est courte.'])],
+  ['salutation · texte sans salutation intact', JSON.stringify(sansSalutation(['Wall Street rouvre. Bonjour.']).intro), JSON.stringify(['Wall Street rouvre. Bonjour.'])],
+  ['salutation · contrôle refuse', String(controlerProse({ intro: 'Bonjour à toi, la séance…' }).some((m) => m.startsWith('salutation'))), 'true'],
+);
+let okG = true;
+for (const [nom, obtenu, attendu] of verifs) {
+  if (obtenu === attendu) console.log(`✅ Gras · ${nom}`);
+  else { okG = false; console.error(`❌ Gras · ${nom}\n   attendu : ${attendu}\n   obtenu  : ${obtenu}`); }
+}
+
 const okM = comparer('Membres', rendu, ref);
 const okP = comparer('Prospects', renduPro, refPro);
-process.exit(okM && okP ? 0 : 1);
+process.exit(okM && okP && okG ? 0 : 1);

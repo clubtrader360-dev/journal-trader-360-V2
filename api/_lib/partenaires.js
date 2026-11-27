@@ -1,4 +1,4 @@
-import { CHIFFRES } from './typo-brief.js';
+import { CHIFFRES, titreCarte } from './typo-brief.js';
 // ========================================================================
 // CODES PARTENAIRES DES PROP FIRMS : le bloc du brief (membres ET prospects).
 //
@@ -134,18 +134,18 @@ export function blocPartenairesV22({ maintenant = new Date() } = {}) {
     + p.offres.map((o) => ` <span style="color:#5a5040; font-size:13px;">(<span style="${CHIFFRES} font-weight:700; color:#ac862b;">${o.remise}</span> ${o.portee})</span>`).join('')
     + `</td><td align="right" style="padding:2px 0 2px 8px;"><span style="display:inline-block; ${CHIFFRES} font-size:13px; font-weight:700; color:#000B25; border:1px dashed #d4af37; border-radius:6px; padding:2px 6px; white-space:nowrap;">${p.code}</span></td></tr>`;
   const cadeau = maintenant <= new Date('2026-12-15T23:59:59+01:00')
-    ? '<p style="margin:10px 0 0; font-size:15px; line-height:1.5; font-weight:600;">🎁&nbsp; Chaque semaine jusqu\'au 15 décembre, une évaluation offerte au membre le plus impliqué.</p>'
+    ? '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:10px 0 0; font-size:15px; line-height:1.5; font-weight:600;">🎁&nbsp; Chaque semaine jusqu\'au 15 décembre, une évaluation offerte au membre le plus impliqué.</td></tr></table>'
     : '';
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#eef3f9; border:1px solid rgba(0,11,37,0.18); border-radius:10px; padding:18px 10px;">'
-    + '<div style="color:#000B25; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">🤝 Nos codes partenaires</div>'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td class="b-carte" style="background:#eef3f9; border:1px solid rgba(0,11,37,0.18); border-radius:10px; padding:18px 10px;">'
+    + titreCarte('🤝 Nos codes partenaires', '#000B25')
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
     + '<tr><td style="padding:0 0 6px; font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Prop firm et réduction</td><td align="right" style="padding:0 0 6px; font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Code</td></tr>'
     + actifs.filter((p) => p.principal).map(principal).join('')
     + '<tr><td colspan="2" style="padding:12px 0 4px; border-bottom:1px solid rgba(212,175,55,0.25); font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Autres codes</td></tr>'
     + actifs.filter((p) => !p.principal).map(autre).join('')
     + '</table>'
-    + '<p style="margin:8px 0 0; font-size:14px; line-height:1.5; color:#5a5040;">Le code se saisit sur la page de paiement, avant de valider. Avant de t\'inscrire, lis bien leurs règles sur leur site.</p>'
+    + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:8px 0 0; font-size:14px; line-height:1.5; color:#5a5040;">Le code se saisit sur la page de paiement, avant de valider. Avant de t\'inscrire, lis bien leurs règles sur leur site.</td></tr></table>'
     + cadeau
-    + `<p style="margin:6px 0 0; font-size:12px; line-height:1.5; color:#7a6b50;">Réductions relevées le ${REMISES_RELEVEES_LE}, selon les promotions de chaque partenaire. Une évaluation n'est pas un compte financé. Trader 360 ne peut être tenu responsable des règles, décisions, paiements ni changements de conditions des prop firms. Vérifie toujours leurs conditions avant de t'inscrire.</p>`
+    + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:6px 0 0; font-size:12px; line-height:1.5; color:#7a6b50;">Réductions relevées le ${REMISES_RELEVEES_LE}, selon les promotions de chaque partenaire. Une évaluation n'est pas un compte financé. Trader 360 ne peut être tenu responsable des règles, décisions, paiements ni changements de conditions des prop firms. Vérifie toujours leurs conditions avant de t'inscrire.</td></tr></table>`
     + '</td></tr></table>';
 }

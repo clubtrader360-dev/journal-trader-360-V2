@@ -22,6 +22,7 @@ import { collecterZones } from './marche/zones.js';
 import { rendreCorps, rendreCourriel, sujetV22, nombreFr, valeurHier, variationHier, hierNd, ICONES_SITE } from './brief-v22.js';
 import { controlerCompletude, controlerNiveauxPsy, controlerProse, controlerRedaction, controlerEtRemplacer, tableJetons } from './brief-garde.js';
 import { formatDateLongFr } from './date-fr.js';
+import { normaliserProse, aplatirProse } from './brief-gras.js';
 import { estSeance } from './marche/calendriers.js';
 
 /** Collecte complète. `options.hier` / `options.zones` : injection pour les tests. */
@@ -166,8 +167,12 @@ export function lireProse(brut) {
 export function assembler(d, prose, { urlSchema, notion = null, icones = ICONES_SITE } = {}) {
   // Avant l'échéance, une valeur manquante refuse le brief (la collecte est relancée).
   // À l'échéance (`d.echeance`, posé par « figer »), elle part en « n/d ».
-  const motifs = [...(d.echeance ? [] : d.controle), ...controlerProse(prose)];
+  // Prose survolable (27/11/2026) : textes en paragraphes courts, tout gras retiré par
+  // le code (jamais un refus pour du style, voir brief-gras.js).
+  const norm = prose && typeof prose === 'object' ? normaliserProse(prose) : null;
+  const motifs = [...(d.echeance ? [] : d.controle), ...controlerProse(norm ? aplatirProse(norm.prose) : prose)];
   if (motifs.length) return { ok: false, motifs };
+  prose = norm.prose;
   const fermees = placesFermees(d.dateBrief);
   if (fermees.length && !prose.ferie) motifs.push(`jour férié non signalé : ${fermees.join(', ')} fermé(s) aujourd'hui selon les calendriers du code`);
   const esOk = typeof d.zones.es?.cloture === 'number';
@@ -183,18 +188,18 @@ export function assembler(d, prose, { urlSchema, notion = null, icones = ICONES_
   const dec = (h) => h.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
   const proseRendue = {
     ...prose,
-    intro: dec(R(prose.intro, 'intro')).replace(/&nbsp;/g, ' '),
-    psychologie: [].concat(prose.psychologie).map((t) => dec(R(t, 'psychologie')).replace(/&nbsp;/g, ' ')),
-    vix_lecture: dec(R(prose.vix_lecture, 'lecture du VIX')).replace(/&nbsp;/g, ' '),
+    intro: prose.intro.map((t) => dec(R(t, 'intro')).replace(/&nbsp;/g, ' ')),
+    psychologie: prose.psychologie.map((t) => dec(R(t, 'psychologie')).replace(/&nbsp;/g, ' ')),
+    vix_lecture: prose.vix_lecture.map((t) => dec(R(t, 'lecture du VIX')).replace(/&nbsp;/g, ' ')),
     retenir: prose.retenir.map((t) => dec(R(t, 'à retenir')).replace(/&nbsp;/g, ' ')),
-    actualite: prose.actualite.map((a, i) => ({ titre: a.titre, texteHtml: R(a.texte, `actualité ${i + 1}`) })),
+    actualite: prose.actualite.map((a, i) => ({ titre: a.titre, texteHtml: a.texte.map((t) => R(t, `actualité ${i + 1}`)) })),
     culture: prose.culture,
   };
   const zones = { es: d.zones.es, cfd: d.zones.cfd, psy: esOk ? prose.niveaux_psy : null, vix: d.zones.vix };
   const corps = rendreCorps({ hier: d.hier, zones, prose: proseRendue, urlSchema });
   motifs.push(...controlerCourriels(d, corps, icones));
   const uniques = [...new Set(motifs)];
-  return uniques.length ? { ok: false, motifs: uniques } : { ok: true, corps };
+  return uniques.length ? { ok: false, motifs: uniques } : { ok: true, corps, mesures: norm.mesures, corrections: norm.corrections };
 }
 
 /** Le contrôle de rédaction sur les TROIS courriels finaux (sujet compris). */

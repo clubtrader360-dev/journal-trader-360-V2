@@ -121,6 +121,9 @@ async function main() {
     if (cmd === 'assembler') {
       fs.writeFileSync(a[2], r.corps);
       console.log(`✅ Corps assemblé et contrôlé (${Buffer.byteLength(r.corps)} octets)`);
+      // Prose survolable : mesures et corrections du gras, au journal (jamais un refus).
+      if (r.mesures) console.log(`📏 Prose : ${JSON.stringify(r.mesures)}`);
+      for (const c of r.corrections || []) console.log(`✂️ ${c}`);
       return;
     }
     const variant = a[3] || 'members';
