@@ -17,7 +17,7 @@ export const CHIFFRES = `font-family:${MONO}; font-variant-numeric:tabular-nums;
 // Peu d'espace à l'intérieur d'un bloc, beaucoup entre les blocs. Tous les espacements
 // verticaux sont des PADDING DE CELLULE (Gmail et Outlook ignorent souvent les margin),
 // et aucune media query n'y touche : identiques sur téléphone et ordinateur.
-export const ESPACES = { paragraphe: 16, titre: 13, bloc: 40, intro: 48 };
+export const ESPACES = { paragraphe: 16, titre: 13, bloc: 40, intro: 48, titreActualite: 6, actualite: 24 };
 const TABLE_PILE = '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">';
 /**
  * Pile verticale : un élément par cellule, l'écart en padding-bottom de la cellule.

@@ -243,13 +243,20 @@ function blocAgenda(agenda, ferie) {
 }
 
 function blocActualite(items) {
-  // Un paragraphe par cellule, 16 px entre eux ; le sujet en gras reste collé à son texte.
-  const cellules = items.flatMap((it) => {
+  // Manu 27/11/2026 : titre de chaque actualité en 18 px gras, interligne 1,3, collé à son
+  // texte (6 px) ; 16 px entre paragraphes, 24 px entre deux actualités. Le titre peut
+  // passer sur deux lignes à 380 px, jamais déborder (pas de nowrap, coupure des mots longs).
+  const TITRE = 'color:#000B25; font-size:18px; line-height:1.3; font-weight:700; overflow-wrap:break-word; word-wrap:break-word;';
+  const cellules = items.flatMap((it, i) => {
     // texteHtml : déjà échappé (jetons remplacés), une chaîne ou une liste de paragraphes.
     const paras = it.texteHtml !== undefined ? [].concat(it.texteHtml) : paragraphesDe(it.texte).map(proseHtml);
-    return paras.map((h, k) => `${k === 0 ? `<b style="color:#000B25;">${esc(it.titre)}</b><br>` : ''}${h}`);
+    const finItem = i === items.length - 1 ? 0 : ESPACES.actualite;
+    return [
+      `<tr><td style="padding:0 0 ${ESPACES.titreActualite}px; ${TITRE}">${esc(it.titre)}</td></tr>`,
+      ...paras.map((h, k) => `<tr><td style="padding:0 0 ${k === paras.length - 1 ? finItem : ESPACES.paragraphe}px; ${PROSE}">${h}</td></tr>`),
+    ];
   });
-  return pastilleTitre('📰 Actualité éco') + pile(cellules, ESPACES.paragraphe, PROSE);
+  return pastilleTitre('📰 Actualité éco') + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">' + cellules.join('') + '</table>';
 }
 
 function blocRetenir(points) {
@@ -438,7 +445,8 @@ export function rendreCourriel({ firstName, dateLongFr, corpsHtml, variant = 'me
     `<tr><td style="padding:0; line-height:0; font-size:0;"><img src="${enTete}" width="660" alt="Trader 360 · Brief marché" style="display:block; width:100%; max-width:660px; height:auto; border:0; border-radius:14px 14px 0 0;"></td></tr>`,
     '<tr><td class="b-main" style="padding:32px 8px;">',
     `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:0 0 20px; text-align:center; color:#5a5040; font-style:italic; font-size:16px;">${capitaliser(dateLongFr)}</td></tr>`
-      + `<tr><td style="padding:0 0 ${ESPACES.paragraphe}px; font-size:16px; line-height:1.6;">${archive ? 'Bonjour,' : hi}</td></tr></table>`
+      // « Bonjour Trader, » en gras (font-weight, pas <strong> : la prose n'en a aucun).
+      + `<tr><td style="padding:0 0 ${ESPACES.paragraphe}px; font-size:16px; line-height:1.6; font-weight:700;">${archive ? 'Bonjour,' : hi}</td></tr></table>`
       + (archive ? '<div class="brief-marche">' : '')
       // Bloc → bloc : 40 px en padding (le corps porte déjà ses propres écarts).
       + pile([corps, blocPartenairesV22(), blocChecklist(prospects), archive ? '' : blocParrainage(prospects), archive ? '' : blocReseaux(icones)], ESPACES.bloc)

@@ -101,7 +101,10 @@ Contrôles appliqués par le code, phrase par phrase :
 
 ## CONTENU, SECTION PAR SECTION
 
-- **intro** : 2 paragraphes courts (2 à 3 phrases en tout), ton chaleureux et posé. Situe la séance du jour (jour
+- **intro** : 2 paragraphes courts (2 à 3 phrases en tout), ton chaleureux et posé.
+  ⛔ AUCUNE salutation : ni « Bonjour », ni « Bonjour à toi », ni « Salut », ni
+  « Hello ». Le mail affiche déjà « Bonjour Trader, » juste au-dessus de l'intro ; une
+  seconde salutation est refusée. Commence directement en situant la séance du jour (jour
   férié, publication majeure, climat de la veille). Pas de chiffre nécessaire.
 - **psychologie** : « La psychologie du jour ». 3 à 4 paragraphes courts, pédagogique, jamais
   moralisateur, reliée si possible au climat de marché. Varie le thème chaque jour

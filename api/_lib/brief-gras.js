@@ -40,6 +40,21 @@ export function mesurer(paras) {
   };
 }
 
+// UN SEUL « BONJOUR » (Manu, 27/11/2026) : le gabarit affiche « Bonjour Trader, ». Une
+// salutation en tête de l'intro (« Bonjour à toi. », « Salut, … ») est retirée par le
+// code ; controlerProse refuse celle qui resterait.
+export const SALUTATION = /^(?:bonjour|bonsoir|salut|hello|coucou|hey)\b/i;
+const SALUTATION_SEULE = /^(?:bonjour|bonsoir|salut|hello|coucou|hey)\b[^.!?,;]{0,30}[.!?,;]\s*/i;
+export function sansSalutation(intro) {
+  const l = [...intro];
+  if (l.length && SALUTATION_SEULE.test(l[0])) {
+    const reste = l[0].replace(SALUTATION_SEULE, '').trim();
+    if (reste) l[0] = reste.charAt(0).toUpperCase() + reste.slice(1); else l.shift();
+    return { intro: l, retiree: true };
+  }
+  return { intro: l, retiree: false };
+}
+
 /** Toute la prose du modèle → listes de paragraphes, sans aucun gras. Rend { prose, corrections, mesures }. */
 export function normaliserProse(prose) {
   const corrections = [];
@@ -51,9 +66,11 @@ export function normaliserProse(prose) {
     return propre;
   };
   const norm = (t, ou) => paragraphesDe(t).map((p) => nettoyer(p, ou));
+  const salut = sansSalutation(paragraphesDe(prose.intro));
+  if (salut.retiree) corrections.push('intro · salutation d\'ouverture retirée (le gabarit dit déjà « Bonjour »)');
   const sortie = {
     ...prose,
-    intro: norm(prose.intro, 'intro'),
+    intro: norm(salut.intro, 'intro'),
     psychologie: norm(prose.psychologie, 'psychologie'),
     vix_lecture: norm(prose.vix_lecture, 'lecture du VIX'),
     actualite: (prose.actualite || []).map((a, i) => ({ ...a, texte: norm(a?.texte, `actualité ${i + 1}`) })),

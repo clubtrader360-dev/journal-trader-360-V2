@@ -183,6 +183,8 @@ export function controlerProse(p) {
   const m = [];
   if (!p || typeof p !== 'object') return ['prose du modèle absente ou illisible'];
   if (!nonVide(p.intro)) m.push('intro absente');
+  // Un seul « Bonjour » : celui du gabarit. Toute salutation en tête de la prose est refusée.
+  else if (/^\s*(?:bonjour|bonsoir|salut|hello|coucou|hey)\b/i.test(p.intro)) m.push(`salutation en tête de l'intro « ${p.intro.slice(0, 40)} » (le gabarit dit déjà « Bonjour »)`);
   const psy = [].concat(p.psychologie || []);
   if (!psy.length || !psy.every(nonVide)) m.push('psychologie du jour absente');
   if (!nonVide(p.vix_lecture)) m.push('lecture du VIX absente');

@@ -33,10 +33,12 @@ const agenda = tous(/<tr>(.*?)<\/tr>/g, agendaZone).map((tr) => ({
   pays: 'US',
   theme: dec(un(/color:#1a1208;">([^<]*)<\/td>$/, tr)),
 }));
+// Actualité : une cellule de titre (18 px gras) puis une cellule par paragraphe.
 const actuZone = un(/Actualité éco<\/span><\/td><\/tr><\/table>(.*?)<\/table>/);
-const actualite = tous(/<td[^>]*>(<b.*?)<\/td>/g, actuZone).map((p) => ({
-  titre: dec(un(/<b[^>]*>(.*?)<\/b>/, p)), texteHtml: un(/<br>(.*)$/, p),
-}));
+const actualite = actuZone.split(/(?=<tr><td style="padding:0 0 \d+px; color:#000B25; font-size:18px;)/).filter((b) => b.includes("font-size:18px;")).map((bloc) => {
+  const [titre, ...paras] = tous(/<td[^>]*>(.*?)<\/td>/g, bloc);
+  return { titre: dec(titre), texteHtml: paras };
+});
 const retenir = tous(/<td valign="top" style="padding:0 0 \d+px; font-size:16px; line-height:1.6; color:#1a1208;">(.*?)<\/td>/g).map(dec);
 const cultZone = un(/Culture de marché<\/td>(.*?)<img/);
 const cultParas = tous(/<td style="padding:0 0 \d+px; font-size:16px; line-height:1.6;">(.*?)<\/td>/g, cultZone);
@@ -100,6 +102,15 @@ const verifs = [
   ['contrôle · <strong> refusé', String(controlerSansGras('<p><strong style="font-weight:700;">Bref.</strong> x</p>').length), '1'],
   ['contrôle · <strong> échappé refusé', String(controlerSansGras('<p>&lt;strong&gt;Bref.&lt;/strong&gt; x</p>').length), '1'],
 ];
+// Un seul « Bonjour » : salutation d'ouverture retirée, et refusée si elle restait.
+const { sansSalutation } = await import('../api/_lib/brief-gras.js');
+const { controlerProse } = await import('../api/_lib/brief-garde.js');
+verifs.push(
+  ['salutation · « Bonjour à toi. » retiré', JSON.stringify(sansSalutation(['Bonjour à toi. Wall Street rouvre.']).intro), JSON.stringify(['Wall Street rouvre.'])],
+  ['salutation · « Bonjour, » retiré', JSON.stringify(sansSalutation(['Bonjour, la séance est courte.']).intro), JSON.stringify(['La séance est courte.'])],
+  ['salutation · texte sans salutation intact', JSON.stringify(sansSalutation(['Wall Street rouvre. Bonjour.']).intro), JSON.stringify(['Wall Street rouvre. Bonjour.'])],
+  ['salutation · contrôle refuse', String(controlerProse({ intro: 'Bonjour à toi, la séance…' }).some((m) => m.startsWith('salutation'))), 'true'],
+);
 let okG = true;
 for (const [nom, obtenu, attendu] of verifs) {
   if (obtenu === attendu) console.log(`✅ Gras · ${nom}`);
