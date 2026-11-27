@@ -21,6 +21,22 @@
     {
       "path": "/api/webhook/journal-entry?action=daily-recalc&utc=5",
       "schedule": "0 5 * * 1-5"
+    },
+    {
+      "path": "/api/cron/brief-declencheur?saison=hiver",
+      "schedule": "15 2 * * 1-5"
+    },
+    {
+      "path": "/api/cron/brief-declencheur?saison=ete",
+      "schedule": "15 1 * * 1-5"
+    },
+    {
+      "path": "/api/cron/brief-controle?saison=hiver",
+      "schedule": "45 5 * * 1-5"
+    },
+    {
+      "path": "/api/cron/brief-controle?saison=ete",
+      "schedule": "45 4 * * 1-5"
     }
   ],
   "rewrites": [
