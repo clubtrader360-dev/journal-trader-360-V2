@@ -109,7 +109,7 @@ const paragraphes = (liste, style) => liste.map((t, i) =>
   `<p style="margin:0 0 ${i === liste.length - 1 ? '0px' : '10px'}; ${style}">${esc(t)}</p>`).join('');
 
 function blocPsychologie(textes) {
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#f3e3ad; border:1px solid #d4af37; border-radius:10px; padding:18px 20px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#f3e3ad; border:1px solid #d4af37; border-radius:10px; padding:18px 10px;">'
     + '<div style="color:#000B25; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">🧠 La psychologie du jour</div>'
     + paragraphes(textes, 'font-size:16px; line-height:1.6; color:#000B25;')
     + '</td></tr></table>';
@@ -150,7 +150,7 @@ function blocHier(hier) {
       + `<td width="27%" align="right" style="${pad} vertical-align:middle; text-align:right;"><span class="b-pastille" style="display:inline-block; background:${nd ? '#ececec' : hausse ? '#d9f2dc' : '#f9d6d6'}; color:${couleur}; ${CHIFFRES} font-size:13px; line-height:18px; font-weight:700; border-radius:12px; white-space:nowrap; padding:3px 10px;">${variationHier(l.cle, v)}</span></td></tr>`;
   }).join('');
   const seances = { US: hier.spx.seance, DE: hier.dax.seance, FR: hier.cac.seance };
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:16px 20px 12px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:16px 10px 12px;">'
     + '<div style="color:#ac862b; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 8px;">📈 Sur les marchés hier</div>'
     + `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${lignes}</table>`
     + `<p style="margin:8px 0 0; font-size:13px; line-height:1.5; color:#7a6b50; font-style:italic;">${noteSeances(seances)}</p>`
@@ -185,7 +185,7 @@ function blocZones(z) {
       + `<td align="center" class="b-num" style="padding:8px 10px 8px 4px; border-top:2px solid #ffffff;${fond} text-align:center; ${CHIFFRES} font-size:16px; font-weight:700; color:${couleur}; white-space:nowrap;">${cfd}</td></tr>`;
   }).join('');
   const psy = Array.isArray(z.psy) && z.psy.length ? z.psy.map((n) => nombreFr(n, 0)).join(' · ') : ND_HTML;
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 20px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 10px;">'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
     + `<tr><td width="32%" class="b-empile b-empile-haut" style="color:#ac862b; font-size:19px; line-height:24px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; padding:0 0 10px; border-bottom:1px solid rgba(212,175,55,0.45); vertical-align:middle; white-space:nowrap;">${caseDrapeau('🇺🇸')}<span style="padding-left:8px;">S&amp;P 500</span></td>`
     + '<td width="68%" align="center" class="b-empile" style="padding:0 0 10px; border-bottom:1px solid rgba(212,175,55,0.45); vertical-align:middle; text-align:center;"><span style="display:inline-block; border:1px solid #d4af37; border-radius:18px; padding:5px 16px; color:#000B25; font-size:19px; line-height:24px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; white-space:nowrap;">Zones à surveiller</span></td></tr>'
@@ -249,7 +249,7 @@ function blocActualite(items) {
 }
 
 function blocRetenir(points) {
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#e7f0e4; border:1px solid rgba(0,11,37,0.15); border-radius:10px; padding:18px 20px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#e7f0e4; border:1px solid rgba(0,11,37,0.15); border-radius:10px; padding:18px 10px;">'
     + '<div style="color:#000B25; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">🧠 Ce qu\'il faut retenir</div>'
     + `<ul style="margin:0; padding-left:20px; font-size:16px; line-height:1.6;">${points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`
     + '</td></tr></table>';
@@ -269,12 +269,12 @@ export function altSchema(titre) {
 }
 
 function blocCulture(c, urlSchema) {
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 20px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 16px;"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 10px;">'
     + '<div style="color:#ac862b; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">📚 Culture de marché</div>'
     + `<div style="color:#000B25; font-size:18px; line-height:1.4; font-weight:700;">${esc(c.titre)}</div>`
     + `<p style="margin:8px 0 0; font-size:16px; line-height:1.6;">${esc(c.definition)}</p>`
     + `<p style="margin:10px 0 0; font-size:16px; line-height:1.6;">${esc(c.usage)}</p>`
-    + `<img src="${urlSchema}" width="600" alt="${esc(altSchema(c.titre))}" style="display:block; width:100%; max-width:600px; height:auto; border:0; border-radius:8px; margin:14px 0 0;">`
+    + `<img src="${urlSchema}" width="620" alt="${esc(altSchema(c.titre))}" style="display:block; width:100%; max-width:620px; height:auto; border:0; border-radius:8px; margin:14px 0 0;">`
     + '<p style="margin:12px 0 0; font-size:13px; line-height:1.5; color:#5a5040; font-style:italic;">Culture de marché, pour comprendre ce qu\'on croise ailleurs, dans une vidéo, sur un forum ou dans la bouche d\'un autre trader.</p>'
     + '</td></tr></table>';
 }
@@ -300,6 +300,9 @@ export function rendreCorps({ hier, zones, prose, urlSchema }) {
 
 // ── L'enveloppe : en-tête, salutation, partenaires, checklist, parrainage, pied ─────
 
+// ORDINATEUR (Manu 27/11/2026, v3) : conteneur 660 px (comme Aktionnaire), marge du cadre
+// 8 px, marge intérieure des cartes 10 px → texte des cartes sur 620 px
+// (660 − 2 bordure − 16 − 2 bordure − 20). Le téléphone garde ses propres marges ci-dessous.
 // TÉLÉPHONE (≤ 480 px, Manu 27/11/2026) : marges resserrées, ligne de titre des zones
 // empilée, chiffres à 14 px (zones) et 13 px (« Sur les marchés hier », le plus serré),
 // jamais sous 13 px. Au-delà de 480 px, rien
@@ -349,7 +352,7 @@ const RESEAUX = [
 // admis avec la référence : le bouton porte les UTM prospects du questionnaire actuel.
 function blocChecklist(prospects) {
   if (prospects) {
-    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;"><tr><td align="center" class="b-carte" style="background:#fbf3dc; border:1px solid #d4af37; border-radius:10px; padding:20px 22px; text-align:center;">'
+    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;"><tr><td align="center" class="b-carte" style="background:#fbf3dc; border:1px solid #d4af37; border-radius:10px; padding:20px 10px; text-align:center;">'
       + '<div style="color:#000B25; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">✅ Checklist pré-séance</div>'
       + '<p style="margin:10px 0 0; font-size:16px; line-height:1.6; color:#000B25;">N\'oublie pas de remplir ta checklist pré-séance.<br>C\'est respecter la méthode Trader 360.</p>'
       + '<p style="margin:10px 0 0; font-size:16px; line-height:1.6; color:#ac862b; font-weight:700;">Commence par ouvrir ton journal, avant ta plateforme.</p>'
@@ -357,7 +360,7 @@ function blocChecklist(prospects) {
       + '<div style="margin-top:8px; color:#8a7d60; font-size:13px; font-style:italic;">Réservé aux membres Trader 360</div>'
       + '</td></tr></table>';
   }
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;"><tr><td align="center" class="b-carte" style="background:#000B25; border-radius:10px; padding:20px 22px; text-align:center;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;"><tr><td align="center" class="b-carte" style="background:#000B25; border-radius:10px; padding:20px 10px; text-align:center;">'
     + '<div style="color:#d4af37; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">✅ Checklist pré-séance</div>'
     + '<p style="margin:10px 0 0; font-size:16px; line-height:1.6; color:#ffffff;">N\'oublie pas de remplir ta checklist pré-séance.<br>C\'est respecter la méthode Trader 360.</p>'
     + '<p style="margin:10px 0 0; font-size:16px; line-height:1.6; color:#d4af37; font-weight:700;">Commence par ouvrir ton journal, avant ta plateforme.</p>'
@@ -367,13 +370,13 @@ function blocChecklist(prospects) {
 
 function blocParrainage(prospects) {
   if (prospects) {
-    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 0;"><tr><td align="center" class="b-carte" style="background:#000B25; border-radius:12px; padding:30px 26px; text-align:center;">'
+    return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 0;"><tr><td align="center" class="b-carte" style="background:#000B25; border-radius:12px; padding:30px 10px; text-align:center;">'
       + '<div style="color:#d4af37; font-size:26px; line-height:1.25; font-weight:800;">Tu veux en savoir plus ?</div>'
       + '<p style="margin:14px 0 0; font-size:16px; line-height:1.6; color:#ffffff;">Réponds au questionnaire de positionnement.<br>Tu accéderas ensuite à notre présentation et pourras prendre rendez-vous.</p>'
       + `<a href="${URL_QUESTIONNAIRE_PROSPECTS}" style="display:inline-block; margin-top:22px; background:#d4af37; color:#000B25; padding:16px 38px; border-radius:10px; text-decoration:none; font-size:16px; font-weight:800; letter-spacing:0.04em;">Répondre au questionnaire</a>`
       + '</td></tr></table>';
   }
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:14px 0 0;"><tr><td class="b-carte" style="background:#fbf3dc; border:1px solid #d4af37; border-left:4px solid #d4af37; border-radius:10px; padding:14px 18px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:14px 0 0;"><tr><td class="b-carte" style="background:#fbf3dc; border:1px solid #d4af37; border-left:4px solid #d4af37; border-radius:10px; padding:14px 10px;">'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td valign="middle" style="padding-right:12px;">'
     + '<div style="color:#000B25; font-size:16px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; margin:0 0 6px;">🔗 Ton lien de parrainage</div>'
     + '<p style="margin:0; font-size:16px; line-height:1.5; color:#1a1208;">Tu connais quelqu\'un que le trading intéresse ? Partage-lui ton lien. Nous rémunérons la recommandation.</p>'
@@ -407,9 +410,9 @@ export function rendreCourriel({ firstName, dateLongFr, corpsHtml, variant = 'me
     '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><style>:root{color-scheme:light only;supported-color-schemes:light only;}' + STYLE_TELEPHONE + '</style>'
       + (titre ? `<title>${esc(sujetV22(dateLongFr))}</title>` : '')
       + '</head><body style="margin:0; padding:0; background:#fdfaf3;"><div class="b-page" style="background:#fdfaf3; padding:30px 16px; font-family:' + SANS + '; font-size:16px; color:#1a1208;">',
-    '<table role="presentation" width="600" align="center" cellspacing="0" cellpadding="0" style="width:100%; max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #d4af37; border-radius:14px;">',
-    `<tr><td style="padding:0; line-height:0; font-size:0;"><img src="${enTete}" width="600" alt="Trader 360 · Brief marché" style="display:block; width:100%; max-width:600px; height:auto; border:0; border-radius:14px 14px 0 0;"></td></tr>`,
-    '<tr><td class="b-main" style="padding:32px;">',
+    '<table role="presentation" width="660" align="center" cellspacing="0" cellpadding="0" style="width:100%; max-width:660px; margin:0 auto; background:#ffffff; border:1px solid #d4af37; border-radius:14px;">',
+    `<tr><td style="padding:0; line-height:0; font-size:0;"><img src="${enTete}" width="660" alt="Trader 360 · Brief marché" style="display:block; width:100%; max-width:660px; height:auto; border:0; border-radius:14px 14px 0 0;"></td></tr>`,
+    '<tr><td class="b-main" style="padding:32px 8px;">',
     `<p style="text-align:center; color:#5a5040; font-style:italic; margin:0 0 20px; font-size:16px;">${capitaliser(dateLongFr)}</p>`,
     `<p style="font-size:16px; line-height:1.6; margin:0 0 16px;">${archive ? 'Bonjour,' : hi}</p>`
       + (archive ? '<div class="brief-marche">' : '')

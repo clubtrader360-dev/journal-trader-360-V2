@@ -136,7 +136,7 @@ export function blocPartenairesV22({ maintenant = new Date() } = {}) {
   const cadeau = maintenant <= new Date('2026-12-15T23:59:59+01:00')
     ? '<p style="margin:10px 0 0; font-size:15px; line-height:1.5; font-weight:600;">🎁&nbsp; Chaque semaine jusqu\'au 15 décembre, une évaluation offerte au membre le plus impliqué.</p>'
     : '';
-  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#eef3f9; border:1px solid rgba(0,11,37,0.18); border-radius:10px; padding:18px 20px;">'
+  return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 16px;"><tr><td class="b-carte" style="background:#eef3f9; border:1px solid rgba(0,11,37,0.18); border-radius:10px; padding:18px 10px;">'
     + '<div style="color:#000B25; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700; margin:0 0 10px;">🤝 Nos codes partenaires</div>'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
     + '<tr><td style="padding:0 0 6px; font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Prop firm et réduction</td><td align="right" style="padding:0 0 6px; font-size:12px; letter-spacing:0.10em; text-transform:uppercase; color:#7a6b50; font-weight:700;">Code</td></tr>'

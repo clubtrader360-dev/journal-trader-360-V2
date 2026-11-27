@@ -43,8 +43,8 @@ const culture = {
   definition: dec(un(/<p style="margin:8px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
   usage: dec(un(/<p style="margin:10px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
 };
-const urlSchema = un(/<img src="([^"]*)" width="600" alt="Schéma/);
-const enTete = un(/<img src="([^"]*)" width="600" alt="Trader 360/);
+const urlSchema = un(/<img src="([^"]*)" width="\d+" alt="Schéma/);
+const enTete = un(/<img src="([^"]*)" width="\d+" alt="Trader 360/);
 
 const s = (cloture, variation, seance = '2026-11-25') => ({ cloture, variation, seance });
 const hier = {
