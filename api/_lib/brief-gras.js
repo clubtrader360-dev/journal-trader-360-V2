@@ -1,7 +1,10 @@
 // ========================================================================
-// PROSE SURVOLABLE (Manu, 27/11/2026) : paragraphes courts et gras ciblé, sur le
-// modèle d'Aktionnaire (médiane 25 mots, une idée par paragraphe, un mot d'entrée en
-// gras, une seule expression clé en gras, jamais une phrase entière).
+// PROSE SURVOLABLE (Manu, 27/11/2026) : paragraphes courts (médiane 25 mots, une idée
+// par paragraphe) et, en gras, SEULEMENT un mot d'entrée en tête de paragraphe
+// (« Bref. », « Pourquoi c'est important ? »). Retour d'Emmanuel sur le test v1 : le gras
+// au milieu des phrases n'est pas joli → aucune expression en gras dans la phrase.
+// Le contrôle final (controlerGrasEnTete, brief-garde.js) refuse tout <strong> rendu
+// ailleurs qu'en tout début de paragraphe.
 //
 // ⛔ UNE SEULE BALISE ADMISE DANS LA PROSE DU MODÈLE : <strong>…</strong>, sans
 // attribut, ni imbriquée. Le rendu ÉCHAPPE TOUT, puis restaure seulement les paires
@@ -38,12 +41,12 @@ export function avecGras(htmlEchappe) {
 
 const mots = (t) => sansGras(t).trim().split(/\s+/).filter(Boolean);
 const phrases = (t) => sansGras(t).split(/(?<=[.!?…])\s+(?=[A-ZÀ-Ý«])/).filter((x) => x.trim());
-const finEntree = /[.?!]$/;
+const finEntree = /[.?]$/;
 
 /**
- * Un paragraphe → au plus un mot d'entrée en gras (en tête, terminé par « . », « ? »
- * ou « ! » ; un deux-points final devient un point) et au plus UNE expression clé de
- * 2 à 5 mots. Tout autre gras est retiré (le texte reste). Rend { texte, corrections }.
+ * Un paragraphe → au plus un mot d'entrée en gras, en tout début de paragraphe, terminé
+ * par « . » ou « ? » (un deux-points final devient un point), 6 mots au plus. Tout autre
+ * gras est retiré, le texte reste. Rend { texte, corrections }.
  */
 export function normaliserGras(p) {
   const corrections = [];
@@ -54,7 +57,7 @@ export function normaliserGras(p) {
     corrections.push('gras mal formé retiré');
     return { texte: sansGras(texte), corrections };
   }
-  let entree = false; let expression = false;
+  let entree = false;
   texte = texte.replace(GRAS, (tout, inner, index) => {
     let c = inner.trim();
     const enTete = texte.slice(0, index).trim() === '';
@@ -62,13 +65,11 @@ export function normaliserGras(p) {
       if (/:$/.test(c)) { c = `${c.replace(/\s*:$/, '')}.`; corrections.push(`deux-points du mot d'entrée remplacé par un point (« ${c} »)`); }
       if (finEntree.test(c) && mots(c).length <= 6) { entree = true; return `${OUVRE}${c}${FERME}`; }
     }
-    const n = mots(c).length;
-    if (!expression && n >= 2 && n <= 5 && !finEntree.test(c)) { expression = true; return `${OUVRE}${c}${FERME}`; }
-    corrections.push(`gras retiré sur « ${c.slice(0, 60)} » (${n} mot${n > 1 ? 's' : ''})`);
+    corrections.push(`gras retiré hors mot d'entrée sur « ${c.slice(0, 60)} »`);
     return c;
   });
   // Mot d'entrée suivi de son texte : une espace entre les deux.
-  texte = texte.replace(/<\/strong>(?=\S)/g, (m, i) => (/[.?!]$/.test(texte.slice(0, i)) ? `${FERME} ` : m));
+  texte = texte.replace(/<\/strong>(?=\S)/g, (m, i) => (/[.?]$/.test(texte.slice(0, i)) ? `${FERME} ` : m));
   return { texte, corrections };
 }
 
@@ -150,5 +151,3 @@ export function aplatirProse(p) {
   };
 }
 
-/** Balise HTML affichée en clair dans le texte visible (hors <strong> rendu). */
-export const BALISE_VISIBLE = /<\/?[a-z][a-z0-9]*(?:\s[^<>]*)?>/i;

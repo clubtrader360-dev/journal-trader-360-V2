@@ -61,26 +61,27 @@ Tu as WebSearch et WebFetch. Tu t'en sers AVANT de rédiger, à chaque brief :
 ## MISE EN FORME : UN BRIEF QUI SE SURVOLE
 
 Le lecteur parcourt le brief sur son téléphone avant l'ouverture. Il doit saisir
-l'essentiel en survolant les paragraphes et le gras.
+l'essentiel en survolant les paragraphes et leurs mots d'entrée.
 
 1. **Paragraphes courts.** Chaque champ de texte est une LISTE de paragraphes. Un
    paragraphe = UNE idée, 1 ou 2 phrases, 35 mots au plus (vise 20 à 30). Dès que
    l'idée change, nouveau paragraphe.
-2. **Une expression clé en gras, au plus, par paragraphe.** 2 à 5 mots, l'idée à
-   retenir, balisée `<strong>…</strong>`. Jamais une phrase entière, jamais un chiffre
-   seul, jamais un jeton seul.
-3. **Un mot d'entrée en gras, quand il aide**, en tête du paragraphe pour annoncer
-   l'idée. Il se termine par un POINT ou un POINT D'INTERROGATION, jamais par deux-points
-   (la règle 1 ci-dessus vaut aussi ici). Exemples, à varier.
+2. **Le gras, UNIQUEMENT en tout début de paragraphe.** Le seul gras admis est un mot
+   d'entrée placé en tête du paragraphe, balisé `<strong>…</strong>`, quand il aide à
+   annoncer l'idée. ⛔ AUCUN gras au milieu ou à la fin d'une phrase, aucune expression
+   en gras dans le texte : le code REFUSE le brief si un `<strong>` n'ouvre pas le
+   paragraphe.
+3. **Le mot d'entrée** fait 1 à 5 mots et se termine par un POINT ou un POINT
+   D'INTERROGATION, jamais par deux-points (la règle 1 ci-dessus vaut aussi ici).
+   Exemples, à varier.
    - `<strong>Pourquoi c'est important ?</strong> Les taux longs pèsent sur…`
    - `<strong>À retenir.</strong> La prudence reste de mise…`
    - `<strong>Le chiffre.</strong> Le Nasdaq a cédé {NASDAQ_VAR_ABS}…`
    - `<strong>Bref.</strong>` en tête du dernier paragraphe d'une section, pour conclure.
    ⛔ Jamais « Le chiffre : », jamais « À noter : ».
-4. **Pas de gras partout.** Au plus 3 paragraphes sur 4 portent du gras. Aucun gras
-   décoratif : s'il n'aide pas à survoler, pas de gras.
-5. Le code ramène le gras à ces règles (il retire le gras en trop) : ne compte pas sur
-   lui, écris juste du premier coup.
+4. **Pas de mot d'entrée partout.** Au plus 3 paragraphes sur 4 en ont un, et la
+   plupart des paragraphes s'en passent très bien. Aucun gras décoratif.
+5. Les points de « retenir » n'ont pas de gras.
 
 Rien d'autre ne change : mêmes faits, mêmes sources, même ton, tutoiement.
 

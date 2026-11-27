@@ -145,8 +145,25 @@ export function textesVisibles(html) {
   return [corps, ...attributs, titre || ''].map(dec);
 }
 
-export function controlerRedaction(html, { sujet = '' } = {}) {
+/**
+ * Gras de la prose (27/11/2026) : un <strong> n'est admis qu'en TOUT DÉBUT de paragraphe
+ * (juste après <p…>, <li…>, ou le titre d'un sujet d'actualité `</b><br>`) et doit être
+ * un mot d'entrée terminé par « . » ou « ? ». Tout autre gras est refusé.
+ */
+export function controlerGrasEnTete(html) {
   const m = [];
+  const h = String(html);
+  for (const x of h.matchAll(/<strong\b[^>]*>([\s\S]*?)<\/strong>/g)) {
+    const avant = h.slice(0, x.index);
+    const texte = x[1].replace(/<[^>]+>/g, '').trim();
+    if (!/(?:<p\b[^>]*>|<li\b[^>]*>|<\/b><br>)$/.test(avant)) m.push(`gras ailleurs qu'en début de paragraphe « ${texte.slice(0, 60)} »`);
+    else if (!/[.?]$/.test(texte)) m.push(`gras d'entrée non terminé par « . » ou « ? » « ${texte.slice(0, 60)} »`);
+  }
+  return m;
+}
+
+export function controlerRedaction(html, { sujet = '' } = {}) {
+  const m = [...controlerGrasEnTete(html)];
   // Les « n/d » posés par le CODE à l'échéance (ND_HTML) sont admis ; tout autre
   // « n/d », « NaN », « undefined » ou jeton non remplacé reste refusé.
   const textes = [...textesVisibles(String(html).split(ND_HTML).join('')), sujet];

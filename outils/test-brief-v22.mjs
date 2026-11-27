@@ -95,10 +95,20 @@ const verifs = [
   ['orpheline retirée', proseHtml('a <strong>b c'), 'a b c'],
   ['entrée « : » → « . »', normaliserGras('<strong>Le chiffre :</strong> 3 %.').texte, '<strong>Le chiffre.</strong> 3 %.'],
   ['phrase entière en gras retirée', normaliserGras('<strong>Une phrase entière bien trop longue en gras ici.</strong>').texte, 'Une phrase entière bien trop longue en gras ici.'],
-  ['deux expressions → une', normaliserGras('A <strong>deux mots</strong> et <strong>trois mots ici</strong>.').texte, 'A <strong>deux mots</strong> et trois mots ici.'],
-  ['entrée + expression', normaliserGras('<strong>Bref.</strong> La <strong>prudence reste de mise</strong>.').texte, '<strong>Bref.</strong> La <strong>prudence reste de mise</strong>.'],
+  ['gras en milieu de phrase retiré', normaliserGras('A <strong>deux mots</strong> et <strong>trois mots ici</strong>.').texte, 'A deux mots et trois mots ici.'],
+  ['entrée gardée, expression retirée', normaliserGras('<strong>Bref.</strong> La <strong>prudence reste de mise</strong>.').texte, '<strong>Bref.</strong> La prudence reste de mise.'],
+  ['expression en tête sans point retirée', normaliserGras('<strong>Wall Street rouvre</strong> après la fête.').texte, 'Wall Street rouvre après la fête.'],
+  ['question d\'entrée gardée', normaliserGras('<strong>Pourquoi c\'est important ?</strong> Les taux montent.').texte, '<strong>Pourquoi c\'est important ?</strong> Les taux montent.'],
 ];
-const plafond = normaliserProse({ intro: ['a <strong>b c</strong>', 'd <strong>e f</strong>', 'g <strong>h i</strong>', 'j <strong>k l</strong>'], psychologie: [], vix_lecture: [], actualite: [], retenir: [] });
+// Contrôle final : refuse tout <strong> rendu ailleurs qu'en début de paragraphe.
+const { controlerGrasEnTete } = await import('../api/_lib/brief-garde.js');
+const G = '<strong style="font-weight:700;">';
+verifs.push(
+  ['contrôle · entrée en tête admise', String(controlerGrasEnTete(`<p style="x">${G}Bref.</strong> Texte.</p><li>${G}À retenir.</strong> x</li><b style="c">Titre</b><br>${G}Le chiffre.</strong> y`).length), '0'],
+  ['contrôle · gras en milieu refusé', String(controlerGrasEnTete(`<p style="x">Le ${G}taux directeur.</strong> bouge.</p>`).length), '1'],
+  ['contrôle · entrée sans point refusée', String(controlerGrasEnTete(`<p style="x">${G}Wall Street</strong> rouvre.</p>`).length), '1'],
+);
+const plafond = normaliserProse({ intro: ['<strong>Bref.</strong> a', '<strong>Bref.</strong> b', '<strong>Bref.</strong> c', '<strong>Bref.</strong> d'], psychologie: [], vix_lecture: [], actualite: [], retenir: [] });
 verifs.push(['plafond 3 sur 4', String(plafond.prose.intro.filter((t) => t.includes('<strong>')).length), '3']);
 let okG = true;
 for (const [nom, obtenu, attendu] of verifs) {
