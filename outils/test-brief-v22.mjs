@@ -22,9 +22,10 @@ const dec = (t) => t.replace(/&amp;/g, '&').replace(/&nbsp;/g, '\u00a0');
 const un = (re, s = ref) => { const m = s.match(re); if (!m) throw new Error(`motif absent de la référence : ${re}`); return m[1]; };
 const tous = (re, s = ref) => [...s.matchAll(re)].map((m) => m[1]);
 
-const intro = dec(un(/Bonjour Emmanuel,<\/p><p[^>]*>(.*?)<\/p>/));
-const psy = dec(un(/La psychologie du jour<\/div><p[^>]*>(.*?)<\/p>/));
-const vixLecture = dec(un(/>28,29<\/td><\/tr><\/table><p[^>]*>(.*?)<\/p>/));
+// Espacements en cellules (27/11/2026) : chaque paragraphe est une cellule <td>.
+const intro = dec(un(/Bonjour Emmanuel,<\/td><\/tr><\/table>.*?<td style="padding:0 0 0px; font-size:16px; line-height:1.6; color:#1a1208;">(.*?)<\/td>/));
+const psy = dec(un(/La psychologie du jour<\/td><\/tr><\/table><table[^>]*><tr><td[^>]*>(.*?)<\/td>/));
+const vixLecture = dec(un(/>28,29<\/td><\/tr><\/table><table[^>]*><tr><td[^>]*><table[^>]*><tr><td[^>]*>(.*?)<\/td>/));
 const agendaZone = un(/(<table[^>]*border-collapse:separate;">.*?<\/table>)/);
 const agenda = tous(/<tr>(.*?)<\/tr>/g, agendaZone).map((tr) => ({
   heure: un(/white-space:nowrap;">(\d\d:\d\d)<\/td>/, tr),
@@ -32,16 +33,17 @@ const agenda = tous(/<tr>(.*?)<\/tr>/g, agendaZone).map((tr) => ({
   pays: 'US',
   theme: dec(un(/color:#1a1208;">([^<]*)<\/td>$/, tr)),
 }));
-const actuZone = un(/Actualité éco<\/span><\/div>(.*?)<div style="height:16px;">/);
-const actualite = tous(/<p[^>]*>(<b.*?)<\/p>/g, actuZone).map((p) => ({
+const actuZone = un(/Actualité éco<\/span><\/td><\/tr><\/table>(.*?)<\/table>/);
+const actualite = tous(/<td[^>]*>(<b.*?)<\/td>/g, actuZone).map((p) => ({
   titre: dec(un(/<b[^>]*>(.*?)<\/b>/, p)), texteHtml: un(/<br>(.*)$/, p),
 }));
-const retenir = tous(/<li>(.*?)<\/li>/g).map(dec);
-const cultZone = un(/Culture de marché<\/div>(.*?)<\/td>/);
+const retenir = tous(/<td valign="top" style="padding:0 0 \d+px; font-size:16px; line-height:1.6; color:#1a1208;">(.*?)<\/td>/g).map(dec);
+const cultZone = un(/Culture de marché<\/td>(.*?)<img/);
+const cultParas = tous(/<td style="padding:0 0 \d+px; font-size:16px; line-height:1.6;">(.*?)<\/td>/g, cultZone);
 const culture = {
-  titre: dec(un(/font-size:18px; line-height:1.4; font-weight:700;">(.*?)<\/div>/, cultZone)),
-  definition: dec(un(/<p style="margin:8px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
-  usage: dec(un(/<p style="margin:10px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
+  titre: dec(un(/font-size:18px; line-height:1.4; font-weight:700;">(.*?)<\/span>/, cultZone)),
+  definition: dec(cultParas[0]),
+  usage: dec(cultParas[1]),
 };
 const urlSchema = un(/<img src="([^"]*)" width="\d+" alt="Schéma/);
 const enTete = un(/<img src="([^"]*)" width="\d+" alt="Trader 360/);
@@ -79,7 +81,7 @@ function comparer(nom, rendu, ref) {
 // Même contenu ; seul écart admis : le bouton « Répondre au questionnaire » porte les UTM
 // prospects du questionnaire actuel (Manu : « trader360.fr/candidater/ avec les UTM »).
 const refProBrut = fs.readFileSync(new URL('./reference/brief_reference_prospects_v22.html', import.meta.url), 'utf8');
-const Q_REF = '<a href="https://trader360.fr/candidater/" style="display:inline-block; margin-top:22px;';
+const Q_REF = '<a href="https://trader360.fr/candidater/" style="display:inline-block; background:#d4af37;';
 if (refProBrut.split(Q_REF).length !== 2) throw new Error('bouton du questionnaire introuvable (ou en double) dans la référence prospects');
 const refPro = refProBrut.replace(Q_REF, Q_REF.replace('https://trader360.fr/candidater/', URL_QUESTIONNAIRE_PROSPECTS));
 const renduPro = rendreCourriel({ firstName: 'Emmanuel', dateLongFr: 'jeudi 26 novembre 2026', corpsHtml: corps,

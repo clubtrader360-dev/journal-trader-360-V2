@@ -12,3 +12,25 @@ export const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetic
 export const MONO = "'JetBrains Mono','SF Mono',SFMono-Regular,Menlo,Consolas,'Roboto Mono','Liberation Mono',monospace";
 /** Déclarations des chiffres : chasse fixe + chiffres tabulaires. */
 export const CHIFFRES = `font-family:${MONO}; font-variant-numeric:tabular-nums;`;
+
+// ── ESPACEMENTS DU BRIEF (Manu, 27/11/2026, modèle Aktionnaire mesuré dans Gmail web) ─────
+// Peu d'espace à l'intérieur d'un bloc, beaucoup entre les blocs. Tous les espacements
+// verticaux sont des PADDING DE CELLULE (Gmail et Outlook ignorent souvent les margin),
+// et aucune media query n'y touche : identiques sur téléphone et ordinateur.
+export const ESPACES = { paragraphe: 16, titre: 13, bloc: 40, intro: 48 };
+const TABLE_PILE = '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">';
+/**
+ * Pile verticale : un élément par cellule, l'écart en padding-bottom de la cellule.
+ * `elements` : chaînes HTML (écart `ecart` entre elles, aucun après le dernier) ou paires
+ * [html, écart sous l'élément]. Les éléments vides sont ignorés.
+ */
+export function pile(elements, ecart = 0, style = '') {
+  const l = elements.filter((e) => (Array.isArray(e) ? e[0] : e));
+  return TABLE_PILE + l.map((e, i) => {
+    const [h, bas] = Array.isArray(e) ? e : [e, i === l.length - 1 ? 0 : ecart];
+    return `<tr><td style="padding:0 0 ${bas}px;${style ? ` ${style}` : ''}">${h}</td></tr>`;
+  }).join('') + '</table>';
+}
+/** Titre de carte (19 px, capitales) collé à son contenu : 13 px dessous, en padding. */
+export const titreCarte = (texte, couleur, taille = 19, espacement = '0.08em') => TABLE_PILE
+  + `<tr><td style="padding:0 0 ${ESPACES.titre}px; color:${couleur}; font-size:${taille}px; letter-spacing:${espacement}; text-transform:uppercase; font-weight:700;">${texte}</td></tr></table>`;
