@@ -39,7 +39,7 @@ const actualite = tous(/<p[^>]*>(<b.*?)<\/p>/g, actuZone).map((p) => ({
 const retenir = tous(/<li>(.*?)<\/li>/g).map(dec);
 const cultZone = un(/Culture de marché<\/div>(.*?)<\/td>/);
 const culture = {
-  titre: dec(un(/font-size:17px; font-weight:700;">(.*?)<\/div>/, cultZone)),
+  titre: dec(un(/font-size:18px; line-height:1.4; font-weight:700;">(.*?)<\/div>/, cultZone)),
   definition: dec(un(/<p style="margin:8px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
   usage: dec(un(/<p style="margin:10px 0 0;[^>]*>(.*?)<\/p>/, cultZone)),
 };
