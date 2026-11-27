@@ -2,11 +2,12 @@
 // UN CYCLE DU BRIEF V22 : collecter, alerter, assembler, contrôler, envoyer.
 //
 // ⛔ LA RÈGLE (Manu, 26/11/2026 21h, remplace celle de 26/11 « jamais incomplet ») :
-// LE BRIEF N'EST JAMAIS BLOQUÉ. L'effort reste maximal : sources ordonnées (au moins
-// trois par valeur), croisement de deux sources concordantes, collecte relancée toutes
-// les dix minutes. Mais à 6H45 PARIS (l'ÉCHÉANCE) le brief part quoi qu'il arrive :
+// LE BRIEF N'EST JAMAIS BLOQUÉ. L'effort reste maximal : une source principale et une
+// source de secours par valeur (règle du 27/11/2026, plus de croisement entre sources),
+// collecte relancée toutes les dix minutes. Mais à 6H45 PARIS (l'ÉCHÉANCE) le brief part quoi qu'il arrive :
 //   · une valeur toujours introuvable part en « n/d » (balisage du code), JAMAIS
-//     inventée ; une alerte Discord nomme chaque n/d et les sources essayées ;
+//     inventée ; une alerte Discord d'UNE ligne nomme chaque n/d (le détail des sources
+//     essayées reste dans le journal du run) ;
 //   · une prose toujours refusée par les contrôles ne part JAMAIS : le code envoie
 //     alors un brief « données seules » (assemblerSecours), et l'alerte le dit.
 // Avant l'échéance, rien ne change : collecte incomplète → nouvelle collecte ; prose
@@ -37,7 +38,7 @@ export async function collecterTout(dateBrief, { maintenant = new Date(), listeH
   for (const [cle, nom] of [['es', `ES ${z.contrat}`], ['cfd', 'S&P 500 comptant (CFD)']]) {
     if (z.detail[cle]?.nd) manquants.push({ valeur: `${nom}, clôture, haut et bas (séance du ${z.seance})`, motif: z.detail[cle].motif, essais: z.detail[cle].essais });
   }
-  if (!z.detail.es?.nd && typeof z.es.poc !== 'number') manquants.push({ valeur: `POC ES (séance du ${z.seance})`, motif: z.motifs.es.poc, essais: [{ nom: 'CNBC (minutes du contrat)', statut: z.motifs.es.poc }] });
+  if (!z.detail.es?.nd && typeof z.es.poc !== 'number') manquants.push({ valeur: `POC ES (séance du ${z.seance})`, motif: z.motifs.es.poc, essais: z.detail.poc?.essais || [] });
   const d = { dateBrief, collecteLe: maintenant.toISOString(), hier, zones, detailZones: z.detail };
   const restants = controlerCompletude({ hier, zones });
   return { ...d, manquants, complet: manquants.length === 0 && restants.length === 0, controle: restants };
@@ -66,10 +67,19 @@ export function texteAlerteCollecte(d, { run = null, tentative = 1 } = {}) {
     ...lignesManquants(d.manquants), ...(run ? [run] : [])]);
 }
 
-/** À l'échéance : chaque valeur qui part en « n/d », avec les sources essayées. */
+/** Nom court d'une valeur manquante : « VIX (séance du …) » → « VIX ». */
+export const nomCourt = (valeur) => String(valeur).replace(/ \(séance du [^)]*\)/g, '')
+  .replace(/^ES [A-Z0-9]+, clôture, haut et bas$/, 'ES').replace(/^S&P 500 comptant \(CFD\), clôture, haut et bas$/, 'CFD');
+
+/**
+ * À l'échéance (heure limite de la collecte) : UNE seule ligne, les valeurs en « n/d »
+ * par leur nom court et le lien du run (Manu, 27/11/2026). Le détail des sources essayées
+ * reste dans le journal du run.
+ */
 export function texteAlerteNd(d, { run = null } = {}) {
-  return decouper([`🟠 **Brief du ${d.dateBrief} : échéance atteinte, ${d.manquants.length} valeur(s) partent en « n/d »**. Le brief part quand même, aucune valeur n'est inventée.`,
-    ...lignesManquants(d.manquants), ...(run ? [run] : [])]);
+  const [, mm, jj] = String(d.dateBrief).split('-');
+  const noms = d.manquants.map((m) => nomCourt(m.valeur)).join(', ');
+  return `🟠 Brief du ${jj}/${mm} : heure limite de la collecte atteinte, n/d sur ${noms}. Le brief part quand même, aucune valeur inventée.${run ? ` [run](<${run}>)` : ''}`;
 }
 
 export function texteAlerteControle(dateBrief, motifs, { run = null } = {}) {
@@ -125,7 +135,7 @@ export function versPromptV22(d) {
   const esNd = !ok(zones.es?.cloture);
   return [
     `Places fermées aujourd'hui (calendriers du code) : ${placesFermees(d.dateBrief).join(', ') || 'aucune'}.`,
-    'DONNÉES DE MARCHÉ FOURNIES (collectées par le code, chacune confirmée par deux sources indépendantes).',
+    'DONNÉES DE MARCHÉ FOURNIES (collectées par le code, chacune sur sa source principale ou sa source de secours).',
     'Tu ne les recopies jamais en chiffres : tu écris leurs jetons (voir « LES CHIFFRES DU BLOC »).',
     L('spx', 'SPX', 'S&P 500'), L('nasdaq', 'NASDAQ', 'Nasdaq Composite'), L('dax', 'DAX', 'DAX'),
     L('cac', 'CAC', 'CAC 40'), L('oat', 'OAT', 'OAT France 10 ans'), L('btc', 'BTC', 'Bitcoin (clôture à minuit UTC)'),

@@ -1,14 +1,14 @@
 // ========================================================================
 // « SUR LES MARCHÉS HIER » : six lignes, plus le VIX, fournies par le CODE (brief v22).
 //
-// ── LA RÈGLE (Manu, 26/11/2026) ─────────────────────────────────────────────────
-// Chaque valeur, clôture ET clôture précédente (donc la variation), est publiée quand
-// DEUX sources indépendantes concordent :
-//   indices (S&P 500, Nasdaq, DAX, CAC 40, VIX) : écart relatif ≤ 0,05 %
-//   OAT France 10 ans : écart ≤ 0,01 point
-//   Bitcoin : écart relatif ≤ 0,5 %
-// Les sources sont essayées DANS L'ORDRE de leur liste : on n'appelle la troisième que
-// si les deux premières ne s'accordent pas (muette, mal datée ou contradictoire).
+// ── LA RÈGLE (Manu, 27/11/2026, remplace celle des deux sources concordantes) ────────
+// Chaque valeur a UNE source principale, la plus fiable, et UNE source de secours.
+// La principale fait foi : clôture ET clôture précédente (donc la variation) viennent
+// d'elle. Si elle ne répond pas ou ne donne pas la séance demandée (ou pas la veille),
+// les deux viennent de la source de secours, pour que la variation reste cohérente.
+// Plus aucune comparaison entre sources, plus de tolérance, plus de « désaccord ».
+// En dernier recours seulement (aucune des deux n'a les deux nombres), la clôture et
+// la veille sont prises chacune là où elles existent.
 //
 // ── LA DATE EST CONTRÔLÉE, PAS SUPPOSÉE ─────────────────────────────────────────
 // Chaque source rend une SÉRIE DATÉE (date de séance → clôture), et on y lit la date
@@ -17,14 +17,17 @@
 // Une séance du jour même n'est lue qu'une fois la place fermée (`seanceClose`).
 //
 // ── ⛔ JAMAIS UNE VALEUR INVENTÉE ───────────────────────────────────────────────
-// Une valeur sans accord de deux sources sort avec `nd: true`, son motif et la liste
-// des sources essayées. Le workflow relance la collecte toutes les dix minutes ; à la
-// coupure (6h05, envoi au plus tard 6h45), elle part en « n/d » et l'alerte la nomme
-// (règle du 26/11/2026 21h, brief-cycle.js). Une seule source ne la publie jamais.
+// Une valeur que NI la principale NI le secours ne donnent sort avec `nd: true`, son
+// motif et les deux sources essayées. Le workflow relance la collecte toutes les dix
+// minutes ; à la coupure (6h05, envoi au plus tard 6h45), elle part en « n/d ».
 //
-// Sources éprouvées DEPUIS LE RUNNER GITHUB le 26/11/2026 (outils/sonder-sources-v22.mjs) :
-// CNBC, TradingView, FT, API Nasdaq, Börse Frankfurt, Coinbase, Bitstamp, Kraken
-// répondent ; Cboe répond 403 depuis le 20/11 (gardé en dernier, il peut revenir).
+// Sources retenues après sonde du 27/11/2026 (CNBC, TradingView, Coinbase et Bitstamp
+// répondent aussi depuis le runner, sonde du 26/11) :
+// CNBC en principale (barres journalières DATÉES, concorde avec FT sur l'OAT du 26/11),
+// TradingView en secours (barres datées, clôture et veille) ; Bitcoin : Coinbase puis
+// Bitstamp (bougies UTC). FT, Nasdaq.com, Börse Frankfurt, Kraken et Cboe ne servent
+// plus (FT sans veille datée, Börse Frankfurt rendait la clôture du jour comme veille,
+// Cboe en 403 depuis le 20/11) ; leurs lecteurs restent pour les sondes.
 // ========================================================================
 import { obtenir, seanceCboe } from './sources.js';
 import { PLACES, derniereSeance, seanceAvant, estSeance, dateLocale } from './calendriers.js';
@@ -215,81 +218,69 @@ export function cboeCsv(indice) {
   };
 }
 
-// ── LES SEPT VALEURS ET LEURS SOURCES ORDONNÉES ────────────────────────────────────
+// ── LES SEPT VALEURS : [source principale, source de secours] ─────────────────────
 
-const REL = (x) => ({ type: 'relative', valeur: x });
-const ABS = (x) => ({ type: 'absolue', valeur: x });
-
-export function instruments(maintenant = new Date()) {
+export function instruments() {
   return [
-    { cle: 'spx', nom: 'S&P 500', place: 'US', tolerance: REL(0.0005), unite: 'pct',
-      sources: [cnbcJournalier('.SPX'), tradingView('SP:SPX', 'US'), ft('indices', 'INX:IOM', 'US'), cboe('_SPX', 'US')] },
-    { cle: 'nasdaq', nom: 'Nasdaq', place: 'US', tolerance: REL(0.0005), unite: 'pct',
-      sources: [cnbcJournalier('.IXIC'), tradingView('NASDAQ:IXIC', 'US'), nasdaqHistorique('COMP', maintenant)] },
-    { cle: 'dax', nom: 'DAX', place: 'DE', tolerance: REL(0.0005), unite: 'pct',
-      sources: [cnbcJournalier('.GDAXI'), tradingView('XETR:DAX', 'DE'), boerseFrankfurt('DE0008469008', 'DE', maintenant), ft('indices', 'DAX:GER', 'DE')] },
-    { cle: 'cac', nom: 'CAC 40', place: 'FR', tolerance: REL(0.0005), unite: 'pct',
-      sources: [cnbcJournalier('.FCHI'), tradingView('EURONEXT:PX1', 'FR'), ft('indices', 'CAC:PAR', 'FR')] },
-    { cle: 'oat', nom: 'OAT France 10 ans', place: 'FR', tolerance: ABS(0.01), unite: 'pt',
-      sources: [cnbcJournalier('FR10Y-FR'), tradingView('TVC:FR10Y', 'FR'), ft('bonds', 'FR10YT=RR', 'FR')] },
-    { cle: 'btc', nom: 'Bitcoin', place: 'BTC', tolerance: REL(0.005), unite: 'pct',
-      sources: [coinbase(), bitstamp(), kraken(), tradingView('BITSTAMP:BTCUSD', 'BTC')] },
-    { cle: 'vix', nom: 'VIX', place: 'US', tolerance: REL(0.0005), unite: 'pct',
-      sources: [cnbcJournalier('.VIX'), tradingView('CBOE:VIX', 'US'), cboeCsv('VIX'), cboe('_VIX', 'US')] },
+    { cle: 'spx', nom: 'S&P 500', place: 'US', unite: 'pct',
+      sources: [cnbcJournalier('.SPX'), tradingView('SP:SPX', 'US')] },
+    { cle: 'nasdaq', nom: 'Nasdaq', place: 'US', unite: 'pct',
+      sources: [cnbcJournalier('.IXIC'), tradingView('NASDAQ:IXIC', 'US')] },
+    { cle: 'dax', nom: 'DAX', place: 'DE', unite: 'pct',
+      sources: [cnbcJournalier('.GDAXI'), tradingView('XETR:DAX', 'DE')] },
+    { cle: 'cac', nom: 'CAC 40', place: 'FR', unite: 'pct',
+      sources: [cnbcJournalier('.FCHI'), tradingView('EURONEXT:PX1', 'FR')] },
+    { cle: 'oat', nom: 'OAT France 10 ans', place: 'FR', unite: 'pt',
+      sources: [cnbcJournalier('FR10Y-FR'), tradingView('TVC:FR10Y', 'FR')] },
+    { cle: 'btc', nom: 'Bitcoin', place: 'BTC', unite: 'pct',
+      sources: [coinbase(), bitstamp()] },
+    { cle: 'vix', nom: 'VIX', place: 'US', unite: 'pct',
+      sources: [cnbcJournalier('.VIX'), tradingView('CBOE:VIX', 'US')] },
   ];
 }
 
-const accord = (a, b, t) => (t.type === 'absolue'
-  ? Math.abs(a - b) <= t.valeur + 1e-9
-  : Math.abs(a - b) <= t.valeur * Math.max(Math.abs(a), Math.abs(b)) + 1e-9);
+const nombre = (x) => typeof x === 'number' && Number.isFinite(x);
 
 /**
- * Une valeur : sources essayées dans l'ordre, publiée au premier ACCORD de deux sources
- * sur la clôture de la séance attendue ET sur la clôture précédente.
+ * Une valeur : la source principale, puis la source de secours si la principale ne
+ * donne pas la clôture de la séance attendue ET celle de la séance précédente.
  */
 export async function collecterInstrument(inst, dateBrief, maintenant = new Date()) {
   const seance = derniereSeance(inst.place, dateBrief);
   const precedente = seanceAvant(inst.place, seance);
+  const base = { cle: inst.cle, nom: inst.nom, place: inst.place, seance, precedenteSeance: precedente };
+  const publier = (c, p, sources, essais) => ({ ...base, nd: false, cloture: c, precedente: p, unite: inst.unite, sources, essais,
+    variation: inst.unite === 'pt' ? Math.round((c - p) * 100) / 100 : Math.round(((c / p) - 1) * 10000) / 100 });
   const essais = [];
-  const valides = [];
-  for (const s of inst.sources) {
-    let lu;
+  for (const [rang, s] of inst.sources.entries()) {
+    const lu = { nom: s.nom, role: rang === 0 ? 'principale' : 'secours' };
     try {
       const m = await s.serie({ seance });
       for (const d of [...m.keys()]) if (!seanceClose(inst.place, d, maintenant)) m.delete(d);
       const c = m.get(seance), p = m.get(precedente);
-      if (typeof c !== 'number') lu = { nom: s.nom, statut: `aucune clôture datée du ${seance}` };
-      else if (typeof p !== 'number') lu = { nom: s.nom, statut: `clôture du ${seance} = ${c}, mais aucune clôture datée du ${precedente}` };
-      else lu = { nom: s.nom, statut: 'ok', cloture: c, precedente: p };
+      if (nombre(c)) lu.cloture = c;
+      if (nombre(p)) lu.precedente = p;
+      lu.statut = !nombre(c) ? `aucune clôture datée du ${seance}`
+        : !nombre(p) ? `clôture du ${seance} = ${c}, mais aucune clôture datée du ${precedente}` : 'ok';
     } catch (e) {
-      lu = { nom: s.nom, statut: `muette (${e.message})` };
+      lu.statut = `muette (${e.message})`;
     }
     essais.push(lu);
-    if (lu.statut !== 'ok') continue;
-    for (const v of valides) {
-      const okC = accord(v.cloture, lu.cloture, inst.tolerance);
-      const okP = accord(v.precedente, lu.precedente, inst.tolerance);
-      if (okC && okP) {
-        const variation = inst.unite === 'pt'
-          ? Math.round((v.cloture - v.precedente) * 100) / 100
-          : Math.round(((v.cloture / v.precedente) - 1) * 10000) / 100;
-        return { cle: inst.cle, nom: inst.nom, place: inst.place, seance, precedenteSeance: precedente,
-                 nd: false, cloture: v.cloture, precedente: v.precedente, variation, unite: inst.unite,
-                 sources: [v, lu].map((x) => ({ nom: x.nom, cloture: x.cloture, precedente: x.precedente })), essais };
-      }
-      lu.statut = `en désaccord avec ${v.nom} (${lu.cloture} contre ${v.cloture}, veille ${lu.precedente} contre ${v.precedente})`;
-    }
-    valides.push(lu);
-    if (lu.statut !== 'ok') lu.statut = `ok, mais ${lu.statut}`;
+    if (lu.statut === 'ok') return publier(lu.cloture, lu.precedente, [{ nom: lu.nom, role: lu.role, cloture: lu.cloture, precedente: lu.precedente }], essais);
   }
-  const motif = valides.length
-    ? `${inst.nom} : aucune paire de sources concordantes pour la séance du ${seance}`
-    : `${inst.nom} : aucune source n'a rendu la séance du ${seance}`;
-  return { cle: inst.cle, nom: inst.nom, place: inst.place, seance, precedenteSeance: precedente, nd: true, motif, essais };
+  // Dernier recours : clôture et veille prises chacune là où elles existent.
+  const c = essais.find((x) => nombre(x.cloture)), p = essais.find((x) => nombre(x.precedente));
+  if (c && p) {
+    return publier(c.cloture, p.precedente, [{ nom: c.nom, role: c.role, cloture: c.cloture }, { nom: p.nom, role: p.role, precedente: p.precedente }], essais);
+  }
+  const motif = c
+    ? `${inst.nom} : clôture du ${seance} trouvée, mais ni la source principale ni la source de secours ne donnent la clôture du ${precedente}`
+    : `${inst.nom} : ni la source principale ni la source de secours ne donnent la séance du ${seance}`;
+  return { ...base, nd: true, motif, essais };
 }
 
 /** Les sept valeurs. Rend un objet indexé par clé. */
-export async function collecterHier(dateBrief, { maintenant = new Date(), liste = instruments(maintenant) } = {}) {
+export async function collecterHier(dateBrief, { maintenant = new Date(), liste = instruments() } = {}) {
   const r = {};
   for (const inst of liste) r[inst.cle] = await collecterInstrument(inst, dateBrief, maintenant);
   return r;

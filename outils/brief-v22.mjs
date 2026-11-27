@@ -9,12 +9,14 @@
 //   alerte-controle <date> <motifs.txt> [run]        → alerte Discord de contrôle
 //   apercu    <donnees.json> <sortie-modele> <courriel.html> [members|prospects|archive] [essai]
 //   ── Échéance de 6h45 (Manu, 26/11/2026 21h : le brief n'est plus jamais bloqué) ──
-//   figer     <donnees.json> [run]                   → marque l'échéance, alerte chaque n/d
+//   figer     <donnees.json> [run]                   → marque l'échéance, alerte n/d en UNE ligne
 //   secours   <donnees.json> <corps.html> [motifs.txt] [run] → brief « données seules » + alerte
 //   apercu-corps <donnees.json> <corps.html> <courriel.html> [variant] [essai]
 //   nd        <donnees.json>                         → les n/d du brief, une ligne (Discord)
 //
 // Webhook : variable DISCORD_ALERTE_URL (absente → l'alerte est seulement journalisée).
+// L'alerte de l'heure limite (figer) lit DISCORD_ALERTE_ECHEANCE_URL : le workflow la
+// renseigne même quand il vide DISCORD_ALERTE_URL (une ligne par run, Manu 27/11/2026).
 // ========================================================================
 import fs from 'node:fs';
 import { collecterTout, texteAlerteCollecte, texteAlerteControle, texteAlerteNd, texteAlerteSecours, alerterDiscord, versPromptV22, lireProse, assembler, assemblerSecours } from '../api/_lib/brief-cycle.js';
@@ -30,19 +32,19 @@ function resume(d) {
   const out = [`Collecte du brief du ${d.dateBrief} (${d.collecteLe})`];
   for (const v of Object.values(d.hier)) {
     if (v.nd) out.push(`  ✗ ${v.nom} séance ${v.seance} : ${v.motif}`);
-    else out.push(`  ✓ ${v.nom} séance ${v.seance} : ${v.cloture} (${v.variation > 0 ? '+' : ''}${v.variation} ${v.unite === 'pt' ? 'pt' : '%'}) · ${v.sources.map((s) => `${s.nom} = ${s.cloture} / veille ${s.precedente}`).join(' ; ')}`);
+    else out.push(`  ✓ ${v.nom} séance ${v.seance} : ${v.cloture} / veille ${v.precedente} (${v.variation > 0 ? '+' : ''}${v.variation} ${v.unite === 'pt' ? 'pt' : '%'}) · ${v.sources.map((s) => `${s.nom} [${s.role}]${s.cloture !== undefined ? ` clôture ${s.cloture}` : ''}${s.precedente !== undefined ? ` veille ${s.precedente}` : ''}`).join(' ; ')}`);
     for (const e of v.essais.filter((x) => x.statut !== 'ok')) out.push(`      · ${e.nom} : ${e.statut}`);
   }
   for (const [k, nom] of [['es', `ES ${d.zones.contrat}`], ['cfd', 'S&P 500 comptant (CFD)']]) {
     const z = d.detailZones[k];
     if (z.nd) out.push(`  ✗ ${nom} séance ${d.zones.seance} : ${z.motif}`);
-    else out.push(`  ✓ ${nom} séance ${d.zones.seance} : H ${z.haut} · B ${z.bas} · C ${z.cloture} · ${z.sources.map((s) => `${s.nom} = H ${s.haut} B ${s.bas} C ${s.cloture}`).join(' ; ')}`);
+    else out.push(`  ✓ ${nom} séance ${d.zones.seance} : H ${z.haut} · B ${z.bas} · C ${z.cloture} · ${z.sources.map((s) => `${s.nom} [${s.role}]`).join(' ; ')}`);
     for (const e of (z.essais || []).filter((x) => x.statut !== 'ok')) out.push(`      · ${e.nom} : ${e.statut}`);
   }
   const es = d.zones.es; const cfd = d.zones.cfd;
   if (typeof es.P === 'number') out.push(`  ES  : clôture ${es.cloture} · POC ${es.poc ?? 'MANQUANT'} · R2 ${es.R2} · R1 ${es.R1} · P ${es.P} · S1 ${es.S1} · S2 ${es.S2}`);
   if (typeof cfd.P === 'number') out.push(`  CFD : clôture ${cfd.cloture} · R2 ${cfd.R2} · R1 ${cfd.R1} · P ${cfd.P} · S1 ${cfd.S1} · S2 ${cfd.S2}`);
-  if (d.detailZones.poc) out.push(`  POC : ${d.detailZones.poc.valeur ?? d.detailZones.poc.motif} (${d.detailZones.poc.minutes || 0} minutes, ${d.detailZones.poc.source || 'CNBC'})`);
+  if (d.detailZones.poc) out.push(`  POC : ${d.detailZones.poc.valeur ?? d.detailZones.poc.motif}${d.detailZones.poc.source ? ` (${d.detailZones.poc.minutes || 0} barres, ${d.detailZones.poc.source} [${d.detailZones.poc.role}])` : ''}`);
   out.push(d.complet ? '  → COMPLET' : `  → INCOMPLET${d.echeance ? ' À L\'ÉCHÉANCE, partent en n/d' : ''} : ${d.manquants.map((m) => m.valeur).join(' ; ')}`);
   return out.join('\n');
 }
@@ -72,7 +74,8 @@ async function main() {
     d.echeance = true;
     fs.writeFileSync(a[0], JSON.stringify(d, null, 1));
     console.log(resume(d));
-    if (!d.complet) console.log(`alerte n/d : ${JSON.stringify(await alerterDiscord(webhook, texteAlerteNd(d, { run: a[1] || null })))}`);
+    const webhookEcheance = process.env.DISCORD_ALERTE_ECHEANCE_URL || webhook;
+    if (!d.complet) console.log(`alerte n/d : ${JSON.stringify(await alerterDiscord(webhookEcheance, texteAlerteNd(d, { run: a[1] || null })))}`);
     return;
   }
   if (cmd === 'nd') {

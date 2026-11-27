@@ -1,21 +1,25 @@
 // ========================================================================
 // « ZONES À SURVEILLER » DU BRIEF V22 : ES et CFD, calculés par le CODE.
 //
-// Même règle que « Sur les marchés hier » (hier.js) : sources ordonnées, publication à
-// l'accord de DEUX sources indépendantes sur la séance attendue ; à défaut à la coupure,
-// « n/d » (jamais une valeur d'une seule source).
+// Même règle que « Sur les marchés hier » (hier.js, Manu 27/11/2026) : UNE source
+// principale, UNE source de secours, aucune comparaison entre elles. La séance est
+// contrôlée (barre datée de la séance attendue) et la barre doit être cohérente
+// (haut ≥ clôture ≥ bas) ; sinon, la source de secours. « n/d » seulement si les deux
+// manquent, jamais une valeur inventée.
 //   ES  : haut, bas et règlement de la séance réglée du contrat front-month.
-//         CNBC (barres journalières du contrat) · Finviz (barres journalières ES) ·
-//         TradingView (barres du contrat, datées au jour de cotation Globex).
-//         Accord au tick près (0,25).
+//         Principale CNBC (barres journalières du contrat) · secours TradingView
+//         (barres du MÊME contrat, datées au jour de cotation Globex).
 //   CFD : haut, bas et clôture du S&P 500 comptant.
-//         CNBC (.SPX) · TradingView (SP:SPX) · Finviz (SPX) · Cboe.
-//         Accord à 0,05 %.
+//         Principale CNBC (.SPX) · secours TradingView (SP:SPX).
 // Pivots classiques calculés sur ces trois nombres (pivots.js, vérifiés le 26/11/2026
 // contre la référence v22 : ES P 7 134,08, CFD P 7 117,40).
-// POC : minutes CNBC du contrat, contrôlées par le règlement et la fourchette du jour
-// concordants (Manu, 26/11/2026 : « POC gardé, calculé sur CNBC avec les contrôles
-// internes, on ne le retire pas »).
+// POC : barres 1 minute CNBC du contrat, SANS source de secours. Aucun autre fournisseur
+// public ne donne les minutes ES avec volume, et les barres de 5 minutes de CNBC rendent
+// un autre POC (mesuré le 27/11 sur la séance du 25 : 7 022,75 contre 7 203,25, deux
+// zones de volume, la taille des barres fait basculer de l'une à l'autre). Un POC faux
+// ne vaut pas mieux qu'un POC inventé : sans minutes CNBC, « n/d ».
+// Contrôles internes gardés (couverture, volume) ; la fourchette et le règlement ne
+// servent de contrôle que s'ils viennent de CNBC aussi (pas de comparaison entre sources).
 // ========================================================================
 import { obtenir, contratFrontMonth, codeCnbc, esMinutesCnbc, seanceCboe } from './sources.js';
 import { derniereSeance, seanceAvant, seanceApres, estSeance, dateLocale } from './calendriers.js';
@@ -107,36 +111,27 @@ export function cboeOhlc() {
   };
 }
 
-const accord = (a, b, t) => ['haut', 'bas', 'cloture'].every((k) => (t.type === 'absolue'
-  ? Math.abs(a[k] - b[k]) <= t.valeur + 1e-9
-  : Math.abs(a[k] - b[k]) <= t.valeur * Math.max(Math.abs(a[k]), Math.abs(b[k])) + 1e-9));
-
-/** Haut, bas et clôture d'une séance, publiés à l'accord de deux sources. */
-export async function concordanceOhlc(nom, sources, seance, tolerance, maintenant) {
+/** Haut, bas et clôture d'une séance : la source principale, sinon la source de secours. */
+export async function premiereSourceOhlc(nom, sources, seance, maintenant) {
   const essais = [];
-  const valides = [];
-  for (const s of sources) {
-    let lu;
+  for (const [rang, s] of sources.entries()) {
+    const lu = { nom: s.nom, role: rang === 0 ? 'principale' : 'secours' };
     try {
       const m = await s.serie({ seance });
       const o = seanceClose('US', seance, maintenant) ? m.get(seance) : null;
-      if (!o) lu = { nom: s.nom, statut: `aucune barre datée du ${seance}` };
-      else if (!(o.haut >= o.cloture && o.cloture >= o.bas && o.haut > o.bas)) lu = { nom: s.nom, statut: `barre incohérente (H ${o.haut} · B ${o.bas} · C ${o.cloture})` };
-      else lu = { nom: s.nom, statut: 'ok', ...o };
+      if (!o) lu.statut = `aucune barre datée du ${seance}`;
+      else if (!(o.haut >= o.cloture && o.cloture >= o.bas && o.haut > o.bas)) lu.statut = `barre incohérente (H ${o.haut} · B ${o.bas} · C ${o.cloture})`;
+      else Object.assign(lu, { statut: 'ok', haut: o.haut, bas: o.bas, cloture: o.cloture });
     } catch (e) {
-      lu = { nom: s.nom, statut: `muette (${e.message})` };
+      lu.statut = `muette (${e.message})`;
     }
     essais.push(lu);
-    if (lu.statut !== 'ok') continue;
-    const pair = valides.find((v) => accord(v, lu, tolerance));
-    if (pair) {
-      return { nd: false, haut: pair.haut, bas: pair.bas, cloture: pair.cloture,
-               sources: [pair, lu].map((x) => ({ nom: x.nom, haut: x.haut, bas: x.bas, cloture: x.cloture })), essais };
+    if (lu.statut === 'ok') {
+      return { nd: false, haut: lu.haut, bas: lu.bas, cloture: lu.cloture,
+               sources: [{ nom: lu.nom, role: lu.role, haut: lu.haut, bas: lu.bas, cloture: lu.cloture }], essais };
     }
-    if (valides.length) lu.statut = `ok, mais en désaccord avec ${valides.map((v) => v.nom).join(', ')} (H ${lu.haut} · B ${lu.bas} · C ${lu.cloture})`;
-    valides.push(lu);
   }
-  return { nd: true, motif: `${nom} : aucune paire de sources concordantes pour la séance du ${seance}`, essais };
+  return { nd: true, motif: `${nom} : ni la source principale ni la source de secours ne donnent la séance du ${seance}`, essais };
 }
 
 export function sourcesZones(dateBrief) {
@@ -144,9 +139,9 @@ export function sourcesZones(dateBrief) {
   const code = codeCnbc(front.contrat);
   return {
     front,
-    es: [cnbcOhlc(code), finvizOhlc('futures', 'ES'), tvOhlc(`CME_MINI:${front.contrat}`, { futures: true })],
-    spx: [cnbcOhlc('.SPX'), tvOhlc('SP:SPX'), finvizOhlc('index', 'SPX'), cboeOhlc()],
-    poc: (seance, controle) => esMinutesCnbc(code, seance).then((mn) => ({ ...pocControle(mn.barres, controle), source: mn.source })),
+    es: [cnbcOhlc(code), tvOhlc(`CME_MINI:${front.contrat}`, { futures: true })],
+    spx: [cnbcOhlc('.SPX'), tvOhlc('SP:SPX')],
+    poc: [(seance, controle) => esMinutesCnbc(code, seance).then((mn) => ({ ...pocControle(mn.barres, controle), source: mn.source }))],
   };
 }
 
@@ -158,24 +153,34 @@ export async function collecterZones(dateBrief, { maintenant = new Date(), sourc
   const seance = derniereSeance('US', dateBrief);
   const r = { seance, contrat: sources.front.contrat, es: {}, cfd: {}, motifs: { es: {}, cfd: {} }, detail: {} };
 
-  const es = await concordanceOhlc(`ES ${sources.front.contrat}`, sources.es, seance, { type: 'absolue', valeur: 0.25 }, maintenant);
+  const es = await premiereSourceOhlc(`ES ${sources.front.contrat}`, sources.es, seance, maintenant);
   r.detail.es = es;
   if (es.nd) for (const k of ['cloture', 'poc', 'R2', 'R1', 'P', 'S1', 'S2']) r.motifs.es[k] = es.motif;
   else {
     const p = calculerPivots(es.haut, es.bas, es.cloture);
     Object.assign(r.es, { cloture: es.cloture, haut: es.haut, bas: es.bas, R2: p.R2, R1: p.R1, P: p.P, S1: p.S1, S2: p.S2 });
-    try {
-      const poc = await sources.poc(seance, { reglement: es.cloture, hautJour: es.haut, basJour: es.bas });
-      r.detail.poc = poc;
-      if (typeof poc.valeur === 'number') r.es.poc = poc.valeur;
-      else r.motifs.es.poc = poc.motif;
-    } catch (e) {
-      r.motifs.es.poc = `POC : minutes CNBC indisponibles (${e.message})`;
-      r.detail.poc = { motif: r.motifs.es.poc };
+    // Fourchette et règlement comme contrôle du POC seulement s'ils viennent de CNBC,
+    // comme les minutes : sinon ce serait une comparaison entre deux sources.
+    const esCnbc = /^CNBC/.test(es.sources[0].nom);
+    const controle = esCnbc ? { reglement: es.cloture, hautJour: es.haut, basJour: es.bas } : {};
+    const essaisPoc = [];
+    for (const [rang, f] of [].concat(sources.poc).entries()) {
+      const role = rang === 0 ? 'principale' : 'secours';
+      try {
+        const poc = await f(seance, controle);
+        essaisPoc.push({ nom: poc.source || `POC ${role}`, role, statut: typeof poc.valeur === 'number' ? 'ok' : poc.motif });
+        if (typeof poc.valeur === 'number') { r.es.poc = poc.valeur; r.detail.poc = { ...poc, role, essais: essaisPoc }; break; }
+      } catch (e) {
+        essaisPoc.push({ nom: 'CNBC (barres 1 min du contrat)', role, statut: `muette (${e.message})` });
+      }
+    }
+    if (typeof r.es.poc !== 'number') {
+      r.motifs.es.poc = `POC : indisponible (${essaisPoc.map((x) => `${x.nom} : ${x.statut}`).join(' ; ')})`;
+      r.detail.poc = { motif: r.motifs.es.poc, essais: essaisPoc };
     }
   }
 
-  const spx = await concordanceOhlc('S&P 500 comptant (CFD)', sources.spx, seance, { type: 'relative', valeur: 0.0005 }, maintenant);
+  const spx = await premiereSourceOhlc('S&P 500 comptant (CFD)', sources.spx, seance, maintenant);
   r.detail.cfd = spx;
   if (spx.nd) for (const k of ['cloture', 'R2', 'R1', 'P', 'S1', 'S2']) r.motifs.cfd[k] = spx.motif;
   else {
