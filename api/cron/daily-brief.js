@@ -10,6 +10,7 @@
 //    formatée en amont, c'était deux sources de vérité, et l'une des deux est
 //    partie en anglais pendant des jours sans que rien ne le signale.
 //  - test_emails présent  → envoi UNIQUEMENT à ces adresses (rodage)
+//    (+ variant?: 'members'|'prospects', prefixe_sujet?: string, lus SEULEMENT dans ce mode)
 //  - only_user_id présent → envoi UNIQUEMENT à cet élève éligible (test ciblé)
 //  - sinon                → envoi à tous les élèves éligibles (production)
 // ========================================
@@ -639,7 +640,14 @@ export default async function handler(req, res) {
     }
     console.log(`[DAILY-BRIEF] 👥 ${recipients.length} destinataire(s)`);
 
-    const subject = emailSubject(date_long_fr);
+    // ENVOI DE TEST SEULEMENT (test_emails) : `variant` choisit la version reçue
+    // (members | prospects) et `prefixe_sujet` marque l'objet, ex. « [TEST polices] ».
+    // Ignorés en production et avec only_user_id : la campagne Brevo n'en dépend pas.
+    const estTest = Array.isArray(test_emails) && test_emails.length > 0;
+    const varianteTest = estTest && req.body?.variant === 'prospects' ? 'prospects' : 'members';
+    const prefixeTest = estTest && typeof req.body?.prefixe_sujet === 'string'
+      ? req.body.prefixe_sujet.replace(/[\r\n]/g, ' ').trim().slice(0, 40) : '';
+    const subject = (prefixeTest ? `${prefixeTest} ` : '') + emailSubject(date_long_fr);
 
     // ================================================================
     // ENVOI VIA CAMPAGNE BREVO — production uniquement
@@ -738,7 +746,7 @@ export default async function handler(req, res) {
     let sent = 0, failed = 0;
     for (const u of recipients) {
       if (DRY_RUN) { results.push({ email: u.email, status: 'dry_run' }); continue; }
-      const html = wrapBriefHtml({ firstName: firstNameOf(u.name), dateLongFr: date_long_fr, briefHtml: brief_html });
+      const html = wrapBriefHtml({ firstName: firstNameOf(u.name), dateLongFr: date_long_fr, briefHtml: brief_html, variant: varianteTest });
       if (results.length === 0) checkHtmlWeight(html, 'envoi Resend');
       const r = await sendBriefEmail({ to: u.email, subject, html });
       if (r.success) { sent++; results.push({ email: u.email, status: 'sent', id: r.id }); }
@@ -765,6 +773,8 @@ export default async function handler(req, res) {
       recipients: recipients.length,
       sent,
       failed,
+      variant: varianteTest,
+      subject,
       results,
       duration_ms: Date.now() - t0,
     });
