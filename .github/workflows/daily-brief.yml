@@ -193,9 +193,12 @@ jobs:
           # Discord : UNE ligne par run, postée par « Notify Discord » (ou « Alerte plantage »).
           # Le cycle ne poste plus rien : ses alertes détaillées (valeurs, sources, motifs)
           # restent dans le journal du run (Manu, 26/11/2026).
+          # Exception (Manu, 27/11/2026) : l'alerte de l'heure limite (figer), UNE ligne, part
+          # sur Discord dès la coupure, en production ou sur demande (test_alertes=oui).
+          DISCORD_ALERTE_ECHEANCE_URL=""; [ "$ALERTES" = "1" ] && DISCORD_ALERTE_ECHEANCE_URL="$DISCORD_ALERTE_URL"
           DISCORD_ALERTE_URL=""
           BRIEF_ALERTE_TEST=0; [ "$MODE" = "production" ] || BRIEF_ALERTE_TEST=1
-          export DISCORD_ALERTE_URL BRIEF_ALERTE_TEST
+          export DISCORD_ALERTE_URL DISCORD_ALERTE_ECHEANCE_URL BRIEF_ALERTE_TEST
           maintenant() { date +%s; }
           paris() { TZ=Europe/Paris date -d "$DATE_ISO $1" +%s; }
           hm() { TZ=Europe/Paris date -d "@$1" +%H:%M; }
