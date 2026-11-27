@@ -207,7 +207,7 @@ function blocZones(z) {
     + `<td width="70%" style="color:#ac862b; font-size:19px; letter-spacing:0.08em; text-transform:uppercase; font-weight:700;">⚡ VIX <span style="font-size:13px; letter-spacing:0.04em; font-weight:400; color:#7a6b50; text-transform:none;">clôture ${jjmm(z.vix.seance)}</span></td>`
     + `<td width="30%" align="right" style="text-align:right; white-space:nowrap; ${CHIFFRES} font-size:24px; font-weight:700; color:#000B25;">${nombreOuNd(z.vix.cloture, 2)}</td>`
     + '</tr></table>'
-    + (paragraphesDe(z.vixLecture).length ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:${ESPACES.titre}px 0 0;">${paragraphes(paragraphesDe(z.vixLecture), PROSE)}</td></tr></table>` : '')
+    + (paragraphesDe(z.vixLecture).length ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:${ESPACES.sousTitre}px 0 0;">${paragraphes(paragraphesDe(z.vixLecture), PROSE)}</td></tr></table>` : '')
     + '</td></tr></table></td></tr></table>'
     + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:14px 0 0; font-size:13px; line-height:1.5; color:#7a6b50;">Sources Investing.com et Cboe.</td></tr></table>'
     + '</td></tr></table>';
@@ -290,7 +290,7 @@ function blocCulture(c, urlSchema) {
   return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td class="b-carte" style="background:#ffffff; border:1px solid rgba(212,175,55,0.55); border-radius:10px; padding:18px 10px;">'
     + titreCarte('📚 Culture de marché', '#ac862b')
     + pile([
-      [`<span style="color:#000B25; font-size:18px; line-height:1.4; font-weight:700;">${esc(c.titre)}</span>`, ESPACES.titre],
+      [`<span style="color:#000B25; font-size:18px; line-height:1.4; font-weight:700;">${esc(c.titre)}</span>`, ESPACES.sousTitre],
       [paragraphes(textes, 'font-size:16px; line-height:1.6;'), ESPACES.paragraphe],
       [`<img src="${urlSchema}" width="620" alt="${esc(altSchema(c.titre))}" style="display:block; width:100%; max-width:620px; height:auto; border:0; border-radius:8px;">`, 12],
       ['<span style="font-size:13px; line-height:1.5; color:#5a5040; font-style:italic;">Culture de marché, pour comprendre ce qu\'on croise ailleurs, dans une vidéo, sur un forum ou dans la bouche d\'un autre trader.</span>', 0],

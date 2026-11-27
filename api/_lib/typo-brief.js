@@ -17,7 +17,10 @@ export const CHIFFRES = `font-family:${MONO}; font-variant-numeric:tabular-nums;
 // Peu d'espace à l'intérieur d'un bloc, beaucoup entre les blocs. Tous les espacements
 // verticaux sont des PADDING DE CELLULE (Gmail et Outlook ignorent souvent les margin),
 // et aucune media query n'y touche : identiques sur téléphone et ordinateur.
-export const ESPACES = { paragraphe: 16, titre: 13, bloc: 40, intro: 48, titreActualite: 6, actualite: 24 };
+// titre : titre de SECTION → premier élément, une seule règle partout (Manu 27/11/2026 : 18 px,
+// 13 px collait trop dans Actualité, Culture et Partenaires). sousTitre : titre interne
+// (nom de la notion de culture, VIX) → son texte.
+export const ESPACES = { paragraphe: 16, titre: 18, sousTitre: 13, bloc: 40, intro: 48, titreActualite: 6, actualite: 24 };
 const TABLE_PILE = '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">';
 /**
  * Pile verticale : un élément par cellule, l'écart en padding-bottom de la cellule.
@@ -31,6 +34,6 @@ export function pile(elements, ecart = 0, style = '') {
     return `<tr><td style="padding:0 0 ${bas}px;${style ? ` ${style}` : ''}">${h}</td></tr>`;
   }).join('') + '</table>';
 }
-/** Titre de carte (19 px, capitales) collé à son contenu : 13 px dessous, en padding. */
+/** Titre de section (19 px, capitales) : ESPACES.titre dessous, en padding. */
 export const titreCarte = (texte, couleur, taille = 19, espacement = '0.08em') => TABLE_PILE
   + `<tr><td style="padding:0 0 ${ESPACES.titre}px; color:${couleur}; font-size:${taille}px; letter-spacing:${espacement}; text-transform:uppercase; font-weight:700;">${texte}</td></tr></table>`;
