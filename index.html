@@ -2310,6 +2310,7 @@
 <script src="/assets/formation-diplome.js"></script>
 <script src="/supabase-formation.js"></script>
 <script src="/assets/formation-live.js"></script>
+<script src="/assets/salle-live-bloc.js"></script>
 <script src="/supabase-tradovate.js"></script>
 <!-- prompt-ia.js chargé UNIQUEMENT pour les élèves (voir supabase-auth.js) -->
 
@@ -4439,10 +4440,26 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                  module et une leçon partagent ce même conteneur.
                  ================================================================= -->
             <div id="dashboard" class="section">
-                <!-- Citation/Mantra personnalisable -->
-                <div id="mantraContainer" class="trader-card p-6 mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold flex items-center">
+                <!-- Salle live Trader 360 (à gauche) + citation réduite (à droite) : maquette v3 validée par Manu le 27/11.
+                     Le bloc est rempli par /assets/salle-live-bloc.js (état lu par /api/live/etat). -->
+                <div id="t360LiveRangee" class="t360-live-rangee">
+                <div id="t360LiveBloc" class="t360-live-bloc" aria-live="polite">
+                    <div class="t360-live-g">
+                        <div class="t360-live-direct" id="t360LiveDirect" hidden><span class="t360-live-pastille"></span>EN DIRECT</div>
+                        <div class="t360-live-titre">Salle live Trader 360</div>
+                        <div class="t360-live-seance" id="t360LiveSeance">Aucune séance en cours</div>
+                    </div>
+                    <div class="t360-live-m">
+                        <div class="t360-live-chk-l"><span>Checklist du jour</span><b id="t360LiveChkN">0/10</b></div>
+                        <div class="t360-live-barre"><i id="t360LiveChkBarre" style="width:0%"></i></div>
+                        <button type="button" class="t360-live-faire" onclick="showSection('checklist')">Faire ma checklist ›</button>
+                    </div>
+                    <button type="button" class="t360-live-entrer" id="t360LiveEntrer">Entrer ›</button>
+                </div>
+                <!-- Citation/Mantra personnalisable (réduite de moitié, contour neutre) -->
+                <div id="mantraContainer" class="trader-card t360-citation-reduite">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-sm font-semibold flex items-center">
                             <i class="fas fa-quote-left text-purple-600 mr-2"></i>
                             Ma citation motivante
                         </h3>
@@ -4451,10 +4468,10 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </button>
                     </div>
                     <div id="mantraDisplay" class="text-center">
-                        <p class="text-xl font-medium italic text-gray-700" id="mantraText">
+                        <p class="text-base font-medium italic text-gray-700" id="mantraText">
                             "Le succès est la somme de petits efforts répétés jour après jour."
                         </p>
-                        <p class="text-sm text-gray-500 mt-2" id="mantraAuthor">- Robert Collier</p>
+                        <p class="text-xs text-gray-500 mt-1" id="mantraAuthor">- Robert Collier</p>
                     </div>
                     <div id="mantraEdit" style="display: none;">
                         <textarea data-mic-dictation="true" id="mantraInput" class="w-full p-3 border-2 border-gray-300 rounded-lg resize-none" rows="3" placeholder="Entrez votre citation ou mantra..."></textarea>
@@ -4469,6 +4486,8 @@ console.log('[PATCH] ✅ 20 fonctions manquantes exposées');
                         </div>
                     </div>
                 </div>
+
+                </div><!-- /t360LiveRangee -->
 
                 <!-- TradersZella Style Top Banner -->
                 <div class="traderzella-banner">
